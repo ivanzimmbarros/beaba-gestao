@@ -17,13 +17,13 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
-      contents: read
     steps:
-      - name: Entrar no Repositório
-        uses: actions/checkout@v4  # ESTA LINHA É A SOLUÇÃO
-
-      - name: Postar no GitHub
+      - name: Postar via API
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          gh issue comment "${{ github.event.inputs.numero }}" --body "${{ github.event.inputs.conteudo }}"
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/issues/${{ github.event.inputs.numero }}/comments \
+            -f body="${{ github.event.inputs.conteudo }}"
