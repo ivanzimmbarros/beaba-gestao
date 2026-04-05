@@ -1,4 +1,4 @@
-name: "Fábrica Zimmermann: Governança de 15 Etapas"
+name: Fabrica Zimmermann Governanca de 15 Etapas
 
 on:
   push:
@@ -7,45 +7,50 @@ on:
 
 jobs:
   planejamento_diretoria:
-    name: "1-4: Analista & Diretor (Revisão do Legado)"
+    name: "1-4: Analista e Diretor"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: "Validar Atualizacao"
-        run: echo "Status: Analista revisou o legado funcional."
+        run: >
+          echo "Status: Analista revisou o legado funcional."
 
   arquitetura_logica:
-    name: "5-7: Arquiteto & Analista (Integridade)"
+    name: "5-7: Arquiteto e Analista"
     needs: planejamento_diretoria
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: "Validar Logica"
-        run: echo "Status: Arquiteto garantiu integridade do legado."
+        run: >
+          echo "Status: Arquiteto garantiu integridade do legado."
 
   desenvolvimento_tecnico:
-    name: "8-10: Dev & Arquiteto (Codigo e Parecer)"
+    name: "8-10: Dev e Arquiteto"
     needs: arquitetura_logica
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: "Validar Codigo"
-        run: echo "Status: Codigo e Parecer Tecnico revisados."
+        run: >
+          echo "Status: Codigo e Parecer Tecnico revisados."
 
   homologacao_negocio:
-    name: "11-13: Analista & Plano Testes"
+    name: "11-13: Analista e Plano Testes"
     needs: desenvolvimento_tecnico
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: "Validar Plano"
-        run: echo "Status: Plano de testes validado."
+        run: >
+          echo "Status: Plano de testes validado."
 
   qa_validacao_final:
-    name: "14-15: QA Massivo (Aprovacao Final)"
+    name: "14-15: QA Massivo"
     needs: homologacao_negocio
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: "Validar Integridade Total"
-        run: echo "Status: Documentacao e Codigo 100% integros."
+        run: >
+          echo "Status: Documentacao e Codigo 100% integros."
