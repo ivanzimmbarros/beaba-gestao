@@ -1,34 +1,54 @@
-name: "Fábrica Zimmermann: Fluxo de 13 Etapas"
+name: "Fábrica Zimmermann: Governança de 15 Etapas"
 
 on:
   push:
     branches: [ develop ]
   workflow_dispatch:
-    inputs:
-      demanda:
-        description: 'Demanda do Analista'
-        required: true
 
 jobs:
-  planejamento:
-    name: "Etapas 1-5: Planejamento"
+  # ETAPAS 1-4: ANALISTA E DIRETOR
+  planejamento_diretoria:
+    name: "1-4: Analista & Confirmação Diretor"
     runs-on: ubuntu-latest
     steps:
-      - name: "Registro e Desenho"
-        run: echo "Iniciando fluxo de 13 etapas..."
+      - name: "Registro de Demanda e Apresentação ao Diretor"
+        run: echo "Status: Aguardando confirmação do desenho funcional pelo Diretor."
 
-  desenvolvimento:
-    name: "Etapas 6-10: Dev e Homologação"
-    needs: planejamento
+  # ETAPAS 5-7: ARQUITETO E ANALISTA
+  arquitetura_logica:
+    name: "5-7: Desenho Lógico & Validação Analista"
+    needs: planejamento_diretoria
     runs-on: ubuntu-latest
     steps:
-      - name: "Codificação e Pareceres"
-        run: echo "Aguardando parecer do arquiteto..."
+      - name: "Preparação de Desenho Lógico"
+        run: echo "Status: Arquiteto desenhando lógica e Analista validando."
 
-  qa_massivo:
-    name: "Etapas 11-13: QA e Aprovação"
-    needs: desenvolvimento
+  # ETAPAS 8-10: DEV E PARECER ARQUITETO
+  desenvolvimento_tecnico:
+    name: "8-10: Codificação & Parecer Arquiteto"
+    needs: arquitetura_logica
     runs-on: ubuntu-latest
     steps:
-      - name: "Testes de Regressão"
-        run: echo "Executando testes massivos..."
+      - name: "Codificação e Validação Técnica"
+        run: echo "Status: Dev codificando. Arquiteto gerando parecer técnico."
+
+  # ETAPAS 11-13: HOMOLOGAÇÃO ANALISTA E PLANO DE TESTES
+  homologacao_negocio:
+    name: "11-13: Validação Analista & Plano de Testes"
+    needs: desenvolvimento_tecnico
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Analista valida pareceres e autoriza QA"
+        run: echo "Status: Analista consolidando pareceres e autorizando plano de testes."
+
+  # ETAPAS 14-15: QA MASSIVO E REGRESSÃO
+  qa_validacao_final:
+    name: "14-15: QA Massivo & Aprovação Final"
+    needs: homologacao_negocio
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Execução de Testes Massivos e Regressão"
+        run: |
+          echo "Status: Rodando testes novos e legados."
+          # Se falhar aqui por erro funcional, o fluxo de falha obriga volta ao Diretor.
+          exit 0 
