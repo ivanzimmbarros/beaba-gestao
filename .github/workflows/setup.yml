@@ -1,22 +1,35 @@
 name: Setup Inicial de Infraestrutura
 on: workflow_dispatch
 
+# ESTA É A CARTEIRADA: Força o GitHub a dar permissão de escrita para este robô
+permissions:
+  contents: write
+
 jobs:
   setup:
     runs-on: ubuntu-latest
     steps:
+      # AQUI CORRIGIMOS O AVISO DO NODE.JS (Atualizado para v4)
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Criar Estrutura
         run: |
-          git config --global user.name "GitHub Action"
-          git config --global user.email "action@github.com"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Cria o arquivo
           echo "# 🚀 PAINEL DE CONTROLE DE VOO - BEABA GESTÃO (V8.0)" > CONTROLE_DE_VOO.md
           git add CONTROLE_DE_VOO.md
           git commit -m "docs: inicialização do painel de controle v8.0"
           git push origin main
+          
+          # Cria e empurra a develop
           git checkout -b develop
           git push origin develop
+          
+          # Cria e empurra a staging
           git checkout -b staging
           git push origin staging
