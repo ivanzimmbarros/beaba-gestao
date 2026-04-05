@@ -1,0 +1,29 @@
+name: Auditoria do Analista
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Código
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2 # Necessário para comparar o commit anterior
+
+      - name: Gerar Relatório para o Analista
+        run: |
+          echo "### 🔍 RELATÓRIO DE ALTERAÇÕES PARA O ANALISTA" > audit_report.txt
+          echo "**Autor:** ${{ github.actor }}" >> audit_report.txt
+          echo "**Commit:** ${{ github.sha }}" >> audit_report.txt
+          echo "---" >> audit_report.txt
+          echo "#### 📄 ARQUIVOS ALTERADOS:" >> audit_report.txt
+          git diff --name-only HEAD^ HEAD >> audit_report.txt
+          echo "---" >> audit_report.txt
+          echo "#### 🛠️ DIFF DE CÓDIGO (RESUMO):" >> audit_report.txt
+          git diff HEAD^ HEAD --unified=0 >> audit_report.txt
+          
+          cat audit_report.txt
