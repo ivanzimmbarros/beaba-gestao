@@ -5,6 +5,7 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
+  workflow_dispatch: # ESTA LINHA LIBERA O BOTÃO DE EXECUÇÃO MANUAL
 
 jobs:
   qa_auto:
@@ -23,23 +24,21 @@ jobs:
           pip install -r requirements.txt
           pip install pytest
 
-      - name: 🤖 Rodando QA Automatico
+      - name: 🤖 Criando Teste de Validação
         run: |
           mkdir -p tests
-          cat <<EOF > tests/test_auto.py
-          import pytest
+          echo "import pytest
           from src.modules.cliente import cadastrar_cliente
           from src.database.connection import create_tables
           import os
 
           def test_fluxo_total():
-              # Força a criação da pasta data no ambiente do Robô
-              os.makedirs("data", exist_ok=True)
+              os.makedirs('data', exist_ok=True)
               create_tables()
-              assert cadastrar_cliente("Diretor Auto", "11999998888") == True
-              res = cadastrar_cliente("Outro", "11999998888")
-              assert "já está cadastrado" in str(res)
-          EOF
-          # O Pulo do Gato: PYTHONPATH=. diz ao Python para enxergar a pasta 'src'
-          PYTHONPATH=. pytest tests/test_auto.py -v          EOF
-          pytest tests/test_auto.py -v
+              assert cadastrar_cliente('Diretor Auto', '11999998888') == True
+              res = cadastrar_cliente('Outro', '11999998888')
+              assert 'já está cadastrado' in str(res)" > tests/test_auto.py
+
+      - name: 🚀 Executando QA
+        run: |
+          PYTHONPATH=. pytest tests/test_auto.py -v
