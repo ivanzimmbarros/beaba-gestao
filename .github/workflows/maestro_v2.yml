@@ -1,15 +1,15 @@
-name: Maestro V2 (Com Pintor de Painel)
+name: Maestro V2 (Turbo)
 on:
   workflow_dispatch:
     inputs:
       numero:
-        description: 'ID da Issue'
+        description: 'ID da Issue ou Nome do Arquivo'
         default: '1'
       coluna:
-        description: 'Coluna para pintar (ANALISTA, ARQUITETO, DEV, QA)'
+        description: 'Tipo: FILE ou ANALISTA, ARQUITETO, DEV, QA'
         default: 'ANALISTA'
       conteudo:
-        description: 'Texto do Parecer'
+        description: 'Texto ou Conteúdo do Código'
         required: true
 
 jobs:
@@ -22,43 +22,29 @@ jobs:
       - name: Entrar no Repositório
         uses: actions/checkout@v4
 
-      - name: Postar Parecer na Issue
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: |
-          gh issue comment "${{ github.event.inputs.numero }}" --body "${{ github.event.inputs.conteudo }}"
-
-      - name: Pintar Painel de Controle (Dashboard)
-        run: |
-          # Este comando procura a linha da funcionalidade e troca a bolinha da coluna escolhida
-          # Assume-se que o painel está no arquivo README.md
-          COL_UPPER=$(echo "${{ github.event.inputs.coluna }}" | tr '[:lower:]' '[:upper:]')
-          sed -i "s/| #${{ github.event.inputs.numero }} |/| #${{ github.event.inputs.numero }} |/g" README.md
-          # Logica simples de substituição de ícones (Branco/Amarelo para Verde)
-          # Nota: O Diretor escolhe a coluna e o robô carimba o Verde.
-          echo "Painel atualizado para a coluna $COL_UPPER"
-
-      - name: Salvar Alterações no Painel
+      - name: Configurar Robô
         run: |
           git config --global user.name "Maestro Bot"
           git config --global user.email "bot@beaba.com"
-          git add README.md
-          git commit -m "📊 Painel Atualizado: Issue #${{ github.event.inputs.numero }} [$COL_UPPER]" || echo "Sem mudanças no painel"
-          git push
 
-      - name: Executar Ordem do Diretor
+      - name: Processar Ordem
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          # Se o tipo for 'file', ele cria o arquivo no repositório
           if [ "${{ github.event.inputs.coluna }}" == "FILE" ]; then
+            # CRIAÇÃO DE ARQUIVO E PASTAS
+            mkdir -p "$(dirname "${{ github.event.inputs.numero }}")"
             echo "${{ github.event.inputs.conteudo }}" > "${{ github.event.inputs.numero }}"
-            git config --global user.name "Maestro Bot"
-            git config --global user.email "bot@beaba.com"
             git add .
-            git commit -m "📦 Maestro: Criando arquivo ${{ github.event.inputs.numero }}"
+            git commit -m "📦 Maestro: Criando ${{ github.event.inputs.numero }}"
             git push
           else
-            # Caso contrário, posta comentário (como já fazia)
-            curl -X POST -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
-            -d "{\"body\":\"${{ github.event.inputs.conteudo }}\"}" \
-            https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.inputs.numero }}/comments
+            # POSTAR COMENTÁRIO NA ISSUE
+            gh issue comment "${{ github.event.inputs.numero }}" --body "${{ github.event.inputs.conteudo }}"
+            
+            # ATUALIZAR PAINEL NO README (OPCIONAL)
+            # Aqui você pode manter a lógica de sed se seu README já tiver a tabela
+            git add README.md || echo "Sem README"
+            git commit -m "📊 Painel Atualizado: #${{ github.event.inputs.numero }}" || echo "Nada para mudar"
+            git push || echo "Nada para subir"
           fi
