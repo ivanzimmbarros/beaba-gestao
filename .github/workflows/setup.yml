@@ -1,0 +1,22 @@
+name: Setup Inicial de Infraestrutura
+on: workflow_dispatch
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Criar Estrutura
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          echo "# 🚀 PAINEL DE CONTROLE DE VOO - BEABA GESTÃO (V8.0)" > CONTROLE_DE_VOO.md
+          git add CONTROLE_DE_VOO.md
+          git commit -m "docs: inicialização do painel de controle v8.0"
+          git push origin main
+          git checkout -b develop
+          git push origin develop
+          git checkout -b staging
+          git push origin staging
