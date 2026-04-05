@@ -1,14 +1,14 @@
-name: Maestro V3
+name: Maestro V2 (Turbo)
 on:
   workflow_dispatch:
     inputs:
       numero:
-        description: 'Nome do Arquivo (ex: app.py)'
+        description: 'Nome do Arquivo'
       coluna:
         description: 'Tipo: FILE ou COMENTARIO'
         default: 'FILE'
       conteudo:
-        description: 'Cole o código aqui'
+        description: 'Conteúdo'
         required: true
 
 jobs:
@@ -20,20 +20,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Criar Arquivo Blindado
-        shell: bash
-        env:
-          CODIGO_BRUTO: ${{ github.event.inputs.conteudo }}
+      - name: Configurar Git
         run: |
           git config --global user.name "Maestro Bot"
           git config --global user.email "bot@beaba.com"
-          
+
+      - name: Criar Arquivo Preservando Linhas
+        env:
+          CONTEUDO_ORIGINAL: ${{ github.event.inputs.conteudo }}
+        run: |
           if [ "${{ github.event.inputs.coluna }}" == "FILE" ]; then
             mkdir -p "$(dirname "${{ github.event.inputs.numero }}")"
-            # O segredo: usamos a variável de ambiente para preservar as quebras de linha
-            printf "%s" "$CODIGO_BRUTO" > "${{ github.event.inputs.numero }}"
-            
+            # O comando 'cat' aqui vai ler a variável de ambiente sem achatar as linhas
+            cat <<EOF > "${{ github.event.inputs.numero }}"
+          $CONTEUDO_ORIGINAL
+          EOF
             git add .
-            git commit -m "📦 Maestro: Refatorando ${{ github.event.inputs.numero }}"
+            git commit -m "📦 Maestro: Correção de Estrutura ${{ github.event.inputs.numero }}"
             git push
           fi
