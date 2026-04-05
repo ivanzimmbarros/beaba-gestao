@@ -39,7 +39,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: "Validar Plano"
-        run: echo "Status: Plano de testes (Novo + Regressao) validado."
+        run: echo "Status: Plano de testes validado."
 
   qa_validacao_final:
     name: "14-15: QA Massivo (Aprovacao Final)"
