@@ -1,15 +1,28 @@
 import streamlit as st
-from src.database.connection import init_db
-from src.models.cliente import cadastrar_cliente
+from src.database.connection import create_tables
+from src.modules.cliente import cadastrar_cliente
 
-init_db()
-st.set_page_config(page_title="BeaBa Gestão", layout="centered")
-st.markdown("<h1 style='color: #D4AF37; text-align: center;'>⚜️ BeaBa Gestão</h1>", unsafe_allow_html=True)
+# Inicializa o banco de dados e tabelas
+create_tables()
 
-with st.form("form_cadastro", clear_on_submit=True):
+st.set_page_config(page_title="BeaBa Gestão", page_icon="⚜️")
+
+st.markdown("<h1 style='text-align: center; color: #D4AF37;'>⚜️ BeaBa Gestão</h1>", unsafe_allow_html=True)
+
+with st.container():
+    st.markdown("---")
     nome = st.text_input("Nome Completo")
     whatsapp = st.text_input("WhatsApp (DDD + Número)")
-    if st.form_submit_button("CADASTRAR CLIENTE", use_container_width=True):
-        sucesso, msg = cadastrar_cliente(nome, whatsapp)
-        if sucesso: st.success(msg)
-        else: st.error(msg)
+    
+    if st.button("CADASTRAR CLIENTE", use_container_width=True):
+        if nome and whatsapp:
+            # Chama o módulo de cliente com tratamento de erro amigável
+            resultado = cadastrar_cliente(nome, whatsapp)
+            
+            if resultado == True:
+                st.success(f"✅ {nome} cadastrado com sucesso!")
+            else:
+                # Exibe a mensagem de erro específica (duplicidade ou formato)
+                st.error(f"⚠️ {resultado}")
+        else:
+            st.warning("Please, preencha todos os campos.")
