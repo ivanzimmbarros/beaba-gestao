@@ -17,8 +17,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
-      contents: write
+      contents: read
     steps:
+      - name: Entrar no Repositório
+        uses: actions/checkout@v4  # ESTA LINHA É A SOLUÇÃO
+
       - name: Postar no GitHub
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
