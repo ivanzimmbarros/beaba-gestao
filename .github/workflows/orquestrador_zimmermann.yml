@@ -1,4 +1,5 @@
 name: "Fábrica Zimmermann: Fluxo de 13 Etapas"
+
 on:
   push:
     branches: [ develop ]
@@ -7,26 +8,27 @@ on:
       demanda:
         description: 'Demanda do Analista'
         required: true
+
 jobs:
   planejamento:
+    name: "Etapas 1-5: Planejamento"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: "Etapas 1-5: Registro e Desenho"
-        run: |
-          mkdir -p docs/workflow/pareceres
-          echo "Parecer Analista: Iniciado" > docs/workflow/pareceres/parecer_analista.md
+      - name: "Registro e Desenho"
+        run: echo "Iniciando fluxo de 13 etapas..."
+
   desenvolvimento:
+    name: "Etapas 6-10: Dev e Homologação"
     needs: planejamento
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: "Etapas 6-8: Codificação e Arquiteto"
-        run: echo "Parecer Arquiteto: Validado" > docs/workflow/pareceres/parecer_arquiteto.md
+      - name: "Codificação e Pareceres"
+        run: echo "Aguardando parecer do arquiteto..."
+
   qa_massivo:
+    name: "Etapas 11-13: QA e Aprovação"
     needs: desenvolvimento
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: "Etapas 11-13: Testes e Regressão"
-        run: echo "QA: Aprovado"
+      - name: "Testes de Regressão"
+        run: echo "Executando testes massivos..."
