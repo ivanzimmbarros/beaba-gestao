@@ -1,0 +1,38 @@
+name: Auditoria do Arquiteto
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+
+jobs:
+  technical_audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Código
+        uses: actions/checkout@v3
+
+      - name: Validar Estrutura de Pastas
+        run: |
+          echo "### 📂 VERIFICAÇÃO DE ESTRUTURA"
+          for dir in src data tests docs; do
+            if [ -d "$dir" ]; then
+              echo "✅ Pasta /$dir: OK"
+            else
+              echo "❌ ERRO: Pasta /$dir ausente!"
+              exit 1
+            fi
+          done
+
+      - name: Inspeção de Schema SQL e Constraints
+        run: |
+          echo "### 🛢️ VERIFICAÇÃO DE INTEGRIDADE SQL"
+          # Busca por arquivos .py ou .sql que contenham criação de tabelas
+          grep -rE "whatsapp|CHECK|length" . || echo "⚠️ Aviso: Nenhuma constraint de WhatsApp detectada ainda."
+          
+      - name: Relatório de Auditoria Técnica
+        run: |
+          echo "---"
+          echo "AUTOR: ${{ github.actor }}"
+          echo "COMMIT: ${{ github.sha }}"
+          git diff --stat HEAD^ HEAD
