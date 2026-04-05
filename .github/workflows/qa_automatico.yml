@@ -1,60 +1,96 @@
 name: Validador Maestro V2
 
 on:
+
   push:
+
     branches: [ main, develop ]
+
   pull_request:
+
     branches: [ main, develop ]
-  workflow_dispatch: 
+
+  workflow_dispatch:
+
 
 jobs:
+
   qa_auto:
+
     runs-on: ubuntu-latest
+
+        env:
+
+          PYTHONPATH: ${{ github.workspace }}
+
     steps:
+
       - name: 📥 Baixando Codigo
+
         uses: actions/checkout@v4
 
+
       - name: 🐍 Preparando Python
+
         uses: actions/setup-python@v5
+
         with:
+
           python-version: '3.12'
 
+
       - name: 📦 Instalando Dependencias
+
         run: |
+
           pip install -r requirements.txt
+
           pip install pytest
 
+
       - name: 🏗️ Preparando Estrutura de Módulos
+
         run: |
-          # O -p garante que ele crie as pastas se elas não existirem
+
           mkdir -p src/modules src/database tests data
-          touch src/__init__.py
-          touch src/modules/__init__.py
-          touch src/database/__init__.py
+
+          [ -f src/__init__.py ]          || touch src/__init__.py
+
+          [ -f src/modules/__init__.py ]  || touch src/modules/__init__.py
+
+          [ -f src/database/__init__.py ] || touch src/database/__init__.py
+
+          echo "=== Estrutura final ==="; find src -name "*.py"
+
 
       - name: 🤖 Criando Teste de Validação
+
         run: |
+
           cat <<'EOF' > tests/test_auto.py
+
           import pytest
-          import os
-          import sys
-          
-          # Garante que o Python encontre a pasta src
-          sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+                    # PYTHONPATH aponta para github.workspace — imports directos
 
           from src.modules.cliente import cadastrar_cliente
+
           from src.database.connection import create_tables
 
+
           def test_fluxo_total():
+
               create_tables()
-              # Teste de Cadastro
+
               assert cadastrar_cliente('Diretor Auto', '11999998888') == True
-              # Teste de Duplicidade
+
               res = cadastrar_cliente('Outro', '11999998888')
+
               assert 'já está cadastrado' in str(res)
+
           EOF
 
+
       - name: 🚀 Executando QA Blindado
-        run: |
-          export PYTHONPATH=$PYTHONPATH:$(pwd)
-          python3 -m pytest tests/test_auto.py -v
+
+        run: python3 -m pytest tests/test_auto.py -v
