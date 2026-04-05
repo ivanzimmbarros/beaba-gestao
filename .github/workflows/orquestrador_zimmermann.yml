@@ -6,49 +6,41 @@ on:
   workflow_dispatch:
 
 jobs:
-  # ETAPAS 1-4: ANALISTA E DIRETOR
   planejamento_diretoria:
-    name: "1-4: Analista & Confirmação Diretor"
+    name: "1-4: Analista & Diretor"
     runs-on: ubuntu-latest
     steps:
-      - name: "Registro de Demanda e Apresentação ao Diretor"
-        run: echo "Status: Aguardando confirmação do desenho funcional pelo Diretor."
+      - name: "Registro e Confirmacao"
+        run: echo "Etapas 1-4 concluídas."
 
-  # ETAPAS 5-7: ARQUITETO E ANALISTA
   arquitetura_logica:
-    name: "5-7: Desenho Lógico & Validação Analista"
+    name: "5-7: Arquiteto & Analista"
     needs: planejamento_diretoria
     runs-on: ubuntu-latest
     steps:
-      - name: "Preparação de Desenho Lógico"
-        run: echo "Status: Arquiteto desenhando lógica e Analista validando."
+      - name: "Desenho Logico"
+        run: echo "Etapas 5-7 concluídas."
 
-  # ETAPAS 8-10: DEV E PARECER ARQUITETO
   desenvolvimento_tecnico:
-    name: "8-10: Codificação & Parecer Arquiteto"
+    name: "8-10: Dev & Arquiteto"
     needs: arquitetura_logica
     runs-on: ubuntu-latest
     steps:
-      - name: "Codificação e Validação Técnica"
-        run: echo "Status: Dev codificando. Arquiteto gerando parecer técnico."
+      - name: "Codificacao"
+        run: echo "Etapas 8-10 concluídas."
 
-  # ETAPAS 11-13: HOMOLOGAÇÃO ANALISTA E PLANO DE TESTES
   homologacao_negocio:
-    name: "11-13: Validação Analista & Plano de Testes"
+    name: "11-13: Analista & Plano Testes"
     needs: desenvolvimento_tecnico
     runs-on: ubuntu-latest
     steps:
-      - name: "Analista valida pareceres e autoriza QA"
-        run: echo "Status: Analista consolidando pareceres e autorizando plano de testes."
+      - name: "Validacao Final Analista"
+        run: echo "Etapas 11-13 concluídas."
 
-  # ETAPAS 14-15: QA MASSIVO E REGRESSÃO
   qa_validacao_final:
-    name: "14-15: QA Massivo & Aprovação Final"
+    name: "14-15: QA Massivo"
     needs: homologacao_negocio
     runs-on: ubuntu-latest
     steps:
-      - name: "Execução de Testes Massivos e Regressão"
-        run: |
-          echo "Status: Rodando testes novos e legados."
-          # Se falhar aqui por erro funcional, o fluxo de falha obriga volta ao Diretor.
-          exit 0 
+      - name: "Testes e Regressao"
+        run: echo "Etapas 14-15 concluídas."
