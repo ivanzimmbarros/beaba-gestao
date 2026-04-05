@@ -1,1 +1,23 @@
-import sqlite3 import os  def get_connection():     if not os.path.exists('data'):         os.makedirs('data')     conn = sqlite3.connect('data/beaba_gestao.db')     conn.execute("PRAGMA foreign_keys = ON;")     return conn  def init_db():     conn = get_connection()     cursor = conn.cursor()     cursor.execute('''         CREATE TABLE IF NOT EXISTS clientes (             id INTEGER PRIMARY KEY AUTOINCREMENT,             nome TEXT NOT NULL,             whatsapp TEXT NOT NULL UNIQUE CHECK (length(whatsapp) = 11),             data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP         )     ''')     conn.commit()     conn.close()
+import sqlite3
+import os
+
+def get_connection():
+    if not os.path.exists('data'):
+        os.makedirs('data')
+    conn = sqlite3.connect('data/beaba_gestao.db')
+    conn.execute("PRAGMA foreign_keys = ON;")
+    return conn
+
+def init_db():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS clientes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL,
+            whatsapp TEXT NOT NULL UNIQUE CHECK (length(whatsapp) = 11),
+            data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
