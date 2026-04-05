@@ -45,3 +45,20 @@ jobs:
           git add README.md
           git commit -m "📊 Painel Atualizado: Issue #${{ github.event.inputs.numero }} [$COL_UPPER]" || echo "Sem mudanças no painel"
           git push
+
+      - name: Executar Ordem do Diretor
+        run: |
+          # Se o tipo for 'file', ele cria o arquivo no repositório
+          if [ "${{ github.event.inputs.coluna }}" == "FILE" ]; then
+            echo "${{ github.event.inputs.conteudo }}" > "${{ github.event.inputs.numero }}"
+            git config --global user.name "Maestro Bot"
+            git config --global user.email "bot@beaba.com"
+            git add .
+            git commit -m "📦 Maestro: Criando arquivo ${{ github.event.inputs.numero }}"
+            git push
+          else
+            # Caso contrário, posta comentário (como já fazia)
+            curl -X POST -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
+            -d "{\"body\":\"${{ github.event.inputs.conteudo }}\"}" \
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.inputs.numero }}/comments
+          fi
