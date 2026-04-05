@@ -30,21 +30,17 @@ jobs:
       - name: Processar Ordem
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          CONTEUDO_BRUTO: ${{ github.event.inputs.conteudo }}
         run: |
           if [ "${{ github.event.inputs.coluna }}" == "FILE" ]; then
-            # CRIAÇÃO DE ARQUIVO E PASTAS
             mkdir -p "$(dirname "${{ github.event.inputs.numero }}")"
-            echo "${{ github.event.inputs.conteudo }}" > "${{ github.event.inputs.numero }}"
+            # O comando 'cat' com EOF garante que o código não seja executado pelo shell
+            cat << 'EOF' > "${{ github.event.inputs.numero }}"
+          ${{ github.event.inputs.conteudo }}
+          EOF
             git add .
             git commit -m "📦 Maestro: Criando ${{ github.event.inputs.numero }}"
             git push
           else
-            # POSTAR COMENTÁRIO NA ISSUE
-            gh issue comment "${{ github.event.inputs.numero }}" --body "${{ github.event.inputs.conteudo }}"
-            
-            # ATUALIZAR PAINEL NO README (OPCIONAL)
-            # Aqui você pode manter a lógica de sed se seu README já tiver a tabela
-            git add README.md || echo "Sem README"
-            git commit -m "📊 Painel Atualizado: #${{ github.event.inputs.numero }}" || echo "Nada para mudar"
-            git push || echo "Nada para subir"
+            gh issue comment "${{ github.event.inputs.numero }}" --body "$CONTEUDO_BRUTO"
           fi
