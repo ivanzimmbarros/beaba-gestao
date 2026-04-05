@@ -1,4 +1,4 @@
-name: Maestro V2 (Turbo)
+name: Maestro V3
 on:
   workflow_dispatch:
     inputs:
