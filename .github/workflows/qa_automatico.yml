@@ -5,7 +5,7 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
-  workflow_dispatch: # ESTA LINHA LIBERA O BOTÃO DE EXECUÇÃO MANUAL
+  workflow_dispatch: # LIBERA O BOTÃO MANUAL (AGORA VAI APARECER)
 
 jobs:
   qa_auto:
@@ -24,21 +24,37 @@ jobs:
           pip install -r requirements.txt
           pip install pytest
 
+      - name: 🏗️ Preparando Estrutura de Módulos
+        run: |
+          # Cria arquivos sinalizadores para o Python não se perder
+          touch src/__init__.py
+          touch src/modules/__init__.py
+          touch src/database/__init__.py
+          mkdir -p tests
+
       - name: 🤖 Criando Teste de Validação
         run: |
-          mkdir -p tests
-          echo "import pytest
+          cat <<'EOF' > tests/test_auto.py
+          import pytest
+          import os
+          import sys
+          # Força o caminho da raiz no sistema
+          sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
           from src.modules.cliente import cadastrar_cliente
           from src.database.connection import create_tables
-          import os
 
           def test_fluxo_total():
               os.makedirs('data', exist_ok=True)
               create_tables()
+              # Teste de Cadastro
               assert cadastrar_cliente('Diretor Auto', '11999998888') == True
+              # Teste de Duplicidade
               res = cadastrar_cliente('Outro', '11999998888')
-              assert 'já está cadastrado' in str(res)" > tests/test_auto.py
+              assert 'já está cadastrado' in str(res)
+          EOF
 
-      - name: 🚀 Executando QA
+      - name: 🚀 Executando QA Blindado
         run: |
-          PYTHONPATH=. pytest tests/test_auto.py -v
+          export PYTHONPATH=$PYTHONPATH:$(pwd)
+          python3 -m pytest tests/test_auto.py -v
