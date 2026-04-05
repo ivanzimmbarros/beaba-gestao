@@ -16,26 +16,30 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configurar Git
+      - name: Processar Arquivo (Anti-Achatamento)
+        if: github.event.inputs.coluna == 'FILE'
+        env:
+          CONTEUDO: ${{ github.event.inputs.conteudo }}
         run: |
           git config --global user.name "Maestro Bot"
           git config --global user.email "bot@beaba.com"
+          
+          mkdir -p "$(dirname "${{ github.event.inputs.numero }}")"
+          # Decodifica o código secreto "|||" para quebras de linha reais
+          printf "%s" "$CONTEUDO" | sed 's/|||/\n/g' > "${{ github.event.inputs.numero }}"
+          
+          git add .
+          git commit -m "📦 Maestro: Deploy Estruturado de ${{ github.event.inputs.numero }}"
+          git push
 
-      - name: Criar Arquivo Preservando Linhas
+      - name: Processar Comentario
+        if: github.event.inputs.coluna != 'FILE'
         env:
-          CONTEUDO_ORIGINAL: ${{ github.event.inputs.conteudo }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          if [ "${{ github.event.inputs.coluna }}" == "FILE" ]; then
-            mkdir -p "$(dirname "${{ github.event.inputs.numero }}")"
-            # O comando 'cat' aqui vai ler a variável de ambiente sem achatar as linhas
-            cat <<EOF > "${{ github.event.inputs.numero }}"
-          $CONTEUDO_ORIGINAL
-          EOF
-            git add .
-            git commit -m "📦 Maestro: Correção de Estrutura ${{ github.event.inputs.numero }}"
-            git push
-          fi
+          gh issue comment "${{ github.event.inputs.numero }}" --body "${{ github.event.inputs.conteudo }}"
