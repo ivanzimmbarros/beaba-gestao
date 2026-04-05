@@ -1,0 +1,47 @@
+name: Validador Maestro V2
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  qa_auto:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Baixando Codigo
+        uses: actions/checkout@v4
+
+      - name: 🐍 Preparando Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 📦 Instalando Dependencias
+        run: |
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: 🤖 Rodando QA Automatico
+        run: |
+          # O Robô cria os testes e executa tudo sozinho
+          mkdir -p tests
+          cat <<EOF > tests/test_auto.py
+          import pytest
+          from src.modules.cliente import cadastrar_cliente
+          from src.database.connection import create_tables
+          import os
+
+          def test_fluxo_total():
+              create_tables()
+              # Teste 1: Cadastro Limpo
+              assert cadastrar_cliente("Diretor Auto", "11999998888") == True
+              # Teste 2: Bloqueio de Duplicidade
+              res = cadastrar_cliente("Outro", "11999998888")
+              assert "já está cadastrado" in str(res)
+              # Teste 3: Bloqueio de Numero Errado
+              res_erro = cadastrar_cliente("Erro", "123")
+              assert "quantidade de números está errada" in str(res_erro)
+          EOF
+          pytest tests/test_auto.py -v
