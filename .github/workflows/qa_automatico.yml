@@ -5,7 +5,7 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
-  workflow_dispatch: # LIBERA O BOTÃO MANUAL (AGORA VAI APARECER)
+  workflow_dispatch: 
 
 jobs:
   qa_auto:
@@ -26,11 +26,11 @@ jobs:
 
       - name: 🏗️ Preparando Estrutura de Módulos
         run: |
-          # Cria arquivos sinalizadores para o Python não se perder
+          # O -p garante que ele crie as pastas se elas não existirem
+          mkdir -p src/modules src/database tests data
           touch src/__init__.py
           touch src/modules/__init__.py
           touch src/database/__init__.py
-          mkdir -p tests
 
       - name: 🤖 Criando Teste de Validação
         run: |
@@ -38,14 +38,14 @@ jobs:
           import pytest
           import os
           import sys
-          # Força o caminho da raiz no sistema
-          sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+          
+          # Garante que o Python encontre a pasta src
+          sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
           from src.modules.cliente import cadastrar_cliente
           from src.database.connection import create_tables
 
           def test_fluxo_total():
-              os.makedirs('data', exist_ok=True)
               create_tables()
               # Teste de Cadastro
               assert cadastrar_cliente('Diretor Auto', '11999998888') == True
