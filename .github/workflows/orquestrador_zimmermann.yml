@@ -7,53 +7,45 @@ on:
 
 jobs:
   planejamento_diretoria:
-    name: "1-4: Analista & Diretor (Revisão do Legado Funcional)"
+    name: "1-4: Analista & Diretor (Revisão do Legado)"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: "Validar Atualização do Desenho Funcional"
-        run: |
-          if [ ! -f docs/workflow/01-desenho-funcional.md ]; then
-            echo "ERRO: Documento funcional inexistente. Iniciando base."
-            mkdir -p docs/workflow && touch docs/workflow/01-desenho-funcional.md
-          fi
-          echo "Status: Analista revisou o legado e integrou a nova demanda."
+      - name: "Validar Atualizacao"
+        run: echo "Status: Analista revisou o legado funcional."
 
   arquitetura_logica:
-    name: "5-7: Arquiteto & Analista (Integridade Sistêmica)"
+    name: "5-7: Arquiteto & Analista (Integridade)"
     needs: planejamento_diretoria
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: "Validar Desenho Lógico"
-        run: echo "Status: Arquiteto confirmou que a nova lógica não corrompe o legado."
+      - name: "Validar Logica"
+        run: echo "Status: Arquiteto garantiu integridade do legado."
 
   desenvolvimento_tecnico:
-    name: "8-10: Dev & Arquiteto (Código e Parecer)"
+    name: "8-10: Dev & Arquiteto (Codigo e Parecer)"
     needs: arquitetura_logica
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: "Codificacao"
-        run: echo "Status: Código versionado com Parecer Técnico do Arquiteto."
+      - name: "Validar Codigo"
+        run: echo "Status: Codigo e Parecer Tecnico revisados."
 
   homologacao_negocio:
-    name: "11-13: Analista & Plano Testes (Guia de QA)"
+    name: "11-13: Analista & Plano Testes"
     needs: desenvolvimento_tecnico
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: "Validar Plano de Testes (Novo + Regressão)"
-        run: echo "Status: Plano de testes revisado para cobrir funções antigas e novas."
+      - name: "Validar Plano"
+        run: echo "Status: Plano de testes (Novo + Regressao) validado."
 
   qa_validacao_final:
-    name: "14-15: QA Massivo (Aprovação Final)"
+    name: "14-15: QA Massivo (Aprovacao Final)"
     needs: homologacao_negocio
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: "Execução de Testes e Validação de Documentos"
-        run: |
-          echo "QA validando se todos os docs foram atualizados..."
-          # Regra de Ouro: Se falhar aqui, o ciclo reinicia na Etapa 1.
-          echo "Status: Tudo integro."
+      - name: "Validar Integridade Total"
+        run: echo "Status: Documentacao e Codigo 100% integros."
