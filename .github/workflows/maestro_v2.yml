@@ -3,44 +3,37 @@ on:
   workflow_dispatch:
     inputs:
       numero:
-        description: 'ID da Issue ou Nome do Arquivo'
-        default: '1'
+        description: 'Nome do Arquivo (ex: app.py)'
       coluna:
-        description: 'Tipo: FILE ou ANALISTA, ARQUITETO, DEV, QA'
-        default: 'ANALISTA'
+        description: 'Tipo: FILE ou COMENTARIO'
+        default: 'FILE'
       conteudo:
-        description: 'Texto ou Conteúdo do Código'
+        description: 'Cole o código aqui'
         required: true
 
 jobs:
   executar:
     runs-on: ubuntu-latest
     permissions:
-      issues: write
       contents: write
     steps:
-      - name: Entrar no Repositório
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configurar Robô
+      - name: Criar Arquivo Blindado
+        shell: bash
+        env:
+          CODIGO_BRUTO: ${{ github.event.inputs.conteudo }}
         run: |
           git config --global user.name "Maestro Bot"
           git config --global user.email "bot@beaba.com"
-
-      - name: Processar Ordem
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          CONTEUDO_BRUTO: ${{ github.event.inputs.conteudo }}
-        run: |
+          
           if [ "${{ github.event.inputs.coluna }}" == "FILE" ]; then
             mkdir -p "$(dirname "${{ github.event.inputs.numero }}")"
-            # O comando 'cat' com EOF garante que o código não seja executado pelo shell
-            cat << 'EOF' > "${{ github.event.inputs.numero }}"
-          ${{ github.event.inputs.conteudo }}
-          EOF
+            # O segredo: usamos a variável de ambiente para preservar as quebras de linha
+            printf "%s" "$CODIGO_BRUTO" > "${{ github.event.inputs.numero }}"
+            
             git add .
-            git commit -m "📦 Maestro: Criando ${{ github.event.inputs.numero }}"
+            git commit -m "📦 Maestro: Refatorando ${{ github.event.inputs.numero }}"
             git push
-          else
-            gh issue comment "${{ github.event.inputs.numero }}" --body "$CONTEUDO_BRUTO"
           fi
