@@ -1,96 +1,59 @@
 name: Validador Maestro V2
 
 on:
-
   push:
-
     branches: [ main, develop ]
-
   pull_request:
-
     branches: [ main, develop ]
-
-  workflow_dispatch:
-
+  workflow_dispatch: 
 
 jobs:
-
   qa_auto:
-
     runs-on: ubuntu-latest
-
-        env:
-
-          PYTHONPATH: ${{ github.workspace }}
+    # 1. CORREÇÃO: PYTHONPATH global garante que o Python enxergue a pasta 'src' em todos os steps
+    env:
+      PYTHONPATH: ${{ github.workspace }}
 
     steps:
-
       - name: 📥 Baixando Codigo
-
         uses: actions/checkout@v4
 
-
       - name: 🐍 Preparando Python
-
         uses: actions/setup-python@v5
-
         with:
-
           python-version: '3.12'
 
-
       - name: 📦 Instalando Dependencias
-
         run: |
-
           pip install -r requirements.txt
-
           pip install pytest
 
-
-      - name: 🏗️ Preparando Estrutura de Módulos
-
+      - name: 🏗️ Preparando Estrutura (Touch Condicional)
         run: |
-
+          # 2. CORREÇÃO: Cria as pastas e apenas garante o __init__.py se ele não existir
           mkdir -p src/modules src/database tests data
-
-          [ -f src/__init__.py ]          || touch src/__init__.py
-
-          [ -f src/modules/__init__.py ]  || touch src/modules/__init__.py
-
+          [ -f src/__init__.py ] || touch src/__init__.py
+          [ -f src/modules/__init__.py ] || touch src/modules/__init__.py
           [ -f src/database/__init__.py ] || touch src/database/__init__.py
 
-          echo "=== Estrutura final ==="; find src -name "*.py"
-
-
-      - name: 🤖 Criando Teste de Validação
-
+      - name: 🤖 Criando Teste de Validação (Limpo)
         run: |
-
+          # 3. CORREÇÃO: Sem sys.path.insert — O ambiente global já resolve as importações
           cat <<'EOF' > tests/test_auto.py
-
           import pytest
-
-                    # PYTHONPATH aponta para github.workspace — imports directos
-
+          import os
           from src.modules.cliente import cadastrar_cliente
-
           from src.database.connection import create_tables
 
-
           def test_fluxo_total():
-
+              os.makedirs('data', exist_ok=True)
               create_tables()
-
+              # Teste de Cadastro
               assert cadastrar_cliente('Diretor Auto', '11999998888') == True
-
+              # Teste de Duplicidade
               res = cadastrar_cliente('Outro', '11999998888')
-
               assert 'já está cadastrado' in str(res)
-
           EOF
 
-
-      - name: 🚀 Executando QA Blindado
-
+      - name: 🚀 Executando QA Profissional
         run: python3 -m pytest tests/test_auto.py -v
