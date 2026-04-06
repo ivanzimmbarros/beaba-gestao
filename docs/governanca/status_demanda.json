@@ -1,12 +1,12 @@
 {
-  "demanda_id": "2026-04-06_E11_pre_venda_agenda",
-  "titulo": "Pré-venda na agenda + fecho no atendimento + serviços adicionais (Vendas × Agendamentos)",
-  "fase_actual": "C — Dev entregue; PC5 (Arquiteto) sobre o código",
-  "passo_referencia": 12,
-  "responsavel_actual": "EQUIPE (Arquiteto) — 06_parecer_arquiteto_codigo.md",
-  "pontos_controlo_concluidos": ["PC1", "PC2", "PC3", "PC4"],
-  "pendente": "PC5: parecer Arquiteto + selo; PC6 Painel; depois PC7–PC13 conforme fluxo.",
+  "demanda_id": "",
+  "titulo": "Nenhuma demanda activa — última concluída: E11 pré-venda na agenda (2026-04-06)",
+  "fase_actual": "—",
+  "passo_referencia": null,
+  "responsavel_actual": "—",
+  "pontos_controlo_concluidos": [],
+  "pendente": "Nova evolução: Cursor `@Files` → Analista. Última entrega: demanda `2026-04-06_E11_pre_venda_agenda` (ver `99_encerramento.md` no dossier).",
   "falha": null,
   "ultima_actualizacao_iso": "2026-04-06",
-  "notas_dashboard": "Diretor PROSSIGA 2026-04-06. Dossier com 01–05. Próximo: código + PC5–PC8."
+  "notas_dashboard": "E11 encerrada (PC1–PC13). Próximo: nova demanda via @Files. CI: validar Actions em develop após cada push."
 }

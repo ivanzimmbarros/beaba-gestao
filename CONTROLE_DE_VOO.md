@@ -18,7 +18,7 @@
 | #03 | Catálogo Híbrido (5 naturezas + composições) | 🟢 | 🟢 | 🟢 | 🟢 | E06 Fases 1–3 entregues |
 | #04 | Painel de Vendas (registo, descontos, split, parcelas) | 🟢 | 🟢 | 🟢 | 🟢 | E07 entregue — `venda.py` + `page_vendas.py` |
 | #05 | Dashboards e Relatórios (KPI, Pareto, Top N, filtros) | 🟢 | 🟢 | 🟢 | 🟢 | E08 entregue — `relatorios.py` + `page_dashboards.py` |
-| #06 | Agendamentos (calendário, estados, buffer pacotes, vendas) | 🟢 | 🟢 | 🟢 | 🟢 | **E09 entregue** — `agendamento.py` + `page_agendamentos.py`; **push `develop`** na sincronização E07–E09 (etapa 15 do painel) |
+| #06 | Agendamentos (calendário, estados, buffer, **pré-venda E11**, vendas) | 🟢 | 🟢 | 🟢 | 🟢 | **E09 + E11** — `agendamento.py` + `page_agendamentos.py`; pré-venda / contexto visita (`a6a9a8f` + encerramento demanda) |
 
 **Legenda:** ⚪ Pendente | 🔵 Em Curso | 🟢 Sucesso | 🔴 Falha (Veto)
 
@@ -51,4 +51,4 @@
 - [x] **Governança — Regra máxima SUCESSO/FALHA:** `docs/governanca/FLUXO_SUCESSO_E_FALHA.md` (processo completo, críticas/sugestões, exemplos FALHA); PC1–PC13 (Git→Painel); `docs/CADERNO_TESTES_MASTER.md`; `docs/governanca/status_demanda.json` + UI **Fluxo e governança**; `.cursorrules` como norma suprema.
 - [x] **Governança — Canal @Files e documentação automática:** entrada obrigatória da demanda via **Cursor `@Files` → Analista**; **EQUIPE** gera e mantém toda a documentação e painéis (sem exigir ficheiros complementares do Diretor); `.cursorrules` e `FLUXO_SUCESSO_E_FALHA.md` actualizados.
 - [x] **E06 — Fase 3 (Evento):** Colunas `evento_*` em `servicos`; tabela `servico_evento_participantes`; `cadastrar_evento`; UI Evento (data, local, observações, interno/convidado, preços criança/adulto/desconto filho adicional, participantes colaborador ou parceiro com repasse % ou €); listagem detalhada; testes `test_evento_ok_e_listagem`, `test_evento_sem_participantes_falha`, `test_evento_colaborador_duplicado_falha`.
-- [ ] **E11 — Pré-venda × Agenda (demanda `2026-04-06_E11_pre_venda_agenda`):** **Código entregue** em `develop` — migração `agendamentos` (E11), `vendas.agendamento_contexto_id`, `agendamento.py` / `venda.py` / `page_agendamentos` / `page_vendas`, **49** `pytest`. **PC5** (parecer Arquiteto, `06_…`) **pendente**.
+- [x] **E11 — Pré-venda × Agenda (demanda `2026-04-06_E11_pre_venda_agenda`):** **Concluída** — código **`a6a9a8f`**, migração E11, UI, **49** `pytest`; pareceres **`06`–`09`**, **`99_encerramento.md`**; fluxo SUCESSO PC1–PC13 fechado (2026-04-06).
