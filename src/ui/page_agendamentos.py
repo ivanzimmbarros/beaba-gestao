@@ -11,12 +11,14 @@ from src.modules.agendamento import (
     atualizar_agendamento,
     cancelar_agendamento,
     contar_por_status_periodo,
+    contar_pre_venda_futuros,
     criar_agendamento,
+    criar_agendamento_pre_venda,
     listar_agendamentos,
     listar_buckets_credito_cliente,
     obter_agendamento,
 )
-from src.modules.catalogo import listar_itens_catalogo
+from src.modules.catalogo import euros_para_centavos, listar_itens_catalogo
 from src.modules.cliente import listar_clientes_resumo
 from src.modules.colaborador import listar_colaboradores_resumo
 from src.ui.theme import agenda_status_style, agenda_tipo_icon
@@ -54,7 +56,8 @@ def render_page_agendamentos(
     st.caption(
         "Créditos por linha de venda (sessão avulsa, pacote, coworking, evento), "
         "ocorrências com hora início/fim, colaboradores e estados. "
-        "No cancelamento, indique se o crédito volta ao buffer."
+        "**Pré-venda:** marca sem venda (MVP: Sessão, Coworking, Evento); fecho no **Painel de Vendas**. "
+        "No cancelamento com crédito, indique se o crédito volta ao buffer."
     )
     _render_legenda()
 
@@ -86,6 +89,10 @@ def render_page_agendamentos(
         st.metric("Esta semana — concluídos", c0.get("CONCLUIDO", 0))
     with mcols[3]:
         st.metric("Esta semana — cancelados", c0.get("CANCELADO", 0))
+    st.metric(
+        "Pré-vendas futuras (ativas)",
+        contar_pre_venda_futuros(hoje.isoformat()),
+    )
 
     st.subheader("Filtros")
     fc1, fc2, fc3 = st.columns(3)
@@ -124,6 +131,13 @@ def render_page_agendamentos(
             options=["sessao_avulsa", "pacote", "coworking", "evento"],
             key="ag_f_tipo",
         )
+    sel_modo = st.multiselect(
+        "Modo na agenda",
+        options=["credito_venda", "pre_venda"],
+        default=["credito_venda", "pre_venda"],
+        key="ag_f_modo",
+    )
+    modos_f = sel_modo if len(sel_modo) < 2 else None
     fd1, fd2, fd3 = st.columns(3)
     with fd1:
         data_de = st.date_input("Data desde", value=mon, key="ag_f_de")
@@ -144,6 +158,7 @@ def render_page_agendamentos(
         colaborador_ids=sel_colab_f if sel_colab_f else None,
         status_list=sel_status if sel_status else None,
         tipo_origem=sel_tipo if sel_tipo else None,
+        modos_origem=modos_f,
     )
 
     st.subheader("Buffer — créditos por agendar")
@@ -243,6 +258,71 @@ def render_page_agendamentos(
                 else:
                     st.error(msg)
 
+    st.subheader("Pré-venda (sem crédito de venda)")
+    srv_pre = [
+        (int(r["id"]), f"{r['nome']} ({r['natureza']})")
+        for r in cat
+        if str(r.get("natureza", "")) in ("Sessão", "Coworking", "Evento")
+    ]
+    with st.form("ag_pre_venda", clear_on_submit=False):
+        pv1, pv2 = st.columns(2)
+        with pv1:
+            cli_pv = st.selectbox(
+                "Cliente",
+                options=[c[0] for c in clientes] if clientes else [0],
+                format_func=lambda i: "—" if i == 0 else next((n for cid, n in clientes if cid == i), str(i)),
+                key="ag_pv_cli",
+                disabled=not clientes,
+            )
+        with pv2:
+            sid_pv = st.selectbox(
+                "Serviço (MVP: Sessão / Coworking / Evento)",
+                options=[s[0] for s in srv_pre] if srv_pre else [0],
+                format_func=lambda i: "—" if i == 0 else next((lbl for sid, lbl in srv_pre if sid == i), str(i)),
+                key="ag_pv_srv",
+                disabled=not srv_pre,
+            )
+        pv3, pv4, pv5 = st.columns(3)
+        with pv3:
+            d_pv = st.date_input("Data", value=date.today(), key="ag_pv_data")
+        with pv4:
+            hi_pv = st.text_input("Hora início", value="09:00", key="ag_pv_hi")
+        with pv5:
+            hf_pv = st.text_input("Hora fim", value="10:00", key="ag_pv_hf")
+        col_pv = st.multiselect(
+            "Colaboradores",
+            options=[c[0] for c in colabs],
+            format_func=lambda i: next((n for cid, n in colabs if cid == i), str(i)),
+            key="ag_pv_colabs",
+        )
+        use_pref = st.checkbox("Congelar preço de referência (€)", value=False, key="ag_pv_usep")
+        pref_eur = 0.0
+        if use_pref:
+            pref_eur = float(
+                st.number_input("Preço referência (€)", min_value=0.0, value=40.0, step=1.0, key="ag_pv_pref")
+            )
+        obs_pv = st.text_area("Observações", key="ag_pv_obs")
+        if st.form_submit_button("Criar pré-venda"):
+            if not clientes or not cli_pv:
+                st.error("Escolha um cliente.")
+            elif not srv_pre or not sid_pv:
+                st.error("Sem serviço elegível no catálogo.")
+            elif not col_pv:
+                st.error("Indique pelo menos um colaborador.")
+            else:
+                pr_c = euros_para_centavos(pref_eur) if use_pref else None
+                ok_pv, msg_pv = criar_agendamento_pre_venda(
+                    int(cli_pv),
+                    int(sid_pv),
+                    d_pv.isoformat(),
+                    hi_pv,
+                    hf_pv,
+                    [int(x) for x in col_pv],
+                    obs_pv,
+                    preco_referencia_centavos=pr_c,
+                )
+                (st.success(msg_pv) if ok_pv else st.error(msg_pv))
+
     st.subheader("Calendário (semana)")
     cnav1, cnav2, cnav3 = st.columns([1, 2, 1])
     with cnav1:
@@ -268,6 +348,7 @@ def render_page_agendamentos(
         colaborador_ids=sel_colab_f if sel_colab_f else None,
         status_list=sel_status if sel_status else None,
         tipo_origem=sel_tipo if sel_tipo else None,
+        modos_origem=modos_f,
     )
     by_day: dict[str, list[dict]] = {}
     for ev in week_rows:
@@ -285,7 +366,8 @@ def render_page_agendamentos(
         for ev in by_day.get(ds, []):
             stl = agenda_status_style(ev["status"])
             ic = agenda_tipo_icon(ev["tipo_origem"])
-            tit = f"{ic} {_html_escape(ev['servico_nome'])} · {_html_escape(ev['cliente_nome'])}"
+            pre_badge = "🔖 " if ev.get("modo_origem") == "pre_venda" else ""
+            tit = f"{pre_badge}{ic} {_html_escape(ev['servico_nome'])} · {_html_escape(ev['cliente_nome'])}"
             sub = f"{_html_escape(ev['hora_inicio'])}–{_html_escape(ev['hora_fim'])} · {_html_escape(ev['status'])}"
             inner_parts.append(
                 f"<div style='margin:4px 0;padding:6px 8px;border-radius:10px;"
@@ -312,6 +394,7 @@ def render_page_agendamentos(
                 "Início": [r["hora_inicio"] for r in rows],
                 "Fim": [r["hora_fim"] for r in rows],
                 "Estado": [r["status"] for r in rows],
+                "Modo": [r.get("modo_origem", "credito_venda") for r in rows],
                 "Tipo": [r["tipo_origem"] for r in rows],
                 "Cliente": [r["cliente_nome"] for r in rows],
                 "Serviço": [r["servico_nome"] for r in rows],
@@ -335,10 +418,41 @@ def render_page_agendamentos(
         )
         ag = obter_agendamento(int(pick)) if pick else None
         if ag:
+            vtxt = (
+                f"Venda #{ag['venda_id']}"
+                if ag.get("venda_id") is not None
+                else "Sem venda (pré-venda)"
+            )
             st.caption(
-                f"Venda #{ag['venda_id']} · {ag['pagamento']} · "
+                f"{vtxt} · {ag['pagamento']} · "
                 f"Cancel.devolve buffer: {ag['devolver_ao_buffer'] if ag['status']=='CANCELADO' else '—'}"
             )
+            if ag.get("modo_origem") == "pre_venda" and ag["status"] in (
+                "AGENDADO",
+                "CONFIRMADO",
+            ):
+                if st.button(
+                    "Fechar pré-venda no Painel de Vendas",
+                    key="ag_btn_fechar_pv",
+                ):
+                    st.session_state.venda_fechar_agendamento_id = int(pick)
+                    st.session_state.venda_cliente_id = int(ag["cliente_id"])
+                    st.session_state.page = "vendas"
+                    st.rerun()
+            if (
+                ag.get("modo_origem") == "credito_venda"
+                and ag.get("venda_id")
+                and ag["status"] in ("AGENDADO", "CONFIRMADO", "CONCLUIDO")
+            ):
+                if st.button(
+                    "Nova venda nesta visita",
+                    key="ag_btn_nv_visita",
+                ):
+                    st.session_state.venda_agendamento_contexto_id = int(pick)
+                    st.session_state.venda_cliente_id = int(ag["cliente_id"])
+                    st.session_state.venda_fechar_agendamento_id = None
+                    st.session_state.page = "vendas"
+                    st.rerun()
             with st.expander("Editar data, horas, colaboradores, observações"):
                 e1, e2, e3 = st.columns(3)
                 with e1:
@@ -390,7 +504,14 @@ def render_page_agendamentos(
                     else:
                         st.warning("Só disponível em AGENDADO ou CONFIRMADO.")
             with ac3:
-                dev = st.checkbox("Devolver crédito ao buffer ao cancelar", value=True, key="ag_can_dev")
+                dev = st.checkbox(
+                    "Devolver crédito ao buffer ao cancelar",
+                    value=True,
+                    key="ag_can_dev",
+                    disabled=ag.get("modo_origem") == "pre_venda",
+                )
+                if ag.get("modo_origem") == "pre_venda":
+                    st.caption("Pré-venda: sem crédito em buffer.")
                 if st.button("Cancelar ocorrência", key="ag_can_btn"):
                     if ag["status"] in ("CONCLUIDO", "CANCELADO"):
                         st.error("Estado não permite cancelamento.")

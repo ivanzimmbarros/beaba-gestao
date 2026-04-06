@@ -128,17 +128,22 @@ def registrar_venda(
     pagamentos: list[tuple[str, int]],
     recebimentos_previstos: list[tuple[str, int]],
     observacoes: str,
-) -> tuple[bool, str]:
+    *,
+    agendamento_contexto_id: int | None = None,
+) -> tuple[bool, str, int | None]:
     """
     `linhas_entrada`: servico_id, quantidade, is_bonus, evento_preco (adulto|crianca|None),
       desconto_linha_tipo, desconto_linha_valor (basis ou centavos);
       opcional `colaborador_id` (int) por linha — atribuição para relatórios.
     `pagamentos`: (meio, valor_centavos)
     `recebimentos_previstos`: (data YYYY-MM-DD, valor_centavos)
+    `agendamento_contexto_id`: opcional — UC-B / rastreio de visita (cliente = do agendamento).
+
+    Retorno: (ok, mensagem, venda_id ou None se falha).
     """
     cid = int(cliente_id)
     if cid < 1:
-        return False, "❌ Cliente inválido."
+        return False, "❌ Cliente inválido.", None
 
     resolved: list[dict[str, Any]] = []
     for i, raw in enumerate(linhas_entrada):
@@ -155,28 +160,28 @@ def registrar_venda(
             sid, evento_preco=evt_s, is_bonus=bonus
         )
         if not ok_s:
-            return False, f"Linha {i + 1}: {msg_s}"
+            return False, f"Linha {i + 1}: {msg_s}", None
 
         dt = raw.get("desconto_linha_tipo") or "none"
         if dt not in ("none", "percent", "fixed"):
-            return False, f"❌ Linha {i + 1}: tipo de desconto inválido."
+            return False, f"❌ Linha {i + 1}: tipo de desconto inválido.", None
         dv_raw = raw.get("desconto_linha_valor")
         dv: int | None = None
         if dt == "percent":
             if dv_raw is None:
-                return False, f"❌ Linha {i + 1}: indique o desconto em %."
+                return False, f"❌ Linha {i + 1}: indique o desconto em %.", None
             pct = float(dv_raw)
             dv = int(round(pct * 100))
             if dv < 1 or dv > PCT_BASIS:
-                return False, f"❌ Linha {i + 1}: desconto % entre 0,01 e 100."
+                return False, f"❌ Linha {i + 1}: desconto % entre 0,01 e 100.", None
         elif dt == "fixed":
             if dv_raw is None:
-                return False, f"❌ Linha {i + 1}: indique o valor do desconto (€)."
+                return False, f"❌ Linha {i + 1}: indique o valor do desconto (€).", None
             from src.modules.catalogo import euros_para_centavos
 
             dv = euros_para_centavos(float(dv_raw))
             if dv is None or dv < 1:
-                return False, f"❌ Linha {i + 1}: desconto em valor inválido."
+                return False, f"❌ Linha {i + 1}: desconto em valor inválido.", None
 
         colab_raw = raw.get("colaborador_id")
         colab_id: int | None
@@ -186,7 +191,7 @@ def registrar_venda(
             try:
                 colab_id = int(colab_raw)
             except (TypeError, ValueError):
-                return False, f"❌ Linha {i + 1}: colaborador inválido."
+                return False, f"❌ Linha {i + 1}: colaborador inválido.", None
             if colab_id < 1:
                 colab_id = None
 
@@ -208,19 +213,19 @@ def registrar_venda(
 
     gtipo = desconto_global_tipo
     if gtipo not in (None, "percent", "fixed", ""):
-        return False, "❌ Tipo de desconto global inválido."
+        return False, "❌ Tipo de desconto global inválido.", None
     gval: int | None = desconto_global_valor
     if gtipo is None or gtipo == "":
         gtipo = None
         gval = None
     elif gtipo == "percent":
         if gval is None:
-            return False, "❌ Indique o desconto global em %."
+            return False, "❌ Indique o desconto global em %.", None
         if gval < 1 or gval > PCT_BASIS:
-            return False, "❌ Desconto global % entre 0,01 e 100."
+            return False, "❌ Desconto global % entre 0,01 e 100.", None
     elif gtipo == "fixed":
         if gval is None or gval < 1:
-            return False, "❌ Indique o desconto global em valor (centavos > 0)."
+            return False, "❌ Indique o desconto global em valor (centavos > 0).", None
 
     slim: list[dict[str, Any]] = [
         {
@@ -237,7 +242,7 @@ def registrar_venda(
         desconto_global_valor=gval,
     )
     if not ok_c:
-        return False, msg_c
+        return False, msg_c, None
 
     total_final = totais["total_final_centavos"]
     sub_bruto = totais["subtotal_bruto_centavos"]
@@ -248,7 +253,7 @@ def registrar_venda(
     for meio, val in pagamentos:
         m = str(meio).strip()
         if m not in ("dinheiro", "cartao_credito", "mbway"):
-            return False, f"❌ Meio de pagamento inválido: {meio}."
+            return False, f"❌ Meio de pagamento inválido: {meio}.", None
         meios_norm.append((m, int(val)))
 
     prev_norm = [(str(d)[:10], int(v)) for d, v in recebimentos_previstos]
@@ -257,24 +262,40 @@ def registrar_venda(
         estado_pagamento, total_final, meios_norm, prev_norm
     )
     if not ok_p:
-        return False, msg_p
+        return False, msg_p, None
 
     conn = get_connection()
     if not conn:
-        return False, "❌ Não foi possível ligar à base de dados."
+        return False, "❌ Não foi possível ligar à base de dados.", None
 
     try:
         cur = conn.cursor()
         cur.execute("SELECT id FROM clientes WHERE id = ?", (cid,))
         if cur.fetchone() is None:
-            return False, "❌ Cliente não encontrado."
+            return False, "❌ Cliente não encontrado.", None
+
+        ag_ctx = agendamento_contexto_id
+        if ag_ctx is not None:
+            cur.execute(
+                "SELECT cliente_id FROM agendamentos WHERE id = ?",
+                (int(ag_ctx),),
+            )
+            ra = cur.fetchone()
+            if ra is None:
+                return False, "❌ Agendamento de contexto não encontrado.", None
+            if int(ra[0]) != cid:
+                return (
+                    False,
+                    "❌ Cliente da venda deve coincidir com o agendamento de contexto.",
+                    None,
+                )
 
         for i, r in enumerate(resolved):
             cob = r.get("colaborador_id")
             if cob is not None:
                 cur.execute("SELECT id FROM colaboradores WHERE id = ?", (int(cob),))
                 if cur.fetchone() is None:
-                    return False, f"❌ Linha {i + 1}: colaborador não encontrado."
+                    return False, f"❌ Linha {i + 1}: colaborador não encontrado.", None
 
         cur.execute(
             """
@@ -282,8 +303,8 @@ def registrar_venda(
                 cliente_id, estado_pagamento,
                 subtotal_bruto_centavos, subtotal_apos_descontos_linha_centavos,
                 desconto_global_tipo, desconto_global_valor, desconto_global_centavos_aplicado,
-                total_final_centavos, observacoes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                total_final_centavos, observacoes, agendamento_contexto_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 cid,
@@ -295,6 +316,7 @@ def registrar_venda(
                 glob_apl,
                 total_final,
                 (observacoes or "").strip(),
+                int(ag_ctx) if ag_ctx is not None else None,
             ),
         )
         vid = int(cur.lastrowid)
@@ -364,10 +386,10 @@ def registrar_venda(
                 )
 
         conn.commit()
-        return True, f"✅ Venda #{vid} registada — total {total_final / 100:.2f} €."
+        return True, f"✅ Venda #{vid} registada — total {total_final / 100:.2f} €.", vid
     except Exception as e:
         conn.rollback()
-        return False, f"❌ Erro ao guardar venda: {e}"
+        return False, f"❌ Erro ao guardar venda: {e}", None
     finally:
         conn.close()
 

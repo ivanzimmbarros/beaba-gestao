@@ -21,6 +21,11 @@ from src.modules.cliente import (
 from src.modules.colaborador import listar_colaboradores_resumo
 from src.modules.constants import SEXOS
 from src.modules.validators import parse_data_iso
+from src.modules.agendamento import (
+    associar_agendamento_pre_venda_a_item,
+    obter_agendamento,
+    obter_primeiro_item_venda_por_servico,
+)
 from src.modules.venda import calcular_totais_venda, registrar_venda
 
 
@@ -104,10 +109,26 @@ def render_page_vendas(
         st.session_state.venda_n_meios = 1
     if "venda_n_prev" not in st.session_state:
         st.session_state.venda_n_prev = 1
+    if "venda_fechar_agendamento_id" not in st.session_state:
+        st.session_state.venda_fechar_agendamento_id = None
+    if "venda_agendamento_contexto_id" not in st.session_state:
+        st.session_state.venda_agendamento_contexto_id = None
 
     if "_vnda_prime" in st.session_state:
         prime = st.session_state.pop("_vnda_prime")
         _prime_cliente_form(prime["prefix"], prime["data"])
+
+    fechar_aid = st.session_state.get("venda_fechar_agendamento_id")
+    ctx_aid = st.session_state.get("venda_agendamento_contexto_id")
+    if fechar_aid:
+        st.info(
+            f"**Pré-venda:** após registar a venda, o agendamento **#{fechar_aid}** será associado "
+            "à linha do **mesmo serviço** da reserva."
+        )
+    elif ctx_aid:
+        st.info(
+            f"**Contexto de visita:** esta venda ficará ligada ao agendamento **#{ctx_aid}** (auditoria)."
+        )
 
     # --- Cliente ---
     st.subheader("1. Cliente")
@@ -631,7 +652,10 @@ def render_page_vendas(
                     "colaborador_id": it.get("colab_id"),
                 }
             )
-        ok_f, msg_f = registrar_venda(
+        fechar_before = st.session_state.get("venda_fechar_agendamento_id")
+        ctx_before = st.session_state.get("venda_agendamento_contexto_id")
+        ctx_arg = fechar_before or ctx_before
+        ok_f, msg_f, vid_new = registrar_venda(
             int(st.session_state.venda_cliente_id),
             estado,  # type: ignore[arg-type]
             linhas_b,
@@ -640,10 +664,33 @@ def render_page_vendas(
             pag_rows,
             prev_rows,
             obs,
+            agendamento_contexto_id=int(ctx_arg) if ctx_arg else None,
         )
         if ok_f:
+            if fechar_before and vid_new is not None:
+                agd = obter_agendamento(int(fechar_before))
+                if agd and str(agd.get("modo_origem")) == "pre_venda":
+                    vi_item = obter_primeiro_item_venda_por_servico(
+                        int(vid_new), int(agd["servico_id"])
+                    )
+                    if vi_item:
+                        ok_as, msg_as = associar_agendamento_pre_venda_a_item(
+                            int(fechar_before), int(vi_item)
+                        )
+                        if ok_as:
+                            st.success(msg_as)
+                        else:
+                            st.warning(
+                                f"Venda registada, mas associação ao agendamento falhou: {msg_as}"
+                            )
+                    else:
+                        st.warning(
+                            "Venda registada, mas não foi encontrada linha com o serviço da pré-venda — associe manualmente no código ou refaça a venda."
+                        )
             st.session_state.venda_cart = []
             st.session_state.venda_fv += 1
+            st.session_state.venda_fechar_agendamento_id = None
+            st.session_state.venda_agendamento_contexto_id = None
             st.success(msg_f)
             st.balloons()
             st.rerun()

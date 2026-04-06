@@ -8,7 +8,7 @@
 
 **Instrução:** em **cada ponto de controlo de Painel**, o estado aqui descrito deve estar **alinhado** com **`origin/develop`** (cloud) e com [`docs/governanca/status_demanda.json`](governanca/status_demanda.json) (dashboard na app: **Fluxo e governança**). Ordem: **GitHub primeiro** (ficheiros locais + **commit** + **`push`** ao remoto), **Painel depois** (pares PC1→2, PC3→4, … — ver tabela). Em **falha**, repetir pontos de controlo e documentar pareceres negativos (ver fluxo FALHA no documento de governança). **Actualização do JSON e deste ficheiro:** pela **EQUIPE**, não pelo Diretor.
 
-**Última revisão do painel:** 2026-04-06 — **E11** — Diretor **PROSSIGA**; **PC1+PC2** fechados; **PC3+PC4** fechados (`04`+`05` no dossier).
+**Última revisão do painel:** 2026-04-06 — **E11** — implementação **Dev** entregue (migração, `agendamento`/`venda`, UI, **49** `pytest`); **PC5** (parecer Arquiteto) **pendente**.
 
 ---
 
@@ -18,7 +18,7 @@
 |:---|:---|
 | **ID** | `2026-04-06_E11_pre_venda_agenda` |
 | **Dossier** | [`docs/governanca/demandas/2026-04-06_E11_pre_venda_agenda/`](governanca/demandas/2026-04-06_E11_pre_venda_agenda/) |
-| **Fase** | **C** — **Dev** (implementação conforme [`04_desenho_logico.md`](governanca/demandas/2026-04-06_E11_pre_venda_agenda/04_desenho_logico.md)) |
+| **Fase** | **C** — **Dev** — código alinhado ao [`04_desenho_logico.md`](governanca/demandas/2026-04-06_E11_pre_venda_agenda/04_desenho_logico.md) (entregue; aguarda **PC5**) |
 | **PC1** | **Fechado** — `03_confirmacao_diretor.md` com **PROSSIGA** (2026-04-06) |
 | **PC2** | **Fechado** — este painel + `CONTROLE` + JSON alinhados |
 | **PC3** | **Fechado** — `04_desenho_logico.md` + **`05_validacao_analista_desenho_logico.md`** (selo Analista) |

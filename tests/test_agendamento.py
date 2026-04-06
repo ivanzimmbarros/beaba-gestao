@@ -5,8 +5,11 @@ import pytest
 from src.database.connection import create_tables, get_connection
 from src.modules.agendamento import (
     alterar_status,
+    associar_agendamento_pre_venda_a_item,
     cancelar_agendamento,
+    contar_pre_venda_futuros,
     criar_agendamento,
+    criar_agendamento_pre_venda,
     listar_buckets_credito_cliente,
     saldo_bucket,
     validar_intervalo_horario,
@@ -72,7 +75,7 @@ def test_sessao_avulsa_criar_cancelar_buffer():
     sid = int(cur.fetchone()[0])
     conn.close()
 
-    ok, msg = registrar_venda(
+    ok, msg, _vid = registrar_venda(
         int(cid),
         "integral",
         [
@@ -173,7 +176,7 @@ def test_pacote_saldo_por_componente():
     psid = int(ps_row[0])
     conn.close()
 
-    ok, msg = registrar_venda(
+    ok, msg, _ = registrar_venda(
         int(cid),
         "integral",
         [
@@ -273,3 +276,186 @@ def test_maquina_estados():
     assert alterar_status(ag_id, "CONFIRMADO")[0]
     assert alterar_status(ag_id, "CONCLUIDO")[0]
     assert not alterar_status(ag_id, "CONFIRMADO")[0]
+
+
+def test_schema_agendamentos_tem_modo_origem():
+    conn = get_connection()
+    assert conn
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(agendamentos)")
+    cols = {row[1] for row in cur.fetchall()}
+    conn.close()
+    assert "modo_origem" in cols
+    assert "preco_referencia_centavos" in cols
+
+
+def test_pre_venda_sessao_concluir_bloqueado():
+    cid = _cliente()
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão PV",
+        "D",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=35.0,
+    )
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Sessão PV",))
+    sid = int(cur.fetchone()[0])
+    conn.close()
+    ok, msg = criar_agendamento_pre_venda(
+        int(cid),
+        sid,
+        "2030-01-15",
+        "10:00",
+        "11:00",
+        [],
+        "",
+        None,
+    )
+    assert ok, msg
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM agendamentos ORDER BY id DESC LIMIT 1")
+    ag_id = int(cur.fetchone()[0])
+    cur.execute("SELECT modo_origem, venda_id FROM agendamentos WHERE id = ?", (ag_id,))
+    m, v = cur.fetchone()
+    conn.close()
+    assert str(m) == "pre_venda"
+    assert v is None
+    assert contar_pre_venda_futuros("2030-01-01") >= 1
+    assert alterar_status(ag_id, "CONFIRMADO")[0]
+    ok_done, msg_done = alterar_status(ag_id, "CONCLUIDO")
+    assert not ok_done
+    assert "pré-venda" in msg_done.lower() or "venda" in msg_done.lower()
+
+
+def test_pre_venda_associar_apos_venda():
+    cid = _cliente()
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão ASC",
+        "D",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=22.0,
+    )
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Sessão ASC",))
+    sid = int(cur.fetchone()[0])
+    conn.close()
+    ok, msg = criar_agendamento_pre_venda(
+        int(cid), sid, "2030-02-01", "14:00", "15:00", [], "", None
+    )
+    assert ok, msg
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM agendamentos ORDER BY id DESC LIMIT 1")
+    ag_id = int(cur.fetchone()[0])
+    conn.close()
+    ok_v, msg_v, vid = registrar_venda(
+        int(cid),
+        "integral",
+        [
+            {
+                "servico_id": sid,
+                "quantidade": 1,
+                "is_bonus": False,
+                "evento_preco": None,
+                "desconto_linha_tipo": "none",
+                "desconto_linha_valor": None,
+            }
+        ],
+        None,
+        None,
+        [("dinheiro", 2200)],
+        [],
+        "",
+        agendamento_contexto_id=ag_id,
+    )
+    assert ok_v, msg_v
+    assert vid is not None
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id FROM venda_itens WHERE venda_id = ? AND servico_id = ?",
+        (int(vid), sid),
+    )
+    vi_row = cur.fetchone()
+    conn.close()
+    assert vi_row
+    vi_id = int(vi_row[0])
+    ok_a, msg_a = associar_agendamento_pre_venda_a_item(ag_id, vi_id)
+    assert ok_a, msg_a
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT modo_origem, venda_id FROM agendamentos WHERE id = ?", (ag_id,)
+    )
+    mo, vid2 = cur.fetchone()
+    conn.close()
+    assert str(mo) == "credito_venda"
+    assert int(vid2) == int(vid)
+    assert alterar_status(ag_id, "CONCLUIDO")[0]
+
+
+def test_pre_venda_pacote_natureza_rejeita():
+    cid = _cliente()
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão PXP",
+        "D",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=10.0,
+    )
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Sessão PXP",))
+    s1 = int(cur.fetchone()[0])
+    conn.close()
+    ok_p, _ = cadastrar_pacote(
+        "Pacote PXP", "D", True, [(s1, 1, None)], None, 20.0, 50.0
+    )
+    assert ok_p
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Pacote PXP",))
+    pid = int(cur.fetchone()[0])
+    conn.close()
+    ok, msg = criar_agendamento_pre_venda(
+        int(cid), pid, "2030-03-01", "09:00", "10:00", [], "", None
+    )
+    assert not ok
+    assert "pré-venda" in msg.lower() or "mvp" in msg.lower() or "sessão" in msg.lower()
+
+
+def test_cancelar_pre_venda():
+    cid = _cliente()
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão CAN",
+        "D",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=15.0,
+    )
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Sessão CAN",))
+    sid = int(cur.fetchone()[0])
+    conn.close()
+    ok, _ = criar_agendamento_pre_venda(
+        int(cid), sid, "2030-04-01", "08:00", "09:00", [], "", None
+    )
+    assert ok
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM agendamentos ORDER BY id DESC LIMIT 1")
+    ag_id = int(cur.fetchone()[0])
+    conn.close()
+    ok_c, msg_c = cancelar_agendamento(ag_id, devolver_ao_buffer=True)
+    assert ok_c
+    assert "pré-venda" in msg_c.lower()
