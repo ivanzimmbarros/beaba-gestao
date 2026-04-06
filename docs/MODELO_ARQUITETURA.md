@@ -2,6 +2,10 @@
 
 ## 📁 ESTRUTURA DE PASTAS OBRIGATÓRIA
 - `/src`: Código-fonte da aplicação (Lógica, UI, Utils).
+  - `/src/app.py`: Shell Streamlit (tema V11, navegação e páginas).
+  - `/src/ui`: Tokens visuais e estilos compartilhados (mimetismo com o site).
+  - `/src/modules`: Domínio (ex.: clientes).
+  - `/src/database`: Conexão e esquema.
 - `/data`: Scripts de migração, Schema SQL e Banco de Dados (SQLite).
 - `/tests`: Scripts de teste unitário e de integração para o QA.
 - `/docs`: Documentação técnica, Caderno Mestre e Diagramas.
