@@ -5,6 +5,8 @@
 **STATUS ATUAL:** 🔵 DESENVOLVIMENTO EM CURSO (#01)  
 **CONTADOR DE INTEGRIDADE MASSIVA (N+1):** [ 0 ] Funcionalidades Validadas
 
+**PROCESSO OBRIGATÓRIO:** toda evolução segue **`docs/governanca/FLUXO_SUCESSO_E_FALHA.md`** (passos 1–25, PC1–PC13, fluxo FALHA) e [`.cursorrules`](../.cursorrules). O estado no Git (`develop`) + `docs/PAINEL_OPERACIONAL.md` + `docs/governanca/status_demanda.json` devem estar **sincronizados** após cada par de ponto de controlo.
+
 ---
 
 ## 📦 MÓDULO 01: GESTÃO CORE (CLIENTES, COLABORADORES, CATÁLOGO)
@@ -46,4 +48,5 @@
 - [x] **E09 — Agendamentos:** tabelas `agendamentos`, `agendamento_colaboradores`; `src/modules/agendamento.py`; `src/ui/page_agendamentos.py` + botão no Início; buffer (pacote + avulso + coworking + evento); `devolver_ao_buffer` no cancelamento; `tests/test_agendamento.py`; **40** testes em `pytest`; módulo **#06** — **commit + push `develop`** na mesma entrega que sincroniza **E07 e E08** (antes só existiam no disco local).
 - [x] **Governança — Evidência no GitHub:** **antes** da sincronização **E07–E09** em `develop`, o remoto **não continha** esses ficheiros (último commit visível: **`95f093d`** / E06). A Action *Fabrica Zimmermann* só reflete o que está em `develop`; após **commit + push** da sincronização, o histórico e a CI alinham com `PAINEL_OPERACIONAL` / `CONTROLE_DE_VOO`.
 - [x] **Governança — Checkpoints Git por persona:** `docs/PAINEL_OPERACIONAL.md` passa a exigir **commit + push** em `develop` ao fim de cada bloco **Analista**, **Arquiteto**, **Dev** e **QA**, com regra de **reinício** se houver falha; `.cursorrules` alinhado. O painel reflecte evolução **local e remota** (`origin/develop`).
+- [x] **Governança — Regra máxima SUCESSO/FALHA:** `docs/governanca/FLUXO_SUCESSO_E_FALHA.md` (processo completo, críticas/sugestões, exemplos FALHA); PC1–PC13 (Git→Painel); `docs/CADERNO_TESTES_MASTER.md`; `docs/governanca/status_demanda.json` + UI **Fluxo e governança**; `.cursorrules` como norma suprema.
 - [x] **E06 — Fase 3 (Evento):** Colunas `evento_*` em `servicos`; tabela `servico_evento_participantes`; `cadastrar_evento`; UI Evento (data, local, observações, interno/convidado, preços criança/adulto/desconto filho adicional, participantes colaborador ou parceiro com repasse % ou €); listagem detalhada; testes `test_evento_ok_e_listagem`, `test_evento_sem_participantes_falha`, `test_evento_colaborador_duplicado_falha`.

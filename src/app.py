@@ -23,6 +23,7 @@ from src.modules.catalogo import (
 from src.modules.cliente import cadastrar_cliente
 from src.ui.page_agendamentos import render_page_agendamentos
 from src.ui.page_dashboards import render_page_dashboards
+from src.ui.page_fluxo_gestao import render_page_fluxo_gestao
 from src.ui.page_vendas import render_page_vendas
 from src.modules.colaborador import (
     atualizar_colaborador,
@@ -113,6 +114,14 @@ def _page_home() -> None:
     with row3[1]:
         if st.button("Dashboards e Relatórios", use_container_width=True, type="secondary"):
             st.session_state.page = "dashboards"
+
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+    if st.button(
+        "Fluxo e governança (status da demanda)",
+        use_container_width=True,
+        type="secondary",
+    ):
+        st.session_state.page = "fluxo_gestao"
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -839,6 +848,8 @@ def main() -> None:
             render_page_dashboards(render_back_and_breadcrumb=_render_back_and_breadcrumb)
         elif page == "agendamentos":
             render_page_agendamentos(render_back_and_breadcrumb=_render_back_and_breadcrumb)
+        elif page == "fluxo_gestao":
+            render_page_fluxo_gestao(render_back_and_breadcrumb=_render_back_and_breadcrumb)
         else:
             st.session_state.page = "home"
             _page_home()
