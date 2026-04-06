@@ -20,6 +20,46 @@ FONTS = {
 RADIUS = "20px"
 SHADOW_CARD = "0 4px 24px rgba(0, 0, 0, 0.05)"
 
+# Gráficos (E08) — tons suaves, boa distinção entre séries, sem cores agressivas
+ANALYTICS_COLORS: list[str] = [
+    "#97C9C5",
+    "#7BA7A3",
+    "#A8C4CE",
+    "#C5B8A5",
+    "#B5C99E",
+    "#9EB8D9",
+    "#B8A9C9",
+    "#8BA892",
+    "#D4C4B0",
+    "#A3C4BC",
+]
+
+# Agenda (E09) — fundo + borda por estado; ícones por tipo de ocorrência
+AGENDA_STATUS_STYLES: dict[str, dict[str, str]] = {
+    "AGENDADO": {"bg": "#E8F4F3", "border": "#97C9C5", "label": "Agendado"},
+    "CONFIRMADO": {"bg": "#D4EDDA", "border": "#5CB85C", "label": "Confirmado"},
+    "CONCLUIDO": {"bg": "#E2E3E5", "border": "#6C757D", "label": "Concluído"},
+    "CANCELADO": {"bg": "#FCE8E8", "border": "#DC3545", "label": "Cancelado"},
+}
+
+AGENDA_TIPO_ORIGEM_ICONS: dict[str, str] = {
+    "sessao_avulsa": "◇",
+    "pacote": "📦",
+    "coworking": "⌂",
+    "evento": "📅",
+}
+
+
+def agenda_status_style(status: str) -> dict[str, str]:
+    return AGENDA_STATUS_STYLES.get(
+        status,
+        {"bg": "#F7F7F7", "border": "#CCCCCC", "label": status},
+    )
+
+
+def agenda_tipo_icon(tipo_origem: str) -> str:
+    return AGENDA_TIPO_ORIGEM_ICONS.get(tipo_origem, "•")
+
 
 def inject_bea_theme() -> None:
     """Injeta fontes (Google Fonts), variáveis CSS e overrides Streamlit."""

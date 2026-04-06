@@ -234,5 +234,147 @@ def create_tables():
         )
         """
     )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS vendas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cliente_id INTEGER NOT NULL,
+            data_registo TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            estado_pagamento TEXT NOT NULL CHECK (
+                estado_pagamento IN ('integral', 'pendente', 'parcial', 'parcelado')
+            ),
+            subtotal_bruto_centavos INTEGER NOT NULL DEFAULT 0,
+            subtotal_apos_descontos_linha_centavos INTEGER NOT NULL DEFAULT 0,
+            desconto_global_tipo TEXT CHECK (
+                desconto_global_tipo IS NULL
+                OR desconto_global_tipo IN ('percent', 'fixed')
+            ),
+            desconto_global_valor INTEGER,
+            desconto_global_centavos_aplicado INTEGER NOT NULL DEFAULT 0,
+            total_final_centavos INTEGER NOT NULL,
+            observacoes TEXT DEFAULT '',
+            FOREIGN KEY (cliente_id) REFERENCES clientes(id)
+        )
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS venda_itens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            venda_id INTEGER NOT NULL,
+            servico_id INTEGER NOT NULL,
+            ordem INTEGER NOT NULL,
+            quantidade INTEGER NOT NULL CHECK (quantidade >= 1),
+            preco_unitario_centavos INTEGER NOT NULL CHECK (preco_unitario_centavos >= 0),
+            nome_snapshot TEXT NOT NULL,
+            descricao_snapshot TEXT NOT NULL DEFAULT '',
+            unidade_medida_snapshot TEXT NOT NULL DEFAULT '',
+            is_bonus INTEGER NOT NULL DEFAULT 0 CHECK (is_bonus IN (0, 1)),
+            evento_preco_tipo TEXT CHECK (
+                evento_preco_tipo IS NULL
+                OR evento_preco_tipo IN ('adulto', 'crianca')
+            ),
+            desconto_linha_tipo TEXT CHECK (
+                desconto_linha_tipo IS NULL
+                OR desconto_linha_tipo IN ('none', 'percent', 'fixed')
+            ),
+            desconto_linha_valor INTEGER,
+            subtotal_bruto_centavos INTEGER NOT NULL,
+            desconto_linha_centavos INTEGER NOT NULL DEFAULT 0,
+            total_linha_centavos INTEGER NOT NULL,
+            FOREIGN KEY (venda_id) REFERENCES vendas(id) ON DELETE CASCADE,
+            FOREIGN KEY (servico_id) REFERENCES servicos(id)
+        )
+        """
+    )
+    _ensure_column(cursor, "venda_itens", "colaborador_id", "INTEGER")
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_vendas_data_registo ON vendas(data_registo)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_venda_itens_servico ON venda_itens(servico_id)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_venda_itens_colaborador ON venda_itens(colaborador_id)"
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS venda_pagamentos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            venda_id INTEGER NOT NULL,
+            ordem INTEGER NOT NULL,
+            meio TEXT NOT NULL CHECK (
+                meio IN ('dinheiro', 'cartao_credito', 'mbway')
+            ),
+            valor_centavos INTEGER NOT NULL CHECK (valor_centavos >= 0),
+            FOREIGN KEY (venda_id) REFERENCES vendas(id) ON DELETE CASCADE
+        )
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS venda_recebimentos_previstos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            venda_id INTEGER NOT NULL,
+            ordem INTEGER NOT NULL,
+            data_prevista TEXT NOT NULL,
+            valor_centavos INTEGER NOT NULL CHECK (valor_centavos >= 0),
+            FOREIGN KEY (venda_id) REFERENCES vendas(id) ON DELETE CASCADE
+        )
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS agendamentos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            venda_id INTEGER NOT NULL,
+            venda_item_id INTEGER NOT NULL,
+            cliente_id INTEGER NOT NULL,
+            servico_id INTEGER NOT NULL,
+            pacote_sessao_id INTEGER,
+            tipo_origem TEXT NOT NULL CHECK (
+                tipo_origem IN ('sessao_avulsa', 'pacote', 'coworking', 'evento')
+            ),
+            data_agendamento TEXT NOT NULL,
+            hora_inicio TEXT NOT NULL,
+            hora_fim TEXT NOT NULL,
+            status TEXT NOT NULL CHECK (
+                status IN ('AGENDADO', 'CONFIRMADO', 'CONCLUIDO', 'CANCELADO')
+            ),
+            devolver_ao_buffer INTEGER NOT NULL DEFAULT 0 CHECK (devolver_ao_buffer IN (0, 1)),
+            observacoes TEXT DEFAULT '',
+            data_alteracao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (venda_id) REFERENCES vendas(id) ON DELETE CASCADE,
+            FOREIGN KEY (venda_item_id) REFERENCES venda_itens(id) ON DELETE CASCADE,
+            FOREIGN KEY (cliente_id) REFERENCES clientes(id),
+            FOREIGN KEY (servico_id) REFERENCES servicos(id),
+            FOREIGN KEY (pacote_sessao_id) REFERENCES servico_pacote_sessoes(id)
+        )
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS agendamento_colaboradores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            agendamento_id INTEGER NOT NULL,
+            colaborador_id INTEGER NOT NULL,
+            ordem INTEGER NOT NULL,
+            FOREIGN KEY (agendamento_id) REFERENCES agendamentos(id) ON DELETE CASCADE,
+            FOREIGN KEY (colaborador_id) REFERENCES colaboradores(id)
+        )
+        """
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_agendamentos_data ON agendamentos(data_agendamento)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_agendamentos_cliente ON agendamentos(cliente_id)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_agendamentos_venda ON agendamentos(venda_id)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_agendamento_colab_ag ON agendamento_colaboradores(agendamento_id)"
+    )
     conn.commit()
     conn.close()

@@ -187,3 +187,302 @@ def cadastrar_cliente(
         return False, f"❌ Erro ao guardar: {e}"
     finally:
         conn.close()
+
+
+def buscar_cliente_por_whatsapp(numero_contato: str) -> int | None:
+    """Retorna `id` do cliente ou None se não existir."""
+    tel = validar_e_limpar_telefone(numero_contato)
+    if not tel:
+        return None
+    conn = get_connection()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM clientes WHERE whatsapp = ?", (tel,))
+        row = cur.fetchone()
+        return int(row[0]) if row else None
+    finally:
+        conn.close()
+
+
+def listar_clientes_resumo() -> list[tuple[int, str]]:
+    """Lista `(id, nome)` para filtros e selects (ex.: agendamentos)."""
+    conn = get_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id, nome FROM clientes ORDER BY nome COLLATE NOCASE")
+        return [(int(a), str(b)) for a, b in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+def obter_cliente_completo(cliente_id: int) -> dict | None:
+    """Ficha completa para edição (cliente + filhos + emergência)."""
+    cid = int(cliente_id)
+    if cid < 1:
+        return None
+    conn = get_connection()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, nome, whatsapp, email, sexo, tem_filhos, gravida, data_parto_prevista,
+                   observacoes, endereco_rua, endereco_numero, endereco_complemento,
+                   codigo_postal, concelho, freguesia, distrito, pais
+            FROM clientes WHERE id = ?
+            """,
+            (cid,),
+        )
+        row = cur.fetchone()
+        if not row:
+            return None
+        cur.execute(
+            """
+            SELECT nome, idade_anos, sexo FROM cliente_filhos
+            WHERE cliente_id = ? ORDER BY ordem
+            """,
+            (cid,),
+        )
+        filhos = [(str(a), int(b), str(c)) for a, b, c in cur.fetchall()]
+        cur.execute(
+            """
+            SELECT nome, telefone FROM cliente_contatos_emergencia
+            WHERE cliente_id = ? ORDER BY ordem
+            """,
+            (cid,),
+        )
+        emerg = [(str(a), str(b)) for a, b in cur.fetchall()]
+        gf: bool | None
+        if row[5]:
+            gf = bool(row[5])
+        else:
+            gf = False
+        sexo_v = str(row[4] or "")
+        grav_v: bool | None
+        if sexo_v == "Feminino":
+            grav_v = bool(row[6]) if row[6] is not None else None
+        else:
+            grav_v = None
+        return {
+            "id": int(row[0]),
+            "nome": str(row[1]),
+            "whatsapp": str(row[2]),
+            "email": str(row[3] or ""),
+            "sexo": sexo_v,
+            "tem_filhos": gf,
+            "gravida": grav_v,
+            "data_parto_prevista": str(row[7]) if row[7] else None,
+            "observacoes": str(row[8] or ""),
+            "endereco_rua": str(row[9] or ""),
+            "endereco_numero": str(row[10] or ""),
+            "endereco_complemento": str(row[11] or ""),
+            "codigo_postal": str(row[12] or ""),
+            "concelho": str(row[13] or ""),
+            "freguesia": str(row[14] or ""),
+            "distrito": str(row[15] or ""),
+            "pais": str(row[16] or "Portugal"),
+            "filhos": filhos,
+            "contatos_emergencia": emerg,
+        }
+    finally:
+        conn.close()
+
+
+def atualizar_cliente(
+    cliente_id: int,
+    nome: str,
+    numero_contato: str,
+    endereco_rua: str,
+    endereco_numero: str,
+    endereco_complemento: str,
+    codigo_postal: str,
+    concelho: str,
+    freguesia: str,
+    distrito: str,
+    pais: str,
+    email: str,
+    sexo: str,
+    tem_filhos: bool,
+    filhos: list[tuple[str, int, str]],
+    gravida: bool | None,
+    data_parto_prevista: str | None,
+    observacoes: str,
+    contatos_emergencia: list[tuple[str, str]],
+) -> tuple[bool, str]:
+    """Atualiza ficha existente. Validações alinhadas a `cadastrar_cliente`."""
+    cid = int(cliente_id)
+    if cid < 1:
+        return False, "❌ Cliente inválido."
+
+    nome = (nome or "").strip()
+    if not nome:
+        return False, "❌ O nome completo é obrigatório."
+
+    tel = validar_e_limpar_telefone(numero_contato)
+    if not tel:
+        return False, "❌ O número de contacto deve ter 11 dígitos numéricos."
+
+    rua = (endereco_rua or "").strip()
+    num = (endereco_numero or "").strip()
+    comp = (endereco_complemento or "").strip()
+    cp = normalizar_codigo_postal_pt(codigo_postal)
+    conc = (concelho or "").strip()
+    freg = (freguesia or "").strip()
+    dist = (distrito or "").strip()
+    pais_v = (pais or "").strip() or "Portugal"
+
+    if not rua:
+        return False, "❌ A rua (logradouro) é obrigatória."
+    if not num:
+        return False, "❌ O número de porta é obrigatório."
+    if not cp:
+        return False, "❌ O código postal é obrigatório (formato XXXX-XXX, ex.: 4800-123)."
+    if not conc:
+        return False, "❌ O concelho é obrigatório."
+    if not freg:
+        return False, "❌ A freguesia é obrigatória."
+
+    email = (email or "").strip()
+    if not email:
+        return False, "❌ O email é obrigatório."
+    if not email_valido(email):
+        return False, "❌ Indique um email válido."
+
+    if sexo not in SEXOS:
+        return False, "❌ Selecione uma opção de sexo."
+
+    if sexo == "Feminino":
+        if gravida is None:
+            return False, "❌ Indique se está grávida."
+        if gravida is True:
+            if not parse_data_iso(data_parto_prevista):
+                return False, "❌ Indique a estimativa de data de parto (data válida)."
+    else:
+        gravida = None
+        data_parto_prevista = None
+
+    if tem_filhos:
+        if not filhos:
+            return (
+                False,
+                "❌ Indique os dados de cada filho (nome, idade em anos completos e sexo).",
+            )
+        for fn, idade, sx in filhos:
+            fn = (fn or "").strip()
+            if not fn:
+                return False, "❌ O nome de cada filho é obrigatório."
+            if idade < 0 or idade > 120:
+                return False, "❌ Idade dos filhos deve estar entre 0 e 120 anos."
+            if sx not in SEXOS:
+                return False, "❌ Sexo de cada filho deve ser selecionado."
+    else:
+        filhos = []
+
+    emerg_ok: list[tuple[str, str]] = []
+    for n, t in contatos_emergencia:
+        n = (n or "").strip()
+        t_raw = validar_e_limpar_telefone(t or "")
+        if not n and not t_raw:
+            continue
+        if not n or not t_raw:
+            return (
+                False,
+                "❌ Cada contacto de emergência deve ter nome e número de contacto (11 dígitos).",
+            )
+        emerg_ok.append((n, t_raw))
+
+    obs = (observacoes or "").strip()
+    tem_filhos_int = 1 if tem_filhos else 0
+    gravida_db: int | None
+    if sexo == "Feminino":
+        gravida_db = 1 if gravida else 0
+    else:
+        gravida_db = None
+
+    parto_db = None
+    if sexo == "Feminino" and gravida is True and data_parto_prevista:
+        parto_db = str(data_parto_prevista).strip()[:10]
+
+    conn = get_connection()
+    if not conn:
+        return False, "❌ Não foi possível ligar à base de dados."
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM clientes WHERE id = ?", (cid,))
+        if cursor.fetchone() is None:
+            return False, "❌ Cliente não encontrado."
+
+        cursor.execute(
+            "SELECT id FROM clientes WHERE whatsapp = ? AND id != ?",
+            (tel, cid),
+        )
+        if cursor.fetchone() is not None:
+            return False, "⚠️ Este número de contacto já está associado a outro cliente."
+
+        cursor.execute(
+            """
+            UPDATE clientes SET
+                nome = ?, whatsapp = ?, morada = ?, email = ?, sexo = ?, tem_filhos = ?,
+                gravida = ?, data_parto_prevista = ?, observacoes = ?,
+                endereco_rua = ?, endereco_numero = ?, endereco_complemento = ?,
+                codigo_postal = ?, concelho = ?, freguesia = ?, distrito = ?, pais = ?
+            WHERE id = ?
+            """,
+            (
+                nome,
+                tel,
+                "",
+                email,
+                sexo,
+                tem_filhos_int,
+                gravida_db,
+                parto_db,
+                obs,
+                rua,
+                num,
+                comp,
+                cp,
+                conc,
+                freg,
+                dist,
+                pais_v,
+                cid,
+            ),
+        )
+        cursor.execute("DELETE FROM cliente_filhos WHERE cliente_id = ?", (cid,))
+        for i, (fnome, idade, sx) in enumerate(filhos, start=1):
+            cursor.execute(
+                """
+                INSERT INTO cliente_filhos (cliente_id, ordem, nome, idade_anos, sexo)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (cid, i, fnome.strip(), int(idade), sx),
+            )
+        cursor.execute(
+            "DELETE FROM cliente_contatos_emergencia WHERE cliente_id = ?",
+            (cid,),
+        )
+        for i, (enome, etel) in enumerate(emerg_ok, start=1):
+            cursor.execute(
+                """
+                INSERT INTO cliente_contatos_emergencia (cliente_id, ordem, nome, telefone)
+                VALUES (?, ?, ?, ?)
+                """,
+                (cid, i, enome, etel),
+            )
+        conn.commit()
+        return True, "✅ Ficha de cliente atualizada."
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        return False, "⚠️ Conflito de dados (contacto duplicado?)."
+    except Exception as e:
+        conn.rollback()
+        return False, f"❌ Erro ao guardar: {e}"
+    finally:
+        conn.close()
