@@ -11,6 +11,16 @@ def validar_e_limpar_telefone(valor: str) -> str | None:
     return num_limpo if len(num_limpo) == 11 else None
 
 
+def normalizar_codigo_postal_pt(raw: str) -> str | None:
+    """Aceita '1234-567' ou '1234567'; devolve sempre 'XXXX-XXX' ou None."""
+    t = (raw or "").strip().replace(" ", "")
+    if re.fullmatch(r"\d{7}", t):
+        return f"{t[:4]}-{t[4:]}"
+    if re.fullmatch(r"\d{4}-\d{3}", t):
+        return t
+    return None
+
+
 def _email_valido(email: str) -> bool:
     e = (email or "").strip()
     return bool(re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", e))
@@ -29,11 +39,18 @@ def _parse_data_iso(s: str | None) -> bool:
 def cadastrar_cliente(
     nome: str,
     numero_contato: str,
-    morada: str,
+    endereco_rua: str,
+    endereco_numero: str,
+    endereco_complemento: str,
+    codigo_postal: str,
+    concelho: str,
+    freguesia: str,
+    distrito: str,
+    pais: str,
     email: str,
     sexo: str,
     tem_filhos: bool,
-    filhos: list[tuple[int, str]],
+    filhos: list[tuple[str, int, str]],
     gravida: bool | None,
     data_parto_prevista: str | None,
     observacoes: str,
@@ -41,6 +58,7 @@ def cadastrar_cliente(
 ) -> tuple[bool, str]:
     """
     Persiste cliente + filhos + contactos de emergência.
+    `filhos`: lista de (nome, idade_anos, sexo).
     Coluna técnica `whatsapp` guarda o número principal (11 dígitos, UNIQUE).
     """
     nome = (nome or "").strip()
@@ -49,11 +67,27 @@ def cadastrar_cliente(
 
     tel = validar_e_limpar_telefone(numero_contato)
     if not tel:
-        return False, "❌ O número de contato deve ter 11 dígitos numéricos."
+        return False, "❌ O número de contacto deve ter 11 dígitos numéricos."
 
-    morada = (morada or "").strip()
-    if not morada:
-        return False, "❌ A morada é obrigatória."
+    rua = (endereco_rua or "").strip()
+    num = (endereco_numero or "").strip()
+    comp = (endereco_complemento or "").strip()
+    cp = normalizar_codigo_postal_pt(codigo_postal)
+    conc = (concelho or "").strip()
+    freg = (freguesia or "").strip()
+    dist = (distrito or "").strip()
+    pais_v = (pais or "").strip() or "Portugal"
+
+    if not rua:
+        return False, "❌ A rua (logradouro) é obrigatória."
+    if not num:
+        return False, "❌ O número de porta é obrigatório."
+    if not cp:
+        return False, "❌ O código postal é obrigatório (formato XXXX-XXX, ex.: 4800-123)."
+    if not conc:
+        return False, "❌ O concelho é obrigatório."
+    if not freg:
+        return False, "❌ A freguesia é obrigatória."
 
     email = (email or "").strip()
     if not email:
@@ -76,8 +110,14 @@ def cadastrar_cliente(
 
     if tem_filhos:
         if not filhos:
-            return False, "❌ Indique os dados de cada filho (idade em anos completos e sexo)."
-        for idade, sx in filhos:
+            return (
+                False,
+                "❌ Indique os dados de cada filho (nome, idade em anos completos e sexo).",
+            )
+        for fn, idade, sx in filhos:
+            fn = (fn or "").strip()
+            if not fn:
+                return False, "❌ O nome de cada filho é obrigatório."
             if idade < 0 or idade > 120:
                 return False, "❌ Idade dos filhos deve estar entre 0 e 120 anos."
             if sx not in SEXOS:
@@ -121,29 +161,39 @@ def cadastrar_cliente(
             """
             INSERT INTO clientes (
                 nome, whatsapp, morada, email, sexo, tem_filhos,
-                gravida, data_parto_prevista, observacoes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                gravida, data_parto_prevista, observacoes,
+                endereco_rua, endereco_numero, endereco_complemento,
+                codigo_postal, concelho, freguesia, distrito, pais
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 nome,
                 tel,
-                morada,
+                "",
                 email,
                 sexo,
                 tem_filhos_int,
                 gravida_db,
                 parto_db,
                 obs,
+                rua,
+                num,
+                comp,
+                cp,
+                conc,
+                freg,
+                dist,
+                pais_v,
             ),
         )
         cid = cursor.lastrowid
-        for i, (idade, sx) in enumerate(filhos, start=1):
+        for i, (fnome, idade, sx) in enumerate(filhos, start=1):
             cursor.execute(
                 """
-                INSERT INTO cliente_filhos (cliente_id, ordem, idade_anos, sexo)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO cliente_filhos (cliente_id, ordem, nome, idade_anos, sexo)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                (cid, i, int(idade), sx),
+                (cid, i, fnome.strip(), int(idade), sx),
             )
         for i, (enome, etel) in enumerate(emerg_ok, start=1):
             cursor.execute(

@@ -33,3 +33,4 @@
 - [x] **E01 — V11.0:** `docs/CADERNO_MESTRE.md` publicado; estrutura `src/ui` + `src/app.py` (tema Verde BeaBa, serifas, dashboard 4 blocos); shell navegável com retorno e breadcrumbs nas vistas internas.
 - [x] **E02 — Cadastro cliente refinado:** inputs com fundo `#F7F7F7`; ficha com morada, email, sexo, filhos (idade em anos + sexo), gravidez + DPP se aplicável, contactos de emergência dinâmicos (11 dígitos), observações opcionais; migração SQLite + testes + CI em `tests/test_qa_auto.py`.
 - [x] **E02b — Hotfix Streamlit:** `SEXOS` centralizado em `src/modules/constants.py` (import estável para `app.py` / `cliente.py`, evita `ImportError` por ficheiro desatualizado ou cache).
+- [x] **E03 — Morada estruturada + filhos com nome:** campos de endereço para pesquisa (CP PT validado; freguesia obrigatória; distrito opcional); `cliente_filhos.nome`; base limpa sem migração de legado em filhos.

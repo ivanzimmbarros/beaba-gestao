@@ -104,7 +104,6 @@ def _page_clientes() -> None:
     st.subheader("Dados pessoais")
     nome = st.text_input("Nome completo *", key=f"{fk}_nome")
     numero = st.text_input("Número de contacto *", key=f"{fk}_num", placeholder="DDD + número (11 dígitos)")
-    morada = st.text_area("Morada *", key=f"{fk}_morada", height=88)
     email = st.text_input("Email *", key=f"{fk}_email")
     sexo = st.selectbox("Sexo *", SEXOS, key=f"{fk}_sexo")
 
@@ -120,9 +119,30 @@ def _page_clientes() -> None:
         gravida = None
         data_parto = None
 
+    st.subheader("Morada (estruturada)")
+    st.caption("Campos separados para pesquisas e relatórios futuros. Código postal: formato XXXX-XXX.")
+    r1c1, r1c2 = st.columns(2)
+    with r1c1:
+        end_rua = st.text_input("Rua / logradouro *", key=f"{fk}_rua")
+    with r1c2:
+        end_num = st.text_input("Número *", key=f"{fk}_numero")
+    end_comp = st.text_input("Complemento (opcional)", key=f"{fk}_comp", placeholder="Andar, fração, etc.")
+    r2c1, r2c2, r2c3 = st.columns(3)
+    with r2c1:
+        end_cp = st.text_input("Código postal *", key=f"{fk}_cp", placeholder="4800-123")
+    with r2c2:
+        end_conc = st.text_input("Concelho *", key=f"{fk}_conc")
+    with r2c3:
+        end_freg = st.text_input("Freguesia *", key=f"{fk}_freg")
+    r3c1, r3c2 = st.columns(2)
+    with r3c1:
+        end_dist = st.text_input("Distrito (opcional)", key=f"{fk}_dist")
+    with r3c2:
+        end_pais = st.text_input("País *", key=f"{fk}_pais", value="Portugal")
+
     st.subheader("Filhos")
     tem_filhos = st.radio("Possui filhos? *", ["Não", "Sim"], horizontal=True, key=f"{fk}_temf") == "Sim"
-    filhos: list[tuple[int, str]] = []
+    filhos: list[tuple[str, int, str]] = []
     if tem_filhos:
         qtd = int(
             st.number_input(
@@ -135,20 +155,23 @@ def _page_clientes() -> None:
             )
         )
         for j in range(qtd):
-            c1, c2 = st.columns(2)
-            with c1:
+            st.markdown(f"**Filho {j + 1}**")
+            cf1, cf2, cf3 = st.columns(3)
+            with cf1:
+                fn = st.text_input(f"Nome *", key=f"{fk}_f_nom_{j}")
+            with cf2:
                 idade = int(
                     st.number_input(
-                        f"Idade (anos completos) — filho {j + 1} *",
+                        f"Idade (anos) *",
                         min_value=0,
                         max_value=120,
                         value=0,
                         key=f"{fk}_f_id_{j}",
                     )
                 )
-            with c2:
-                sx = st.selectbox(f"Sexo — filho {j + 1} *", SEXOS, key=f"{fk}_f_sx_{j}")
-            filhos.append((idade, sx))
+            with cf3:
+                sx = st.selectbox(f"Sexo *", SEXOS, key=f"{fk}_f_sx_{j}")
+            filhos.append((fn, idade, sx))
 
     st.subheader("Contactos de emergência (opcional)")
     st.caption("Pode adicionar vários. Cada linha válida exige nome e número (11 dígitos).")
@@ -178,7 +201,14 @@ def _page_clientes() -> None:
         ok, msg = cadastrar_cliente(
             nome=nome,
             numero_contato=numero,
-            morada=morada,
+            endereco_rua=end_rua,
+            endereco_numero=end_num,
+            endereco_complemento=end_comp,
+            codigo_postal=end_cp,
+            concelho=end_conc,
+            freguesia=end_freg,
+            distrito=end_dist,
+            pais=end_pais,
             email=email,
             sexo=sexo,
             tem_filhos=tem_filhos,
