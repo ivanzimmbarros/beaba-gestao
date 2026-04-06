@@ -23,3 +23,9 @@
 1. **REGRESSÃO PERPÉTUA:** Validar de 1 até N-1 a cada novo deploy.
 2. **INTEGRIDADE DE DADOS:** SQL Blindado com CHECK constraints (GLOB).
 3. **SOBERANIA DO DIRETOR:** Deploy em main exige validação QA.
+
+---
+
+## Log de Progresso
+
+- [x] Ambiente de Desenvolvimento (Cursor + Personas + Git) configurado e sincronizado.
