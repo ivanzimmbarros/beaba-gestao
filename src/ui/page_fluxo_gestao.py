@@ -32,8 +32,9 @@ def render_page_fluxo_gestao(
     )
     st.markdown("### Fluxo e governança")
     st.caption(
-        "Estado da evolução obrigatória (SUCESSO / FALHA). "
-        "Fonte: `docs/governanca/status_demanda.json` — actualizar a cada ponto de controlo (Painel)."
+        "Estado da evolução (SUCESSO / FALHA). Fonte: `docs/governanca/status_demanda.json`. "
+        "Entrada da demanda: Cursor **@Files** → Analista. **EQUIPE** mantém este JSON, o Git e o Painel — "
+        "sem exigir documentação manual do Diretor."
     )
     st.markdown(
         "Documentação normativa: `docs/governanca/FLUXO_SUCESSO_E_FALHA.md` · "

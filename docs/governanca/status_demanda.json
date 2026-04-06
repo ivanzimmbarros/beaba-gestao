@@ -1,6 +1,6 @@
 {
   "demanda_id": "",
-  "titulo": "Nenhuma demanda activa — editar este ficheiro ao abrir evolução",
+  "titulo": "Nenhuma demanda activa — a EQUIPE preenche ao receber @Files → Analista",
   "fase_actual": "—",
   "passo_referencia": null,
   "responsavel_actual": "—",
@@ -8,5 +8,5 @@
   "pendente": "Definir ID da demanda e fase ao iniciar fluxo SUCESSO (ver docs/governanca/FLUXO_SUCESSO_E_FALHA.md).",
   "falha": null,
   "ultima_actualizacao_iso": "",
-  "notas_dashboard": "Actualizar em cada par GitHub→Painel (PC2,4,6,8,10,12 e PC13a→13b). Em falha, preencher 'falha' com actor, motivo e passo de retorno."
+  "notas_dashboard": "Mandatório: manutenção exclusiva pela EQUIPE (não pelo Diretor). Actualizar em cada par GitHub→Painel. Entrada de demanda: @Files → Analista no Cursor."
 }
