@@ -8,7 +8,7 @@
 
 **Instrução:** em **cada ponto de controlo de Painel**, o estado aqui descrito deve estar **alinhado** com **`origin/develop`** e com [`docs/governanca/status_demanda.json`](governanca/status_demanda.json) (dashboard na app: **Fluxo e governança**). Ordem: **GitHub primeiro**, **Painel depois** (pares PC1→2, PC3→4, … — ver tabela). Em **falha**, repetir pontos de controlo e documentar pareceres negativos (ver fluxo FALHA no documento de governança). **Actualização do JSON e deste ficheiro:** pela **EQUIPE**, não pelo Diretor.
 
-**Última revisão do painel:** 2026-04-06 — **Canal `@Files` + documentação automática pela EQUIPE** (regra mandatória).
+**Última revisão do painel:** 2026-04-06 — **Canal `@Files` + documentação automática pela EQUIPE** — commit **`6671f3d`**.
 
 ---
 
@@ -232,7 +232,7 @@ Todas as entregas acima seguiram o *Fluxo de 15 Etapas* com **pytest** (`tests/`
 
 ## Registo da última entrega
 
-- **Entrega (esta revisão):** **Canal `@Files` → Analista**; documentação e controlos **automáticos pela EQUIPE** (mandatório; Diretor não prepara dossiers). Actualização: `FLUXO_SUCESSO_E_FALHA.md`, `.cursorrules`, `PAINEL`, `CONTROLE`, `demandas/README`, `status_demanda.json`, `page_fluxo_gestao`, `MODELO`, `CADERNO_TESTES_MASTER`, `test_governanca`.
+- **Entrega (esta revisão):** **`6671f3d`** — **Canal `@Files` → Analista**; documentação e controlos **automáticos pela EQUIPE** (mandatório; Diretor não prepara dossiers). Ficheiros: `FLUXO_SUCESSO_E_FALHA.md`, `.cursorrules`, `PAINEL`, `CONTROLE`, `demandas/README`, `status_demanda.json`, `page_fluxo_gestao`, `MODELO`, `CADERNO_TESTES_MASTER`, `test_governanca`.
 - **Entrega (referência anterior):** **Regra máxima — Fluxo SUCESSO / FALHA** — commit **`f92c4f2`**: [`docs/governanca/FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md); PC1–PC13 no `PAINEL`; [`.cursorrules`](../.cursorrules); [`docs/CADERNO_TESTES_MASTER.md`](CADERNO_TESTES_MASTER.md); [`docs/governanca/status_demanda.json`](governanca/status_demanda.json); **Fluxo e governança** na app; **43** testes.
 - **Entrega (referência anterior):** **Governança — Checkpoints Git por persona** — commit **`f07395c`**: tabela + reinício no `PAINEL`, [`.cursorrules`](../.cursorrules), registo em `CONTROLE_DE_VOO.md`.
 - **Entrega (referência anterior):** **Sincronização Git `develop` — E07, E08 e E09** — commit **`7dfc53d`** (acumulado no working copy após E06; **commit + push** restauram evidência na Action e no histórico). Inclui: **E07** `venda.py`, `page_vendas.py`; **E08** `relatorios.py`, `page_dashboards.py`, Plotly; **E09** `agendamentos`/`agendamento_colaboradores`, `agendamento.py`, `page_agendamentos.py`, **40** testes; `beaba_gestao.db` **removido do índice** Git (mantém-se local, `*.db` ignorado).
