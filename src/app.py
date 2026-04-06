@@ -5,12 +5,23 @@ Referência: docs/CADERNO_MESTRE.md
 
 from __future__ import annotations
 
+import uuid
+from datetime import date, datetime
+
 import streamlit as st
 
 from src.database.connection import create_tables
+from src.modules.catalogo import cadastrar_servico_fase1, listar_itens_catalogo
 from src.modules.cliente import cadastrar_cliente
-from src.modules.colaborador import cadastrar_colaborador, listar_servicos
-from src.modules.constants import SEXOS
+from src.modules.colaborador import (
+    atualizar_colaborador,
+    cadastrar_colaborador,
+    listar_colaboradores_resumo,
+    listar_servicos,
+    obter_colaborador,
+)
+from src.modules.constants import NATUREZAS_CATALOGO_FASE1, SEXOS
+from src.modules.validators import parse_data_iso
 from src.ui.theme import inject_bea_theme
 
 st.set_page_config(
@@ -229,27 +240,94 @@ def _page_clientes() -> None:
 
 def _page_colaboradores() -> None:
     _render_back_and_breadcrumb(["Home", "Colaboradores", "Cadastro"], back_key="bea_back_colaboradores")
-    st.markdown("### Cadastro de colaboradores")
+    st.markdown("### Gestão de colaboradores")
     st.caption(
-        "Contacto exclusivo por colaborador (11 dígitos). Pelo menos um serviço com percentual de repasse (0,01% a 100,00%)."
+        "Contacto exclusivo (11 dígitos). Pelo menos uma linha de serviço ativa: repasse 0,01%–100,00% e "
+        "data de inserção da linha (não confundir com a data de cadastro do colaborador)."
     )
 
     if "col_form_v" not in st.session_state:
         st.session_state.col_form_v = 0
-    if "col_n_svc" not in st.session_state:
-        st.session_state.col_n_svc = 1
+    if "col_row_ids" not in st.session_state:
+        st.session_state.col_row_ids = [uuid.uuid4().hex[:12]]
+    if "col_edit_id" not in st.session_state:
+        st.session_state.col_edit_id = None
 
     fv = st.session_state.col_form_v
     fk = f"col_{fv}"
 
+    if "_col_prime" in st.session_state:
+        prime = st.session_state.pop("_col_prime")
+        if prime.get("fk_target") == fk:
+            d = prime["data"]
+            st.session_state[f"{fk}_nome"] = d["nome"]
+            st.session_state[f"{fk}_sexo"] = d["sexo"]
+            st.session_state[f"{fk}_dn"] = datetime.strptime(d["data_nascimento"][:10], "%Y-%m-%d").date()
+            st.session_state[f"{fk}_email"] = d["email"]
+            st.session_state[f"{fk}_num"] = d["whatsapp"]
+            st.session_state[f"{fk}_rua"] = d["endereco_rua"]
+            st.session_state[f"{fk}_numero"] = d["endereco_numero"]
+            st.session_state[f"{fk}_comp"] = d["endereco_complemento"]
+            st.session_state[f"{fk}_cp"] = d["codigo_postal"]
+            st.session_state[f"{fk}_conc"] = d["concelho"]
+            st.session_state[f"{fk}_freg"] = d["freguesia"]
+            st.session_state[f"{fk}_dist"] = d["distrito"]
+            st.session_state[f"{fk}_pais"] = d["pais"]
+            st.session_state[f"{fk}_obs"] = d["observacoes"]
+            for rid, ln in zip(st.session_state.col_row_ids, d["linhas"]):
+                st.session_state[f"{fk}_svc_{rid}"] = ln["nome_servico"]
+                st.session_state[f"{fk}_pct_{rid}"] = float(ln["percentual"])
+                di = (ln.get("data_insercao_linha") or "")[:10]
+                st.session_state[f"{fk}_dlin_{rid}"] = (
+                    datetime.strptime(di, "%Y-%m-%d").date() if parse_data_iso(di) else date.today()
+                )
+
     servicos_opts = listar_servicos()
     if not servicos_opts:
-        st.error("Não há serviços na base. Execute a aplicação para criar os serviços de exemplo ou contacte o administrador.")
+        st.error(
+            "Não há serviços ativos na base. Utilize o Catálogo de Serviços para criar itens ativos ou contacte o administrador."
+        )
+        if st.button("Abrir Catálogo de Serviços", key=f"{fk}_goto_cat_empty"):
+            st.session_state.page = "catalogo"
         return
 
-    # Nomes únicos na BD — mapear rótulo → id (evita selectbox com tuplas + lambda, instável no Streamlit)
     nomes_servicos = [row[1] for row in servicos_opts]
     id_por_nome: dict[str, int] = {row[1]: row[0] for row in servicos_opts}
+
+    colab_resumo = listar_colaboradores_resumo()
+    if colab_resumo:
+        st.subheader("Edição de ficha")
+        labels = [f"{nome} (#{cid})" for cid, nome in colab_resumo]
+        ec1, ec2, ec3 = st.columns([2, 1, 1])
+        with ec1:
+            pick = st.selectbox("Colaborador", ["— Novo cadastro —"] + labels, key=f"{fk}_pick_colab")
+        with ec2:
+            st.write("")
+            if st.button("Carregar para edição", key=f"{fk}_load_colab"):
+                if pick == "— Novo cadastro —":
+                    st.warning("Selecione um colaborador na lista.")
+                else:
+                    idx = labels.index(pick)
+                    cid = colab_resumo[idx][0]
+                    data = obter_colaborador(cid)
+                    if not data or not data["linhas"]:
+                        st.error("Não foi possível carregar a ficha.")
+                    else:
+                        st.session_state.col_edit_id = cid
+                        st.session_state.col_form_v += 1
+                        fv2 = st.session_state.col_form_v
+                        st.session_state.col_row_ids = [uuid.uuid4().hex[:12] for _ in data["linhas"]]
+                        st.session_state._col_prime = {"fk_target": f"col_{fv2}", "data": data}
+                        st.rerun()
+        with ec3:
+            st.write("")
+            if st.button("Novo cadastro limpo", key=f"{fk}_reset_new"):
+                st.session_state.col_edit_id = None
+                st.session_state.col_form_v += 1
+                st.session_state.col_row_ids = [uuid.uuid4().hex[:12]]
+                st.rerun()
+        if st.session_state.col_edit_id is not None:
+            st.caption(f"A editar colaborador **#{st.session_state.col_edit_id}** — guarde com **Guardar alterações**.")
 
     st.subheader("Dados pessoais")
     c_nome = st.text_input("Nome completo *", key=f"{fk}_nome")
@@ -280,27 +358,22 @@ def _page_colaboradores() -> None:
         c_pais = st.text_input("País *", key=f"{fk}_pais", value="Portugal")
 
     st.subheader("Serviços habilitados e repasse")
-    st.caption(
-        "Ligue cada colaborador aos serviços do catálogo. Os serviços listados são os da base (exemplos até ao módulo Catálogo completo)."
-    )
+    st.caption("Serviços ativos do catálogo. Cada linha tem data de **inserção da habilitação** (relatórios de desempenho).")
     if st.button("Abrir área Catálogo de Serviços", key=f"{fk}_goto_cat"):
         st.session_state.page = "catalogo"
 
     c_add, _ = st.columns([2, 3])
     with c_add:
         if st.button("➕ Adicionar linha de serviço", key=f"{fk}_add_svc"):
-            st.session_state.col_n_svc = min(st.session_state.col_n_svc + 1, 20)
+            st.session_state.col_row_ids.append(uuid.uuid4().hex[:12])
 
-    repasse: list[tuple[int, float]] = []
-    for i in range(st.session_state.col_n_svc):
-        st.markdown(f"**Serviço {i + 1}**")
-        sc1, sc2 = st.columns([2, 1])
+    repasse: list[tuple[int, float, str]] = []
+    row_ids = list(st.session_state.col_row_ids)
+    for pos, row_id in enumerate(row_ids):
+        st.markdown(f"**Serviço {pos + 1}**")
+        sc1, sc2, sc3 = st.columns([2, 1, 1])
         with sc1:
-            nome_svc = st.selectbox(
-                "Serviço *",
-                nomes_servicos,
-                key=f"{fk}_svc_{i}",
-            )
+            nome_svc = st.selectbox("Serviço *", nomes_servicos, key=f"{fk}_svc_{row_id}")
             sid = id_por_nome[nome_svc]
         with sc2:
             pct = float(
@@ -310,10 +383,20 @@ def _page_colaboradores() -> None:
                     max_value=100.0,
                     value=50.0,
                     step=0.01,
-                    key=f"{fk}_pct_{i}",
+                    key=f"{fk}_pct_{row_id}",
                 )
             )
-        repasse.append((sid, pct))
+        with sc3:
+            dlin = st.date_input(
+                "Inserção da linha *",
+                key=f"{fk}_dlin_{row_id}",
+            )
+        rb1, rb2 = st.columns([1, 4])
+        with rb1:
+            if len(row_ids) > 1 and st.button("Remover linha", key=f"{fk}_rm_{row_id}"):
+                st.session_state.col_row_ids = [r for r in row_ids if r != row_id]
+                st.rerun()
+        repasse.append((sid, pct, dlin.isoformat() if dlin else ""))
 
     st.subheader("Observações")
     c_obs = st.text_area(
@@ -323,9 +406,11 @@ def _page_colaboradores() -> None:
         placeholder="Texto livre (opcional).",
     )
 
-    if st.button("Cadastrar colaborador", type="primary", key=f"{fk}_submit"):
+    editing = st.session_state.col_edit_id is not None
+    btn_label = "Guardar alterações" if editing else "Cadastrar colaborador"
+    if st.button(btn_label, type="primary", key=f"{fk}_submit"):
         dn_iso = c_dn.isoformat() if c_dn else ""
-        ok, msg = cadastrar_colaborador(
+        common = dict(
             nome=c_nome,
             sexo=c_sexo,
             data_nascimento=dn_iso,
@@ -342,12 +427,121 @@ def _page_colaboradores() -> None:
             observacoes=c_obs or "",
             servicos_repasse=repasse,
         )
+        if editing:
+            ok, msg = atualizar_colaborador(int(st.session_state.col_edit_id), **common)
+        else:
+            ok, msg = cadastrar_colaborador(**common)
         if ok:
             st.session_state.col_form_v += 1
-            st.session_state.col_n_svc = 1
+            st.session_state.col_edit_id = None
+            st.session_state.col_row_ids = [uuid.uuid4().hex[:12]]
             st.success(msg)
         else:
             st.error(msg)
+
+
+def _page_catalogo() -> None:
+    _render_back_and_breadcrumb(["Home", "Catálogo"], back_key="bea_back_catalogo")
+    st.markdown("### Catálogo de serviços")
+    st.caption(
+        "**Fase 1 (E06 incremental):** Sessão, Produto e Coworking — cadastro, ativo/inativo e tabela de visualização. "
+        "Naturezas **Pacote** e **Evento** nas fases seguintes."
+    )
+
+    fk = "cat_form"
+
+    with st.expander("Cadastrar novo item", expanded=True):
+        natureza = st.selectbox("Natureza *", NATUREZAS_CATALOGO_FASE1, key=f"{fk}_nat")
+        nome = st.text_input("Nome *", key=f"{fk}_nome")
+        descritivo = st.text_area(
+            "Descritivo do serviço / produto *",
+            key=f"{fk}_desc",
+            height=88,
+            placeholder="Texto para identificação e relatórios.",
+        )
+        ativo = st.checkbox("Item ativo (disponível para habilitações e vendas futuras)", value=True, key=f"{fk}_ativo")
+
+        sessao_dh = 1.0
+        sessao_ve = 0.0
+        ptipo = ""
+        pdesc = ""
+        pve = 0.0
+        porig = "proprio"
+        pr_pct = 0.0
+        pr_ve = 0.0
+        cws = ""
+        cwc = "hora"
+        cwv = 0.0
+
+        if natureza == "Sessão":
+            sessao_dh = float(
+                st.number_input("Duração (horas) *", min_value=0.25, max_value=24.0, value=1.0, step=0.25, key=f"{fk}_sdh")
+            )
+            sessao_ve = float(st.number_input("Valor por sessão (€) *", min_value=0.01, value=45.0, step=0.5, key=f"{fk}_sve"))
+        elif natureza == "Produto":
+            ptipo = st.text_input("Tipo do produto *", key=f"{fk}_ptipo", placeholder="Ex.: cosmética, suplemento")
+            pdesc = st.text_area("Descrição do produto", key=f"{fk}_pdesc", height=70)
+            pve = float(st.number_input("Valor de venda (€) *", min_value=0.01, value=10.0, step=0.5, key=f"{fk}_pve"))
+            porig_l = st.radio("Origem *", ["Estoque próprio", "Repasse / consignado"], horizontal=True, key=f"{fk}_porig")
+            porig = "proprio" if porig_l == "Estoque próprio" else "repasse"
+            if porig == "repasse":
+                modo_rep = st.radio("Acordo com o proprietário *", ["Percentual", "Valor fixo"], horizontal=True, key=f"{fk}_pmod")
+                if modo_rep == "Percentual":
+                    pr_pct = float(
+                        st.number_input("Percentual de repasse (%) *", min_value=0.01, max_value=100.0, value=30.0, step=0.01, key=f"{fk}_prpct")
+                    )
+                else:
+                    pr_ve = float(st.number_input("Valor de repasse (€) *", min_value=0.01, value=5.0, step=0.5, key=f"{fk}_prve"))
+        else:
+            cws = st.text_input("Nome da sala *", key=f"{fk}_cws")
+            cwc_l = st.radio("Cobrança *", ["Por hora", "Por dia"], horizontal=True, key=f"{fk}_cwc")
+            cwc = "hora" if cwc_l == "Por hora" else "dia"
+            cwv = float(st.number_input("Valor (€) *", min_value=0.01, value=8.0, step=0.5, key=f"{fk}_cwv"))
+
+        if st.button("Registar no catálogo", type="primary", key=f"{fk}_submit"):
+            ok, msg = cadastrar_servico_fase1(
+                natureza,
+                nome,
+                descritivo,
+                ativo,
+                sessao_duracao_horas=sessao_dh if natureza == "Sessão" else None,
+                sessao_valor_euros=sessao_ve if natureza == "Sessão" else None,
+                produto_tipo=ptipo if natureza == "Produto" else "",
+                produto_descricao=pdesc if natureza == "Produto" else "",
+                produto_valor_euros=pve if natureza == "Produto" else None,
+                produto_origem=porig if natureza == "Produto" else "",
+                produto_repasse_pct=pr_pct if natureza == "Produto" and porig == "repasse" and pr_pct > 0 else None,
+                produto_repasse_valor_euros=pr_ve if natureza == "Produto" and porig == "repasse" and pr_ve > 0 else None,
+                cowork_sala_nome=cws if natureza == "Coworking" else "",
+                cowork_cobranca=cwc if natureza == "Coworking" else "",
+                cowork_valor_euros=cwv if natureza == "Coworking" else None,
+            )
+            if ok:
+                st.success(msg)
+                for k in list(st.session_state.keys()):
+                    if k.startswith(f"{fk}_") and k not in (f"{fk}_nat", f"{fk}_ativo"):
+                        try:
+                            del st.session_state[k]
+                        except Exception:
+                            pass
+            else:
+                st.error(msg)
+
+    st.subheader("Itens registados")
+    itens = listar_itens_catalogo()
+    if not itens:
+        st.info("Sem registos na tabela `servicos`.")
+    else:
+        st.table(
+            {
+                "ID": [r["id"] for r in itens],
+                "Nome": [r["nome"] for r in itens],
+                "Natureza": [r["natureza"] for r in itens],
+                "Ativo": [r["ativo"] for r in itens],
+                "Descritivo": [r["descritivo"] for r in itens],
+                "Detalhes": [r["detalhes"] for r in itens],
+            }
+        )
 
 
 def _page_placeholder(title: str, trail: list[str], blurb: str, *, back_key: str) -> None:
@@ -368,12 +562,7 @@ def main() -> None:
                 st.session_state.page = "colaboradores"
             _page_colaboradores()
         elif page == "catalogo":
-            _page_placeholder(
-                "Catálogo de serviços",
-                ["Home", "Catálogo"],
-                "Módulo em construção: Sessão, Tempo, Pacote e Produto (4 naturezas).",
-                back_key="bea_back_catalogo",
-            )
+            _page_catalogo()
         elif page == "vendas":
             _page_placeholder(
                 "Painel de vendas",

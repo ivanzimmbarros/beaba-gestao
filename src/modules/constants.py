@@ -7,4 +7,7 @@ SEXOS: tuple[str, ...] = (
     "Prefiro não informar",
 )
 
-__all__ = ["SEXOS"]
+# Catálogo — Fase 1 (E06 incremental). Pacote e Evento nas fases seguintes.
+NATUREZAS_CATALOGO_FASE1: tuple[str, ...] = ("Sessão", "Produto", "Coworking")
+
+__all__ = ["SEXOS", "NATUREZAS_CATALOGO_FASE1"]
