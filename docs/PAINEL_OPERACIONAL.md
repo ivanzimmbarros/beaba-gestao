@@ -52,5 +52,5 @@ Todas as entregas acima seguiram o *Fluxo de 15 Etapas* com **pytest** (`tests/`
 ## Registo da última entrega
 
 - **Entrega:** Sincronização **Painel Operacional** com o *Fluxo de 15 Etapas* + registo da correção CI das auditorias (`fetch-depth: 0`, fallback `HEAD^`).
-- **Commits de referência:** `0303aa1` / `e326556` (E04 + registo hash); `185103e` (CI auditorias); *commit desta atualização do painel*.
+- **Commits de referência:** `ac69975` (sincronização 15 etapas + CONTROLE); `185103e` (CI auditorias); `0303aa1` / `e326556` (E04).
 - **Notas:** As etapas 04–15 estavam em ⚪ apesar de já cumpridas nas entregas anteriores; esta revisão corrige o desvio face ao `.cursorrules`.
