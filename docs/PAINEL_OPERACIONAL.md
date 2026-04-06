@@ -250,7 +250,7 @@ Todas as entregas acima seguiram o *Fluxo de 15 Etapas* com **pytest** (`tests/`
 
 ## Registo da última entrega
 
-- **Entrega (esta revisão):** **E11 encerrada** — demanda `2026-04-06_E11_pre_venda_agenda`; código **`a6a9a8f`** (pré-venda, `agendamento_contexto_id`); dossier `01`–`09` + **`99_encerramento.md`**; **49** `pytest`; `status_demanda.json` sem demanda activa; commit de governança em `develop` *(ver histórico Git)*.
+- **Entrega (esta revisão):** **E11 encerrada** — demanda `2026-04-06_E11_pre_venda_agenda`; código **`a6a9a8f`** (pré-venda); governança PC5–PC13 **`f07f85b`** (`06`–`09`, **`99_encerramento.md`**); **49** `pytest`; `status_demanda.json` sem demanda activa.
 - **Entrega (referência anterior):** **`6671f3d`** — **Canal `@Files` → Analista**; documentação e controlos **automáticos pela EQUIPE** (mandatório; Diretor não prepara dossiers). Ficheiros: `FLUXO_SUCESSO_E_FALHA.md`, `.cursorrules`, `PAINEL`, `CONTROLE`, `demandas/README`, `status_demanda.json`, `page_fluxo_gestao`, `MODELO`, `CADERNO_TESTES_MASTER`, `test_governanca`.
 - **Entrega (referência anterior):** **Regra máxima — Fluxo SUCESSO / FALHA** — commit **`f92c4f2`**: [`docs/governanca/FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md); PC1–PC13 no `PAINEL`; [`.cursorrules`](../.cursorrules); [`docs/CADERNO_TESTES_MASTER.md`](CADERNO_TESTES_MASTER.md); [`docs/governanca/status_demanda.json`](governanca/status_demanda.json); **Fluxo e governança** na app; **43** testes.
 - **Entrega (referência anterior):** **Governança — Checkpoints Git por persona** — commit **`f07395c`**: tabela + reinício no `PAINEL`, [`.cursorrules`](../.cursorrules), registo em `CONTROLE_DE_VOO.md`.
