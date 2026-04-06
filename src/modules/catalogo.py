@@ -659,6 +659,134 @@ def listar_itens_catalogo() -> list[dict[str, str | int | float | None]]:
     return out
 
 
+def listar_servicos_para_venda() -> list[dict[str, str | int]]:
+    """Serviços ativos de todas as naturezas (inclui Pacote e Evento) para o Painel de Vendas."""
+    conn = get_connection()
+    if not conn:
+        return []
+    out: list[dict[str, str | int]] = []
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, nome, natureza, descritivo
+            FROM servicos
+            WHERE ativo = 1
+            ORDER BY natureza, nome
+            """
+        )
+        for sid, nome, nat, desc in cur.fetchall():
+            out.append(
+                {
+                    "id": int(sid),
+                    "nome": str(nome),
+                    "natureza": str(nat or ""),
+                    "descritivo": str(desc or ""),
+                }
+            )
+    finally:
+        conn.close()
+    return out
+
+
+def resolver_snapshot_venda(
+    servico_id: int,
+    *,
+    evento_preco: str | None = None,
+    is_bonus: bool = False,
+) -> tuple[bool, str, dict[str, str | int]]:
+    """
+    Preço e texto de venda a partir do catálogo (serviço ativo).
+    Evento: exige `evento_preco` em ('adulto', 'crianca').
+    Bónus: `preco_unitario_centavos` = 0 (mantém `servico_id` na linha).
+    """
+    conn = get_connection()
+    if not conn:
+        return False, "❌ Não foi possível ligar à base de dados.", {}
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, nome, natureza, ativo, descritivo,
+                   sessao_valor_centavos,
+                   produto_valor_centavos,
+                   cowork_cobranca, cowork_valor_centavos,
+                   pacote_valor_venda_centavos,
+                   evento_preco_crianca_centavos, evento_preco_adulto_centavos
+            FROM servicos WHERE id = ?
+            """,
+            (int(servico_id),),
+        )
+        row = cur.fetchone()
+        if not row:
+            return False, "❌ Serviço não encontrado.", {}
+        (
+            sid,
+            nome,
+            natureza,
+            ativo,
+            descritivo,
+            svc_sess,
+            svc_prod,
+            cw_cob,
+            cw_val,
+            pac_val,
+            ev_cc,
+            ev_ca,
+        ) = row
+        if not ativo:
+            return False, "❌ Serviço inativo — não pode ser vendido.", {}
+        nat = str(natureza or "")
+        desc = (descritivo or "").strip()
+        unidade = "unidade"
+        preco: int | None = None
+        if nat == "Sessão":
+            unidade = "sessão"
+            preco = int(svc_sess) if svc_sess is not None else None
+        elif nat == "Produto":
+            unidade = "un"
+            preco = int(svc_prod) if svc_prod is not None else None
+        elif nat == "Coworking":
+            unidade = "hora" if cw_cob == "hora" else "dia" if cw_cob == "dia" else str(cw_cob or "unidade")
+            preco = int(cw_val) if cw_val is not None else None
+        elif nat == "Pacote":
+            unidade = "pacote"
+            preco = int(pac_val) if pac_val is not None else None
+        elif nat == "Evento":
+            unidade = "ingresso"
+            ep = (evento_preco or "").strip()
+            if ep == "adulto":
+                preco = int(ev_ca) if ev_ca is not None else None
+            elif ep == "crianca":
+                preco = int(ev_cc) if ev_cc is not None else None
+            else:
+                return (
+                    False,
+                    "❌ Para serviço Evento, indique preço adulto ou criança.",
+                    {},
+                )
+        else:
+            return False, f"❌ Natureza «{nat}» não suportada na venda.", {}
+
+        if preco is None or preco < 0:
+            return False, "❌ Preço de venda incompleto no catálogo para este item.", {}
+
+        if is_bonus:
+            preco = 0
+
+        snap: dict[str, str | int] = {
+            "servico_id": int(sid),
+            "natureza": nat,
+            "nome": str(nome),
+            "descricao": desc,
+            "unidade_medida": unidade,
+            "preco_unitario_centavos": int(preco),
+        }
+        return True, "", snap
+    finally:
+        conn.close()
+
+
 __all__ = [
     "cadastrar_evento",
     "cadastrar_pacote",
@@ -666,8 +794,10 @@ __all__ = [
     "centavos_para_texto_euros",
     "euros_para_centavos",
     "listar_itens_catalogo",
+    "listar_servicos_para_venda",
     "listar_servicos_produto_para_pacote",
     "listar_servicos_sessao_para_pacote",
     "percentual_para_centesimos_ref",
     "repasse_medio_ponderado_pacote",
+    "resolver_snapshot_venda",
 ]
