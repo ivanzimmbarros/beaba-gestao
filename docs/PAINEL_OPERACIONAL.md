@@ -8,7 +8,21 @@
 
 **Instrução:** em **cada ponto de controlo de Painel**, o estado aqui descrito deve estar **alinhado** com **`origin/develop`** (cloud) e com [`docs/governanca/status_demanda.json`](governanca/status_demanda.json) (dashboard na app: **Fluxo e governança**). Ordem: **GitHub primeiro** (ficheiros locais + **commit** + **`push`** ao remoto), **Painel depois** (pares PC1→2, PC3→4, … — ver tabela). Em **falha**, repetir pontos de controlo e documentar pareceres negativos (ver fluxo FALHA no documento de governança). **Actualização do JSON e deste ficheiro:** pela **EQUIPE**, não pelo Diretor.
 
-**Última revisão do painel:** 2026-04-06 — **Canal `@Files` + documentação automática pela EQUIPE** — commit **`6671f3d`**.
+**Última revisão do painel:** 2026-04-06 — **Demanda E11** (pré-venda / venda no atendimento) — desenho funcional em dossier; **PC1 parcial** até confirmação do Diretor no chat.
+
+---
+
+## Demanda activa — governança SUCESSO/FALHA
+
+| Campo | Valor |
+|:---|:---|
+| **ID** | `2026-04-06_E11_pre_venda_agenda` |
+| **Dossier** | [`docs/governanca/demandas/2026-04-06_E11_pre_venda_agenda/`](governanca/demandas/2026-04-06_E11_pre_venda_agenda/) |
+| **Fase** | **A** — `01_demanda_diretor.md` e `02_desenho_funcional.md` entregues |
+| **PC1** | **Parcial** — `03_confirmacao_diretor.md` aguarda **confirmação formal do Diretor** (passo 4); após «CONFIRMO»/«PROSSIGA», a EQUIPE preenche o registo em `03`, faz **commit + push** e marca **PC1** fechado |
+| **PC2** | Actualização plena deste painel + `CONTROLE_DE_VOO.md` após fecho de PC1 |
+
+**Resumo do pedido:** suportar **agendamentos sem venda fechada** (expectativa de venda), **fecho de venda no dia do atendimento** e **vendas adicionais** no contexto da mesma visita — ver [`02_desenho_funcional.md`](governanca/demandas/2026-04-06_E11_pre_venda_agenda/02_desenho_funcional.md).
 
 ---
 
