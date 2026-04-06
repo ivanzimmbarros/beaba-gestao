@@ -3,7 +3,7 @@
 **Demanda:** `2026-04-06_E11_pre_venda_agenda`  
 **Autor:** EQUIPE (Analista)  
 **Data:** 2026-04-06  
-**Estado:** proposta para **validação formal pelo Diretor** (passo 4 do fluxo SUCESSO).
+**Estado:** **aprovado** pelo Diretor (2026-04-06 — «PROSSIGA» no Cursor); ver [`03_confirmacao_diretor.md`](03_confirmacao_diretor.md).
 
 ---
 

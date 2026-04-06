@@ -49,6 +49,13 @@
 - **Saldo de crédito (sem tabela extra):** por `(venda_item_id, pacote_sessao_id)` — direitos = quantidade da linha (ou `quantidade_pacote_sessão × quantidade_linha_venda` para pacote); consumo = ocorrências em `AGENDADO`/`CONFIRMADO`/`CONCLUIDO` ou `CANCELADO` com `devolver_ao_buffer = 0`. **Produto** não gera créditos agendáveis.
 - **UI / tema:** `page_agendamentos.py`; tokens `AGENDA_STATUS_STYLES` e `AGENDA_TIPO_ORIGEM_ICONS` em `theme.py`.
 
+### Evolução E11 — pré-venda na agenda *(PC3–PC4 fechados; implementação Fase C)*
+- Demanda [`2026-04-06_E11_pre_venda_agenda`](governanca/demandas/2026-04-06_E11_pre_venda_agenda/04_desenho_logico.md): compromissos de agenda **sem** linha de venda no momento (`pre_venda`), fecho no atendimento e vendas adicionais por visita.
+- **`agendamentos`:** `modo_origem` (`credito_venda` \| `pre_venda`); `venda_id` / `venda_item_id` **NULL** só em `pre_venda`; `preco_referencia_centavos` opcional; CHECK composto; migração SQLite por recriação da tabela (esquema legado com NOT NULL).
+- **MVP:** `pre_venda` apenas para naturezas **Sessão**, **Coworking**, **Evento** (pacote = fase posterior).
+- **`vendas`:** coluna opcional **`agendamento_contexto_id`** (FK → `agendamentos`, `ON DELETE SET NULL`) para rastrear venda registada no contexto de uma visita.
+- **Regras:** consumo de buffer só com `credito_venda`; `CONCLUIDO` bloqueado para `pre_venda` sem associação a `venda_item`.
+
 ### Analytics / Dashboards (E08)
 - **Módulo `relatorios.py`:** agregações sobre `venda_itens` ⋈ `vendas` ⋈ `clientes` ⋈ `servicos` ⋈ `colaboradores` (LEFT); filtros: período (`date(data_registo)`), clientes, serviços, colaboradores (linha), checkbox natureza **Produto**.
 - **Métricas Fase A (“lucro”):** sem custos na base — **receita em linhas** = `SUM(total_linha_centavos)` (após desconto de linha); **receita em cabeçalhos** = soma de `total_final_centavos` por `venda_id` distinto no conjunto filtrado (inclui desconto global). Na UI, «margem / lucro» na Fase A alinha-se à **receita (linhas)** com nota explícita; **Fase B** poderá introduzir custos ou reparte analítica.
