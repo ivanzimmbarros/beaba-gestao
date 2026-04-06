@@ -10,7 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Código
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Validar Estrutura de Pastas
         run: |
@@ -29,10 +31,17 @@ jobs:
           echo "### 🛢️ VERIFICAÇÃO DE INTEGRIDADE SQL"
           # Busca por arquivos .py ou .sql que contenham criação de tabelas
           grep -rE "whatsapp|CHECK|length" . || echo "⚠️ Aviso: Nenhuma constraint de WhatsApp detectada ainda."
-          
+
       - name: Relatório de Auditoria Técnica
         run: |
           echo "---"
           echo "AUTOR: ${{ github.actor }}"
           echo "COMMIT: ${{ github.sha }}"
-          git diff --stat HEAD^ HEAD
+          # HEAD^ falha (exit 128) no primeiro commit ou com clone raso; fetch-depth: 0 evita clone raso.
+          if PARENT=$(git rev-parse HEAD^ 2>/dev/null); then
+            git diff --stat "$PARENT" HEAD
+          else
+            echo "ℹ️ Sem HEAD^ (primeiro commit ou pai inacessível) — diff --stat contra árvore vazia."
+            EMPTY_TREE=4b825dc642cb6eb9a060e54bf8d69288fbee4904
+            git diff --stat "$EMPTY_TREE" HEAD
+          fi
