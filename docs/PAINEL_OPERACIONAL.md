@@ -2,11 +2,13 @@
 
 **Regra máxima:** toda evolução segue o **Fluxo SUCESSO / FALHA** em [`docs/governanca/FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md) e [`.cursorrules`](../.cursorrules). O *Fluxo de 15 Etapas* (tabelas por ciclo E0x abaixo) é **subordinado** a esse processo (implementação técnica dentro das fases Dev/QA).
 
+**Entrada da demanda — mandatório:** o Diretor envia o pedido no **Cursor** com **`@Files`** dirigido ao **Analista**. **Não** é requisito preparar documentos fora do chat. A **EQUIPE** (agente Cursor) **gera e mantém automaticamente** toda a documentação (`demandas/`, pareceres, selos), **PAINEL**, **CONTROLE**, **MODELO**, **testes**, **`status_demanda.json`**, **commits e push** em `develop`. Após a **primeira intervenção** do Diretor, as actividades complementares ficam **sob gestão exclusiva da EQUIPE** até marcos que exijam resposta do Diretor no chat (confirmação, **PROSSIGA**, etc.).
+
 **Processo padrão técnico:** *Fluxo de 15 Etapas* por marco de produto.
 
-**Instrução:** em **cada ponto de controlo de Painel**, o estado aqui descrito deve estar **alinhado** com **`origin/develop`** e com [`docs/governanca/status_demanda.json`](governanca/status_demanda.json) (dashboard na app: **Fluxo e governança**). Ordem: **GitHub primeiro**, **Painel depois** (pares PC1→2, PC3→4, … — ver tabela). Em **falha**, repetir pontos de controlo e documentar pareceres negativos (ver fluxo FALHA no documento de governança).
+**Instrução:** em **cada ponto de controlo de Painel**, o estado aqui descrito deve estar **alinhado** com **`origin/develop`** e com [`docs/governanca/status_demanda.json`](governanca/status_demanda.json) (dashboard na app: **Fluxo e governança**). Ordem: **GitHub primeiro**, **Painel depois** (pares PC1→2, PC3→4, … — ver tabela). Em **falha**, repetir pontos de controlo e documentar pareceres negativos (ver fluxo FALHA no documento de governança). **Actualização do JSON e deste ficheiro:** pela **EQUIPE**, não pelo Diretor.
 
-**Última revisão do painel:** 2026-04-06 — **Regra máxima SUCESSO/FALHA** + **13 pontos de controlo** (Git/Painel) + dashboard `status_demanda.json` + [`docs/CADERNO_TESTES_MASTER.md`](CADERNO_TESTES_MASTER.md) — envio **`f92c4f2`**.
+**Última revisão do painel:** 2026-04-06 — **Canal `@Files` + documentação automática pela EQUIPE** (regra mandatória).
 
 ---
 
@@ -14,7 +16,7 @@
 
 | PC | Após | GitHub (`develop`) | Painel / `CONTROLE` / JSON |
 |:---:|:---|:---|:---|
-| **PC1** | Passos 1–4 (Diretor confirmou funcional) | Demanda + desenho funcional + **selo Diretor** (`docs/governanca/demandas/<ID>/`) | **PC2:** este ficheiro + `CONTROLE`; actualizar `status_demanda.json` |
+| **PC1** | Passos 1–4 (Diretor confirmou no **chat**) | `01`–`03` em `demandas/<ID>/` (**EQUIPE** gera a partir de `@Files` + resposta no Cursor) | **PC2:** este ficheiro + `CONTROLE`; **EQUIPE** actualiza `status_demanda.json` |
 | **PC3** | Passos 5–9 (Analista validou desenho lógico) | Desenho lógico + **selo Analista** | **PC4:** Painel + JSON |
 | **PC5** | Passos 10–13 (Arquiteto validou código) | Parecer Arquiteto + **selo Arquiteto** | **PC6:** Painel + JSON |
 | **PC7** | Passos 14–18 (Analista validou código; plano testes) | Código aprovado por Arq.+Analista; `CADERNO_TESTES_MASTER`; **selo Analista** | **PC8:** Painel + JSON |
@@ -230,7 +232,8 @@ Todas as entregas acima seguiram o *Fluxo de 15 Etapas* com **pytest** (`tests/`
 
 ## Registo da última entrega
 
-- **Entrega (esta revisão):** **Regra máxima — Fluxo SUCESSO / FALHA** — commit **`f92c4f2`**: [`docs/governanca/FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md); PC1–PC13 no `PAINEL`; [`.cursorrules`](../.cursorrules); [`docs/CADERNO_TESTES_MASTER.md`](CADERNO_TESTES_MASTER.md); [`docs/governanca/status_demanda.json`](governanca/status_demanda.json); **Fluxo e governança** na app; **43** testes.
+- **Entrega (esta revisão):** **Canal `@Files` → Analista**; documentação e controlos **automáticos pela EQUIPE** (mandatório; Diretor não prepara dossiers). Actualização: `FLUXO_SUCESSO_E_FALHA.md`, `.cursorrules`, `PAINEL`, `CONTROLE`, `demandas/README`, `status_demanda.json`, `page_fluxo_gestao`, `MODELO`, `CADERNO_TESTES_MASTER`, `test_governanca`.
+- **Entrega (referência anterior):** **Regra máxima — Fluxo SUCESSO / FALHA** — commit **`f92c4f2`**: [`docs/governanca/FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md); PC1–PC13 no `PAINEL`; [`.cursorrules`](../.cursorrules); [`docs/CADERNO_TESTES_MASTER.md`](CADERNO_TESTES_MASTER.md); [`docs/governanca/status_demanda.json`](governanca/status_demanda.json); **Fluxo e governança** na app; **43** testes.
 - **Entrega (referência anterior):** **Governança — Checkpoints Git por persona** — commit **`f07395c`**: tabela + reinício no `PAINEL`, [`.cursorrules`](../.cursorrules), registo em `CONTROLE_DE_VOO.md`.
 - **Entrega (referência anterior):** **Sincronização Git `develop` — E07, E08 e E09** — commit **`7dfc53d`** (acumulado no working copy após E06; **commit + push** restauram evidência na Action e no histórico). Inclui: **E07** `venda.py`, `page_vendas.py`; **E08** `relatorios.py`, `page_dashboards.py`, Plotly; **E09** `agendamentos`/`agendamento_colaboradores`, `agendamento.py`, `page_agendamentos.py`, **40** testes; `beaba_gestao.db` **removido do índice** Git (mantém-se local, `*.db` ignorado).
 - **Entrega (referência anterior):** **E09 — Refinamento com Diretor (Agendamentos)** — validadas decisões de buffer, horários e léxico visual.

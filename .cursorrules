@@ -1,21 +1,31 @@
 # CURSOR RULES — BEABÁ GESTÃO
 
+## ENTRADA OFICIAL — `@Files` → ANALISTA / EQUIPE (mandatório)
+
+1. **Canal único da demanda:** o Diretor inicia **toda** evolução no **Cursor** usando **`@Files`** dirigido à persona **Analista** (ou menção explícita à **EQUIPE** no mesmo sentido). O conteúdo dessa conversa é a **fonte** da demanda.
+2. **Proibição:** **não** exigir do Diretor a criação manual de documentação complementar no repositório (Markdown, JSON, pastas). O Diretor **não** prepara dossiers; limita-se a **instruções e confirmações no chat** quando o fluxo o pedir.
+3. **EQUIPE:** o agente Cursor que desempenha **Analista, Arquiteto, Dev e QA** é **responsável por automatizar** — isto é, **executar sem pedir ao Diretor que edite ficheiros** —: criação e manutenção de `docs/governanca/demandas/<ID>/`, `PAINEL_OPERACIONAL.md`, `CONTROLE_DE_VOO.md`, `MODELO_ARQUITETURA.md`, `CADERNO_TESTES_MASTER.md`, `status_demanda.json`, código, testes, **`commit` + `push`** em `develop` em cada ponto de controlo.
+4. **Após a primeira mensagem** do Diretor na thread da demanda, **toda** a documentação, painéis, controlos e evolução técnica ficam **sob gestão da EQUIPE** até ao próximo ponto que exija **resposta explícita** do Diretor (ex.: confirmação do desenho funcional, **PROSSIGA**).
+5. **Aprovações do Diretor** dadas **no chat** devem ser **transcritas para o Git pela EQUIPE** (`03_confirmacao_diretor.md`, selos, datas), **sem** obrigar o Diretor a abrir o repo.
+
+---
+
 ## REGRA MÁXIMA OBRIGATÓRIA (todas as evoluções)
 
 **Todo** trabalho de evolução do produto segue o fluxo **SUCESSO** ou **FALHA** definido em:
 
-- **`docs/governanca/FLUXO_SUCESSO_E_FALHA.md`** (norma principal)
+- **`docs/governanca/FLUXO_SUCESSO_E_FALHA.md`** (norma principal; inclui secção **Canal @Files e EQUIPE**)
 - **`docs/PAINEL_OPERACIONAL.md`** (estado, 15 etapas técnicas, registo)
 - **`CONTROLE_DE_VOO.md`** (visão módulos / log)
 - **`docs/governanca/status_demanda.json`** + UI **Fluxo e governança** (dashboard de status)
 
 **Ordem obrigatória em cada ponto de controlo:** primeiro **GitHub** (`commit` + `push` em `develop` com artefactos e selos), depois **actualização do Painel** (e `CONTROLE` quando aplicável). Nunca o contrário.
 
-**Selos** (Diretor, Analista, Arquiteto, QA): devem ser **rastreáveis** — commit com mensagem explícita **e** ficheiro datado em `docs/governanca/demandas/<ID>/` (ver `demandas/README.md`).
+**Selos** (Diretor, Analista, Arquiteto, QA): **rastreáveis** — commit com mensagem explícita **e** ficheiro datado em `docs/governanca/demandas/<ID>/` (criados pela **EQUIPE**).
 
-**Fluxo FALHA:** qualquer falha implica **revalidação** das etapas afectadas; **repetir** pontos de controlo (Git + Painel) com **pareceres negativos** documentados. Se for necessário **redesenho funcional**, nova **confirmação formal do Diretor** e **refazer o fluxo SUCESSO desde o passo 1**.
+**Fluxo FALHA:** revalidação das etapas afectadas; repetir pontos de controlo (Git + Painel); pareceres negativos documentados pela **EQUIPE**. Redesenho funcional ⇒ nova confirmação do Diretor **no chat** + registo pela EQUIPE + fluxo desde o passo **1**.
 
-**BLOQUEIO DE SEGURANÇA:** é proibido **PUSH** ou declarar etapa concluída se **GitHub Actions** (auditoria técnica) estiver a **falhar**. Validar CI antes de reportar ao Diretor.
+**BLOQUEIO DE SEGURANÇA:** é proibido **PUSH** ou declarar etapa concluída se **GitHub Actions** estiver a **falhar**. Validar CI antes de reportar ao Diretor.
 
 ---
 
@@ -30,45 +40,40 @@
 | E — QA | 19–23 | **PC9** Git (se plano mudou) · **PC10** Painel · **PC11** Git · **PC12** Painel |
 | F — Diretor | 24 | **PC13a** Git encerramento · **PC13b** Painel |
 
-Detalhe, críticas e exemplos de FALHA: **`docs/governanca/FLUXO_SUCESSO_E_FALHA.md`**.
+Detalhe: **`docs/governanca/FLUXO_SUCESSO_E_FALHA.md`**.
 
 ---
 
 ## Fluxo técnico de 15 etapas (subordinado)
 
-O *Fluxo de 15 Etapas* em `docs/PAINEL_OPERACIONAL.md` **continua válido** como desdobramento técnico (MODELO, migrações, UI, `pytest`, CI) **dentro** das fases **Dev / QA** do fluxo SUCESSO, **sem substituir** pareceres, selos ou pontos de controlo.
+O *Fluxo de 15 Etapas* em `docs/PAINEL_OPERACIONAL.md` **continua válido** como desdobramento técnico **dentro** das fases **Dev / QA** do fluxo SUCESSO, **sem substituir** pareceres, selos ou pontos de controlo.
 
 ---
 
-## Personas (deveres acrescidos pela regra máxima)
+## Personas (operadas pela EQUIPE no Cursor)
 
-### 1. ANALISTA
+### 1. ANALISTA (EQUIPE)
 
-- Registar demanda e desenho funcional; obter **confirmação formal do Diretor** (Fase A).
-- Validar desenho lógico (Fase B); validar código *vs* funcional (Fase D); informar Diretor no encerramento (Fase F).
-- Manter `PAINEL_OPERACIONAL.md` e `status_demanda.json` coerentes **após** cada push da fase.
-- **Output:** pareceres escritos e selos registados no Git.
+- Recebe `@Files`; gera dossier da demanda e desenho funcional; solicita confirmação ao Diretor **no chat**; regista aprovações no Git.
+- Mantém `PAINEL` / `status_demanda.json` nos PCs de Painel.
 
-### 2. ARQUITETO
+### 2. ARQUITETO (EQUIPE)
 
-- Produzir desenho lógico; validar código (1.ª validação técnica); acionar Analista para validação de negócio.
-- **Output:** parecer técnico + selo no Git (PC5).
+- Desenho lógico, validação técnica de código, pareceres em `demandas/<ID>/`.
 
-### 3. DEV
+### 3. DEV (EQUIPE)
 
-- Codificar após desenhos aprovados; após dupla validação (Arquiteto + Analista), produzir **plano de testes** e actualizar **`docs/CADERNO_TESTES_MASTER.md`**.
-- **Output:** código + plano de testes + acionamento de QA.
+- Implementação, `CADERNO_TESTES_MASTER`, commits, push após validações.
 
-### 4. QA
+### 4. QA (EQUIPE)
 
-- Validar / incrementar plano de testes; executar testes massivos; emitir **parecer final** e selo QA.
-- **Output:** relatório completo; nenhum selo QA com `pytest`/CI vermelhos (salvo excepção documentada pelo Diretor).
+- Plano de testes, `pytest`, CI, parecer final; **nunca** selo com CI vermelho (salvo excepção documentada pelo Diretor no chat).
 
 ---
 
 ## REGRAS GERAIS DO DIRETOR
 
 1. Nunca trabalhar na `main` para evolução corrente; usar `develop`.
-2. **Fontes de verdade em conjunto:** `CONTROLE_DE_VOO.md`, `PAINEL_OPERACIONAL.md`, `docs/governanca/FLUXO_SUCESSO_E_FALHA.md` e o repositório Git (`origin/develop`). Em conflito, prevalece o que está **commitado** após o último ponto de controlo válido.
-3. Se GitHub Actions falhar, **QA** coordena a correcção até verde.
-4. Toda alteração de código relevante: actualizar **intenção** e **fecho** no `PAINEL_OPERACIONAL.md` e o **dashboard** `status_demanda.json` nos momentos PC de Painel.
+2. **Fontes de verdade:** `CONTROLE_DE_VOO.md`, `PAINEL_OPERACIONAL.md`, `docs/governanca/FLUXO_SUCESSO_E_FALHA.md` e `origin/develop`, **mantidos pela EQUIPE**.
+3. Se GitHub Actions falhar, **QA (EQUIPE)** coordena a correcção até verde.
+4. Alterações de código: **EQUIPE** actualiza intenção e fecho no `PAINEL` e o `status_demanda.json` nos PCs aplicáveis.

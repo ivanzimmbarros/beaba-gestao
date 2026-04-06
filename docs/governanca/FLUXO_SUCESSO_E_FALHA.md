@@ -6,6 +6,16 @@
 
 ---
 
+## Canal oficial de demanda e responsabilidade da EQUIPE (@Files) — **mandatório**
+
+1. **Entrada da demanda:** o Diretor envia a instrução **exclusivamente** através do **Cursor**, usando **`@Files`** dirigido à persona **Analista** (ou menção explícita equivalente à **EQUIPE** / Analista no mesmo sentido). Essa mensagem é a **fonte autoritativa** da demanda inicial.
+2. **Sem documentação manual pelo Diretor:** o Diretor **não** é obrigado a criar, editar ou anexar ficheiros complementares no repositório (Markdown, JSON, etc.). **É proibido** ao processo **exigir** do Diretor a elaboração manual desses artefactos para avançar.
+3. **EQUIPE = agente Cursor** que executa as personas (Analista, Arquiteto, Dev, QA) em sequência lógica: a EQUIPE **gera, actualiza e comita automaticamente** toda a documentação necessária — `docs/governanca/demandas/<ID>/` (incluindo transcrição/síntese da demanda, desenhos, pareceres, selos), [`PAINEL_OPERACIONAL.md`](../PAINEL_OPERACIONAL.md), [`CONTROLE_DE_VOO.md`](../../CONTROLE_DE_VOO.md), [`MODELO_ARQUITETURA.md`](../MODELO_ARQUITETURA.md), [`CADERNO_TESTES_MASTER.md`](../CADERNO_TESTES_MASTER.md), [`status_demanda.json`](status_demanda.json), código, testes, e **`commit` + `push`** em `develop` em cada ponto de controlo aplicável.
+4. **Após a primeira intervenção** do Diretor na thread da demanda, **toda** a actividade complementar (documentação, painéis, evolução de ficheiros de controlo, implementação) fica **sob gestão da EQUIPE** até ao próximo marco que exija **resposta explícita** do Diretor no chat (ex.: confirmação formal do desenho funcional, **PROSSIGA**, decisão de veto).
+5. **Confirmações do Diretor no chat:** quando o Diretor aprovar ou ordenar no Cursor (texto na conversa), a EQUIPE **regista** essa decisão no Git (`03_confirmacao_diretor.md` ou equivalente, com data e citação/sumário da aprovação) **sem** exigir que o Diretor edite o repositório.
+
+---
+
 ## Validação, críticas e sugestões (equipa)
 
 | Tópico | Crítica / risco | Sugestão |
@@ -16,6 +26,7 @@
 | Desenho funcional quebrado por QA | Exige novo ciclo completo | Regra explícita em **FALHA** — nova confirmação formal do **Diretor** e reexecução desde o passo **1**. |
 | Paralelismo | Dev “adiantar” QA sem pareceres | Fluxo **estritamente sequencial**; regressões voltam ao **primeiro** passo afectado. |
 | PC13 | Texto mencionava só Painel após GitHub | **PC13a** Git (encerramento) **antes** de **PC13b** Painel. |
+| Documentação “manual” pelo Diretor | Gargalo e incoerência com o uso de Cursor | **Proibido exigir**; EQUIPE gera **todos** os ficheiros a partir do `@Files` + respostas no chat. |
 
 ---
 
@@ -25,12 +36,12 @@
 
 | # | Actor | Acção |
 |:---:|:---|:---|
-| 1 | Analista | Recebe demanda do Diretor e **regista** requisição (`docs/governanca/demandas/<ID>/01_demanda_diretor.md`). |
-| 2 | Analista | Prepara **desenho funcional** com base nos requisitos iniciais. |
-| 3 | Analista | Apresenta desenho funcional ao **Diretor**, com explicação do que será desenvolvido, e **solicita confirmação formal**. |
-| 4 | Diretor | Emite **confirmação formal** (registada no mesmo dossier da demanda). |
+| 1 | **EQUIPE (Analista)** | Recebe a demanda do Diretor **via Cursor (`@Files` → Analista)**. **Cria** `docs/governanca/demandas/<ID>/` e o ficheiro `01_demanda_diretor.md` com **transcrição fiel ou síntese datada** do pedido (fonte = conversa). **Actualiza** `status_demanda.json`. |
+| 2 | **EQUIPE (Analista)** | Prepara **`02_desenho_funcional.md`** com base nos requisitos extraídos da demanda. |
+| 3 | **EQUIPE (Analista)** | Apresenta o desenho funcional ao **Diretor no chat** (explicação detalhada) e **solicita confirmação formal** (ex.: “CONFIRMO”, **PROSSIGA**). |
+| 4 | Diretor | Responde **no Cursor** com **confirmação formal**. A **EQUIPE** regista em **`03_confirmacao_diretor.md`** (data, sumário ou citação da aprovação) — o Diretor **não** precisa editar o repo. |
 
-**PC1 — GitHub:** `develop` contém (1) demanda original do Diretor; (2) desenho funcional aprovado; (3) **selo / confirmação formal do Diretor** (texto + referência de commit).
+**PC1 — GitHub:** `develop` contém (1) **`01_demanda_diretor.md`** (demanda derivada do `@Files`); (2) **`02_desenho_funcional.md`**; (3) **`03_confirmacao_diretor.md`** após resposta do Diretor no chat; **commit** com mensagem explícita (ex.: `docs(equipe): PC1 demanda <ID> selo diretor`).
 
 **PC2 — Painel:** `docs/PAINEL_OPERACIONAL.md` e, quando aplicável, `CONTROLE_DE_VOO.md` **actualizados após** PC1 (fase, links, ID da demanda).
 
@@ -40,11 +51,11 @@
 
 | # | Actor | Acção |
 |:---:|:---|:---|
-| 5 | Analista | Aciona Arquiteto (registo no dossier da demanda). |
-| 6 | Arquiteto | Recebe desenho funcional **e** demanda inicial. |
-| 7 | Arquiteto | Prepara **desenho lógico** e solicita validação ao Analista. |
-| 8 | Analista | Valida desenho lógico e responde ao Arquiteto. |
-| 9 | Arquiteto | Recebe **confirmação explícita** da validação do Analista. |
+| 5 | **EQUIPE (Analista)** | Aciona fase Arquiteto; **actualiza** `status_demanda.json` e registo no dossier (linha temporal / `00_indice.md` opcional). |
+| 6 | **EQUIPE (Arquiteto)** | Consome `01`–`03` e `02`. |
+| 7 | **EQUIPE (Arquiteto)** | Produz **`04_desenho_logico.md`**; solicita validação interna (Analista na EQUIPE). |
+| 8 | **EQUIPE (Analista)** | Valida desenho lógico; produz **`05_validacao_analista_desenho_logico.md`**. |
+| 9 | **EQUIPE (Arquiteto)** | Encerra ciclo de desenho lógico com parecer favorável documentado. |
 
 **PC3 — GitHub:** desenho lógico aprovado pelo Analista + **selo Analista (validação funcional do desenho lógico)**.
 
@@ -56,10 +67,10 @@
 
 | # | Actor | Acção |
 |:---:|:---|:---|
-| 10 | Arquiteto | Aciona Dev. |
-| 11 | Dev | Recebe desenho lógico **e** funcional; **codifica**; envia ao Arquiteto para **validação técnica**. |
-| 12 | Arquiteto | Valida código; elabora **PARECER DE AVALIAÇÃO DO CÓDIGO (Arquiteto)**; responde ao Dev. |
-| 13 | Dev | Recebe confirmação do Arquiteto **e** o parecer. |
+| 10 | **EQUIPE (Arquiteto)** | Aciona Dev (registo no dossier). |
+| 11 | **EQUIPE (Dev)** | Codifica; mantém `PAINEL`/`MODELO`/código; prepara entrega para validação. |
+| 12 | **EQUIPE (Arquiteto)** | Valida código; **`06_parecer_arquiteto_codigo.md`**. |
+| 13 | **EQUIPE (Dev)** | Incorpora parecer ou corrige conforme FALHA. |
 
 **PC5 — GitHub:** parecer do Arquiteto (ficheiro em `demandas/<ID>/` ou `docs/`) + **selo Arquiteto**.
 
@@ -71,11 +82,11 @@
 
 | # | Actor | Acção |
 |:---:|:---|:---|
-| 14 | Arquiteto | Aciona **Analista** para validação do código entregue pelo Dev. |
-| 15 | Analista | Recebe parecer do Arquiteto **e** código (ou referência de branch/commit); valida alinhamento ao desenho funcional. |
-| 16 | Analista | Elabora **PARECER DE AVALIAÇÃO DO ANALISTA** e responde ao Dev. |
-| 17 | Dev | Recebe confirmação do Analista **e** parecer. |
-| 18 | Dev | Prepara **plano de testes** da demanda e **actualiza** [`docs/CADERNO_TESTES_MASTER.md`](../CADERNO_TESTES_MASTER.md) (ou secção referenciada por ID de demanda). |
+| 14 | **EQUIPE (Arquiteto)** | Aciona **Analista** para validação de negócio do código. |
+| 15 | **EQUIPE (Analista)** | Valida alinhamento ao funcional; referência a commit/PR em `develop`. |
+| 16 | **EQUIPE (Analista)** | **`07_parecer_analista_codigo.md`**. |
+| 17 | **EQUIPE (Dev)** | Recebe parecer; corrige se necessário (FALHA). |
+| 18 | **EQUIPE (Dev)** | **Plano de testes** + **actualização obrigatória** de [`docs/CADERNO_TESTES_MASTER.md`](../CADERNO_TESTES_MASTER.md). |
 
 **PC7 — GitHub:** evidência de código aprovado por **Arquiteto e Analista**; plano de testes actualizado; **selo Analista** (aceitação para fase QA).
 
@@ -87,9 +98,9 @@
 
 | # | Actor | Acção |
 |:---:|:---|:---|
-| 19 | Dev | Aciona QA. |
-| 20 | QA | Recebe: desenho funcional, desenho lógico, pareceres finais (Analista e Arquiteto), plano de testes actualizado e código. |
-| 21 | QA | Valida plano de testes; se necessário, **actualiza** o plano (incremento documentado). |
+| 19 | **EQUIPE (Dev)** | Aciona QA (registo + `pytest` local antes de pedir selo). |
+| 20 | **EQUIPE (QA)** | Consolida inputs (docs + código em `develop`). |
+| 21 | **EQUIPE (QA)** | Valida plano; **actualiza** `CADERNO_TESTES_MASTER` e dossier se houver incremento. |
 
 **PC9 — GitHub:** se o plano de testes tiver mudado face a PC7, **novo** commit com o plano actualizado.
 
@@ -97,8 +108,8 @@
 
 | # | Actor | Acção |
 |:---:|:---|:---|
-| 22 | QA | Executa **testes massivos** (regressão + novidades) conforme documento final; elabora **PARECER FINAL DE QA** com resultados; envia a **Dev, Arquiteto e Analista**. |
-| 23 | Dev, Arquiteto, Analista | Recebem confirmação de QA **e** parecer com **todos** os testes e resultados. |
+| 22 | **EQUIPE (QA)** | **Testes massivos** (`pytest` completo, smoke acordado, CI verde); **`09_parecer_final_qa.md`**; notifica no **chat** (resumo para o Diretor se aplicável). |
+| 23 | **EQUIPE** | Estados internos alinhados; **nenhum** selo QA sem evidência no Git. |
 
 **PC11 — GitHub:** resultado dos testes massivos (relatório em `demandas/<ID>/` ou anexo referenciado) + **selo QA**.
 
@@ -110,9 +121,9 @@
 
 | # | Actor | Acção |
 |:---:|:---|:---|
-| 24 | Analista | Informa o **Diretor** da conclusão da demanda e **liberação para testes finais** / aceitação de produto (conforme definido com o Diretor). |
+| 24 | **EQUIPE (Analista)** | Informa o **Diretor no chat** da conclusão e libertação para testes finais / aceitação. **`99_encerramento.md`** gerado pela EQUIPE com data e referência ao parecer QA. |
 
-**PC13 — GitHub (13a):** acta de encerramento (`docs/governanca/demandas/<ID>/99_encerramento.md`) com data em que o Analista informou o Diretor e referência ao parecer QA; **commit + push** em `develop`.
+**PC13 — GitHub (13a):** `99_encerramento.md` **criado pela EQUIPE**; **commit + push** em `develop`.
 
 **PC13 — Painel (13b):** actualizado **após** 13a — demanda **concluída**, registo no final de `PAINEL_OPERACIONAL.md`.
 
@@ -126,14 +137,16 @@
 2. Durante o fluxo reverso, **todos** os pontos de controlo aplicáveis devem ser **repetidos** (GitHub **e** Painel), com **pareceres negativos** documentados (motivo, evidências, actor).
 3. **Exemplo A — Falha em QA:** QA notifica Dev, Arquiteto e Analista com **parecer completo** (o que falhou e porquê). Dev corrige; volta-se às etapas **11–18** (Arquiteto + Analista + plano de testes) **antes** de novo ciclo QA completo (19–23).
 4. **Exemplo B — Falha do Analista na validação do código (após parecer favorável do Arquiteto):** Analista notifica Arquiteto e Dev com **parecer negativo**; Dev e Arquiteto tratam a causa; reexecutar **12–18** conforme necessário.
-5. **Redesenho funcional exigido pelo QA (ou por qualquer actor):** nova versão do desenho funcional deve ser **reapresentada ao Diretor** e **confirmada formalmente**; em seguida, **todo** o fluxo SUCESSO é **refeito** desde o passo **1** (nova pasta `demandas/<ID_v2>/` ou sufixo de versão).
+5. **Redesenho funcional exigido pelo QA (ou por qualquer actor):** a EQUIPE prepara a nova versão do desenho funcional; **reapresentação ao Diretor no chat** e **confirmação formal** (resposta no Cursor); a EQUIPE regista em Git; **todo** o fluxo SUCESSO é **refeito** desde o passo **1** (nova pasta `demandas/<ID_v2>/` ou sufixo de versão).
+
+6. **Automático em sentido de processo:** “automático” significa que a **EQUIPE** executa as acções (ficheiros, commits, painel, JSON) **sem solicitar ao Diretor** que os faça manualmente; não dispensa **aprovações** do Diretor no chat quando o fluxo as exige.
 
 ---
 
 ## Dashboard de status (obrigatório)
 
-- **Ficheiro canónico:** [`status_demanda.json`](status_demanda.json) — estado actual: fase, responsável, pendentes, concluídos, falha.
-- **Visualização:** aplicação Streamlit — **Fluxo e governança** (lê o JSON; actualizar o JSON em cada PC de Painel).
+- **Ficheiro canónico:** [`status_demanda.json`](status_demanda.json) — estado actual: fase, responsável, pendentes, concluídos, falha. **Actualização:** exclusivamente pela **EQUIPE** em cada par **Painel** (após o respectivo commit), **não** pelo Diretor.
+- **Visualização:** aplicação Streamlit — **Fluxo e governança** (lê o JSON).
 
 ---
 

@@ -20,6 +20,8 @@ def test_fluxo_sucesso_doc_existe():
     text = p.read_text(encoding="utf-8")
     assert "PC13" in text
     assert "Fluxo FALHA" in text
+    assert "@Files" in text
+    assert "EQUIPE" in text
 
 
 def test_caderno_testes_master_existe():

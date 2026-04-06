@@ -1,6 +1,6 @@
 # Caderno mestre de testes — BeaBa Gestão
 
-**Normativo:** o **Dev** (passo **18** do fluxo [`governanca/FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md)) **actualiza** este documento com o **plano de testes** de cada demanda. O **QA** valida, incrementa se necessário, e executa testes massivos (automáticos + manuais acordados).
+**Normativo:** a **EQUIPE** (persona Dev no passo **18** do fluxo [`governanca/FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md)) **actualiza** este documento com o **plano de testes** de cada demanda. O **QA** (EQUIPE) valida, incrementa se necessário, e executa testes massivos. O Diretor **não** edita este ficheiro manualmente.
 
 ## 1. Testes automatizados (regressão obrigatória)
 
