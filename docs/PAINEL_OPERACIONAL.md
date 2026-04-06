@@ -2,9 +2,30 @@
 
 **Processo padrão de entrega:** *Fluxo de 15 Etapas* (governança em [`.cursorrules`](../.cursorrules)).
 
-**Instrução:** atualizar **antes** de alterações de código (intenção) e **depois** (estado, links, registo).
+**Instrução:** atualizar **antes** de alterações de código (intenção) e **depois** (estado, links, registo). **Além disso:** ao **terminar cada bloco de persona** (Analista, Arquiteto, Dev, QA), executar o **checkpoint Git** correspondente na tabela abaixo (**commit + push** em `develop`), para o painel reflectir **evolução local e remota**. Em **falha** que exija **recomeço**, repetir os checkpoints afectados com commits e mensagens **correctas** (não deixar `PAINEL`/`CONTROLE` ✅ desalinhados de `origin/develop`).
 
-**Última revisão do painel:** 2026-04-06 — **E07–E09** enviados a **`develop`** (código + testes + `MODELO` / `PAINEL` / `CONTROLE`). A Action *Fabrica Zimmermann* reflete esta entrega após o **push**; no remoto, o histórico anterior a esta sincronização terminava em **E06** (`95f093d`) porque **E07–E09 tinham sido construídos só no working copy**, sem commits no GitHub.
+**Última revisão do painel:** 2026-04-06 — **Checkpoints Git por persona** (obrigatórios após cada bloco Analista / Arquiteto / Dev / QA + regra de reinício). Referência histórica: **E07–E09** sincronizados em `develop` (`7dfc53d` + doc); a Action só reflecte o que está no remoto.
+
+---
+
+## Checkpoints Git por persona (evolução local **e** remota)
+
+O **Painel operacional** deve documentar o estado do trabalho **no repositório**, não só no disco local. Cada persona, ao **concluir o seu bloco** de actividades no ciclo de entrega, **atualiza o Git** (`develop`): **commit** (mensagem clara com persona + marco) e **push** (para Actions e auditoria).
+
+| Ordem | Persona | Momento do checkpoint | O que entra no Git (mínimo) |
+|:---:|:---|:---|:---|
+| 1 | **Analista** | Fim do bloco de análise e alinhamento (ex.: etapa 04; proposta; decisões do Diretor; revisão de links / tabela global quando for o foco da entrega) | `docs/PAINEL_OPERACIONAL.md`, `CONTROLE_DE_VOO.md` e demais docs de escopo; **push** em `develop`. *Ex. mensagem:* `docs(analista): ciclo EX — etapa 04 proposta`. |
+| 2 | **Arquiteto** | Fim do bloco de estrutura e dados (ex.: etapa 05; `MODELO`; contratos de BD / pastas acordados) | `docs/MODELO_ARQUITETURA.md`, actualizações ao `PAINEL` (etapas 05–07 conforme aplicável); **push** em `develop`. *Ex.:* `docs(arquiteto): MODELO + painel etapa 05`. |
+| 3 | **Dev** | Fim do bloco de implementação (UI, módulos, migrações, conforme tarefas do ciclo) | Código + `connection.py` / testes novos se já existirem nesta fase; `PAINEL` **antes e depois** das alterações (intenção + fecho), alinhado à regra 4 do Diretor; **push** em `develop`. *Ex.:* `feat(dev): módulo X — painel etapas 06–08`. |
+| 4 | **QA** | Fim do bloco de validação (`pytest`, smoke, coerência do `PAINEL` com o código, CI verde quando aplicável) | Ajustes finais de testes/docs; `PAINEL` com estados finais das etapas; **commit + push** que dispare as Actions. Respeitar bloqueio: **não** declarar fecho nem push se a auditoria técnica obrigatória estiver a falhar (ver [`.cursorrules`](../.cursorrules)). *Ex.:* `test(qa): pytest + painel etapas 09–14`. |
+
+**Etapa 15 (commit final + push `develop`)** no fluxo das 15 etapas corresponde ao **fecho do ciclo** após o bloco **QA** (pode coincidir com o .º checkpoint de QA ou ser um último commit de consolidação, desde que o remoto fique fiel ao painel).
+
+### Falha, veto ou recomeço
+
+- Se **CI / Actions**, **pytest**, **veto de QA** ou **mudança de escopo** obrigarem a **refazer** parte do trabalho: **repetir** os checkpoints Git **a partir da persona / etapa afectada**, com novos commits (ou amend **só** se a política do repositório o permitir e o histórico continuar claro).
+- Actualizar de novo o **`PAINEL`** e o **`CONTROLE`** para reflectir a **verdade corrente** (incluindo retirar ✅ prematuros ou marcar 🚧 até novo push).
+- **Proibido** considerar uma persona ou etapa **concluída** no painel se o estado **não** estiver **visível em `origin/develop`** após o checkpoint respectivo (salvo decisão explícita do Diretor documentada no registo).
 
 ---
 
@@ -28,7 +49,7 @@
 | 12 | Documentação técnica | ✅ | `MODELO`, `CONTROLE` #06, este painel; KPIs semana na página agenda (extensão fina `relatorios`/dashboards opcional) |
 | 13 | Revisão de links (Analista) | ✅ | Tabela global abaixo |
 | 14 | Validação visual (QA) | ✅ | Smoke recomendado: Início → **Agendamentos** → buffer → criar → semana → estado/cancelar |
-| 15 | Commit final + push `develop` | ⚪ | Fecho do ciclo E09 no Git |
+| 15 | Commit final + push `develop` | ✅ | Fecho E09 no Git (`develop`; ver checkpoints por persona) |
 
 **Escopo pedido (validação do entendimento):**
 
@@ -168,7 +189,7 @@
 | **E01 — V11.0** | 01 Configuração, 05 estrutura inicial, 06 tema, 07 BD base, 11 docs (Caderno), 12 CONTROLE |
 | **E02 / E02b — Clientes** | 02 Cadastro clientes, 07 migrações, 08 `cliente`, 08–09 testes, 10 CI, 12 docs |
 | **E03 — Morada + filhos** | 02 (evolução), 07–09, 12 |
-| **Governança — Painel + `.cursorrules`** | 01 (extensão), 11–12, 13–15 |
+| **Governança — Painel + `.cursorrules` + Git por persona** | 01 (extensão), 11–12, 13–15; **checkpoints** Analista → Arquiteto → Dev → QA (commit+push `develop`); reinício refaz sincronização |
 | **E04 — Colaboradores** | 03 Colaboradores + serviços seed, 05 MODELO, 07–10, 12 |
 | **CI — Auditorias (`HEAD^`)** | 10 workflows `arquiteto_audit` / `analista_audit` |
 | **E06 — Fases 1–3 (catálogo híbrido)** | 03–12 + 13 documental; 14–15 por entrega |
@@ -202,7 +223,7 @@ Todas as entregas acima seguiram o *Fluxo de 15 Etapas* com **pytest** (`tests/`
 
 **Legenda:** ✅ Concluído · 🚧 Em andamento · ⚪ Pendente
 
-**Nota (governança):** o **Fluxo de 15 Etapas** só fica **demonstrável na Action** quando há **commits no ramo monitorizado** (ex.: `develop`). Trabalho só em disco local **não** dispara workflows nem aparece no GitHub.
+**Nota (governança):** o **Fluxo de 15 Etapas** só fica **demonstrável na Action** quando há **commits no ramo monitorizado** (ex.: `develop`). Trabalho só em disco local **não** dispara workflows nem aparece no GitHub. Ver secção **Checkpoints Git por persona** no topo deste documento para obrigações **após cada bloco** Analista, Arquiteto, Dev e QA.
 
 **Próximo foco de produto:** evoluções E09+ (conflitos de horário, relatórios agregados, datas na venda) conforme roadmap.
 
@@ -210,7 +231,8 @@ Todas as entregas acima seguiram o *Fluxo de 15 Etapas* com **pytest** (`tests/`
 
 ## Registo da última entrega
 
-- **Entrega (esta revisão):** **Sincronização Git `develop` — E07, E08 e E09** — commit **`7dfc53d`** (acumulado no working copy após E06; **commit + push** restauram evidência na Action e no histórico). Inclui: **E07** `venda.py`, `page_vendas.py`; **E08** `relatorios.py`, `page_dashboards.py`, Plotly; **E09** `agendamentos`/`agendamento_colaboradores`, `agendamento.py`, `page_agendamentos.py`, **40** testes; `beaba_gestao.db` **removido do índice** Git (mantém-se local, `*.db` ignorado).
+- **Entrega (esta revisão):** **Governança — Checkpoints Git por persona** no `PAINEL` (tabela + regra de reinício); instruções no topo alinhadas a [`.cursorrules`](../.cursorrules).
+- **Entrega (referência anterior):** **Sincronização Git `develop` — E07, E08 e E09** — commit **`7dfc53d`** (acumulado no working copy após E06; **commit + push** restauram evidência na Action e no histórico). Inclui: **E07** `venda.py`, `page_vendas.py`; **E08** `relatorios.py`, `page_dashboards.py`, Plotly; **E09** `agendamentos`/`agendamento_colaboradores`, `agendamento.py`, `page_agendamentos.py`, **40** testes; `beaba_gestao.db` **removido do índice** Git (mantém-se local, `*.db` ignorado).
 - **Entrega (referência anterior):** **E09 — Refinamento com Diretor (Agendamentos)** — validadas decisões de buffer, horários e léxico visual.
 - **Entrega (referência anterior):** **E09 — Proposta Analista (Agendamentos)** — escopo inicial; **ciclo E09** aberto.
 - **Entrega (referência anterior):** **E08 — Dashboards e Relatórios** — `relatorios.py`; `page_dashboards.py` (Plotly, `ANALYTICS_COLORS`); filtros + Group by + KPIs + temporal + Top N + Pareto + tabela/CSV; `venda_itens.colaborador_id` + UI venda; dependência `plotly`; **36** testes.

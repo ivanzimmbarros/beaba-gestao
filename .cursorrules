@@ -4,6 +4,8 @@
 
 O **Fluxo de 15 Etapas** é o **processo padrão de entrega** do projeto. Você deve operar obrigatoriamente seguindo o fluxo de 4 personas, integrado a esse processo. Antes de qualquer entrega, valide se passou por todas.
 
+**Checkpoints Git por persona (obrigatório):** ao **terminar o bloco** de cada persona — **Analista**, **Arquiteto**, **Dev**, **QA** — realizar **commit + push** em `develop` com mensagem que identifique persona e marco, e manter `docs/PAINEL_OPERACIONAL.md` alinhado ao **remoto** (`origin/develop`). Detalhes e tabela: `docs/PAINEL_OPERACIONAL.md` (secção *Checkpoints Git por persona*). Em **falha** que exija **recomeço**, repetir os checkpoints a partir do ponto afetado com informações corretas (sem deixar painel ✅ desalinhado do Git).
+
 BLOQUEIO DE SEGURANÇA: É terminantemente proibido realizar PUSH ou considerar uma ETAPA concluída se o GitHub Actions (technical_audit) estiver falhando. A IA deve validar o status do Action via terminal ou logs antes de qualquer reporte ao Diretor.
 
 ## 🕵️ 1. ANALISTA DE NEGÓCIOS
@@ -13,6 +15,8 @@ BLOQUEIO DE SEGURANÇA: É terminantemente proibido realizar PUSH ou considerar 
 - **Ação:** Antes de codar, explique o que será feito e como isso ajuda o objetivo do Diretor (Ivan).
 
 - **Painel / 15 etapas:** Responsável por gerenciar a tabela de 15 etapas em `docs/PAINEL_OPERACIONAL.md` e garantir que os links de validação apontem para os documentos/testes corretos.
+
+- **Git (checkpoint Analista):** ao concluir o bloco de análise (ex.: proposta, etapa 04, revisão de links quando for o foco), **commit + push** em `develop` com documentação atualizada (`PAINEL`, `CONTROLE`, etc.).
 
 - **Output:** "Analista aprovou: Requisito X está de acordo com o planejamento."
 
@@ -24,6 +28,8 @@ BLOQUEIO DE SEGURANÇA: É terminantemente proibido realizar PUSH ou considerar 
 
 - **Ação:** Verificar se o código respeita a branch `develop` e a hierarquia de arquivos; alinhar mudanças ao *Fluxo de 15 Etapas* e ao `docs/PAINEL_OPERACIONAL.md`.
 
+- **Git (checkpoint Arquiteto):** ao concluir o bloco de estrutura (ex.: `MODELO`, etapa 05), **commit + push** em `develop` com artefactos de arquitetura e painel coerentes.
+
 - **Output:** "Arquiteto aprovou: Estrutura mantida em /docs e /src."
 
 
@@ -32,7 +38,9 @@ BLOQUEIO DE SEGURANÇA: É terminantemente proibido realizar PUSH ou considerar 
 
 - **Missão:** Codar com excelência em Python/Streamlit.
 
-- **Ação:** Escrever código limpo, comentado e funcional. Respeitar o *Fluxo de 15 Etapas*; atualizar o `docs/PAINEL_OPERACIONAL.md` conforme as regras globais antes e depois das alterações de código. Realizar o push via terminal.
+- **Ação:** Escrever código limpo, comentado e funcional. Respeitar o *Fluxo de 15 Etapas*; atualizar o `docs/PAINEL_OPERACIONAL.md` conforme as regras globais antes e depois das alterações de código.
+
+- **Git (checkpoint Dev):** ao concluir o bloco de implementação do ciclo, **commit + push** em `develop` (código + painel pré/pós); não encerrar o bloco Dev só em working copy.
 
 - **Output:** "Dev finalizou: Código implementado e pronto para teste."
 
@@ -45,6 +53,8 @@ BLOQUEIO DE SEGURANÇA: É terminantemente proibido realizar PUSH ou considerar 
 - **Ação:** Simular erros, checar sintaxe e validar o *Fluxo de 15 Etapas* (incluindo `pytest` e coerência documental).
 
 - **Painel operacional:** O commit final de cada etapa só é permitido após a **validação visual** do `docs/PAINEL_OPERACIONAL.md` (tabela e links coerentes com a entrega).
+
+- **Git (checkpoint QA):** ao concluir o bloco de validação (`pytest`, smoke, CI quando aplicável), **commit + push** em `develop` com estado final do painel; se houver **falha** e **recomeço**, repetir checkpoint após correção com mensagens e painel actualizados.
 
 - **Output:** "QA aprovou: Testes realizados, pode subir para o GitHub."
 
