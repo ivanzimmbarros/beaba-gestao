@@ -11,7 +11,14 @@ from datetime import date, datetime
 import streamlit as st
 
 from src.database.connection import create_tables
-from src.modules.catalogo import cadastrar_servico_fase1, listar_itens_catalogo
+from src.modules.catalogo import (
+    cadastrar_pacote,
+    cadastrar_servico_fase1,
+    listar_itens_catalogo,
+    listar_servicos_produto_para_pacote,
+    listar_servicos_sessao_para_pacote,
+    repasse_medio_ponderado_pacote,
+)
 from src.modules.cliente import cadastrar_cliente
 from src.modules.colaborador import (
     atualizar_colaborador,
@@ -20,7 +27,7 @@ from src.modules.colaborador import (
     listar_servicos,
     obter_colaborador,
 )
-from src.modules.constants import NATUREZAS_CATALOGO_FASE1, SEXOS
+from src.modules.constants import NATUREZAS_CATALOGO_FASE1, NATUREZAS_CATALOGO_FASE2, SEXOS
 from src.modules.validators import parse_data_iso
 from src.ui.theme import inject_bea_theme
 
@@ -444,14 +451,14 @@ def _page_catalogo() -> None:
     _render_back_and_breadcrumb(["Home", "Catálogo"], back_key="bea_back_catalogo")
     st.markdown("### Catálogo de serviços")
     st.caption(
-        "**Fase 1 (E06 incremental):** Sessão, Produto e Coworking — cadastro, ativo/inativo e tabela de visualização. "
-        "Naturezas **Pacote** e **Evento** nas fases seguintes."
+        "**E06 — Fase 1:** Sessão, Produto, Coworking. **Fase 2:** Pacote (composição 1:N, produto opcional, repasse de referência auto+editável, valor de venda). "
+        "**Evento** na Fase 3."
     )
 
     fk = "cat_form"
 
     with st.expander("Cadastrar novo item", expanded=True):
-        natureza = st.selectbox("Natureza *", NATUREZAS_CATALOGO_FASE1, key=f"{fk}_nat")
+        natureza = st.selectbox("Natureza *", NATUREZAS_CATALOGO_FASE2, key=f"{fk}_nat")
         nome = st.text_input("Nome *", key=f"{fk}_nome")
         descritivo = st.text_area(
             "Descritivo do serviço / produto *",
@@ -473,6 +480,11 @@ def _page_catalogo() -> None:
         cwc = "hora"
         cwv = 0.0
 
+        pac_el: list[tuple[int, int, float]] = []
+        pref_pac = 50.0
+        valor_pac_eur = 100.0
+        prod_opt_ui: tuple[int, int] | None = None
+
         if natureza == "Sessão":
             sessao_dh = float(
                 st.number_input("Duração (horas) *", min_value=0.25, max_value=24.0, value=1.0, step=0.25, key=f"{fk}_sdh")
@@ -492,40 +504,155 @@ def _page_catalogo() -> None:
                     )
                 else:
                     pr_ve = float(st.number_input("Valor de repasse (€) *", min_value=0.01, value=5.0, step=0.5, key=f"{fk}_prve"))
-        else:
+        elif natureza == "Coworking":
             cws = st.text_input("Nome da sala *", key=f"{fk}_cws")
             cwc_l = st.radio("Cobrança *", ["Por hora", "Por dia"], horizontal=True, key=f"{fk}_cwc")
             cwc = "hora" if cwc_l == "Por hora" else "dia"
             cwv = float(st.number_input("Valor (€) *", min_value=0.01, value=8.0, step=0.5, key=f"{fk}_cwv"))
+        elif natureza == "Pacote":
+            opts_sess = listar_servicos_sessao_para_pacote()
+            if not opts_sess:
+                st.warning("Cadastre pelo menos uma **Sessão** completa no catálogo antes de montar um pacote.")
+            else:
+                nomes_sess = [x[1] for x in opts_sess]
+                id_por_nome_sess = {x[1]: x[0] for x in opts_sess}
+                if "cat_pac_row_ids" not in st.session_state:
+                    st.session_state.cat_pac_row_ids = [uuid.uuid4().hex[:12]]
+
+                st.subheader("Composição: tipos e quantidades de sessões")
+                st.caption("Duração `0` = usar a duração definida no catálogo para essa sessão (deve estar preenchida).")
+                p_row_ids = list(st.session_state.cat_pac_row_ids)
+                for pos, prid in enumerate(p_row_ids):
+                    st.markdown(f"**Linha {pos + 1}**")
+                    pc1, pc2, pc3 = st.columns([2, 1, 1])
+                    with pc1:
+                        sn = st.selectbox("Tipo de sessão *", nomes_sess, key=f"{fk}_ps_{prid}")
+                    with pc2:
+                        pq = int(st.number_input("Quantidade *", min_value=1, max_value=999, value=1, step=1, key=f"{fk}_pq_{prid}"))
+                    with pc3:
+                        pdh = float(
+                            st.number_input(
+                                "Duração (h) 0=catálogo",
+                                min_value=0.0,
+                                max_value=24.0,
+                                value=0.0,
+                                step=0.25,
+                                key=f"{fk}_pdh_{prid}",
+                            )
+                        )
+                    sid_v = id_por_nome_sess[sn]
+                    pac_el.append((sid_v, pq, pdh))
+                    rc1, _ = st.columns([1, 4])
+                    with rc1:
+                        if len(p_row_ids) > 1 and st.button("Remover linha", key=f"{fk}_prm_{prid}"):
+                            st.session_state.cat_pac_row_ids = [x for x in p_row_ids if x != prid]
+                            st.rerun()
+                if st.button("➕ Adicionar tipo de sessão ao pacote", key=f"{fk}_padd"):
+                    st.session_state.cat_pac_row_ids.append(uuid.uuid4().hex[:12])
+                    st.rerun()
+
+                linhas_repasse = [(a, b) for a, b, _ in pac_el]
+                sug = repasse_medio_ponderado_pacote(linhas_repasse) if linhas_repasse else None
+                if sug is not None:
+                    st.caption(
+                        f"Sugestão automática (média dos repasses dos colaboradores habilitados, ponderada por quantidade): **{sug:.2f} %**"
+                    )
+                else:
+                    st.caption(
+                        "Sem média calculável (nenhuma sessão selecionada tem colaboradores habilitados com repasse). "
+                        "Preencha o referencial manualmente."
+                    )
+                ac1, ac2 = st.columns(2)
+                with ac1:
+                    if st.button("Aplicar sugestão ao referencial", key=f"{fk}_apply_sug"):
+                        st.session_state[f"{fk}_pref"] = round(float(sug), 2) if sug is not None else 50.0
+                        st.rerun()
+                with ac2:
+                    pass
+                if f"{fk}_pref" not in st.session_state:
+                    st.session_state[f"{fk}_pref"] = round(float(sug), 2) if sug is not None else 50.0
+                pref_pac = float(
+                    st.number_input(
+                        "Repasse médio de referência (%) *",
+                        min_value=0.01,
+                        max_value=100.0,
+                        step=0.01,
+                        key=f"{fk}_pref",
+                    )
+                )
+                valor_pac_eur = float(
+                    st.number_input("Valor de venda do pacote (€) *", min_value=0.01, value=100.0, step=1.0, key=f"{fk}_pval")
+                )
+
+                st.subheader("Produto opcional no pacote")
+                prod_opts = listar_servicos_produto_para_pacote()
+                incluir_p = st.checkbox("Incluir produto do catálogo no pacote", key=f"{fk}_pinc_prod")
+                if incluir_p and prod_opts:
+                    nomes_p = [x[1] for x in prod_opts]
+                    id_por_nome_p = {x[1]: x[0] for x in prod_opts}
+                    pc4, pc5 = st.columns(2)
+                    with pc4:
+                        pn = st.selectbox("Produto *", nomes_p, key=f"{fk}_pnp")
+                    with pc5:
+                        pqn = int(st.number_input("Quantidade *", min_value=1, max_value=999, value=1, step=1, key=f"{fk}_pqn"))
+                    prod_opt_ui = (id_por_nome_p[pn], pqn)
+                elif incluir_p and not prod_opts:
+                    st.info("Não há produtos ativos no catálogo. Crie um item **Produto** primeiro.")
 
         if st.button("Registar no catálogo", type="primary", key=f"{fk}_submit"):
-            ok, msg = cadastrar_servico_fase1(
-                natureza,
-                nome,
-                descritivo,
-                ativo,
-                sessao_duracao_horas=sessao_dh if natureza == "Sessão" else None,
-                sessao_valor_euros=sessao_ve if natureza == "Sessão" else None,
-                produto_tipo=ptipo if natureza == "Produto" else "",
-                produto_descricao=pdesc if natureza == "Produto" else "",
-                produto_valor_euros=pve if natureza == "Produto" else None,
-                produto_origem=porig if natureza == "Produto" else "",
-                produto_repasse_pct=pr_pct if natureza == "Produto" and porig == "repasse" and pr_pct > 0 else None,
-                produto_repasse_valor_euros=pr_ve if natureza == "Produto" and porig == "repasse" and pr_ve > 0 else None,
-                cowork_sala_nome=cws if natureza == "Coworking" else "",
-                cowork_cobranca=cwc if natureza == "Coworking" else "",
-                cowork_valor_euros=cwv if natureza == "Coworking" else None,
-            )
-            if ok:
-                st.success(msg)
-                for k in list(st.session_state.keys()):
-                    if k.startswith(f"{fk}_") and k not in (f"{fk}_nat", f"{fk}_ativo"):
-                        try:
-                            del st.session_state[k]
-                        except Exception:
-                            pass
+            if natureza == "Pacote":
+                if not pac_el:
+                    st.error("Defina a composição do pacote (sessões).")
+                else:
+                    linhas_db = [(sid, q, (dh if dh > 0 else None)) for sid, q, dh in pac_el]
+                    ok, msg = cadastrar_pacote(
+                        nome,
+                        descritivo,
+                        ativo,
+                        linhas_db,
+                        prod_opt_ui,
+                        pref_pac,
+                        valor_pac_eur,
+                    )
+                    if ok:
+                        st.success(msg)
+                        st.session_state.cat_pac_row_ids = [uuid.uuid4().hex[:12]]
+                        for k in list(st.session_state.keys()):
+                            if k.startswith(f"{fk}_") and k not in (f"{fk}_nat", f"{fk}_ativo"):
+                                try:
+                                    del st.session_state[k]
+                                except Exception:
+                                    pass
+                    else:
+                        st.error(msg)
             else:
-                st.error(msg)
+                ok, msg = cadastrar_servico_fase1(
+                    natureza,
+                    nome,
+                    descritivo,
+                    ativo,
+                    sessao_duracao_horas=sessao_dh if natureza == "Sessão" else None,
+                    sessao_valor_euros=sessao_ve if natureza == "Sessão" else None,
+                    produto_tipo=ptipo if natureza == "Produto" else "",
+                    produto_descricao=pdesc if natureza == "Produto" else "",
+                    produto_valor_euros=pve if natureza == "Produto" else None,
+                    produto_origem=porig if natureza == "Produto" else "",
+                    produto_repasse_pct=pr_pct if natureza == "Produto" and porig == "repasse" and pr_pct > 0 else None,
+                    produto_repasse_valor_euros=pr_ve if natureza == "Produto" and porig == "repasse" and pr_ve > 0 else None,
+                    cowork_sala_nome=cws if natureza == "Coworking" else "",
+                    cowork_cobranca=cwc if natureza == "Coworking" else "",
+                    cowork_valor_euros=cwv if natureza == "Coworking" else None,
+                )
+                if ok:
+                    st.success(msg)
+                    for k in list(st.session_state.keys()):
+                        if k.startswith(f"{fk}_") and k not in (f"{fk}_nat", f"{fk}_ativo"):
+                            try:
+                                del st.session_state[k]
+                            except Exception:
+                                pass
+                else:
+                    st.error(msg)
 
     st.subheader("Itens registados")
     itens = listar_itens_catalogo()

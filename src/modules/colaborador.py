@@ -38,7 +38,14 @@ def listar_servicos() -> list[tuple[int, str]]:
         return []
     try:
         cur = conn.cursor()
-        cur.execute("SELECT id, nome FROM servicos WHERE ativo = 1 ORDER BY nome")
+        cur.execute(
+            """
+            SELECT id, nome FROM servicos
+            WHERE ativo = 1
+              AND IFNULL(natureza, '') NOT IN ('Pacote', 'Evento')
+            ORDER BY nome
+            """
+        )
         return list(cur.fetchall())
     finally:
         conn.close()

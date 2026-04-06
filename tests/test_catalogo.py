@@ -3,7 +3,15 @@ import os
 import pytest
 
 from src.database.connection import create_tables
-from src.modules.catalogo import cadastrar_servico_fase1, listar_itens_catalogo
+from datetime import date, timedelta
+
+from src.modules.catalogo import (
+    cadastrar_pacote,
+    cadastrar_servico_fase1,
+    listar_itens_catalogo,
+    repasse_medio_ponderado_pacote,
+)
+from src.modules.colaborador import cadastrar_colaborador
 
 
 @pytest.fixture(autouse=True)
@@ -62,5 +70,109 @@ def test_descritivo_obrigatorio():
         cowork_sala_nome="Sala A",
         cowork_cobranca="hora",
         cowork_valor_euros=5.0,
+    )
+    assert ok is False
+
+
+def _adult_dob():
+    return (date.today() - timedelta(days=365 * 30)).isoformat()
+
+
+def test_pacote_ok_e_listagem():
+    ok_s, _ = cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão Pac Alpha",
+        "Para teste de pacote.",
+        True,
+        sessao_duracao_horas=1.5,
+        sessao_valor_euros=40.0,
+    )
+    assert ok_s
+    ok_s2, _ = cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão Pac Beta",
+        "Para teste de pacote.",
+        True,
+        sessao_duracao_horas=2.0,
+        sessao_valor_euros=50.0,
+    )
+    assert ok_s2
+    ok_p, _ = cadastrar_servico_fase1(
+        "Produto",
+        "Óleo Pac",
+        "Produto no pacote.",
+        True,
+        produto_tipo="Aromaterapia",
+        produto_descricao="",
+        produto_valor_euros=12.0,
+        produto_origem="proprio",
+    )
+    assert ok_p
+
+    cur = __import__("sqlite3").connect("data/beaba_gestao.db")
+    sid_a = cur.execute("SELECT id FROM servicos WHERE nome = 'Sessão Pac Alpha'").fetchone()[0]
+    sid_b = cur.execute("SELECT id FROM servicos WHERE nome = 'Sessão Pac Beta'").fetchone()[0]
+    pid = cur.execute("SELECT id FROM servicos WHERE nome = 'Óleo Pac'").fetchone()[0]
+    cur.close()
+
+    cadastrar_colaborador(
+        nome="Prof Pacote",
+        sexo="Feminino",
+        data_nascimento=_adult_dob(),
+        endereco_rua="Rua P",
+        endereco_numero="1",
+        endereco_complemento="",
+        codigo_postal="4800-200",
+        concelho="Guimarães",
+        freguesia="Selho",
+        distrito="",
+        pais="Portugal",
+        email="pac@beaba.pt",
+        numero_contato="11955443322",
+        observacoes="",
+        servicos_repasse=[(sid_a, 40.0, date.today().isoformat())],
+    )
+    w = repasse_medio_ponderado_pacote([(sid_a, 2), (sid_b, 1)])
+    assert w is not None
+    assert abs(w - 40.0) < 0.02
+
+    ok_pk, msg = cadastrar_pacote(
+        "Pacote Integração",
+        "Pacote de teste automatizado.",
+        True,
+        [(sid_a, 2, None), (sid_b, 1, None)],
+        (int(pid), 1),
+        35.0,
+        199.0,
+    )
+    assert ok_pk, msg
+    itens = listar_itens_catalogo()
+    nomes = [x["nome"] for x in itens]
+    assert "Pacote Integração" in nomes
+    row = next(x for x in itens if x["nome"] == "Pacote Integração")
+    assert row["natureza"] == "Pacote"
+    assert "2×" in str(row["detalhes"]) and "Óleo" in str(row["detalhes"])
+
+
+def test_pacote_sessao_duplicada_rejeita():
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão Dup",
+        "X.",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=10.0,
+    )
+    cur = __import__("sqlite3").connect("data/beaba_gestao.db")
+    sid = cur.execute("SELECT id FROM servicos WHERE nome = 'Sessão Dup'").fetchone()[0]
+    cur.close()
+    ok, msg = cadastrar_pacote(
+        "Pac Ruim",
+        "Y.",
+        True,
+        [(sid, 1, None), (sid, 1, None)],
+        None,
+        50.0,
+        50.0,
     )
     assert ok is False
