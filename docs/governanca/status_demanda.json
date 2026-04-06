@@ -8,5 +8,5 @@
   "pendente": "Definir ID da demanda e fase ao iniciar fluxo SUCESSO (ver docs/governanca/FLUXO_SUCESSO_E_FALHA.md).",
   "falha": null,
   "ultima_actualizacao_iso": "",
-  "notas_dashboard": "Mandatório: manutenção exclusiva pela EQUIPE (não pelo Diretor). Actualizar em cada par GitHub→Painel. Entrada de demanda: @Files → Analista no Cursor."
+  "notas_dashboard": "Mandatório: manutenção exclusiva pela EQUIPE (não pelo Diretor). Em cada PC GitHub: ficheiros locais + commit + push origin/develop (cloud); depois Painel/JSON. Entrada: @Files → Analista no Cursor."
 }

@@ -6,7 +6,7 @@
 
 **Processo padrão técnico:** *Fluxo de 15 Etapas* por marco de produto.
 
-**Instrução:** em **cada ponto de controlo de Painel**, o estado aqui descrito deve estar **alinhado** com **`origin/develop`** e com [`docs/governanca/status_demanda.json`](governanca/status_demanda.json) (dashboard na app: **Fluxo e governança**). Ordem: **GitHub primeiro**, **Painel depois** (pares PC1→2, PC3→4, … — ver tabela). Em **falha**, repetir pontos de controlo e documentar pareceres negativos (ver fluxo FALHA no documento de governança). **Actualização do JSON e deste ficheiro:** pela **EQUIPE**, não pelo Diretor.
+**Instrução:** em **cada ponto de controlo de Painel**, o estado aqui descrito deve estar **alinhado** com **`origin/develop`** (cloud) e com [`docs/governanca/status_demanda.json`](governanca/status_demanda.json) (dashboard na app: **Fluxo e governança**). Ordem: **GitHub primeiro** (ficheiros locais + **commit** + **`push`** ao remoto), **Painel depois** (pares PC1→2, PC3→4, … — ver tabela). Em **falha**, repetir pontos de controlo e documentar pareceres negativos (ver fluxo FALHA no documento de governança). **Actualização do JSON e deste ficheiro:** pela **EQUIPE**, não pelo Diretor.
 
 **Última revisão do painel:** 2026-04-06 — **Canal `@Files` + documentação automática pela EQUIPE** — commit **`6671f3d`**.
 
@@ -14,7 +14,7 @@
 
 ## Pontos de controlo Git ↔ Painel (resumo)
 
-| PC | Após | GitHub (`develop`) | Painel / `CONTROLE` / JSON |
+| PC | Após | GitHub: **local** + **`origin/develop`** (cloud) | Painel / `CONTROLE` / JSON |
 |:---:|:---|:---|:---|
 | **PC1** | Passos 1–4 (Diretor confirmou no **chat**) | `01`–`03` em `demandas/<ID>/` (**EQUIPE** gera a partir de `@Files` + resposta no Cursor) | **PC2:** este ficheiro + `CONTROLE`; **EQUIPE** actualiza `status_demanda.json` |
 | **PC3** | Passos 5–9 (Analista validou desenho lógico) | Desenho lógico + **selo Analista** | **PC4:** Painel + JSON |
@@ -23,6 +23,8 @@
 | **PC9** | Passo 21 (QA alterou plano, se aplicável) | Plano de testes actualizado | **PC10:** Painel + JSON (ou registo “sem alteração ao plano”) |
 | **PC11** | Passos 22–23 (testes massivos) | Parecer final QA + **selo QA** | **PC12:** Painel + JSON |
 | **PC13a** | Passo 24 (Diretor informado) | `99_encerramento.md` no dossier da demanda | **PC13b:** Painel — demanda concluída; JSON |
+
+**Nota (coluna GitHub):** em **cada** PC ímpar, a coluna pressupõe **três** passos cumulativos: working copy correcta, **`git commit`**, **`git push`** para o remoto (cloud) — norma completa em [`FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md) (secção *Definição: ponto de controlo GitHub*).
 
 **Validação da equipa (críticas já incorporadas no doc de governança):** numeração duplicada 20/21 corrigida para 22–25; “selo” exige traço em Git; redesenho funcional ⇒ novo ciclo desde o passo 1 com confirmação do Diretor.
 
@@ -224,7 +226,7 @@ Todas as entregas acima seguiram o *Fluxo de 15 Etapas* com **pytest** (`tests/`
 
 **Legenda:** ✅ Concluído · 🚧 Em andamento · ⚪ Pendente
 
-**Nota (governança):** o **Fluxo de 15 Etapas** só fica **demonstrável na Action** quando há **commits** em `develop`. A **regra máxima** é o fluxo **SUCESSO/FALHA** e os **PC1–PC13** (Git → Painel → `status_demanda.json`) no topo deste documento.
+**Nota (governança):** o **Fluxo de 15 Etapas** só fica **demonstrável na Action** quando há **commits com `push`** para **`origin/develop`** (histórico na cloud). A **regra máxima** é o fluxo **SUCESSO/FALHA** e os **PC1–PC13** (Git → Painel → `status_demanda.json`) no topo deste documento.
 
 **Próximo foco de produto:** evoluções E09+ (conflitos de horário, relatórios agregados, datas na venda) conforme roadmap.
 

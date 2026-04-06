@@ -21,12 +21,24 @@
 | Tópico | Crítica / risco | Sugestão |
 |:---|:---|:---|
 | Numeração original | Passos **20** e **21** duplicados no texto recebido | Renumerados de **22** a **25** abaixo; manter sempre este ficheiro como referência. |
-| Ordem Git → Painel | Inverter Painel antes do Git gera divergência com a Action | **Sempre:** primeiro **GitHub** (commit + push `develop`), depois **Painel** / `CONTROLE` no **mesmo** ciclo de entrega. |
+| Ordem Git → Painel | Inverter Painel antes do Git gera divergência com a Action | **Sempre:** primeiro **GitHub** (working copy + **commit** + **push** `origin/develop`), depois **Painel** / `CONTROLE` no **mesmo** ciclo de entrega. |
 | “Selo” ambíguo | Sem traço no Git, o selo não existe para auditoria | Commit + ficheiro em `demandas/<ID>/` com texto **APROVADO POR: papel, data, referência**. |
 | Desenho funcional quebrado por QA | Exige novo ciclo completo | Regra explícita em **FALHA** — nova confirmação formal do **Diretor** e reexecução desde o passo **1**. |
 | Paralelismo | Dev “adiantar” QA sem pareceres | Fluxo **estritamente sequencial**; regressões voltam ao **primeiro** passo afectado. |
 | PC13 | Texto mencionava só Painel após GitHub | **PC13a** Git (encerramento) **antes** de **PC13b** Painel. |
 | Documentação “manual” pelo Diretor | Gargalo e incoerência com o uso de Cursor | **Proibido exigir**; EQUIPE gera **todos** os ficheiros a partir do `@Files` + respostas no chat. |
+
+---
+
+## Definição: ponto de controlo **GitHub** = local **e** cloud (obrigatório)
+
+Cada PC cujo título inclui **GitHub** (PC1, PC3, PC5, PC7, PC9 quando aplicável, PC11, PC13a) exige **cumulativamente**:
+
+1. **Arquivos locais** — working copy actualizada (ficheiros editados ou criados no clone).
+2. **`git commit`** — alterações registadas no repositório **local**.
+3. **`git push`** para o **remoto** (ex.: **`origin/develop`**) — **obrigatório** — para que a **cloud** (GitHub) e as **Actions** reflitam o mesmo estado.
+
+**Não cumpre** o ponto de controlo: apenas editar ficheiros sem commit; ou commit **sem** push (histórico só na máquina local). A EQUIPE deve considerar o PC **fechado** só após verificar que **`origin/develop`** (ou ramo acordado) contém o commit.
 
 ---
 
@@ -41,7 +53,7 @@
 | 3 | **EQUIPE (Analista)** | Apresenta o desenho funcional ao **Diretor no chat** (explicação detalhada) e **solicita confirmação formal** (ex.: “CONFIRMO”, **PROSSIGA**). |
 | 4 | Diretor | Responde **no Cursor** com **confirmação formal**. A **EQUIPE** regista em **`03_confirmacao_diretor.md`** (data, sumário ou citação da aprovação) — o Diretor **não** precisa editar o repo. |
 
-**PC1 — GitHub:** `develop` contém (1) **`01_demanda_diretor.md`** (demanda derivada do `@Files`); (2) **`02_desenho_funcional.md`**; (3) **`03_confirmacao_diretor.md`** após resposta do Diretor no chat; **commit** com mensagem explícita (ex.: `docs(equipe): PC1 demanda <ID> selo diretor`).
+**PC1 — GitHub:** ficheiros `01`–`03` no dossier; **commit** + **`push` para `origin/develop` (local + cloud)** — ver secção *Definição: ponto de controlo GitHub* neste documento.
 
 **PC2 — Painel:** `docs/PAINEL_OPERACIONAL.md` e, quando aplicável, `CONTROLE_DE_VOO.md` **actualizados após** PC1 (fase, links, ID da demanda).
 
@@ -57,7 +69,7 @@
 | 8 | **EQUIPE (Analista)** | Valida desenho lógico; produz **`05_validacao_analista_desenho_logico.md`**. |
 | 9 | **EQUIPE (Arquiteto)** | Encerra ciclo de desenho lógico com parecer favorável documentado. |
 
-**PC3 — GitHub:** desenho lógico aprovado pelo Analista + **selo Analista (validação funcional do desenho lógico)**.
+**PC3 — GitHub:** desenho lógico + selo Analista; **commit + push** para **origin** (local + cloud).
 
 **PC4 — Painel:** actualizado **após** PC3.
 
@@ -72,7 +84,7 @@
 | 12 | **EQUIPE (Arquiteto)** | Valida código; **`06_parecer_arquiteto_codigo.md`**. |
 | 13 | **EQUIPE (Dev)** | Incorpora parecer ou corrige conforme FALHA. |
 
-**PC5 — GitHub:** parecer do Arquiteto (ficheiro em `demandas/<ID>/` ou `docs/`) + **selo Arquiteto**.
+**PC5 — GitHub:** parecer Arquiteto + selo; **commit + push** para **origin** (local + cloud).
 
 **PC6 — Painel:** actualizado **após** PC5.
 
@@ -88,7 +100,7 @@
 | 17 | **EQUIPE (Dev)** | Recebe parecer; corrige se necessário (FALHA). |
 | 18 | **EQUIPE (Dev)** | **Plano de testes** + **actualização obrigatória** de [`docs/CADERNO_TESTES_MASTER.md`](../CADERNO_TESTES_MASTER.md). |
 
-**PC7 — GitHub:** evidência de código aprovado por **Arquiteto e Analista**; plano de testes actualizado; **selo Analista** (aceitação para fase QA).
+**PC7 — GitHub:** código + plano de testes + selo Analista; **commit + push** para **origin** (local + cloud).
 
 **PC8 — Painel:** actualizado **após** PC7.
 
@@ -102,7 +114,7 @@
 | 20 | **EQUIPE (QA)** | Consolida inputs (docs + código em `develop`). |
 | 21 | **EQUIPE (QA)** | Valida plano; **actualiza** `CADERNO_TESTES_MASTER` e dossier se houver incremento. |
 
-**PC9 — GitHub:** se o plano de testes tiver mudado face a PC7, **novo** commit com o plano actualizado.
+**PC9 — GitHub:** se o plano tiver mudado, **commit + push** para **origin** com o plano actualizado (local + cloud); se não mudou, registar em PC10 e **não** exigir commit vazio.
 
 **PC10 — Painel:** actualizado **após** PC9 (ou após PC8 se não houve alteração — registar explicitamente “sem alteração ao plano”).
 
@@ -111,7 +123,7 @@
 | 22 | **EQUIPE (QA)** | **Testes massivos** (`pytest` completo, smoke acordado, CI verde); **`09_parecer_final_qa.md`**; notifica no **chat** (resumo para o Diretor se aplicável). |
 | 23 | **EQUIPE** | Estados internos alinhados; **nenhum** selo QA sem evidência no Git. |
 
-**PC11 — GitHub:** resultado dos testes massivos (relatório em `demandas/<ID>/` ou anexo referenciado) + **selo QA**.
+**PC11 — GitHub:** parecer QA + selo; **commit + push** para **origin** (local + cloud).
 
 **PC12 — Painel:** actualizado **após** PC11.
 
@@ -123,7 +135,7 @@
 |:---:|:---|:---|
 | 24 | **EQUIPE (Analista)** | Informa o **Diretor no chat** da conclusão e libertação para testes finais / aceitação. **`99_encerramento.md`** gerado pela EQUIPE com data e referência ao parecer QA. |
 
-**PC13 — GitHub (13a):** `99_encerramento.md` **criado pela EQUIPE**; **commit + push** em `develop`.
+**PC13 — GitHub (13a):** `99_encerramento.md`; **commit + push** para **`origin/develop`** (local + cloud).
 
 **PC13 — Painel (13b):** actualizado **após** 13a — demanda **concluída**, registo no final de `PAINEL_OPERACIONAL.md`.
 
