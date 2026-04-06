@@ -19,7 +19,7 @@
 - **`CONTROLE_DE_VOO.md`** (visão módulos / log)
 - **`docs/governanca/status_demanda.json`** + UI **Fluxo e governança** (dashboard de status)
 
-**Ordem obrigatória em cada ponto de controlo:** primeiro **GitHub** (`commit` + `push` em `develop` com artefactos e selos), depois **actualização do Painel** (e `CONTROLE` quando aplicável). Nunca o contrário.
+**Ordem obrigatória em cada ponto de controlo GitHub:** **working copy** (ficheiros locais correctos) → **`git commit`** → **`git push`** para **`origin/develop`** (cloud, com artefactos e selos); em seguida **actualização do Painel** (e `CONTROLE` quando aplicável). Nunca o contrário. **Commit sem push não fecha** o PC GitHub.
 
 **Selos** (Diretor, Analista, Arquiteto, QA): **rastreáveis** — commit com mensagem explícita **e** ficheiro datado em `docs/governanca/demandas/<ID>/` (criados pela **EQUIPE**).
 
