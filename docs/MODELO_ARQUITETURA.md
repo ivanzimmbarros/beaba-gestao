@@ -18,8 +18,8 @@
 3. **Tipagem:** Valores financeiros devem ser `INTEGER` (Centavos) para evitar erros de ponto flutuante.
 
 ### Tabelas — núcleo de clientes (V11.0+)
-- **`clientes`:** dados pessoais (`morada`, `email`, `sexo`, `tem_filhos`, `gravida`, `data_parto_prevista`, `observacoes`) além de `nome` e `whatsapp` (contacto principal).
-- **`cliente_filhos`:** `cliente_id`, `ordem`, `idade_anos`, `sexo` (um registo por filho).
+- **`clientes`:** `nome`, `whatsapp` (contacto principal, 11 dígitos, UNIQUE), `email`, `sexo`, `tem_filhos`, `gravida`, `data_parto_prevista`, `observacoes`; morada normalizada em `endereco_rua`, `endereco_numero`, `endereco_complemento`, `codigo_postal`, `concelho`, `freguesia`, `distrito`, `pais`. Coluna `morada` legada mantida (vazia em novos cadastros).
+- **`cliente_filhos`:** `cliente_id`, `ordem`, `nome`, `idade_anos`, `sexo` (um registo por filho).
 - **`cliente_contatos_emergencia`:** `cliente_id`, `ordem`, `nome`, `telefone` (opcional no negócio; 0..N registos).
 
 ## 🛠️ PADRÕES DE CÓDIGO

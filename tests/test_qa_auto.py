@@ -3,7 +3,7 @@ import os
 import pytest
 
 from src.database.connection import create_tables
-from src.modules.cliente import cadastrar_cliente
+from src.modules.cliente import cadastrar_cliente, normalizar_codigo_postal_pt
 
 
 @pytest.fixture(autouse=True)
@@ -18,7 +18,14 @@ def _cli(**kw):
     base = dict(
         nome="Diretor Auto",
         numero_contato="11999998888",
-        morada="Rua Teste 1",
+        endereco_rua="Rua das Flores",
+        endereco_numero="10",
+        endereco_complemento="",
+        codigo_postal="4800-123",
+        concelho="Guimarães",
+        freguesia="Oliveira do Castelo",
+        distrito="Braga",
+        pais="Portugal",
         email="diretor@beaba.pt",
         sexo="Masculino",
         tem_filhos=False,
@@ -30,6 +37,12 @@ def _cli(**kw):
     )
     base.update(kw)
     return cadastrar_cliente(**base)
+
+
+def test_normalizar_cp():
+    assert normalizar_codigo_postal_pt("4800123") == "4800-123"
+    assert normalizar_codigo_postal_pt("4800-123") == "4800-123"
+    assert normalizar_codigo_postal_pt("48") is None
 
 
 def test_cadastro_sucesso():
@@ -55,6 +68,12 @@ def test_limpeza_caracteres_especiais():
     assert ok is True
 
 
+def test_codigo_postal_invalido():
+    ok, msg = _cli(codigo_postal="123")
+    assert ok is False
+    assert "postal" in msg.lower()
+
+
 def test_emergencia_parcial_invalida():
     ok, msg = _cli(contatos_emergencia=[("Só Nome", "")])
     assert ok is False
@@ -74,6 +93,20 @@ def test_emergencia_duplo_valido():
 def test_filhos_sem_dados_invalido():
     ok, msg = _cli(tem_filhos=True, filhos=[])
     assert ok is False
+
+
+def test_filho_sem_nome_invalido():
+    ok, msg = _cli(tem_filhos=True, filhos=[("", 5, "Feminino")])
+    assert ok is False
+    assert "filho" in msg.lower()
+
+
+def test_filhos_com_nome_valido():
+    ok, _msg = _cli(
+        tem_filhos=True,
+        filhos=[("Ana", 4, "Feminino"), ("Miguel", 7, "Masculino")],
+    )
+    assert ok is True
 
 
 def test_gravida_sem_data_invalido():

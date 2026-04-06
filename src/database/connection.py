@@ -62,6 +62,14 @@ def create_tables():
         ("gravida", "INTEGER"),
         ("data_parto_prevista", "TEXT"),
         ("observacoes", "TEXT DEFAULT ''"),
+        ("endereco_rua", "TEXT DEFAULT ''"),
+        ("endereco_numero", "TEXT DEFAULT ''"),
+        ("endereco_complemento", "TEXT DEFAULT ''"),
+        ("codigo_postal", "TEXT DEFAULT ''"),
+        ("concelho", "TEXT DEFAULT ''"),
+        ("freguesia", "TEXT DEFAULT ''"),
+        ("distrito", "TEXT DEFAULT ''"),
+        ("pais", "TEXT DEFAULT 'Portugal'"),
     ):
         _ensure_column(cursor, "clientes", col, definition)
 
@@ -77,6 +85,7 @@ def create_tables():
         )
         """
     )
+    _ensure_column(cursor, "cliente_filhos", "nome", "TEXT DEFAULT ''")
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS cliente_contatos_emergencia (
