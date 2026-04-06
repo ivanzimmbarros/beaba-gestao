@@ -1,75 +1,74 @@
-# CURSOR RULES - PROJETO BEABÁ GESTÃO
+# CURSOR RULES — BEABÁ GESTÃO
 
+## REGRA MÁXIMA OBRIGATÓRIA (todas as evoluções)
 
+**Todo** trabalho de evolução do produto segue o fluxo **SUCESSO** ou **FALHA** definido em:
 
-O **Fluxo de 15 Etapas** é o **processo padrão de entrega** do projeto. Você deve operar obrigatoriamente seguindo o fluxo de 4 personas, integrado a esse processo. Antes de qualquer entrega, valide se passou por todas.
+- **`docs/governanca/FLUXO_SUCESSO_E_FALHA.md`** (norma principal)
+- **`docs/PAINEL_OPERACIONAL.md`** (estado, 15 etapas técnicas, registo)
+- **`CONTROLE_DE_VOO.md`** (visão módulos / log)
+- **`docs/governanca/status_demanda.json`** + UI **Fluxo e governança** (dashboard de status)
 
-**Checkpoints Git por persona (obrigatório):** ao **terminar o bloco** de cada persona — **Analista**, **Arquiteto**, **Dev**, **QA** — realizar **commit + push** em `develop` com mensagem que identifique persona e marco, e manter `docs/PAINEL_OPERACIONAL.md` alinhado ao **remoto** (`origin/develop`). Detalhes e tabela: `docs/PAINEL_OPERACIONAL.md` (secção *Checkpoints Git por persona*). Em **falha** que exija **recomeço**, repetir os checkpoints a partir do ponto afetado com informações corretas (sem deixar painel ✅ desalinhado do Git).
+**Ordem obrigatória em cada ponto de controlo:** primeiro **GitHub** (`commit` + `push` em `develop` com artefactos e selos), depois **actualização do Painel** (e `CONTROLE` quando aplicável). Nunca o contrário.
 
-BLOQUEIO DE SEGURANÇA: É terminantemente proibido realizar PUSH ou considerar uma ETAPA concluída se o GitHub Actions (technical_audit) estiver falhando. A IA deve validar o status do Action via terminal ou logs antes de qualquer reporte ao Diretor.
+**Selos** (Diretor, Analista, Arquiteto, QA): devem ser **rastreáveis** — commit com mensagem explícita **e** ficheiro datado em `docs/governanca/demandas/<ID>/` (ver `demandas/README.md`).
 
-## 🕵️ 1. ANALISTA DE NEGÓCIOS
+**Fluxo FALHA:** qualquer falha implica **revalidação** das etapas afectadas; **repetir** pontos de controlo (Git + Painel) com **pareceres negativos** documentados. Se for necessário **redesenho funcional**, nova **confirmação formal do Diretor** e **refazer o fluxo SUCESSO desde o passo 1**.
 
-- **Missão:** Garantir o alinhamento com o `CONTROLE_DE_VOO.md`.
-
-- **Ação:** Antes de codar, explique o que será feito e como isso ajuda o objetivo do Diretor (Ivan).
-
-- **Painel / 15 etapas:** Responsável por gerenciar a tabela de 15 etapas em `docs/PAINEL_OPERACIONAL.md` e garantir que os links de validação apontem para os documentos/testes corretos.
-
-- **Git (checkpoint Analista):** ao concluir o bloco de análise (ex.: proposta, etapa 04, revisão de links quando for o foco), **commit + push** em `develop` com documentação atualizada (`PAINEL`, `CONTROLE`, etc.).
-
-- **Output:** "Analista aprovou: Requisito X está de acordo com o planejamento."
-
-
-
-## 📐 2. ARQUITETO DE SOLUÇÕES
-
-- **Missão:** Manter a estrutura de pastas e a conexão com o GitHub.
-
-- **Ação:** Verificar se o código respeita a branch `develop` e a hierarquia de arquivos; alinhar mudanças ao *Fluxo de 15 Etapas* e ao `docs/PAINEL_OPERACIONAL.md`.
-
-- **Git (checkpoint Arquiteto):** ao concluir o bloco de estrutura (ex.: `MODELO`, etapa 05), **commit + push** em `develop` com artefactos de arquitetura e painel coerentes.
-
-- **Output:** "Arquiteto aprovou: Estrutura mantida em /docs e /src."
-
-
-
-## 👨‍💻 3. DESENVOLVEDOR (DEV)
-
-- **Missão:** Codar com excelência em Python/Streamlit.
-
-- **Ação:** Escrever código limpo, comentado e funcional. Respeitar o *Fluxo de 15 Etapas*; atualizar o `docs/PAINEL_OPERACIONAL.md` conforme as regras globais antes e depois das alterações de código.
-
-- **Git (checkpoint Dev):** ao concluir o bloco de implementação do ciclo, **commit + push** em `develop` (código + painel pré/pós); não encerrar o bloco Dev só em working copy.
-
-- **Output:** "Dev finalizou: Código implementado e pronto para teste."
-
-
-
-## 🧪 4. QA (QUALITY ASSURANCE)
-
-- **Missão:** Garantir a "Bolinha Verde" no GitHub Actions.
-
-- **Ação:** Simular erros, checar sintaxe e validar o *Fluxo de 15 Etapas* (incluindo `pytest` e coerência documental).
-
-- **Painel operacional:** O commit final de cada etapa só é permitido após a **validação visual** do `docs/PAINEL_OPERACIONAL.md` (tabela e links coerentes com a entrega).
-
-- **Git (checkpoint QA):** ao concluir o bloco de validação (`pytest`, smoke, CI quando aplicável), **commit + push** em `develop` com estado final do painel; se houver **falha** e **recomeço**, repetir checkpoint após correção com mensagens e painel actualizados.
-
-- **Output:** "QA aprovou: Testes realizados, pode subir para o GitHub."
-
-
+**BLOQUEIO DE SEGURANÇA:** é proibido **PUSH** ou declarar etapa concluída se **GitHub Actions** (auditoria técnica) estiver a **falhar**. Validar CI antes de reportar ao Diretor.
 
 ---
 
-## 📜 REGRAS GERAIS DO DIRETOR
+## Resumo do fluxo SUCESSO (passos 1–25)
 
-1. Nunca trabalhe na `main`, sempre na `develop`.
+| Fase | Passos | Pontos de controlo (Git → Painel) |
+|:---|:---|:---|
+| A — Analista + Diretor | 1–4 | **PC1** Git · **PC2** Painel |
+| B — Arquiteto + Analista | 5–9 | **PC3** Git · **PC4** Painel |
+| C — Dev + Arquiteto | 10–13 | **PC5** Git · **PC6** Painel |
+| D — Analista + Dev (código + testes) | 14–18 | **PC7** Git · **PC8** Painel |
+| E — QA | 19–23 | **PC9** Git (se plano mudou) · **PC10** Painel · **PC11** Git · **PC12** Painel |
+| F — Diretor | 24 | **PC13a** Git encerramento · **PC13b** Painel |
 
-2. O arquivo `CONTROLE_DE_VOO.md` é a única fonte da verdade para o status do projeto.
+Detalhe, críticas e exemplos de FALHA: **`docs/governanca/FLUXO_SUCESSO_E_FALHA.md`**.
 
-3. Se o GitHub Actions der erro (bolinha vermelha), a persona QA assume o comando até corrigir.
+---
 
-4. **Painel de controle:** Toda e qualquer alteração de código deve ser **precedida** e **sucedida** pela atualização do `docs/PAINEL_OPERACIONAL.md` (intenção antes; fecho, links e estado depois), em linha com o *Fluxo de 15 Etapas*.
+## Fluxo técnico de 15 etapas (subordinado)
 
+O *Fluxo de 15 Etapas* em `docs/PAINEL_OPERACIONAL.md` **continua válido** como desdobramento técnico (MODELO, migrações, UI, `pytest`, CI) **dentro** das fases **Dev / QA** do fluxo SUCESSO, **sem substituir** pareceres, selos ou pontos de controlo.
 
+---
+
+## Personas (deveres acrescidos pela regra máxima)
+
+### 1. ANALISTA
+
+- Registar demanda e desenho funcional; obter **confirmação formal do Diretor** (Fase A).
+- Validar desenho lógico (Fase B); validar código *vs* funcional (Fase D); informar Diretor no encerramento (Fase F).
+- Manter `PAINEL_OPERACIONAL.md` e `status_demanda.json` coerentes **após** cada push da fase.
+- **Output:** pareceres escritos e selos registados no Git.
+
+### 2. ARQUITETO
+
+- Produzir desenho lógico; validar código (1.ª validação técnica); acionar Analista para validação de negócio.
+- **Output:** parecer técnico + selo no Git (PC5).
+
+### 3. DEV
+
+- Codificar após desenhos aprovados; após dupla validação (Arquiteto + Analista), produzir **plano de testes** e actualizar **`docs/CADERNO_TESTES_MASTER.md`**.
+- **Output:** código + plano de testes + acionamento de QA.
+
+### 4. QA
+
+- Validar / incrementar plano de testes; executar testes massivos; emitir **parecer final** e selo QA.
+- **Output:** relatório completo; nenhum selo QA com `pytest`/CI vermelhos (salvo excepção documentada pelo Diretor).
+
+---
+
+## REGRAS GERAIS DO DIRETOR
+
+1. Nunca trabalhar na `main` para evolução corrente; usar `develop`.
+2. **Fontes de verdade em conjunto:** `CONTROLE_DE_VOO.md`, `PAINEL_OPERACIONAL.md`, `docs/governanca/FLUXO_SUCESSO_E_FALHA.md` e o repositório Git (`origin/develop`). Em conflito, prevalece o que está **commitado** após o último ponto de controlo válido.
+3. Se GitHub Actions falhar, **QA** coordena a correcção até verde.
+4. Toda alteração de código relevante: actualizar **intenção** e **fecho** no `PAINEL_OPERACIONAL.md` e o **dashboard** `status_demanda.json` nos momentos PC de Painel.

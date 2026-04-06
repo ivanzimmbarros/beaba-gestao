@@ -55,6 +55,9 @@
 - **Pareto:** percentagem cumulativa calculada **só sobre as categorias exibidas** (Top N barras), não sobre universo completo.
 - **UI:** `page_dashboards.py`; gráficos **Plotly**; paleta `ANALYTICS_COLORS` em `theme.py` (tons suaves).
 
+## Governança de evolução (regra máxima)
+- Alterações de arquitetura e modelo de dados seguem **`docs/governanca/FLUXO_SUCESSO_E_FALHA.md`** (Fase B: desenho lógico, PC3–PC4) e são registadas em **`docs/governanca/demandas/<ID>/`** antes de implementação em massa.
+
 ## 🛠️ PADRÕES DE CÓDIGO
 - **Modularidade:** A lógica de banco de dados deve estar separada da interface (Streamlit).
 - **Tratamento de Erros:** Todo acesso ao banco deve estar dentro de blocos `try/except/finally`.
