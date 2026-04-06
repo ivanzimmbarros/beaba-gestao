@@ -34,5 +34,5 @@
 ## Registo da última entrega
 
 - **Entrega:** E04 — Módulo **Colaboradores** (UI, BD `servicos`/`colaboradores`/`colaborador_servicos`, seeds, validadores partilhados, testes, CI `tests/`).
-- **Commit:** ver último em `develop` com mensagem contendo `feat` ou `colaborador` / `Colaboradores`.
+- **Commit:** `0303aa1`
 - **Notas:** Contacto exclusivo; repasse % com 2 dec (1–10000); idade ≥18; ≥1 serviço; atalho para ecrã Catálogo (placeholder).
