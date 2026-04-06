@@ -9,6 +9,7 @@ import streamlit as st
 
 from src.database.connection import create_tables
 from src.modules.cliente import cadastrar_cliente
+from src.modules.colaborador import cadastrar_colaborador, listar_servicos
 from src.modules.constants import SEXOS
 from src.ui.theme import inject_bea_theme
 
@@ -69,8 +70,8 @@ def _page_home() -> None:
         if st.button("Gestão de Clientes", use_container_width=True, type="primary"):
             st.session_state.page = "clientes"
     with row1[1]:
-        if st.button("Gestão de Colaboradoras", use_container_width=True, type="secondary"):
-            st.session_state.page = "colaboradoras"
+        if st.button("Gestão de Colaboradores", use_container_width=True, type="secondary"):
+            st.session_state.page = "colaboradores"
 
     st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
@@ -226,6 +227,127 @@ def _page_clientes() -> None:
             st.error(msg)
 
 
+def _page_colaboradores() -> None:
+    _render_back_and_breadcrumb(["Home", "Colaboradores", "Cadastro"], back_key="bea_back_colaboradores")
+    st.markdown("### Cadastro de colaboradores")
+    st.caption(
+        "Contacto exclusivo por colaborador (11 dígitos). Pelo menos um serviço com percentual de repasse (0,01% a 100,00%)."
+    )
+
+    if "col_form_v" not in st.session_state:
+        st.session_state.col_form_v = 0
+    if "col_n_svc" not in st.session_state:
+        st.session_state.col_n_svc = 1
+
+    fv = st.session_state.col_form_v
+    fk = f"col_{fv}"
+
+    servicos_opts = listar_servicos()
+    if not servicos_opts:
+        st.error("Não há serviços na base. Execute a aplicação para criar os serviços de exemplo ou contacte o administrador.")
+        return
+
+    st.subheader("Dados pessoais")
+    c_nome = st.text_input("Nome completo *", key=f"{fk}_nome")
+    c_sexo = st.selectbox("Sexo *", SEXOS, key=f"{fk}_sexo")
+    c_dn = st.date_input("Data de nascimento *", key=f"{fk}_dn")
+    c_email = st.text_input("Email *", key=f"{fk}_email")
+    c_num = st.text_input("Número de contacto *", key=f"{fk}_num", placeholder="11 dígitos, exclusivo")
+
+    st.subheader("Morada (estruturada)")
+    st.caption("Mesma estrutura que o cadastro de clientes. Código postal: XXXX-XXX.")
+    r1c1, r1c2 = st.columns(2)
+    with r1c1:
+        c_rua = st.text_input("Rua / logradouro *", key=f"{fk}_rua")
+    with r1c2:
+        c_numero = st.text_input("Número *", key=f"{fk}_numero")
+    c_comp = st.text_input("Complemento (opcional)", key=f"{fk}_comp")
+    r2c1, r2c2, r2c3 = st.columns(3)
+    with r2c1:
+        c_cp = st.text_input("Código postal *", key=f"{fk}_cp", placeholder="4800-123")
+    with r2c2:
+        c_conc = st.text_input("Concelho *", key=f"{fk}_conc")
+    with r2c3:
+        c_freg = st.text_input("Freguesia *", key=f"{fk}_freg")
+    r3c1, r3c2 = st.columns(2)
+    with r3c1:
+        c_dist = st.text_input("Distrito (opcional)", key=f"{fk}_dist")
+    with r3c2:
+        c_pais = st.text_input("País *", key=f"{fk}_pais", value="Portugal")
+
+    st.subheader("Serviços habilitados e repasse")
+    st.caption(
+        "Ligue cada colaborador aos serviços do catálogo. Os serviços listados são os da base (exemplos até ao módulo Catálogo completo)."
+    )
+    if st.button("Abrir área Catálogo de Serviços", key=f"{fk}_goto_cat"):
+        st.session_state.page = "catalogo"
+
+    c_add, _ = st.columns([2, 3])
+    with c_add:
+        if st.button("➕ Adicionar linha de serviço", key=f"{fk}_add_svc"):
+            st.session_state.col_n_svc = min(st.session_state.col_n_svc + 1, 20)
+
+    repasse: list[tuple[int, float]] = []
+    for i in range(st.session_state.col_n_svc):
+        st.markdown(f"**Serviço {i + 1}**")
+        sc1, sc2 = st.columns([2, 1])
+        with sc1:
+            sel = st.selectbox(
+                "Serviço *",
+                servicos_opts,
+                format_func=lambda x: x[1],
+                key=f"{fk}_svc_{i}",
+            )
+            sid = sel[0]
+        with sc2:
+            pct = float(
+                st.number_input(
+                    "Repasse % *",
+                    min_value=0.01,
+                    max_value=100.0,
+                    value=50.0,
+                    step=0.01,
+                    format="%.2f",
+                    key=f"{fk}_pct_{i}",
+                )
+            )
+        repasse.append((sid, pct))
+
+    st.subheader("Observações")
+    c_obs = st.text_area(
+        "Observações",
+        key=f"{fk}_obs",
+        height=100,
+        placeholder="Texto livre (opcional).",
+    )
+
+    if st.button("Cadastrar colaborador", type="primary", key=f"{fk}_submit"):
+        dn_iso = c_dn.isoformat() if c_dn else ""
+        ok, msg = cadastrar_colaborador(
+            nome=c_nome,
+            sexo=c_sexo,
+            data_nascimento=dn_iso,
+            endereco_rua=c_rua,
+            endereco_numero=c_numero,
+            endereco_complemento=c_comp,
+            codigo_postal=c_cp,
+            concelho=c_conc,
+            freguesia=c_freg,
+            distrito=c_dist,
+            pais=c_pais,
+            email=c_email,
+            numero_contato=c_num,
+            observacoes=c_obs or "",
+            servicos_repasse=repasse,
+        )
+        if ok:
+            st.session_state.col_form_v += 1
+            st.session_state.col_n_svc = 1
+            st.success(msg)
+        else:
+            st.error(msg)
+
+
 def _page_placeholder(title: str, trail: list[str], blurb: str, *, back_key: str) -> None:
     _render_back_and_breadcrumb(trail, back_key=back_key)
     st.markdown(f"### {title}")
@@ -238,13 +360,10 @@ def main() -> None:
         _page_home()
     elif page == "clientes":
         _page_clientes()
-    elif page == "colaboradoras":
-        _page_placeholder(
-            "Colaboradoras",
-            ["Home", "Colaboradoras"],
-            "Módulo em construção: cadastro, percentual de repasse e vínculos.",
-            back_key="bea_back_colaboradoras",
-        )
+    elif page in ("colaboradores", "colaboradoras"):
+        if page == "colaboradoras":
+            st.session_state.page = "colaboradores"
+        _page_colaboradores()
     elif page == "catalogo":
         _page_placeholder(
             "Catálogo de serviços",

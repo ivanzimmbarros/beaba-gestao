@@ -43,7 +43,7 @@ A Home não é apenas uma lista: blocos com cores suaves, alinhados ao site.
 | Bloco | Cor de fundo | Destino funcional |
 |:---:|:---|:---|
 | 1 | Verde BeaBa | Gestão de clientes |
-| 2 | Cinza suave | Gestão de colaboradoras |
+| 2 | Cinza suave | Gestão de colaboradores |
 | 3 | Verde BeaBa | Catálogo de serviços |
 | 4 | Cinza suave | Painel de vendas |
 
@@ -62,8 +62,9 @@ A Home não é apenas uma lista: blocos com cores suaves, alinhados ao site.
 
 1. **Número de contacto (principal):** **11 dígitos** numéricos (PT); **unicidade** na base (coluna técnica `whatsapp`). Na UI o rótulo é **Número de contacto**.
 2. **Cadastro de cliente (V11.0+):** **morada estruturada** (rua, número, complemento opcional, código postal PT **XXXX-XXX** validado, concelho, **freguesia obrigatória**, distrito opcional, país); email, sexo e composição familiar obrigatórios conforme fluxo; **filhos** com **nome**, idade em **anos completos** e sexo por filho; se **Feminino** e grávida, **data estimada de parto** obrigatória; **contactos de emergência** opcionais, em lista dinâmica — cada linha preenchida exige **nome + 11 dígitos**; campo **Observações** livre ao final (opcional).
-3. **Catálogo:** distinção entre **Sessão**, **Tempo**, **Pacote** e **Produto**.
-4. **Financeiro:** gatilho de exceção para percentuais manuais na venda; valores em **centavos** (inteiro).
+3. **Colaboradores:** nome, sexo, **data de nascimento** (idade mínima **18 anos**), **morada estruturada** (mesma regra que clientes), email, **número de contacto exclusivo** (11 dígitos, sem partilha entre colaboradores); **pelo menos um serviço** habilitado; por serviço, **percentual de repasse** entre **0,01% e 100,00%** com duas casas decimais (persistido como inteiro **centésimos de percentual** para cálculos futuros); linhas de serviço **incrementáveis**; **Observações** opcionais. Serviços provêm da tabela `servicos` (exemplos seed até evolução do módulo Catálogo).
+4. **Catálogo:** distinção entre **Sessão**, **Tempo**, **Pacote** e **Produto** (tabela `servicos` alimentada também por seeds MVP).
+5. **Financeiro:** gatilho de exceção para percentuais manuais na venda; valores em **centavos** (inteiro).
 
 ---
 

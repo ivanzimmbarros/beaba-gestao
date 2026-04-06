@@ -7,12 +7,12 @@
 
 ---
 
-## 📦 MÓDULO 01: GESTÃO CORE (CLIENTES, COLABORADORAS, CATÁLOGO)
+## 📦 MÓDULO 01: GESTÃO CORE (CLIENTES, COLABORADORES, CATÁLOGO)
 
 | ID | FUNCIONALIDADE | ANALISTA | ARQUITETO | DEV | QA (REGRESSÃO) | STATUS FINAL |
 |:---|:---|:---:|:---:|:---:|:---:|:---|
 | #01 | Cadastro de Clientes (contacto 11 + ficha alargada) | 🟢 | 🟢 | 🔵 | 🟢 | EM CURSO |
-| #02 | Cadastro de Colaboradoras (% Repasse) | ⚪ | ⚪ | ⚪ | ⚪ | AGUARDANDO |
+| #02 | Cadastro de Colaboradores (habilitações + % repasse) | 🟢 | 🟢 | 🟢 | 🟢 | EM CURSO |
 | #03 | Catálogo Híbrido (4 Naturezas) | ⚪ | ⚪ | ⚪ | ⚪ | AGUARDANDO |
 | #04 | Gatilho de Exceção Financeira | ⚪ | ⚪ | ⚪ | ⚪ | AGUARDANDO |
 
@@ -34,3 +34,4 @@
 - [x] **E02 — Cadastro cliente refinado:** inputs com fundo `#F7F7F7`; ficha com morada, email, sexo, filhos (idade em anos + sexo), gravidez + DPP se aplicável, contactos de emergência dinâmicos (11 dígitos), observações opcionais; migração SQLite + testes + CI em `tests/test_qa_auto.py`.
 - [x] **E02b — Hotfix Streamlit:** `SEXOS` centralizado em `src/modules/constants.py` (import estável para `app.py` / `cliente.py`, evita `ImportError` por ficheiro desatualizado ou cache).
 - [x] **E03 — Morada estruturada + filhos com nome:** campos de endereço para pesquisa (CP PT validado; freguesia obrigatória; distrito opcional); `cliente_filhos.nome`; base limpa sem migração de legado em filhos.
+- [x] **E04 — Colaboradores:** label **Gestão de Colaboradores**; cadastro com morada espelhada, idade ≥18, contacto exclusivo; `servicos` + seeds; `colaborador_servicos` com repasse 0,01%–100,00% (centésimos); UI com linhas incrementáveis e atalho para Catálogo; `src/modules/validators.py`; testes `tests/test_colaborador.py`.

@@ -1,39 +1,13 @@
-import re
 import sqlite3
-from datetime import datetime
 
 from src.database.connection import get_connection
 from src.modules.constants import SEXOS
-
-
-def validar_e_limpar_telefone(valor: str) -> str | None:
-    num_limpo = re.sub(r"\D", "", valor or "")
-    return num_limpo if len(num_limpo) == 11 else None
-
-
-def normalizar_codigo_postal_pt(raw: str) -> str | None:
-    """Aceita '1234-567' ou '1234567'; devolve sempre 'XXXX-XXX' ou None."""
-    t = (raw or "").strip().replace(" ", "")
-    if re.fullmatch(r"\d{7}", t):
-        return f"{t[:4]}-{t[4:]}"
-    if re.fullmatch(r"\d{4}-\d{3}", t):
-        return t
-    return None
-
-
-def _email_valido(email: str) -> bool:
-    e = (email or "").strip()
-    return bool(re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", e))
-
-
-def _parse_data_iso(s: str | None) -> bool:
-    if not s or not str(s).strip():
-        return False
-    try:
-        datetime.strptime(str(s).strip()[:10], "%Y-%m-%d")
-        return True
-    except ValueError:
-        return False
+from src.modules.validators import (
+    email_valido,
+    normalizar_codigo_postal_pt,
+    parse_data_iso,
+    validar_e_limpar_telefone,
+)
 
 
 def cadastrar_cliente(
@@ -92,7 +66,7 @@ def cadastrar_cliente(
     email = (email or "").strip()
     if not email:
         return False, "❌ O email é obrigatório."
-    if not _email_valido(email):
+    if not email_valido(email):
         return False, "❌ Indique um email válido."
 
     if sexo not in SEXOS:
@@ -102,7 +76,7 @@ def cadastrar_cliente(
         if gravida is None:
             return False, "❌ Indique se está grávida."
         if gravida is True:
-            if not _parse_data_iso(data_parto_prevista):
+            if not parse_data_iso(data_parto_prevista):
                 return False, "❌ Indique a estimativa de data de parto (data válida)."
     else:
         gravida = None
