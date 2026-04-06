@@ -1,0 +1,3 @@
+# Tema claro por defeito — evita área principal escura com “dark mode” do sistema.
+[theme]
+base = "light"

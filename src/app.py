@@ -247,6 +247,10 @@ def _page_colaboradores() -> None:
         st.error("Não há serviços na base. Execute a aplicação para criar os serviços de exemplo ou contacte o administrador.")
         return
 
+    # Nomes únicos na BD — mapear rótulo → id (evita selectbox com tuplas + lambda, instável no Streamlit)
+    nomes_servicos = [row[1] for row in servicos_opts]
+    id_por_nome: dict[str, int] = {row[1]: row[0] for row in servicos_opts}
+
     st.subheader("Dados pessoais")
     c_nome = st.text_input("Nome completo *", key=f"{fk}_nome")
     c_sexo = st.selectbox("Sexo *", SEXOS, key=f"{fk}_sexo")
@@ -292,13 +296,12 @@ def _page_colaboradores() -> None:
         st.markdown(f"**Serviço {i + 1}**")
         sc1, sc2 = st.columns([2, 1])
         with sc1:
-            sel = st.selectbox(
+            nome_svc = st.selectbox(
                 "Serviço *",
-                servicos_opts,
-                format_func=lambda x: x[1],
+                nomes_servicos,
                 key=f"{fk}_svc_{i}",
             )
-            sid = sel[0]
+            sid = id_por_nome[nome_svc]
         with sc2:
             pct = float(
                 st.number_input(
@@ -307,7 +310,6 @@ def _page_colaboradores() -> None:
                     max_value=100.0,
                     value=50.0,
                     step=0.01,
-                    format="%.2f",
                     key=f"{fk}_pct_{i}",
                 )
             )
@@ -356,31 +358,35 @@ def _page_placeholder(title: str, trail: list[str], blurb: str, *, back_key: str
 
 def main() -> None:
     page = st.session_state.page
-    if page == "home":
-        _page_home()
-    elif page == "clientes":
-        _page_clientes()
-    elif page in ("colaboradores", "colaboradoras"):
-        if page == "colaboradoras":
-            st.session_state.page = "colaboradores"
-        _page_colaboradores()
-    elif page == "catalogo":
-        _page_placeholder(
-            "Catálogo de serviços",
-            ["Home", "Catálogo"],
-            "Módulo em construção: Sessão, Tempo, Pacote e Produto (4 naturezas).",
-            back_key="bea_back_catalogo",
-        )
-    elif page == "vendas":
-        _page_placeholder(
-            "Painel de vendas",
-            ["Home", "Vendas"],
-            "Módulo em construção: exceções financeiras e centavos.",
-            back_key="bea_back_vendas",
-        )
-    else:
-        st.session_state.page = "home"
-        _page_home()
+    try:
+        if page == "home":
+            _page_home()
+        elif page == "clientes":
+            _page_clientes()
+        elif page in ("colaboradores", "colaboradoras"):
+            if page == "colaboradoras":
+                st.session_state.page = "colaboradores"
+            _page_colaboradores()
+        elif page == "catalogo":
+            _page_placeholder(
+                "Catálogo de serviços",
+                ["Home", "Catálogo"],
+                "Módulo em construção: Sessão, Tempo, Pacote e Produto (4 naturezas).",
+                back_key="bea_back_catalogo",
+            )
+        elif page == "vendas":
+            _page_placeholder(
+                "Painel de vendas",
+                ["Home", "Vendas"],
+                "Módulo em construção: exceções financeiras e centavos.",
+                back_key="bea_back_vendas",
+            )
+        else:
+            st.session_state.page = "home"
+            _page_home()
+    except Exception as err:
+        st.error("Ocorreu um erro ao renderizar esta página. Detalhes abaixo.")
+        st.exception(err)
 
 
 main()
