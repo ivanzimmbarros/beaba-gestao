@@ -8,7 +8,8 @@ from __future__ import annotations
 import streamlit as st
 
 from src.database.connection import create_tables
-from src.modules.cliente import SEXOS, cadastrar_cliente
+from src.modules.cliente import cadastrar_cliente
+from src.modules.constants import SEXOS
 from src.ui.theme import inject_bea_theme
 
 st.set_page_config(

@@ -3,8 +3,7 @@ import sqlite3
 from datetime import datetime
 
 from src.database.connection import get_connection
-
-SEXOS = ("Feminino", "Masculino", "Outro", "Prefiro não informar")
+from src.modules.constants import SEXOS
 
 
 def validar_e_limpar_telefone(valor: str) -> str | None:
