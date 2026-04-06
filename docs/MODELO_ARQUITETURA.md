@@ -49,7 +49,7 @@
 - **Saldo de crédito (sem tabela extra):** por `(venda_item_id, pacote_sessao_id)` — direitos = quantidade da linha (ou `quantidade_pacote_sessão × quantidade_linha_venda` para pacote); consumo = ocorrências em `AGENDADO`/`CONFIRMADO`/`CONCLUIDO` ou `CANCELADO` com `devolver_ao_buffer = 0`. **Produto** não gera créditos agendáveis.
 - **UI / tema:** `page_agendamentos.py`; tokens `AGENDA_STATUS_STYLES` e `AGENDA_TIPO_ORIGEM_ICONS` em `theme.py`.
 
-### Evolução E11 — pré-venda na agenda *(código em `develop`; PC5+ pendentes)*
+### Evolução E11 — pré-venda na agenda *(entregue em `develop`; demanda encerrada 2026-04-06)*
 - Demanda [`2026-04-06_E11_pre_venda_agenda`](governanca/demandas/2026-04-06_E11_pre_venda_agenda/04_desenho_logico.md): compromissos de agenda **sem** linha de venda no momento (`pre_venda`), fecho no atendimento e vendas adicionais por visita.
 - **`agendamentos`:** `modo_origem` (`credito_venda` \| `pre_venda`); `venda_id` / `venda_item_id` **NULL** só em `pre_venda`; `preco_referencia_centavos` opcional; CHECK composto; migração SQLite por recriação da tabela (esquema legado com NOT NULL).
 - **MVP:** `pre_venda` apenas para naturezas **Sessão**, **Coworking**, **Evento** (pacote = fase posterior).

@@ -8,24 +8,23 @@
 
 **Instrução:** em **cada ponto de controlo de Painel**, o estado aqui descrito deve estar **alinhado** com **`origin/develop`** (cloud) e com [`docs/governanca/status_demanda.json`](governanca/status_demanda.json) (dashboard na app: **Fluxo e governança**). Ordem: **GitHub primeiro** (ficheiros locais + **commit** + **`push`** ao remoto), **Painel depois** (pares PC1→2, PC3→4, … — ver tabela). Em **falha**, repetir pontos de controlo e documentar pareceres negativos (ver fluxo FALHA no documento de governança). **Actualização do JSON e deste ficheiro:** pela **EQUIPE**, não pelo Diretor.
 
-**Última revisão do painel:** 2026-04-06 — **E11** — implementação **Dev** entregue (migração, `agendamento`/`venda`, UI, **49** `pytest`); **PC5** (parecer Arquiteto) **pendente**.
+**Última revisão do painel:** 2026-04-06 — **E11 encerrada** — PC1–PC13b concluídos; implementação **`a6a9a8f`**, **49** `pytest`, [`99_encerramento.md`](governanca/demandas/2026-04-06_E11_pre_venda_agenda/99_encerramento.md).
 
 ---
 
-## Demanda activa — governança SUCESSO/FALHA
+## Última demanda encerrada — E11 (referência)
 
 | Campo | Valor |
 |:---|:---|
 | **ID** | `2026-04-06_E11_pre_venda_agenda` |
 | **Dossier** | [`docs/governanca/demandas/2026-04-06_E11_pre_venda_agenda/`](governanca/demandas/2026-04-06_E11_pre_venda_agenda/) |
-| **Fase** | **C** — **Dev** — código alinhado ao [`04_desenho_logico.md`](governanca/demandas/2026-04-06_E11_pre_venda_agenda/04_desenho_logico.md) (entregue; aguarda **PC5**) |
-| **PC1** | **Fechado** — `03_confirmacao_diretor.md` com **PROSSIGA** (2026-04-06) |
-| **PC2** | **Fechado** — este painel + `CONTROLE` + JSON alinhados |
-| **PC3** | **Fechado** — `04_desenho_logico.md` + **`05_validacao_analista_desenho_logico.md`** (selo Analista) |
-| **PC4** | **Fechado** — actualização deste bloco + [`MODELO_ARQUITETURA.md`](MODELO_ARQUITETURA.md) (secção E11) |
-| **Próximo** | **PC5** — Arquiteto valida **código** após implementação (`06_parecer_arquiteto_codigo.md`) |
+| **Estado** | **Concluída** — `01`–`09`, **`99_encerramento.md`** |
+| **PC1–PC13** | **Fechados** (Git + Painel + JSON conforme fluxo SUCESSO) |
+| **Código** | `develop` — commit **`a6a9a8f`** (feat E11) |
 
-**Resumo do pedido:** suportar **agendamentos sem venda fechada** (expectativa de venda), **fecho de venda no dia do atendimento** e **vendas adicionais** no contexto da mesma visita — ver [`02_desenho_funcional.md`](governanca/demandas/2026-04-06_E11_pre_venda_agenda/02_desenho_funcional.md).
+**Próxima evolução:** nova entrada **`@Files` → Analista**; a EQUIPE reabre `status_demanda.json` e este bloco como **demanda activa**.
+
+**Resumo entregue:** pré-venda na agenda (MVP Sessão/Coworking/Evento), fecho no Painel de Vendas, vendas com contexto de visita — ver [`02_desenho_funcional.md`](governanca/demandas/2026-04-06_E11_pre_venda_agenda/02_desenho_funcional.md).
 
 ---
 
@@ -238,7 +237,7 @@ Todas as entregas acima seguiram o *Fluxo de 15 Etapas* com **pytest** (`tests/`
 | 11 | `pytest` local | `python -m pytest tests/ -v` (obrigatório antes de push) | ✅ |
 | 12 | Documentação técnica | [`docs/`](.) · [`CONTROLE_DE_VOO.md`](../CONTROLE_DE_VOO.md) · [`PAINEL_OPERACIONAL.md`](PAINEL_OPERACIONAL.md) | ✅ |
 | 13 | Revisão de links desta tabela (Analista) | *esta tabela — E09* | ✅ |
-| 14 | Validação visual do painel (QA) | *pytest **40** + CI; smoke Vendas + **Dashboards** + **Agendamentos*** | ✅ |
+| 14 | Validação visual do painel (QA) | *pytest **49** + CI; smoke Vendas + **Dashboards** + **Agendamentos** (+ pré-venda E11)* | ✅ |
 | 15 | Commit final + push `develop` | Git — `develop` atualizado (E07–E09) | ✅ |
 
 **Legenda:** ✅ Concluído · 🚧 Em andamento · ⚪ Pendente
@@ -251,7 +250,8 @@ Todas as entregas acima seguiram o *Fluxo de 15 Etapas* com **pytest** (`tests/`
 
 ## Registo da última entrega
 
-- **Entrega (esta revisão):** **`6671f3d`** — **Canal `@Files` → Analista**; documentação e controlos **automáticos pela EQUIPE** (mandatório; Diretor não prepara dossiers). Ficheiros: `FLUXO_SUCESSO_E_FALHA.md`, `.cursorrules`, `PAINEL`, `CONTROLE`, `demandas/README`, `status_demanda.json`, `page_fluxo_gestao`, `MODELO`, `CADERNO_TESTES_MASTER`, `test_governanca`.
+- **Entrega (esta revisão):** **E11 encerrada** — demanda `2026-04-06_E11_pre_venda_agenda`; código **`a6a9a8f`** (pré-venda, `agendamento_contexto_id`); dossier `01`–`09` + **`99_encerramento.md`**; **49** `pytest`; `status_demanda.json` sem demanda activa; commit de governança em `develop` *(ver histórico Git)*.
+- **Entrega (referência anterior):** **`6671f3d`** — **Canal `@Files` → Analista**; documentação e controlos **automáticos pela EQUIPE** (mandatório; Diretor não prepara dossiers). Ficheiros: `FLUXO_SUCESSO_E_FALHA.md`, `.cursorrules`, `PAINEL`, `CONTROLE`, `demandas/README`, `status_demanda.json`, `page_fluxo_gestao`, `MODELO`, `CADERNO_TESTES_MASTER`, `test_governanca`.
 - **Entrega (referência anterior):** **Regra máxima — Fluxo SUCESSO / FALHA** — commit **`f92c4f2`**: [`docs/governanca/FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md); PC1–PC13 no `PAINEL`; [`.cursorrules`](../.cursorrules); [`docs/CADERNO_TESTES_MASTER.md`](CADERNO_TESTES_MASTER.md); [`docs/governanca/status_demanda.json`](governanca/status_demanda.json); **Fluxo e governança** na app; **43** testes.
 - **Entrega (referência anterior):** **Governança — Checkpoints Git por persona** — commit **`f07395c`**: tabela + reinício no `PAINEL`, [`.cursorrules`](../.cursorrules), registo em `CONTROLE_DE_VOO.md`.
 - **Entrega (referência anterior):** **Sincronização Git `develop` — E07, E08 e E09** — commit **`7dfc53d`** (acumulado no working copy após E06; **commit + push** restauram evidência na Action e no histórico). Inclui: **E07** `venda.py`, `page_vendas.py`; **E08** `relatorios.py`, `page_dashboards.py`, Plotly; **E09** `agendamentos`/`agendamento_colaboradores`, `agendamento.py`, `page_agendamentos.py`, **40** testes; `beaba_gestao.db` **removido do índice** Git (mantém-se local, `*.db` ignorado).
