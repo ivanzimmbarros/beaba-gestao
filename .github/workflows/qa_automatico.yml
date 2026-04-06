@@ -45,4 +45,4 @@ jobs:
           fi
 
       - name: 🚀 Executando QA Profissional
-        run: python3 -m pytest tests/test_qa_auto.py -v
+        run: python3 -m pytest tests/ -v

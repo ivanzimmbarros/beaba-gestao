@@ -37,6 +37,25 @@ def _ensure_column(cursor, table: str, column: str, definition: str) -> None:
         cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
+def _seed_servicos_exemplo(cursor) -> None:
+    """Serviços de exemplo até o módulo Catálogo estar completo."""
+    cursor.execute("SELECT COUNT(*) FROM servicos")
+    if cursor.fetchone()[0] > 0:
+        return
+    exemplos = (
+        "Massagem de relaxamento",
+        "Consulta de psicologia",
+        "Yoga pré-natal",
+        "Fisioterapia pós-parto",
+        "Acompanhamento de amamentação",
+    )
+    for nome in exemplos:
+        cursor.execute(
+            "INSERT INTO servicos (nome, natureza) VALUES (?, 'Sessão')",
+            (nome,),
+        )
+
+
 def create_tables():
     """Garante esquema base, migrações incrementais e tabelas relacionadas."""
     conn = get_connection()
@@ -86,6 +105,54 @@ def create_tables():
         """
     )
     _ensure_column(cursor, "cliente_filhos", "nome", "TEXT DEFAULT ''")
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS servicos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL UNIQUE,
+            natureza TEXT DEFAULT 'Sessão',
+            ativo INTEGER DEFAULT 1
+        )
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS colaboradores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL,
+            sexo TEXT NOT NULL,
+            data_nascimento TEXT NOT NULL,
+            email TEXT NOT NULL,
+            whatsapp TEXT UNIQUE NOT NULL,
+            observacoes TEXT DEFAULT '',
+            endereco_rua TEXT NOT NULL,
+            endereco_numero TEXT NOT NULL,
+            endereco_complemento TEXT DEFAULT '',
+            codigo_postal TEXT NOT NULL,
+            concelho TEXT NOT NULL,
+            freguesia TEXT NOT NULL,
+            distrito TEXT DEFAULT '',
+            pais TEXT DEFAULT 'Portugal',
+            data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS colaborador_servicos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            colaborador_id INTEGER NOT NULL,
+            servico_id INTEGER NOT NULL,
+            percentual_centesimos INTEGER NOT NULL,
+            ordem INTEGER NOT NULL,
+            FOREIGN KEY (colaborador_id) REFERENCES colaboradores(id) ON DELETE CASCADE,
+            FOREIGN KEY (servico_id) REFERENCES servicos(id),
+            UNIQUE(colaborador_id, servico_id),
+            CHECK(percentual_centesimos >= 1 AND percentual_centesimos <= 10000)
+        )
+        """
+    )
+    _seed_servicos_exemplo(cursor)
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS cliente_contatos_emergencia (

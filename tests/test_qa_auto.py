@@ -3,7 +3,8 @@ import os
 import pytest
 
 from src.database.connection import create_tables
-from src.modules.cliente import cadastrar_cliente, normalizar_codigo_postal_pt
+from src.modules.cliente import cadastrar_cliente
+from src.modules.validators import normalizar_codigo_postal_pt
 
 
 @pytest.fixture(autouse=True)
