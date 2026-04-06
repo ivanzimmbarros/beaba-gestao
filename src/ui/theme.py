@@ -48,9 +48,24 @@ def inject_bea_theme() -> None:
                 --bea-radius: {RADIUS};
                 --bea-shadow: {SHADOW_CARD};
             }}
+            /* Força modo claro no viewport (evita área principal preta com tema escuro OS/Streamlit) */
+            html, html[data-theme="dark"], html[data-theme="light"] {{
+                color-scheme: light !important;
+            }}
             .stApp {{
                 background-color: var(--bea-bg) !important;
                 color: var(--bea-text) !important;
+            }}
+            [data-testid="stAppViewContainer"],
+            [data-testid="stAppViewContainer"] > div,
+            section[data-testid="stMain"],
+            section[data-testid="stMain"] > div,
+            .main .block-container {{
+                background-color: var(--bea-bg) !important;
+                color: var(--bea-text) !important;
+            }}
+            [data-testid="stHeader"] {{
+                background-color: var(--bea-bg) !important;
             }}
             .stApp, .stApp [data-testid="stMarkdownContainer"], .stTextInput label, .stTextInput input {{
                 font-family: var(--bea-sans) !important;
@@ -127,6 +142,22 @@ def inject_bea_theme() -> None:
             .stRadio label, .stCheckbox label, .stMultiSelect label {{
                 color: var(--bea-text) !important;
                 font-family: var(--bea-sans) !important;
+            }}
+            [data-testid="stWidgetLabel"],
+            label[data-testid="stWidgetLabel"] {{
+                color: var(--bea-text) !important;
+            }}
+            [data-testid="stCaption"],
+            .stCaption {{
+                color: rgba(84, 84, 84, 0.85) !important;
+            }}
+            [data-testid="stMarkdownContainer"] p,
+            [data-testid="stMarkdownContainer"] li,
+            [data-testid="stMarkdownContainer"] span {{
+                color: var(--bea-text) !important;
+            }}
+            div[data-testid="stAlert"] {{
+                color: var(--bea-text) !important;
             }}
         </style>
         """,
