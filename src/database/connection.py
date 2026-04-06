@@ -21,6 +21,7 @@ def get_connection():
 
     try:
         conn = sqlite3.connect(db_path, check_same_thread=False)
+        conn.execute("PRAGMA foreign_keys = ON")
         return conn
     except Exception as e:
         st.error(f"Falha crítica na base de dados: {e}")
@@ -128,8 +129,36 @@ def create_tables():
         ("cowork_sala_nome", "TEXT DEFAULT ''"),
         ("cowork_cobranca", "TEXT DEFAULT ''"),
         ("cowork_valor_centavos", "INTEGER"),
+        ("pacote_valor_venda_centavos", "INTEGER"),
+        ("pacote_repasse_ref_pct_centesimos", "INTEGER"),
     ):
         _ensure_column(cursor, "servicos", col, definition)
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS servico_pacote_sessoes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            pacote_servico_id INTEGER NOT NULL,
+            sessao_servico_id INTEGER NOT NULL,
+            quantidade INTEGER NOT NULL CHECK (quantidade >= 1),
+            duracao_horas REAL,
+            ordem INTEGER NOT NULL,
+            FOREIGN KEY (pacote_servico_id) REFERENCES servicos(id) ON DELETE CASCADE,
+            FOREIGN KEY (sessao_servico_id) REFERENCES servicos(id)
+        )
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS servico_pacote_produtos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            pacote_servico_id INTEGER NOT NULL,
+            produto_servico_id INTEGER NOT NULL,
+            quantidade INTEGER NOT NULL CHECK (quantidade >= 1),
+            FOREIGN KEY (pacote_servico_id) REFERENCES servicos(id) ON DELETE CASCADE,
+            FOREIGN KEY (produto_servico_id) REFERENCES servicos(id)
+        )
+        """
+    )
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS colaboradores (

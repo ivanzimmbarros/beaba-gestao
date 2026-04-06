@@ -22,11 +22,14 @@
 - **`cliente_filhos`:** `cliente_id`, `ordem`, `nome`, `idade_anos`, `sexo` (um registo por filho).
 - **`cliente_contatos_emergencia`:** `cliente_id`, `ordem`, `nome`, `telefone` (opcional no negócio; 0..N registos).
 
-### Tabelas — colaboradores e catálogo (E06 — Fase 1)
-- **`servicos`:** `nome` (UNIQUE), `natureza` (`Sessão` | `Produto` | `Coworking` na Fase 1; `Pacote` e `Evento` previstos nas fases seguintes), `ativo`, `descritivo`. Colunas de detalhe por natureza (nullable quando não aplicável):
+### Tabelas — colaboradores e catálogo (E06 — Fases 1 e 2)
+- **`servicos`:** `nome` (UNIQUE), `natureza` (`Sessão` | `Produto` | `Coworking` | `Pacote`; `Evento` na Fase 3), `ativo`, `descritivo`. Colunas de detalhe por natureza (nullable quando não aplicável):
   - Sessão: `sessao_duracao_horas` (REAL), `sessao_valor_centavos`.
   - Produto: `produto_tipo`, `produto_descricao`, `produto_valor_centavos`, `produto_origem` (`proprio` | `repasse`), `produto_repasse_pct_centesimos`, `produto_repasse_valor_centavos`.
   - Coworking: `cowork_sala_nome`, `cowork_cobranca` (`hora` | `dia`), `cowork_valor_centavos`.
+  - Pacote: `pacote_valor_venda_centavos`, `pacote_repasse_ref_pct_centesimos` (1–10000; valor **editável** na UI, com sugestão automática via médias de repasse dos colaboradores habilitados nas sessões componentes).
+- **`servico_pacote_sessoes`:** `pacote_servico_id` → `servicos`, `sessao_servico_id` → `servicos` (natureza Sessão), `quantidade` (≥1), `duracao_horas` (NULL = usar `servicos.sessao_duracao_horas` da sessão referenciada), `ordem`.
+- **`servico_pacote_produtos`:** `pacote_servico_id`, `produto_servico_id` (natureza Produto), `quantidade` (≥1); opcional (0 ou 1 linha por pacote na UI atual).
   Seeds de exemplo (só nome/natureza) podem mostrar detalhe incompleto até edição no Catálogo.
 - **`colaboradores`:** dados pessoais + morada estruturada (espelho da lógica de `clientes`), `data_nascimento`, `whatsapp` **UNIQUE** (contacto exclusivo), `observacoes`.
 - **`colaborador_servicos`:** `colaborador_id`, `servico_id`, `percentual_centesimos` (1–10000 = 0,01%–100,00%), `ordem`, `data_insercao_linha` (TEXT `YYYY-MM-DD` — data de **inserção da linha** de habilitação, não do cadastro do colaborador); `UNIQUE(colaborador_id, servico_id)`.
