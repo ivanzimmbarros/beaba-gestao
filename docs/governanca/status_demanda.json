@@ -1,12 +1,12 @@
 {
   "demanda_id": "2026-04-06_E11_pre_venda_agenda",
   "titulo": "Pré-venda na agenda + fecho no atendimento + serviços adicionais (Vendas × Agendamentos)",
-  "fase_actual": "A — Desenho funcional entregue; aguarda confirmação formal do Diretor (passo 4)",
-  "passo_referencia": 4,
-  "responsavel_actual": "Diretor (confirmação) → depois EQUIPE Fase B (Arquiteto)",
-  "pontos_controlo_concluidos": [],
-  "pendente": "Resposta formal do Diretor no Cursor sobre 02_desenho_funcional.md (CONFIRMO/PROSSIGA ou ajustes). Após aprovação: actualizar 03_confirmacao_diretor.md e fechar PC1 (commit+push).",
+  "fase_actual": "C — Dev (implementar 04_desenho_logico.md)",
+  "passo_referencia": 10,
+  "responsavel_actual": "EQUIPE (Dev) → depois Arquiteto (PC5)",
+  "pontos_controlo_concluidos": ["PC1", "PC2", "PC3", "PC4"],
+  "pendente": "Implementação E11: migração agendamentos, domínio agendamento/venda, UI, testes; depois PC5 (parecer Arquiteto).",
   "falha": null,
   "ultima_actualizacao_iso": "2026-04-06",
-  "notas_dashboard": "Demanda E11: dossier docs/governanca/demandas/2026-04-06_E11_pre_venda_agenda/. PCs GitHub: local + commit + push origin/develop; depois Painel/JSON."
+  "notas_dashboard": "Diretor PROSSIGA 2026-04-06. Dossier com 01–05. Próximo: código + PC5–PC8."
 }
