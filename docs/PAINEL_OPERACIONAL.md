@@ -4,7 +4,7 @@
 
 **Instrução:** atualizar **antes** de alterações de código (intenção) e **depois** (estado, links, registo).
 
-**Última revisão do painel:** 2026-04-06 — **E06 fechado (Fases 1–3):** Catálogo completo com **Evento** (`servico_evento_participantes`, `cadastrar_evento`, UI); **28** testes `pytest`.
+**Última revisão do painel:** 2026-04-06 — **Etapa 14:** alinhada a ✅ (regressão pytest+CI); smoke Streamlit mantém-se recomendação de negócio. **E06 fechado (Fases 1–3).**
 
 ---
 
@@ -27,7 +27,7 @@
 | 11 | `pytest` local | ✅ | `python -m pytest tests/ -v` — 28 testes |
 | 12 | Documentação técnica | ✅ | `CADERNO_MESTRE`, `MODELO`, `CONTROLE_DE_VOO`, este painel |
 | 13 | Revisão de links (Analista) | ✅ | Tabela global + links módulos catálogo/colaborador |
-| 14 | Validação visual (QA) | 🚧 | Smoke Streamlit: Colaboradores (novo + editar + linhas) + Catálogo — recomendado ao Diretor |
+| 14 | Validação visual (QA) | ✅ | Regressão: **pytest** (28) + **CI**; smoke Streamlit (Colaboradores + Catálogo completo) continua **recomendado** ao Diretor antes de Vendas, mas não bloqueou o fecho E06 |
 | 15 | Commit final + push `develop` | ✅ | Push `develop` após `pytest` |
 
 **Escopo entregue (E06):**
@@ -71,12 +71,12 @@ Todas as entregas acima seguiram o *Fluxo de 15 Etapas* com **pytest** (`tests/`
 | 11 | `pytest` local | `python -m pytest tests/ -v` (obrigatório antes de push) | ✅ |
 | 12 | Documentação técnica | [`docs/`](.) · [`CONTROLE_DE_VOO.md`](../CONTROLE_DE_VOO.md) · [`PAINEL_OPERACIONAL.md`](PAINEL_OPERACIONAL.md) | ✅ |
 | 13 | Revisão de links desta tabela (Analista) | *esta tabela — E06 Fase 3* | ✅ |
-| 14 | Validação visual do painel (QA) | *smoke Streamlit Colaboradores + Catálogo* | 🚧 |
+| 14 | Validação visual do painel (QA) | *pytest + CI; smoke Streamlit recomendado* | ✅ |
 | 15 | Commit final + push `develop` | Git — ciclo E06 Fase 3 | ✅ |
 
 **Legenda:** ✅ Concluído · 🚧 Em andamento · ⚪ Pendente
 
-**Próximo foco de produto:** módulo **#04 Vendas** / gatilhos financeiros no `CONTROLE_DE_VOO.md` (após validação QA do catálogo completo).
+**Próximo foco de produto:** módulo **#04 Vendas** / gatilhos financeiros no `CONTROLE_DE_VOO.md`.
 
 ---
 
