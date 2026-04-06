@@ -210,7 +210,7 @@ Todas as entregas acima seguiram o *Fluxo de 15 Etapas* com **pytest** (`tests/`
 
 ## Registo da última entrega
 
-- **Entrega (esta revisão):** **Sincronização Git `develop` — E07, E08 e E09** (acumulado no working copy após E06; **commit + push** restauram evidência na Action e no histórico). Inclui: **E07** `venda.py`, `page_vendas.py`; **E08** `relatorios.py`, `page_dashboards.py`, Plotly; **E09** `agendamentos`/`agendamento_colaboradores`, `agendamento.py`, `page_agendamentos.py`, **40** testes; `beaba_gestao.db` **removido do índice** Git (mantém-se local, `*.db` ignorado).
+- **Entrega (esta revisão):** **Sincronização Git `develop` — E07, E08 e E09** — commit **`7dfc53d`** (acumulado no working copy após E06; **commit + push** restauram evidência na Action e no histórico). Inclui: **E07** `venda.py`, `page_vendas.py`; **E08** `relatorios.py`, `page_dashboards.py`, Plotly; **E09** `agendamentos`/`agendamento_colaboradores`, `agendamento.py`, `page_agendamentos.py`, **40** testes; `beaba_gestao.db` **removido do índice** Git (mantém-se local, `*.db` ignorado).
 - **Entrega (referência anterior):** **E09 — Refinamento com Diretor (Agendamentos)** — validadas decisões de buffer, horários e léxico visual.
 - **Entrega (referência anterior):** **E09 — Proposta Analista (Agendamentos)** — escopo inicial; **ciclo E09** aberto.
 - **Entrega (referência anterior):** **E08 — Dashboards e Relatórios** — `relatorios.py`; `page_dashboards.py` (Plotly, `ANALYTICS_COLORS`); filtros + Group by + KPIs + temporal + Top N + Pareto + tabela/CSV; `venda_itens.colaborador_id` + UI venda; dependência `plotly`; **36** testes.
