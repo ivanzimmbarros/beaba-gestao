@@ -12,6 +12,7 @@ import streamlit as st
 
 from src.database.connection import create_tables
 from src.modules.catalogo import (
+    cadastrar_evento,
     cadastrar_pacote,
     cadastrar_servico_fase1,
     listar_itens_catalogo,
@@ -27,7 +28,7 @@ from src.modules.colaborador import (
     listar_servicos,
     obter_colaborador,
 )
-from src.modules.constants import NATUREZAS_CATALOGO_FASE1, NATUREZAS_CATALOGO_FASE2, SEXOS
+from src.modules.constants import NATUREZAS_CATALOGO_FASE3, SEXOS
 from src.modules.validators import parse_data_iso
 from src.ui.theme import inject_bea_theme
 
@@ -451,14 +452,13 @@ def _page_catalogo() -> None:
     _render_back_and_breadcrumb(["Home", "Catálogo"], back_key="bea_back_catalogo")
     st.markdown("### Catálogo de serviços")
     st.caption(
-        "**E06 — Fase 1:** Sessão, Produto, Coworking. **Fase 2:** Pacote (composição 1:N, produto opcional, repasse de referência auto+editável, valor de venda). "
-        "**Evento** na Fase 3."
+        "**E06:** Sessão, Produto, Coworking, **Pacote** e **Evento** — cadastro no catálogo; itens **Pacote** e **Evento** não aparecem nas habilitações de colaboradores."
     )
 
     fk = "cat_form"
 
     with st.expander("Cadastrar novo item", expanded=True):
-        natureza = st.selectbox("Natureza *", NATUREZAS_CATALOGO_FASE2, key=f"{fk}_nat")
+        natureza = st.selectbox("Natureza *", NATUREZAS_CATALOGO_FASE3, key=f"{fk}_nat")
         nome = st.text_input("Nome *", key=f"{fk}_nome")
         descritivo = st.text_area(
             "Descritivo do serviço / produto *",
@@ -484,6 +484,15 @@ def _page_catalogo() -> None:
         pref_pac = 50.0
         valor_pac_eur = 100.0
         prod_opt_ui: tuple[int, int] | None = None
+
+        evt_el: list[tuple[str, int | None, str, str, float | None, float | None]] = []
+        evt_data_iso = ""
+        evt_local = ""
+        evt_obs = ""
+        evt_escopo = "interno"
+        evt_pc = 10.0
+        evt_pa = 15.0
+        evt_pdf = 0.0
 
         if natureza == "Sessão":
             sessao_dh = float(
@@ -599,6 +608,103 @@ def _page_catalogo() -> None:
                 elif incluir_p and not prod_opts:
                     st.info("Não há produtos ativos no catálogo. Crie um item **Produto** primeiro.")
 
+        elif natureza == "Evento":
+            st.subheader("Dados do evento")
+            ed = st.date_input("Data do evento *", key=f"{fk}_edt")
+            evt_data_iso = ed.isoformat() if ed else ""
+            evt_local = st.text_input("Local de realização *", key=f"{fk}_eloc", placeholder="Morada ou espaço")
+            evt_obs = st.text_area("Observações", key=f"{fk}_eobs", height=70, placeholder="Opcional.")
+            esc_l = st.radio(
+                "Âmbito *",
+                ["Interno (membros e colaboradores BeaBa)", "Com convidado (parcerias)"],
+                horizontal=True,
+                key=f"{fk}_eesc",
+            )
+            evt_escopo = "interno" if esc_l.startswith("Interno") else "convidado"
+
+            ec1, ec2, ec3 = st.columns(3)
+            with ec1:
+                evt_pc = float(st.number_input("Preço venda — criança (€) *", min_value=0.01, value=10.0, step=0.5, key=f"{fk}_epc"))
+            with ec2:
+                evt_pa = float(st.number_input("Preço venda — adulto (€) *", min_value=0.01, value=15.0, step=0.5, key=f"{fk}_epa"))
+            with ec3:
+                evt_pdf = float(
+                    st.number_input(
+                        "Desconto por filho adicional (€)",
+                        min_value=0.0,
+                        value=0.0,
+                        step=0.5,
+                        key=f"{fk}_epdf",
+                    )
+                )
+
+            st.subheader("Participantes e repasse")
+            st.caption("Uma linha por colaborador ou parceiro externo; indique **percentual** ou **valor** de repasse acordado.")
+            colab_opts = listar_colaboradores_resumo()
+            if not colab_opts:
+                st.warning("Não há colaboradores na base — adicione colaboradores para usar linhas do tipo **Colaborador**.")
+            labels_c = [f"{n} (#{i})" for i, n in colab_opts]
+            id_por_label_c = {f"{n} (#{i})": i for i, n in colab_opts}
+
+            if "cat_evt_row_ids" not in st.session_state:
+                st.session_state.cat_evt_row_ids = [uuid.uuid4().hex[:12]]
+
+            erow_ids = list(st.session_state.cat_evt_row_ids)
+            for pos, erid in enumerate(erow_ids):
+                st.markdown(f"**Participante {pos + 1}**")
+                tipo_l = st.radio(
+                    "Tipo *",
+                    ["Colaborador", "Parceiro externo"],
+                    horizontal=True,
+                    key=f"{fk}_ept_{erid}",
+                )
+                tipo = "colaborador" if tipo_l == "Colaborador" else "parceiro"
+                cid_e: int | None = None
+                pn_e = ""
+                if tipo == "colaborador":
+                    if colab_opts:
+                        lb = st.selectbox("Colaborador *", labels_c, key=f"{fk}_ecol_{erid}")
+                        cid_e = id_por_label_c[lb]
+                    else:
+                        st.caption("— cadastre um colaborador para selecionar.")
+                else:
+                    pn_e = st.text_input("Nome do parceiro *", key=f"{fk}_epn_{erid}", placeholder="Entidade ou pessoa")
+
+                modo_l = st.radio(
+                    "Repasse acordado *",
+                    ["Percentual (%)", "Valor fixo (€)"],
+                    horizontal=True,
+                    key=f"{fk}_erm_{erid}",
+                )
+                modo = "percentual" if modo_l.startswith("Percentual") else "valor"
+                pct_e: float | None = None
+                ve_e: float | None = None
+                if modo == "percentual":
+                    pct_e = float(
+                        st.number_input(
+                            "Repasse (%) *",
+                            min_value=0.01,
+                            max_value=100.0,
+                            value=25.0,
+                            step=0.01,
+                            key=f"{fk}_epct_{erid}",
+                        )
+                    )
+                else:
+                    ve_e = float(st.number_input("Repasse (€) *", min_value=0.01, value=50.0, step=0.5, key=f"{fk}_eval_{erid}"))
+
+                evt_el.append((tipo, cid_e, pn_e, modo, pct_e, ve_e))
+
+                er1, _ = st.columns([1, 4])
+                with er1:
+                    if len(erow_ids) > 1 and st.button("Remover linha", key=f"{fk}_ermv_{erid}"):
+                        st.session_state.cat_evt_row_ids = [x for x in erow_ids if x != erid]
+                        st.rerun()
+
+            if st.button("➕ Adicionar participante", key=f"{fk}_eadd"):
+                st.session_state.cat_evt_row_ids.append(uuid.uuid4().hex[:12])
+                st.rerun()
+
         if st.button("Registar no catálogo", type="primary", key=f"{fk}_submit"):
             if natureza == "Pacote":
                 if not pac_el:
@@ -625,6 +731,31 @@ def _page_catalogo() -> None:
                                     pass
                     else:
                         st.error(msg)
+            elif natureza == "Evento":
+                ok, msg = cadastrar_evento(
+                    nome,
+                    descritivo,
+                    ativo,
+                    evt_data_iso,
+                    evt_local,
+                    evt_obs,
+                    evt_escopo,
+                    evt_pc,
+                    evt_pa,
+                    evt_pdf,
+                    evt_el,
+                )
+                if ok:
+                    st.success(msg)
+                    st.session_state.cat_evt_row_ids = [uuid.uuid4().hex[:12]]
+                    for k in list(st.session_state.keys()):
+                        if k.startswith(f"{fk}_") and k not in (f"{fk}_nat", f"{fk}_ativo"):
+                            try:
+                                del st.session_state[k]
+                            except Exception:
+                                pass
+                else:
+                    st.error(msg)
             else:
                 ok, msg = cadastrar_servico_fase1(
                     natureza,

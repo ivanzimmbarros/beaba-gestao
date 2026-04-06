@@ -131,6 +131,13 @@ def create_tables():
         ("cowork_valor_centavos", "INTEGER"),
         ("pacote_valor_venda_centavos", "INTEGER"),
         ("pacote_repasse_ref_pct_centesimos", "INTEGER"),
+        ("evento_data", "TEXT DEFAULT ''"),
+        ("evento_local", "TEXT DEFAULT ''"),
+        ("evento_observacoes", "TEXT DEFAULT ''"),
+        ("evento_escopo", "TEXT DEFAULT ''"),
+        ("evento_preco_crianca_centavos", "INTEGER"),
+        ("evento_preco_adulto_centavos", "INTEGER"),
+        ("evento_desconto_filho_adicional_centavos", "INTEGER"),
     ):
         _ensure_column(cursor, "servicos", col, definition)
     cursor.execute(
@@ -197,6 +204,22 @@ def create_tables():
         """
     )
     _ensure_column(cursor, "colaborador_servicos", "data_insercao_linha", "TEXT DEFAULT ''")
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS servico_evento_participantes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            evento_servico_id INTEGER NOT NULL,
+            tipo TEXT NOT NULL CHECK (tipo IN ('colaborador', 'parceiro')),
+            colaborador_id INTEGER,
+            parceiro_nome TEXT DEFAULT '',
+            repasse_pct_centesimos INTEGER,
+            repasse_valor_centavos INTEGER,
+            ordem INTEGER NOT NULL,
+            FOREIGN KEY (evento_servico_id) REFERENCES servicos(id) ON DELETE CASCADE,
+            FOREIGN KEY (colaborador_id) REFERENCES colaboradores(id)
+        )
+        """
+    )
     _seed_servicos_exemplo(cursor)
     cursor.execute(
         """

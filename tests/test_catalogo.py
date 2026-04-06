@@ -6,12 +6,13 @@ from src.database.connection import create_tables
 from datetime import date, timedelta
 
 from src.modules.catalogo import (
+    cadastrar_evento,
     cadastrar_pacote,
     cadastrar_servico_fase1,
     listar_itens_catalogo,
     repasse_medio_ponderado_pacote,
 )
-from src.modules.colaborador import cadastrar_colaborador
+from src.modules.colaborador import cadastrar_colaborador, listar_servicos
 
 
 @pytest.fixture(autouse=True)
@@ -152,6 +153,111 @@ def test_pacote_ok_e_listagem():
     row = next(x for x in itens if x["nome"] == "Pacote Integração")
     assert row["natureza"] == "Pacote"
     assert "2×" in str(row["detalhes"]) and "Óleo" in str(row["detalhes"])
+
+
+def _sid_habilitacao():
+    s = listar_servicos()
+    assert s
+    return s[0][0]
+
+
+def test_evento_ok_e_listagem():
+    cadastrar_colaborador(
+        nome="Colab Evento",
+        sexo="Masculino",
+        data_nascimento=_adult_dob(),
+        endereco_rua="Rua E",
+        endereco_numero="2",
+        endereco_complemento="",
+        codigo_postal="4800-300",
+        concelho="Guimarães",
+        freguesia="Selho",
+        distrito="",
+        pais="Portugal",
+        email="ev@beaba.pt",
+        numero_contato="11944332211",
+        observacoes="",
+        servicos_repasse=[(_sid_habilitacao(), 30.0, date.today().isoformat())],
+    )
+    cur = __import__("sqlite3").connect("data/beaba_gestao.db")
+    cid = cur.execute("SELECT id FROM colaboradores WHERE nome = 'Colab Evento'").fetchone()[0]
+    cur.close()
+
+    ok, msg = cadastrar_evento(
+        "Workshop Teste",
+        "Evento de integração.",
+        True,
+        date.today().isoformat(),
+        "Sede BeaBa",
+        "Notas internas.",
+        "interno",
+        8.0,
+        12.0,
+        2.0,
+        [("colaborador", int(cid), "", "percentual", 20.0, None)],
+    )
+    assert ok, msg
+    itens = listar_itens_catalogo()
+    row = next(x for x in itens if x["nome"] == "Workshop Teste")
+    assert row["natureza"] == "Evento"
+    assert "Workshop" in str(row["detalhes"]) or "Sede" in str(row["detalhes"]) or "Colab Evento" in str(row["detalhes"])
+
+
+def test_evento_sem_participantes_falha():
+    ok, _ = cadastrar_evento(
+        "Ev Vazio",
+        "X.",
+        True,
+        date.today().isoformat(),
+        "Local",
+        "",
+        "convidado",
+        5.0,
+        10.0,
+        0.0,
+        [],
+    )
+    assert ok is False
+
+
+def test_evento_colaborador_duplicado_falha():
+    cadastrar_colaborador(
+        nome="Dup Ev",
+        sexo="Feminino",
+        data_nascimento=_adult_dob(),
+        endereco_rua="Rua D",
+        endereco_numero="1",
+        endereco_complemento="",
+        codigo_postal="4800-400",
+        concelho="Guimarães",
+        freguesia="Selho",
+        distrito="",
+        pais="Portugal",
+        email="dupev@beaba.pt",
+        numero_contato="11933221100",
+        observacoes="",
+        servicos_repasse=[(_sid_habilitacao(), 40.0, date.today().isoformat())],
+    )
+    cur = __import__("sqlite3").connect("data/beaba_gestao.db")
+    cid = cur.execute("SELECT id FROM colaboradores WHERE nome = 'Dup Ev'").fetchone()[0]
+    cur.close()
+    ok, _ = cadastrar_evento(
+        "Ev Dup",
+        "Y.",
+        True,
+        date.today().isoformat(),
+        "L",
+        "",
+        "interno",
+        1.0,
+        2.0,
+        0.0,
+        [
+            ("colaborador", int(cid), "", "valor", None, 10.0),
+            ("colaborador", int(cid), "", "valor", None, 20.0),
+        ],
+    )
+    assert ok is False
 
 
 def test_pacote_sessao_duplicada_rejeita():

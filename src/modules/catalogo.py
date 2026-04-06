@@ -1,4 +1,4 @@
-"""Catálogo de serviços — E06: Sessão, Produto, Coworking (Fase 1) + Pacote (Fase 2)."""
+"""Catálogo de serviços — E06: Fases 1–3 (Sessão, Produto, Coworking, Pacote, Evento)."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import sqlite3
 from src.database.connection import get_connection
 from src.modules.colaborador import media_repasse_percentual_servico
 from src.modules.constants import NATUREZAS_CATALOGO_FASE1
+from src.modules.validators import parse_data_iso
 
 
 def euros_para_centavos(valor: float) -> int | None:
@@ -228,6 +229,182 @@ def cadastrar_pacote(
         conn.close()
 
 
+def cadastrar_evento(
+    nome: str,
+    descritivo: str,
+    ativo: bool,
+    data_evento_iso: str,
+    local: str,
+    observacoes: str,
+    escopo: str,
+    preco_crianca_euros: float,
+    preco_adulto_euros: float,
+    desconto_filho_adicional_euros: float,
+    participantes: list[tuple[str, int | None, str, str, float | None, float | None]],
+) -> tuple[bool, str]:
+    """
+    `participantes`: lista de
+    (tipo 'colaborador'|'parceiro', colaborador_id|None, parceiro_nome,
+     modo_repasse 'percentual'|'valor', pct|None, valor_euros|None).
+    """
+    nome = (nome or "").strip()
+    if not nome:
+        return False, "❌ O nome do evento é obrigatório."
+    desc = (descritivo or "").strip()
+    if not desc:
+        return False, "❌ O descritivo é obrigatório."
+
+    d_iso = (data_evento_iso or "").strip()[:10]
+    if not parse_data_iso(d_iso):
+        return False, "❌ Indique a data do evento (formato AAAA-MM-DD)."
+    loc = (local or "").strip()
+    if not loc:
+        return False, "❌ O local de realização é obrigatório."
+    obs = (observacoes or "").strip()
+    esc = (escopo or "").strip()
+    if esc not in ("interno", "convidado"):
+        return False, "❌ Indique se o evento é interno ou com convidado (parcerias)."
+
+    pcc = euros_para_centavos(float(preco_crianca_euros))
+    pca = euros_para_centavos(float(preco_adulto_euros))
+    if pcc is None or pcc < 1 or pca is None or pca < 1:
+        return False, "❌ Os preços de venda (criança e adulto) devem ser > 0 €."
+    dfa = euros_para_centavos(float(desconto_filho_adicional_euros))
+    if dfa is None or dfa < 0:
+        return False, "❌ O desconto por filho adicional não pode ser negativo."
+
+    if not participantes:
+        return False, "❌ Inclua pelo menos um participante (colaborador ou parceiro) com o respetivo repasse."
+
+    ativo_i = 1 if ativo else 0
+    vistos_colab: set[int] = set()
+    linhas_db: list[tuple[str, int | None, str, int | None, int | None]] = []
+
+    conn = get_connection()
+    if not conn:
+        return False, "❌ Não foi possível ligar à base de dados."
+
+    try:
+        cur = conn.cursor()
+        for tipo, cid, pnome, modo, pct, veur in participantes:
+            tipo = (tipo or "").strip()
+            if tipo not in ("colaborador", "parceiro"):
+                return False, "❌ Tipo de participante inválido."
+            modo = (modo or "").strip()
+            if modo not in ("percentual", "valor"):
+                return False, "❌ Indique repasse em percentual ou valor para cada participante."
+
+            colab_id: int | None = None
+            pn = (pnome or "").strip()
+            if tipo == "colaborador":
+                if cid is None:
+                    return False, "❌ Selecione o colaborador em cada linha de participante."
+                colab_id = int(cid)
+                if colab_id in vistos_colab:
+                    return False, "❌ Não repita o mesmo colaborador em linhas separadas."
+                vistos_colab.add(colab_id)
+                cur.execute("SELECT id FROM colaboradores WHERE id = ?", (colab_id,))
+                if not cur.fetchone():
+                    return False, "❌ Colaborador inválido na lista de participantes."
+                pn = ""
+            else:
+                if not pn:
+                    return False, "❌ Indique o nome do parceiro externo."
+                colab_id = None
+
+            rpct: int | None = None
+            rval: int | None = None
+            if modo == "percentual":
+                if pct is None:
+                    return False, "❌ Indique o percentual de repasse."
+                rpct = percentual_para_centesimos_ref(float(pct))
+                if rpct is None:
+                    return False, "❌ Percentual de repasse deve estar entre 0,01% e 100,00%."
+            else:
+                if veur is None:
+                    return False, "❌ Indique o valor de repasse acordado."
+                rval = euros_para_centavos(float(veur))
+                if rval is None or rval < 1:
+                    return False, "❌ Valor de repasse inválido."
+
+            linhas_db.append((tipo, colab_id, pn, rpct, rval))
+
+        cur.execute(
+            """
+            INSERT INTO servicos (
+                nome, natureza, ativo, descritivo,
+                evento_data, evento_local, evento_observacoes, evento_escopo,
+                evento_preco_crianca_centavos, evento_preco_adulto_centavos,
+                evento_desconto_filho_adicional_centavos
+            ) VALUES (?, 'Evento', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (nome, ativo_i, desc, d_iso, loc, obs, esc, pcc, pca, dfa),
+        )
+        eid = int(cur.lastrowid)
+        for ordem, (tipo, colab_id, pn, rpct, rval) in enumerate(linhas_db, start=1):
+            cur.execute(
+                """
+                INSERT INTO servico_evento_participantes (
+                    evento_servico_id, tipo, colaborador_id, parceiro_nome,
+                    repasse_pct_centesimos, repasse_valor_centavos, ordem
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (eid, tipo, colab_id, pn, rpct, rval, ordem),
+            )
+        conn.commit()
+        return True, "✅ Evento registado no catálogo."
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        return False, "⚠️ Já existe um serviço com este nome."
+    except Exception as e:
+        conn.rollback()
+        return False, f"❌ Erro ao guardar: {e}"
+    finally:
+        conn.close()
+
+
+def _detalhe_evento(cur: sqlite3.Cursor, evento_id: int) -> str:
+    cur.execute(
+        """
+        SELECT evento_data, evento_local, evento_escopo,
+               evento_preco_crianca_centavos, evento_preco_adulto_centavos,
+               evento_desconto_filho_adicional_centavos
+        FROM servicos WHERE id = ?
+        """,
+        (int(evento_id),),
+    )
+    er = cur.fetchone()
+    if not er:
+        return "—"
+    ed, el, es, pcc, pca, dfa = er
+    esc_l = "Interno" if es == "interno" else "Com convidado" if es == "convidado" else str(es or "—")
+    preços = f"c:{centavos_para_texto_euros(pcc)} a:{centavos_para_texto_euros(pca)} desc.filho:{centavos_para_texto_euros(dfa)}"
+    cur.execute(
+        """
+        SELECT sep.tipo, sep.parceiro_nome, c.nome, sep.repasse_pct_centesimos, sep.repasse_valor_centavos
+        FROM servico_evento_participantes sep
+        LEFT JOIN colaboradores c ON c.id = sep.colaborador_id
+        WHERE sep.evento_servico_id = ?
+        ORDER BY sep.ordem
+        """,
+        (int(evento_id),),
+    )
+    pp: list[str] = []
+    for t, pnom, cnom, rpc, rvl in cur.fetchall():
+        if t == "colaborador":
+            label = (cnom or "?").strip()
+        else:
+            label = (pnom or "?").strip()
+        if rpc:
+            pp.append(f"{label} ({rpc / 100:.2f}%)")
+        elif rvl:
+            pp.append(f"{label} ({centavos_para_texto_euros(rvl)})")
+        else:
+            pp.append(label)
+    part = "; ".join(pp) if pp else "—"
+    return f"{ed or '—'} · {el or '—'} · {esc_l} · {preços} · [{part}]"
+
+
 def _detalhe_pacote(cur: sqlite3.Cursor, pacote_id: int, rep_cent: int | None, val_cent: int | None) -> str:
     cur.execute(
         """
@@ -407,7 +584,10 @@ def listar_itens_catalogo() -> list[dict[str, str | int | float | None]]:
                    produto_tipo, produto_descricao, produto_valor_centavos,
                    produto_origem, produto_repasse_pct_centesimos, produto_repasse_valor_centavos,
                    cowork_sala_nome, cowork_cobranca, cowork_valor_centavos,
-                   pacote_valor_venda_centavos, pacote_repasse_ref_pct_centesimos
+                   pacote_valor_venda_centavos, pacote_repasse_ref_pct_centesimos,
+                   evento_data, evento_local, evento_observacoes, evento_escopo,
+                   evento_preco_crianca_centavos, evento_preco_adulto_centavos,
+                   evento_desconto_filho_adicional_centavos
             FROM servicos
             ORDER BY natureza, nome
             """
@@ -434,6 +614,13 @@ def listar_itens_catalogo() -> list[dict[str, str | int | float | None]]:
                 cwv,
                 pvalc,
                 prefc,
+                _edata,
+                _eloc,
+                _eobs,
+                _eesc,
+                _epcc,
+                _epca,
+                _edfa,
             ) = r
             detalhe = ""
             if natureza == "Sessão":
@@ -454,6 +641,8 @@ def listar_itens_catalogo() -> list[dict[str, str | int | float | None]]:
                 detalhe = f"{cws} · {un} · {centavos_para_texto_euros(cwv)}"
             elif natureza == "Pacote":
                 detalhe = _detalhe_pacote(cur, int(sid), prefc, pvalc)
+            elif natureza == "Evento":
+                detalhe = _detalhe_evento(cur, int(sid))
 
             out.append(
                 {
@@ -471,6 +660,7 @@ def listar_itens_catalogo() -> list[dict[str, str | int | float | None]]:
 
 
 __all__ = [
+    "cadastrar_evento",
     "cadastrar_pacote",
     "cadastrar_servico_fase1",
     "centavos_para_texto_euros",

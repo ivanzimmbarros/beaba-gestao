@@ -4,13 +4,13 @@
 
 **Instrução:** atualizar **antes** de alterações de código (intenção) e **depois** (estado, links, registo).
 
-**Última revisão do painel:** 2026-04-06 — **E06 Fase 2 entregue:** Catálogo **Pacote** (1:N sessões, produto opcional, repasse ref. auto+editável, valor venda); **pendente:** **Fase 3 — Evento**.
+**Última revisão do painel:** 2026-04-06 — **E06 fechado (Fases 1–3):** Catálogo completo com **Evento** (`servico_evento_participantes`, `cadastrar_evento`, UI); **28** testes `pytest`.
 
 ---
 
 ## Ciclo E06 — Colaboradores (evolução) + Catálogo de serviços (híbrido)
 
-**Estado do ciclo:** **Fases 1 e 2** concluídas no código e em `pytest` (25 testes). **Fase 3** — natureza **Evento** (campos acordados com o Diretor).
+**Estado do ciclo:** **E06 concluído** — Colaboradores (evolução) + catálogo híbrido **Sessão / Produto / Coworking / Pacote / Evento**; `pytest` **28** testes.
 
 | # | Etapa | Estado | Nota |
 |:---:|:---|:---:|:---|
@@ -18,13 +18,13 @@
 | 02 | Cadastro de Clientes | ✅ | Sem alteração nesta entrega |
 | 03 | Colaboradores + habilitações | ✅ | Evolução: `data_insercao_linha`, remoção de linha, edição |
 | 04 | Proposta / escopo (Analista) | ✅ | Confirmada pelo Diretor; incremental |
-| 05 | Estrutura e dados (Arquiteto) | ✅ | MODELO + `servico_pacote_*` + `catalogo.py` (`cadastrar_pacote`) |
+| 05 | Estrutura e dados (Arquiteto) | ✅ | MODELO + `servico_pacote_*` + `servico_evento_participantes` + `catalogo.py` |
 | 06 | Tema / UI | ✅ | `src/app.py` — formulários condicionais catálogo; colaboradores UUID linhas |
 | 07 | Persistência / migrações | ✅ | [`src/database/connection.py`](../src/database/connection.py) — `_ensure_column` |
-| 08 | Regras de domínio | ✅ | `repasse_medio_ponderado_pacote` + validações `cadastrar_pacote`; `listar_servicos` sem Pacote/Evento |
-| 09 | Testes automáticos | ✅ | `test_pacote_*` em [`tests/test_catalogo.py`](../tests/test_catalogo.py) |
+| 08 | Regras de domínio | ✅ | `cadastrar_pacote` / `cadastrar_evento` + validações; `listar_servicos` sem Pacote/Evento |
+| 09 | Testes automáticos | ✅ | `test_pacote_*`, `test_evento_*` em [`tests/test_catalogo.py`](../tests/test_catalogo.py) |
 | 10 | CI / workflows | ✅ | Sem alteração; regressão via `qa_automatico.yml` |
-| 11 | `pytest` local | ✅ | `python -m pytest tests/ -v` — 25 testes |
+| 11 | `pytest` local | ✅ | `python -m pytest tests/ -v` — 28 testes |
 | 12 | Documentação técnica | ✅ | `CADERNO_MESTRE`, `MODELO`, `CONTROLE_DE_VOO`, este painel |
 | 13 | Revisão de links (Analista) | ✅ | Tabela global + links módulos catálogo/colaborador |
 | 14 | Validação visual (QA) | 🚧 | Smoke Streamlit: Colaboradores (novo + editar + linhas) + Catálogo — recomendado ao Diretor |
@@ -33,8 +33,8 @@
 **Escopo entregue (E06):**
 
 - **Fase 1 — Colaboradores + catálogo base:** remoção de linha; data de inserção da linha; edição; Sessão / Produto / Coworking.
-- **Fase 2 — Pacote:** linhas 1:N (tipo sessão ativo, quantidade, duração 0=catálogo); produto opcional (Produto ativo); **% repasse referência** com sugestão automática ponderada + campo editável + botão aplicar sugestão; valor venda; persistência em `servico_pacote_sessoes` / `servico_pacote_produtos`; pacotes **fora** de `listar_servicos` (colaboradores).
-- **Pendente — Fase 3:** Evento.
+- **Fase 2 — Pacote:** linhas 1:N; produto opcional; repasse ref. sugerido+editável; valor venda; `servico_pacote_*`.
+- **Fase 3 — Evento:** data, local, observações, interno/convidado, preços criança/adulto/desconto filho adicional; participantes (colaborador ou parceiro) com repasse % ou €; `servico_evento_participantes`; **fora** de `listar_servicos`.
 
 ---
 
@@ -48,7 +48,7 @@
 | **Governança — Painel + `.cursorrules`** | 01 (extensão), 11–12, 13–15 |
 | **E04 — Colaboradores** | 03 Colaboradores + serviços seed, 05 MODELO, 07–10, 12 |
 | **CI — Auditorias (`HEAD^`)** | 10 workflows `arquiteto_audit` / `analista_audit` |
-| **E06 — Fases 1–2** | 03–12 + 13 documental; 14–15 em fecho por entrega |
+| **E06 — Fases 1–3 (catálogo híbrido)** | 03–12 + 13 documental; 14–15 por entrega |
 
 Todas as entregas acima seguiram o *Fluxo de 15 Etapas* com **pytest** (`tests/`) e **push em `develop`**.
 
@@ -70,18 +70,18 @@ Todas as entregas acima seguiram o *Fluxo de 15 Etapas* com **pytest** (`tests/`
 | 10 | CI / workflows | [`qa_automatico.yml`](../.github/workflows/qa_automatico.yml) · [`arquiteto_audit.yml`](../.github/workflows/arquiteto_audit.yml) · [`analista_audit.yml`](../.github/workflows/analista_audit.yml) | ✅ |
 | 11 | `pytest` local | `python -m pytest tests/ -v` (obrigatório antes de push) | ✅ |
 | 12 | Documentação técnica | [`docs/`](.) · [`CONTROLE_DE_VOO.md`](../CONTROLE_DE_VOO.md) · [`PAINEL_OPERACIONAL.md`](PAINEL_OPERACIONAL.md) | ✅ |
-| 13 | Revisão de links desta tabela (Analista) | *esta tabela — E06 Fase 2* | ✅ |
+| 13 | Revisão de links desta tabela (Analista) | *esta tabela — E06 Fase 3* | ✅ |
 | 14 | Validação visual do painel (QA) | *smoke Streamlit Colaboradores + Catálogo* | 🚧 |
-| 15 | Commit final + push `develop` | Git — ciclo E06 Fase 2 | ✅ |
+| 15 | Commit final + push `develop` | Git — ciclo E06 Fase 3 | ✅ |
 
 **Legenda:** ✅ Concluído · 🚧 Em andamento · ⚪ Pendente
 
-**Próximo foco de produto:** **E06 Fase 3** — natureza **Evento** (data, local, observações, interno/convidado, participantes e repasses, preços criança/adulto/desconto filho adicional).
+**Próximo foco de produto:** módulo **#04 Vendas** / gatilhos financeiros no `CONTROLE_DE_VOO.md` (após validação QA do catálogo completo).
 
 ---
 
 ## Registo da última entrega
 
-- **Entrega:** **E06 Fase 2 — Pacote** — `servico_pacote_sessoes`, `servico_pacote_produtos`; `pacote_valor_venda_centavos`, `pacote_repasse_ref_pct_centesimos`; `PRAGMA foreign_keys=ON`; `cadastrar_pacote`, `repasse_medio_ponderado_pacote`, `listar_servicos_sessao_para_pacote` / `_produto_`; UI em `src/app.py` (`NATUREZAS_CATALOGO_FASE2`); `listar_servicos` exclui Pacote/Evento; 25 testes `pytest`.
+- **Entrega:** **E06 Fase 3 — Evento** — colunas `evento_*` em `servicos`; `servico_evento_participantes`; `cadastrar_evento`, `_detalhe_evento`; UI `NATUREZAS_CATALOGO_FASE3` em `src/app.py`; testes `test_evento_*`; **28** testes no total.
 - **Referência técnica:** `CONTROLE_DE_VOO.md` (Log), `MODELO_ARQUITETURA.md`, `CADERNO_MESTRE.md` (regra 4).
-- **Notas:** **Evento** permanece fora até Fase 3. Pacote: não repetir o mesmo `servico_id` de sessão em duas linhas (ajustar quantidade numa única linha).
+- **Notas:** Evento: ≥1 participante; não repetir o mesmo colaborador em duas linhas; parceiro exige nome. Pacote: ver nota anterior (sessão duplicada).
