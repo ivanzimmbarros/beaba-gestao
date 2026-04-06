@@ -4,7 +4,7 @@
 
 **Instrução:** atualizar **antes** de alterações de código (intenção) e **depois** (estado, links, registo). **Além disso:** ao **terminar cada bloco de persona** (Analista, Arquiteto, Dev, QA), executar o **checkpoint Git** correspondente na tabela abaixo (**commit + push** em `develop`), para o painel reflectir **evolução local e remota**. Em **falha** que exija **recomeço**, repetir os checkpoints afectados com commits e mensagens **correctas** (não deixar `PAINEL`/`CONTROLE` ✅ desalinhados de `origin/develop`).
 
-**Última revisão do painel:** 2026-04-06 — **Checkpoints Git por persona** (obrigatórios após cada bloco Analista / Arquiteto / Dev / QA + regra de reinício). Referência histórica: **E07–E09** sincronizados em `develop` (`7dfc53d` + doc); a Action só reflecte o que está no remoto.
+**Última revisão do painel:** 2026-04-06 — **Checkpoints Git por persona** (obrigatórios após cada bloco Analista / Arquiteto / Dev / QA + regra de reinício). Referência histórica: **E07–E09** em `develop` (`7dfc53d` + doc); a Action só reflecte o que está no remoto.
 
 ---
 
@@ -231,7 +231,7 @@ Todas as entregas acima seguiram o *Fluxo de 15 Etapas* com **pytest** (`tests/`
 
 ## Registo da última entrega
 
-- **Entrega (esta revisão):** **Governança — Checkpoints Git por persona** no `PAINEL` (tabela + regra de reinício); instruções no topo alinhadas a [`.cursorrules`](../.cursorrules).
+- **Entrega (esta revisão):** **Governança — Checkpoints Git por persona** — commit **`f07395c`**: tabela + reinício no `PAINEL`, [`.cursorrules`](../.cursorrules), registo em `CONTROLE_DE_VOO.md`.
 - **Entrega (referência anterior):** **Sincronização Git `develop` — E07, E08 e E09** — commit **`7dfc53d`** (acumulado no working copy após E06; **commit + push** restauram evidência na Action e no histórico). Inclui: **E07** `venda.py`, `page_vendas.py`; **E08** `relatorios.py`, `page_dashboards.py`, Plotly; **E09** `agendamentos`/`agendamento_colaboradores`, `agendamento.py`, `page_agendamentos.py`, **40** testes; `beaba_gestao.db` **removido do índice** Git (mantém-se local, `*.db` ignorado).
 - **Entrega (referência anterior):** **E09 — Refinamento com Diretor (Agendamentos)** — validadas decisões de buffer, horários e léxico visual.
 - **Entrega (referência anterior):** **E09 — Proposta Analista (Agendamentos)** — escopo inicial; **ciclo E09** aberto.
