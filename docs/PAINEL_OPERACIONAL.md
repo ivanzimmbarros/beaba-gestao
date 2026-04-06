@@ -34,5 +34,5 @@
 ## Registo da última entrega
 
 - **Entrega:** ETAPA 01 — Painel operacional (tabela 15 etapas; Configuração ✅; Cadastro de Clientes 🚧).
-- **Commit:** *(preencher após push)*
+- **Commit:** ver último commit em `develop` com mensagem contendo `docs(painel): ETAPA 01`
 - **Notas:** Ficheiro em `/docs` conforme arquitetura de pastas.
