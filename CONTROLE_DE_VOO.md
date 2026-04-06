@@ -11,7 +11,7 @@
 
 | ID | FUNCIONALIDADE | ANALISTA | ARQUITETO | DEV | QA (REGRESSÃO) | STATUS FINAL |
 |:---|:---|:---:|:---:|:---:|:---:|:---|
-| #01 | Cadastro de Clientes (WhatsApp 11) | 🟢 | 🟢 | 🔵 | ⚪ | EM CURSO |
+| #01 | Cadastro de Clientes (contacto 11 + ficha alargada) | 🟢 | 🟢 | 🔵 | 🟢 | EM CURSO |
 | #02 | Cadastro de Colaboradoras (% Repasse) | ⚪ | ⚪ | ⚪ | ⚪ | AGUARDANDO |
 | #03 | Catálogo Híbrido (4 Naturezas) | ⚪ | ⚪ | ⚪ | ⚪ | AGUARDANDO |
 | #04 | Gatilho de Exceção Financeira | ⚪ | ⚪ | ⚪ | ⚪ | AGUARDANDO |
@@ -31,3 +31,4 @@
 
 - [x] Ambiente de Desenvolvimento (Cursor + Personas + Git) configurado e sincronizado.
 - [x] **E01 — V11.0:** `docs/CADERNO_MESTRE.md` publicado; estrutura `src/ui` + `src/app.py` (tema Verde BeaBa, serifas, dashboard 4 blocos); shell navegável com retorno e breadcrumbs nas vistas internas.
+- [x] **E02 — Cadastro cliente refinado:** inputs com fundo `#F7F7F7`; ficha com morada, email, sexo, filhos (idade em anos + sexo), gravidez + DPP se aplicável, contactos de emergência dinâmicos (11 dígitos), observações opcionais; migração SQLite + testes + CI em `tests/test_qa_auto.py`.

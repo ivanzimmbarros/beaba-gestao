@@ -99,6 +99,35 @@ def inject_bea_theme() -> None:
                 font-family: var(--bea-sans);
                 font-size: 0.9rem;
             }}
+            /* Inputs claros (#F7F7F7): contraste suave com fundo branco, sem “dark theme” */
+            .stTextInput input,
+            .stTextArea textarea,
+            div[data-testid="stNumberInput"] input,
+            div[data-baseweb="input"] input,
+            div[data-baseweb="textarea"] textarea {{
+                background-color: var(--bea-card) !important;
+                color: var(--bea-text) !important;
+                border: 1px solid rgba(84, 84, 84, 0.12) !important;
+                border-radius: var(--bea-radius) !important;
+                caret-color: var(--bea-text) !important;
+            }}
+            div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+            div[data-baseweb="select"] > div {{
+                background-color: var(--bea-card) !important;
+                border: 1px solid rgba(84, 84, 84, 0.12) !important;
+                border-radius: var(--bea-radius) !important;
+                color: var(--bea-text) !important;
+            }}
+            div[data-testid="stDateInput"] input {{
+                background-color: var(--bea-card) !important;
+                color: var(--bea-text) !important;
+                border: 1px solid rgba(84, 84, 84, 0.12) !important;
+                border-radius: var(--bea-radius) !important;
+            }}
+            .stRadio label, .stCheckbox label, .stMultiSelect label {{
+                color: var(--bea-text) !important;
+                font-family: var(--bea-sans) !important;
+            }}
         </style>
         """,
         unsafe_allow_html=True,

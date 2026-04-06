@@ -60,9 +60,10 @@ A Home não é apenas uma lista: blocos com cores suaves, alinhados ao site.
 
 ## 3. Regras funcionais (mantidas e blindadas)
 
-1. **WhatsApp:** validação de **11 dígitos** numéricos; **unicidade** obrigatória.
-2. **Catálogo:** distinção entre **Sessão**, **Tempo**, **Pacote** e **Produto**.
-3. **Financeiro:** gatilho de exceção para percentuais manuais na venda; valores em **centavos** (inteiro).
+1. **Número de contacto (principal):** **11 dígitos** numéricos (PT); **unicidade** na base (coluna técnica `whatsapp`). Na UI o rótulo é **Número de contacto**.
+2. **Cadastro de cliente (V11.0+):** morada, email, sexo e composição familiar obrigatórios conforme fluxo; **filhos** com idade em **anos completos** e sexo por filho; se **Feminino** e grávida, **data estimada de parto** obrigatória; **contactos de emergência** opcionais, em lista dinâmica — cada linha preenchida exige **nome + 11 dígitos**; campo **Observações** livre ao final (opcional).
+3. **Catálogo:** distinção entre **Sessão**, **Tempo**, **Pacote** e **Produto**.
+4. **Financeiro:** gatilho de exceção para percentuais manuais na venda; valores em **centavos** (inteiro).
 
 ---
 
