@@ -35,3 +35,5 @@
 - [x] **E02b — Hotfix Streamlit:** `SEXOS` centralizado em `src/modules/constants.py` (import estável para `app.py` / `cliente.py`, evita `ImportError` por ficheiro desatualizado ou cache).
 - [x] **E03 — Morada estruturada + filhos com nome:** campos de endereço para pesquisa (CP PT validado; freguesia obrigatória; distrito opcional); `cliente_filhos.nome`; base limpa sem migração de legado em filhos.
 - [x] **E04 — Colaboradores:** label **Gestão de Colaboradores**; cadastro com morada espelhada, idade ≥18, contacto exclusivo; `servicos` + seeds; `colaborador_servicos` com repasse 0,01%–100,00% (centésimos); UI com linhas incrementáveis e atalho para Catálogo; `src/modules/validators.py`; testes `tests/test_colaborador.py`.
+- [x] **E05 — CI auditorias:** workflows `arquiteto_audit` / `analista_audit` com `fetch-depth: 0` e fallback quando não existe `HEAD^` (evita exit 128).
+- [x] **Painel 15 etapas — reconciliação:** `docs/PAINEL_OPERACIONAL.md` atualizado: etapas 04–15 marcadas conforme entregas reais; tabela de mapeamento E01–E04 ↔ plano; links de validação (incl. auditorias e `.cursorrules`).
