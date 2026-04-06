@@ -1,7 +1,8 @@
-# 🚀 PAINEL DE CONTROLE DE VOO - BEABA GESTÃO (V8.1)
+# 🚀 PAINEL DE CONTROLE DE VOO - BEABA GESTÃO (V11.0 / V8.1)
 
 **PROJETO:** Centro Terapêutico BeaBa Materno  
-**STATUS ATUAL:** 🔵 DESENVOLVIMENTO EM CURSO (#01)
+**DESENHO FUNCIONAL:** V11.0 — Identidade integrada (ver `docs/CADERNO_MESTRE.md`)  
+**STATUS ATUAL:** 🔵 DESENVOLVIMENTO EM CURSO (#01)  
 **CONTADOR DE INTEGRIDADE MASSIVA (N+1):** [ 0 ] Funcionalidades Validadas
 
 ---
@@ -29,3 +30,4 @@
 ## Log de Progresso
 
 - [x] Ambiente de Desenvolvimento (Cursor + Personas + Git) configurado e sincronizado.
+- [x] **E01 — V11.0:** `docs/CADERNO_MESTRE.md` publicado; estrutura `src/ui` + `src/app.py` (tema Verde BeaBa, serifas, dashboard 4 blocos); shell navegável com retorno e breadcrumbs nas vistas internas.
