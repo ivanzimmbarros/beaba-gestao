@@ -22,10 +22,14 @@
 - **`cliente_filhos`:** `cliente_id`, `ordem`, `nome`, `idade_anos`, `sexo` (um registo por filho).
 - **`cliente_contatos_emergencia`:** `cliente_id`, `ordem`, `nome`, `telefone` (opcional no negócio; 0..N registos).
 
-### Tabelas — colaboradores e catálogo mínimo
-- **`servicos`:** `nome` (UNIQUE), `natureza` (ex.: Sessão), `ativo`; seeds de exemplo até o módulo Catálogo completo.
+### Tabelas — colaboradores e catálogo (E06 — Fase 1)
+- **`servicos`:** `nome` (UNIQUE), `natureza` (`Sessão` | `Produto` | `Coworking` na Fase 1; `Pacote` e `Evento` previstos nas fases seguintes), `ativo`, `descritivo`. Colunas de detalhe por natureza (nullable quando não aplicável):
+  - Sessão: `sessao_duracao_horas` (REAL), `sessao_valor_centavos`.
+  - Produto: `produto_tipo`, `produto_descricao`, `produto_valor_centavos`, `produto_origem` (`proprio` | `repasse`), `produto_repasse_pct_centesimos`, `produto_repasse_valor_centavos`.
+  - Coworking: `cowork_sala_nome`, `cowork_cobranca` (`hora` | `dia`), `cowork_valor_centavos`.
+  Seeds de exemplo (só nome/natureza) podem mostrar detalhe incompleto até edição no Catálogo.
 - **`colaboradores`:** dados pessoais + morada estruturada (espelho da lógica de `clientes`), `data_nascimento`, `whatsapp` **UNIQUE** (contacto exclusivo), `observacoes`.
-- **`colaborador_servicos`:** `colaborador_id`, `servico_id`, `percentual_centesimos` (1–10000 = 0,01%–100,00%), `ordem`; `UNIQUE(colaborador_id, servico_id)`.
+- **`colaborador_servicos`:** `colaborador_id`, `servico_id`, `percentual_centesimos` (1–10000 = 0,01%–100,00%), `ordem`, `data_insercao_linha` (TEXT `YYYY-MM-DD` — data de **inserção da linha** de habilitação, não do cadastro do colaborador); `UNIQUE(colaborador_id, servico_id)`.
 
 ## 🛠️ PADRÕES DE CÓDIGO
 - **Modularidade:** A lógica de banco de dados deve estar separada da interface (Streamlit).

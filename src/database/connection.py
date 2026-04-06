@@ -115,6 +115,21 @@ def create_tables():
         )
         """
     )
+    for col, definition in (
+        ("descritivo", "TEXT DEFAULT ''"),
+        ("sessao_duracao_horas", "REAL"),
+        ("sessao_valor_centavos", "INTEGER"),
+        ("produto_tipo", "TEXT DEFAULT ''"),
+        ("produto_descricao", "TEXT DEFAULT ''"),
+        ("produto_valor_centavos", "INTEGER"),
+        ("produto_origem", "TEXT DEFAULT ''"),
+        ("produto_repasse_pct_centesimos", "INTEGER"),
+        ("produto_repasse_valor_centavos", "INTEGER"),
+        ("cowork_sala_nome", "TEXT DEFAULT ''"),
+        ("cowork_cobranca", "TEXT DEFAULT ''"),
+        ("cowork_valor_centavos", "INTEGER"),
+    ):
+        _ensure_column(cursor, "servicos", col, definition)
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS colaboradores (
@@ -152,6 +167,7 @@ def create_tables():
         )
         """
     )
+    _ensure_column(cursor, "colaborador_servicos", "data_insercao_linha", "TEXT DEFAULT ''")
     _seed_servicos_exemplo(cursor)
     cursor.execute(
         """

@@ -4,7 +4,37 @@
 
 **Instrução:** atualizar **antes** de alterações de código (intenção) e **depois** (estado, links, registo).
 
-**Última revisão do painel:** 2026-04-06 — **sincronização total** com entregas E01–E04, governança, CI e auditorias; revisão de links (etapa 13) e coerência com o repositório.
+**Última revisão do painel:** 2026-04-06 — **E06 Fase 1 entregue:** Colaboradores (edição, data por linha, remoção) + Catálogo (Sessão, Produto, Coworking); **pendente:** E06 Fases 2–3 (Pacote, Evento).
+
+---
+
+## Ciclo E06 — Colaboradores (evolução) + Catálogo de serviços (híbrido)
+
+**Estado do ciclo:** **Fase 1** concluída no código e em `pytest`; **Fases 2–3** (Pacote com 1:N e repasse médio editável; Evento com participantes e preços) por planear na próxima iteração.
+
+| # | Etapa | Estado | Nota |
+|:---:|:---|:---:|:---|
+| 01 | Configuração | ✅ | Herdado |
+| 02 | Cadastro de Clientes | ✅ | Sem alteração nesta entrega |
+| 03 | Colaboradores + habilitações | ✅ | Evolução: `data_insercao_linha`, remoção de linha, edição |
+| 04 | Proposta / escopo (Analista) | ✅ | Confirmada pelo Diretor; incremental |
+| 05 | Estrutura e dados (Arquiteto) | ✅ | [`MODELO_ARQUITETURA.md`](MODELO_ARQUITETURA.md); `catalogo.py`; colunas `servicos` |
+| 06 | Tema / UI | ✅ | `src/app.py` — formulários condicionais catálogo; colaboradores UUID linhas |
+| 07 | Persistência / migrações | ✅ | [`src/database/connection.py`](../src/database/connection.py) — `_ensure_column` |
+| 08 | Regras de domínio | ✅ | `colaborador.py` + `catalogo.py`; `media_repasse_percentual_servico` (base pacote futuro) |
+| 09 | Testes automáticos | ✅ | [`tests/test_colaborador.py`](../tests/test_colaborador.py) · [`tests/test_catalogo.py`](../tests/test_catalogo.py) |
+| 10 | CI / workflows | ✅ | Sem alteração; regressão via `qa_automatico.yml` |
+| 11 | `pytest` local | ✅ | `python -m pytest tests/ -v` — 23 testes |
+| 12 | Documentação técnica | ✅ | `CADERNO_MESTRE`, `MODELO`, `CONTROLE_DE_VOO`, este painel |
+| 13 | Revisão de links (Analista) | ✅ | Tabela global + links módulos catálogo/colaborador |
+| 14 | Validação visual (QA) | 🚧 | Smoke Streamlit: Colaboradores (novo + editar + linhas) + Catálogo — recomendado ao Diretor |
+| 15 | Commit final + push `develop` | ✅ | Push `develop` após `pytest` |
+
+**Escopo Fase 1 (entregue):**
+
+- **Colaboradores:** remoção de linha (≥1); **data de inserção da linha** obrigatória; **carregar/editar** ficha; `Guardar alterações` vs cadastro novo.
+- **Catálogo:** cadastro + tabela final; Nome, Descritivo, Natureza (**Sessão** | **Produto** | **Coworking**); detalhes por natureza; **Ativo/Inativo**.
+- **Pendente (Fases 2–3):** Pacote (1:N, produto opcional, % repasse médio auto+editável, valor pacote); Evento (campos completos); naturezas extra na UI.
 
 ---
 
@@ -18,6 +48,7 @@
 | **Governança — Painel + `.cursorrules`** | 01 (extensão), 11–12, 13–15 |
 | **E04 — Colaboradores** | 03 Colaboradores + serviços seed, 05 MODELO, 07–10, 12 |
 | **CI — Auditorias (`HEAD^`)** | 10 workflows `arquiteto_audit` / `analista_audit` |
+| **E06 — Fase 1** | 03–12 + 13 documental; 14–15 em fecho |
 
 Todas as entregas acima seguiram o *Fluxo de 15 Etapas* com **pytest** (`tests/`) e **push em `develop`**.
 
@@ -31,26 +62,26 @@ Todas as entregas acima seguiram o *Fluxo de 15 Etapas* com **pytest** (`tests/`
 | 02 | Cadastro de Clientes | [`CADERNO_MESTRE.md`](CADERNO_MESTRE.md) · [`src/app.py`](../src/app.py) · [`src/modules/cliente.py`](../src/modules/cliente.py) · [`tests/test_qa_auto.py`](../tests/test_qa_auto.py) | ✅ |
 | 03 | Colaboradores + habilitações | [`CADERNO_MESTRE.md`](CADERNO_MESTRE.md) · [`src/app.py`](../src/app.py) · [`src/modules/colaborador.py`](../src/modules/colaborador.py) · [`src/database/connection.py`](../src/database/connection.py) · [`tests/test_colaborador.py`](../tests/test_colaborador.py) | ✅ |
 | 04 | Proposta / escopo (Analista) | [`CONTROLE_DE_VOO.md`](../CONTROLE_DE_VOO.md) (módulos + Log de Progresso) | ✅ |
-| 05 | Estrutura e dados (Arquiteto) | [`MODELO_ARQUITETURA.md`](MODELO_ARQUITETURA.md) · [`src/`](../src/) · [`docs/`](.) | ✅ |
-| 06 | Tema / UI V11 | [`CADERNO_MESTRE.md`](CADERNO_MESTRE.md) · [`src/ui/theme.py`](../src/ui/theme.py) | ✅ |
+| 05 | Estrutura e dados (Arquiteto) | [`MODELO_ARQUITETURA.md`](MODELO_ARQUITETURA.md) · [`src/modules/catalogo.py`](../src/modules/catalogo.py) · [`docs/`](.) | ✅ |
+| 06 | Tema / UI V11 | [`CADERNO_MESTRE.md`](CADERNO_MESTRE.md) · [`src/ui/theme.py`](../src/ui/theme.py) · [`src/app.py`](../src/app.py) (Catálogo + Colaboradores) | ✅ |
 | 07 | Persistência / migrações | [`src/database/connection.py`](../src/database/connection.py) | ✅ |
-| 08 | Regras de domínio | [`src/modules/`](../src/modules/) · [`validators.py`](../src/modules/validators.py) | ✅ |
+| 08 | Regras de domínio | [`src/modules/colaborador.py`](../src/modules/colaborador.py) · [`src/modules/catalogo.py`](../src/modules/catalogo.py) · [`src/modules/validators.py`](../src/modules/validators.py) | ✅ |
 | 09 | Testes automáticos | [`tests/`](../tests/) | ✅ |
 | 10 | CI / workflows | [`qa_automatico.yml`](../.github/workflows/qa_automatico.yml) · [`arquiteto_audit.yml`](../.github/workflows/arquiteto_audit.yml) · [`analista_audit.yml`](../.github/workflows/analista_audit.yml) | ✅ |
 | 11 | `pytest` local | `python -m pytest tests/ -v` (obrigatório antes de push) | ✅ |
 | 12 | Documentação técnica | [`docs/`](.) · [`CONTROLE_DE_VOO.md`](../CONTROLE_DE_VOO.md) · [`PAINEL_OPERACIONAL.md`](PAINEL_OPERACIONAL.md) | ✅ |
-| 13 | Revisão de links desta tabela (Analista) | *esta tabela — atualizada nesta revisão* | ✅ |
-| 14 | Validação visual do painel (QA) | *ficheiro + estados ✅ alinhados ao Git; smoke Streamlit recomendado ao Diretor* | ✅ |
-| 15 | Commit final + push `develop` | Git — ciclo fechado após etapas 11–14 | ✅ |
+| 13 | Revisão de links desta tabela (Analista) | *esta tabela — E06 Fase 1* | ✅ |
+| 14 | Validação visual do painel (QA) | *smoke Streamlit Colaboradores + Catálogo* | 🚧 |
+| 15 | Commit final + push `develop` | Git — ciclo E06 Fase 1 | ✅ |
 
 **Legenda:** ✅ Concluído · 🚧 Em andamento · ⚪ Pendente
 
-**Próximo foco de produto (fora do fecho deste ciclo):** módulos **#03 Catálogo** e **#04 Vendas** no `CONTROLE_DE_VOO.md` — ao iniciar, reabrir etapas pertinentes como 🚧 no painel.
+**Próximo foco de produto:** **E06 Fase 2** — natureza **Pacote** (composição 1:N, produto opcional, repasse médio auto + override, valor venda); depois **Fase 3 — Evento**.
 
 ---
 
 ## Registo da última entrega
 
-- **Entrega:** Sincronização **Painel Operacional** com o *Fluxo de 15 Etapas* + registo da correção CI das auditorias (`fetch-depth: 0`, fallback `HEAD^`).
-- **Commits de referência:** `ac69975` (sincronização 15 etapas + CONTROLE); `185103e` (CI auditorias); `0303aa1` / `e326556` (E04).
-- **Notas:** As etapas 04–15 estavam em ⚪ apesar de já cumpridas nas entregas anteriores; esta revisão corrige o desvio face ao `.cursorrules`.
+- **Entrega:** **E06 Fase 1** — coluna `data_insercao_linha` em `colaborador_servicos`; UI colaboradores com linhas UUID, remoção, edição; módulo `catalogo.py` e colunas estendidas em `servicos`; página Catálogo operacional para Sessão / Produto / Coworking; `media_repasse_percentual_servico` para suporte futuro a pacotes; 23 testes `pytest`.
+- **Referência técnica:** `CONTROLE_DE_VOO.md` (Log), `MODELO_ARQUITETURA.md`, `CADERNO_MESTRE.md` (regras 3–4).
+- **Notas:** Pacote e Evento **não** estão nesta entrega (incremental, conforme confirmação do Diretor).

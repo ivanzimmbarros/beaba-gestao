@@ -12,8 +12,8 @@
 | ID | FUNCIONALIDADE | ANALISTA | ARQUITETO | DEV | QA (REGRESSÃO) | STATUS FINAL |
 |:---|:---|:---:|:---:|:---:|:---:|:---|
 | #01 | Cadastro de Clientes (contacto 11 + ficha alargada) | 🟢 | 🟢 | 🔵 | 🟢 | EM CURSO |
-| #02 | Cadastro de Colaboradores (habilitações + % repasse) | 🟢 | 🟢 | 🟢 | 🟢 | EM CURSO |
-| #03 | Catálogo Híbrido (4 Naturezas) | ⚪ | ⚪ | ⚪ | ⚪ | AGUARDANDO |
+| #02 | Cadastro de Colaboradores (habilitações + % repasse + edição + data linha) | 🟢 | 🟢 | 🟢 | 🟢 | EM CURSO |
+| #03 | Catálogo Híbrido (4 Naturezas) | 🟢 | 🟢 | 🔵 | 🟢 | FASE 1 OK — Pacote/Evento pendentes |
 | #04 | Gatilho de Exceção Financeira | ⚪ | ⚪ | ⚪ | ⚪ | AGUARDANDO |
 
 **Legenda:** ⚪ Pendente | 🔵 Em Curso | 🟢 Sucesso | 🔴 Falha (Veto)
@@ -37,3 +37,4 @@
 - [x] **E04 — Colaboradores:** label **Gestão de Colaboradores**; cadastro com morada espelhada, idade ≥18, contacto exclusivo; `servicos` + seeds; `colaborador_servicos` com repasse 0,01%–100,00% (centésimos); UI com linhas incrementáveis e atalho para Catálogo; `src/modules/validators.py`; testes `tests/test_colaborador.py`.
 - [x] **E05 — CI auditorias:** workflows `arquiteto_audit` / `analista_audit` com `fetch-depth: 0` e fallback quando não existe `HEAD^` (evita exit 128).
 - [x] **Painel 15 etapas — reconciliação:** `docs/PAINEL_OPERACIONAL.md` atualizado: etapas 04–15 marcadas conforme entregas reais; tabela de mapeamento E01–E04 ↔ plano; links de validação (incl. auditorias e `.cursorrules`).
+- [x] **E06 — Fase 1 (incremental):** Colaboradores — remoção de linha de serviço (UUID), data de inserção da linha (obrigatória), edição de ficha (`atualizar_colaborador`, `obter_colaborador`); `media_repasse_percentual_servico()` para uso futuro em Pacotes (auto + editável). Catálogo — `src/modules/catalogo.py`: Sessão, Produto, Coworking; descritivo obrigatório; ativo/inativo; tabela de visualização em `src/app.py`; migrações em `connection.py`; testes `tests/test_catalogo.py` + extensão `tests/test_colaborador.py`.
