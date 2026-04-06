@@ -56,7 +56,7 @@ def _count_consumindo(
         """
         SELECT status, devolver_ao_buffer, pacote_sessao_id
         FROM agendamentos
-        WHERE venda_item_id = ?
+        WHERE venda_item_id = ? AND modo_origem = 'credito_venda'
         """,
         (int(venda_item_id),),
     )
@@ -166,7 +166,9 @@ def _servico_ocorrencia(
     return True, "", int(r2[0])
 
 
-def rotulo_pagamento_venda(cur, venda_id: int) -> str:
+def rotulo_pagamento_venda(cur, venda_id: int | None) -> str:
+    if venda_id is None:
+        return "Pré-venda (sem venda)"
     cur.execute(
         "SELECT estado_pagamento, total_final_centavos FROM vendas WHERE id = ?",
         (int(venda_id),),
@@ -283,6 +285,7 @@ def listar_agendamentos(
     colaborador_ids: list[int] | None = None,
     status_list: list[str] | None = None,
     tipo_origem: list[str] | None = None,
+    modos_origem: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     conn = get_connection()
     if not conn:
@@ -293,6 +296,7 @@ def listar_agendamentos(
             SELECT DISTINCT a.id, a.venda_id, a.venda_item_id, a.cliente_id, a.servico_id,
                    a.pacote_sessao_id, a.tipo_origem, a.data_agendamento, a.hora_inicio,
                    a.hora_fim, a.status, a.devolver_ao_buffer, a.observacoes,
+                   a.modo_origem, a.preco_referencia_centavos,
                    c.nome AS cliente_nome, s.nome AS servico_nome, s.natureza AS servico_natureza
             FROM agendamentos a
             JOIN clientes c ON c.id = a.cliente_id
@@ -327,6 +331,9 @@ def listar_agendamentos(
         if tipo_origem:
             where.append("a.tipo_origem IN ({})".format(",".join("?" * len(tipo_origem))))
             params.extend(tipo_origem)
+        if modos_origem:
+            where.append("a.modo_origem IN ({})".format(",".join("?" * len(modos_origem))))
+            params.extend(modos_origem)
         sql = sql + " " + " ".join(joins) + " WHERE " + " AND ".join(where)
         sql += " ORDER BY a.data_agendamento, a.hora_inicio, a.id"
         cur.execute(sql, params)
@@ -347,11 +354,19 @@ def listar_agendamentos(
                 cur.execute("SELECT nome FROM colaboradores WHERE id = ?", (cid,))
                 rnm = cur.fetchone()
                 nomes.append(str(rnm[0]) if rnm else "?")
+            modo_o = str(r[13])
+            preco_ref = int(r[14]) if r[14] is not None else None
+            vid_raw = r[1]
+            pag_lbl = (
+                rotulo_pagamento_venda(cur, None)
+                if modo_o == "pre_venda"
+                else rotulo_pagamento_venda(cur, int(vid_raw))
+            )
             out.append(
                 {
                     "id": aid,
-                    "venda_id": int(r[1]),
-                    "venda_item_id": int(r[2]),
+                    "venda_id": int(vid_raw) if vid_raw is not None else None,
+                    "venda_item_id": int(r[2]) if r[2] is not None else None,
                     "cliente_id": int(r[3]),
                     "servico_id": int(r[4]),
                     "pacote_sessao_id": int(r[5]) if r[5] is not None else None,
@@ -362,12 +377,14 @@ def listar_agendamentos(
                     "status": str(r[10]),
                     "devolver_ao_buffer": int(r[11]),
                     "observacoes": str(r[12] or ""),
-                    "cliente_nome": str(r[13]),
-                    "servico_nome": str(r[14]),
-                    "servico_natureza": str(r[15]),
+                    "modo_origem": modo_o,
+                    "preco_referencia_centavos": preco_ref,
+                    "cliente_nome": str(r[15]),
+                    "servico_nome": str(r[16]),
+                    "servico_natureza": str(r[17]),
                     "colaborador_ids": cids,
                     "colaboradores_nomes": nomes,
-                    "pagamento": rotulo_pagamento_venda(cur, int(r[1])),
+                    "pagamento": pag_lbl,
                 }
             )
         return out
@@ -386,6 +403,7 @@ def obter_agendamento(ag_id: int) -> dict[str, Any] | None:
             SELECT a.id, a.venda_id, a.venda_item_id, a.cliente_id, a.servico_id,
                    a.pacote_sessao_id, a.tipo_origem, a.data_agendamento, a.hora_inicio,
                    a.hora_fim, a.status, a.devolver_ao_buffer, a.observacoes,
+                   a.modo_origem, a.preco_referencia_centavos,
                    c.nome, s.nome, s.natureza
             FROM agendamentos a
             JOIN clientes c ON c.id = a.cliente_id
@@ -411,10 +429,18 @@ def obter_agendamento(ag_id: int) -> dict[str, Any] | None:
             cur.execute("SELECT nome FROM colaboradores WHERE id = ?", (cid,))
             rnm = cur.fetchone()
             nomes.append(str(rnm[0]) if rnm else "?")
+        modo_o = str(r[13])
+        preco_ref = int(r[14]) if r[14] is not None else None
+        vid_raw = r[1]
+        pag_lbl = (
+            rotulo_pagamento_venda(cur, None)
+            if modo_o == "pre_venda"
+            else rotulo_pagamento_venda(cur, int(vid_raw))
+        )
         return {
             "id": aid,
-            "venda_id": int(r[1]),
-            "venda_item_id": int(r[2]),
+            "venda_id": int(vid_raw) if vid_raw is not None else None,
+            "venda_item_id": int(r[2]) if r[2] is not None else None,
             "cliente_id": int(r[3]),
             "servico_id": int(r[4]),
             "pacote_sessao_id": int(r[5]) if r[5] is not None else None,
@@ -425,12 +451,14 @@ def obter_agendamento(ag_id: int) -> dict[str, Any] | None:
             "status": str(r[10]),
             "devolver_ao_buffer": int(r[11]),
             "observacoes": str(r[12] or ""),
-            "cliente_nome": str(r[13]),
-            "servico_nome": str(r[14]),
-            "servico_natureza": str(r[15]),
+            "modo_origem": modo_o,
+            "preco_referencia_centavos": preco_ref,
+            "cliente_nome": str(r[15]),
+            "servico_nome": str(r[16]),
+            "servico_natureza": str(r[17]),
             "colaborador_ids": cids,
             "colaboradores_nomes": nomes,
-            "pagamento": rotulo_pagamento_venda(cur, int(r[1])),
+            "pagamento": pag_lbl,
         }
     finally:
         conn.close()
@@ -499,8 +527,10 @@ def criar_agendamento(
             INSERT INTO agendamentos (
                 venda_id, venda_item_id, cliente_id, servico_id, pacote_sessao_id,
                 tipo_origem, data_agendamento, hora_inicio, hora_fim, status,
-                devolver_ao_buffer, observacoes, data_alteracao
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'AGENDADO', 0, ?, CURRENT_TIMESTAMP)
+                devolver_ao_buffer, observacoes, data_alteracao,
+                modo_origem, preco_referencia_centavos
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'AGENDADO', 0, ?, CURRENT_TIMESTAMP,
+                'credito_venda', NULL)
             """,
             (
                 venda_id,
@@ -619,11 +649,14 @@ def alterar_status(ag_id: int, novo: StatusAgendamento) -> tuple[bool, str]:
         return False, "❌ Não foi possível ligar à base de dados."
     try:
         cur = conn.cursor()
-        cur.execute("SELECT status FROM agendamentos WHERE id = ?", (int(ag_id),))
+        cur.execute(
+            "SELECT status, modo_origem, venda_id FROM agendamentos WHERE id = ?",
+            (int(ag_id),),
+        )
         row = cur.fetchone()
         if not row:
             return False, "❌ Agendamento não encontrado."
-        atual = str(row[0])
+        atual, modo_o, vid_chk = str(row[0]), str(row[1]), row[2]
         if atual == "CANCELADO":
             return False, "❌ Já cancelado."
         if atual == "CONCLUIDO":
@@ -636,6 +669,8 @@ def alterar_status(ag_id: int, novo: StatusAgendamento) -> tuple[bool, str]:
         elif n == "CONCLUIDO":
             if atual not in ("AGENDADO", "CONFIRMADO"):
                 return False, "❌ Só AGENDADO ou CONFIRMADO passam a CONCLUIDO."
+            if modo_o == "pre_venda" and vid_chk is None:
+                return False, "❌ Pré-venda sem venda associada — não pode concluir."
         cur.execute(
             "UPDATE agendamentos SET status = ?, data_alteracao = CURRENT_TIMESTAMP WHERE id = ?",
             (n, int(ag_id)),
@@ -655,16 +690,19 @@ def cancelar_agendamento(ag_id: int, devolver_ao_buffer: bool) -> tuple[bool, st
         return False, "❌ Não foi possível ligar à base de dados."
     try:
         cur = conn.cursor()
-        cur.execute("SELECT status FROM agendamentos WHERE id = ?", (int(ag_id),))
+        cur.execute(
+            "SELECT status, modo_origem FROM agendamentos WHERE id = ?",
+            (int(ag_id),),
+        )
         row = cur.fetchone()
         if not row:
             return False, "❌ Agendamento não encontrado."
-        atual = str(row[0])
+        atual, modo_o = str(row[0]), str(row[1])
         if atual == "CANCELADO":
             return False, "❌ Já cancelado."
         if atual == "CONCLUIDO":
             return False, "❌ Não é possível cancelar concluído."
-        dev = 1 if devolver_ao_buffer else 0
+        dev = 0 if modo_o == "pre_venda" else (1 if devolver_ao_buffer else 0)
         cur.execute(
             """
             UPDATE agendamentos
@@ -675,11 +713,209 @@ def cancelar_agendamento(ag_id: int, devolver_ao_buffer: bool) -> tuple[bool, st
             (dev, int(ag_id)),
         )
         conn.commit()
-        msg = "✅ Cancelado — crédito devolvido ao buffer." if dev else "✅ Cancelado — crédito não devolvido ao buffer."
+        if modo_o == "pre_venda":
+            msg = "✅ Cancelado (pré-venda — sem crédito em buffer)."
+        else:
+            msg = (
+                "✅ Cancelado — crédito devolvido ao buffer."
+                if dev
+                else "✅ Cancelado — crédito não devolvido ao buffer."
+            )
         return True, msg
     except Exception as e:
         conn.rollback()
         return False, f"❌ Erro: {e}"
+    finally:
+        conn.close()
+
+
+def criar_agendamento_pre_venda(
+    cliente_id: int,
+    servico_id: int,
+    data_agendamento: str,
+    hora_inicio: str,
+    hora_fim: str,
+    colaborador_ids: list[int],
+    observacoes: str = "",
+    preco_referencia_centavos: int | None = None,
+) -> tuple[bool, str]:
+    """MVP: só Sessão, Coworking, Evento — sem pacote (E11)."""
+    ok_t, msg_t = validar_intervalo_horario(hora_inicio, hora_fim)
+    if not ok_t:
+        return False, msg_t
+    try:
+        hi = _norm_hhmm(hora_inicio)
+        hf = _norm_hhmm(hora_fim)
+    except ValueError as e:
+        return False, f"❌ {e}"
+    d = str(data_agendamento)[:10]
+    cid = int(cliente_id)
+    sid = int(servico_id)
+    pr = preco_referencia_centavos
+    if pr is not None and int(pr) < 0:
+        return False, "❌ Preço de referência inválido."
+
+    conn = get_connection()
+    if not conn:
+        return False, "❌ Não foi possível ligar à base de dados."
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM clientes WHERE id = ?", (cid,))
+        if cur.fetchone() is None:
+            return False, "❌ Cliente não encontrado."
+        cur.execute("SELECT natureza FROM servicos WHERE id = ?", (sid,))
+        rnat = cur.fetchone()
+        if not rnat:
+            return False, "❌ Serviço não encontrado."
+        natureza = str(rnat[0])
+        if natureza not in ("Sessão", "Coworking", "Evento"):
+            return False, "❌ Pré-venda (MVP) só para Sessão, Coworking ou Evento."
+        ok_o, msg_o, tipo = _tipo_origem_para_natureza(natureza, None)
+        if not ok_o or tipo is None:
+            return False, msg_o
+
+        for colab in colaborador_ids:
+            cur.execute("SELECT id FROM colaboradores WHERE id = ?", (int(colab),))
+            if cur.fetchone() is None:
+                return False, f"❌ Colaborador {colab} não encontrado."
+
+        cur.execute(
+            """
+            INSERT INTO agendamentos (
+                venda_id, venda_item_id, cliente_id, servico_id, pacote_sessao_id,
+                tipo_origem, data_agendamento, hora_inicio, hora_fim, status,
+                devolver_ao_buffer, observacoes, data_alteracao,
+                modo_origem, preco_referencia_centavos
+            ) VALUES (NULL, NULL, ?, ?, NULL, ?, ?, ?, ?, 'AGENDADO', 0, ?, CURRENT_TIMESTAMP,
+                'pre_venda', ?)
+            """,
+            (
+                cid,
+                sid,
+                tipo,
+                d,
+                hi,
+                hf,
+                (observacoes or "").strip(),
+                pr,
+            ),
+        )
+        aid = int(cur.lastrowid)
+        for ordem, colab in enumerate(colaborador_ids, start=1):
+            cur.execute(
+                """
+                INSERT INTO agendamento_colaboradores (agendamento_id, colaborador_id, ordem)
+                VALUES (?, ?, ?)
+                """,
+                (aid, int(colab), ordem),
+            )
+        conn.commit()
+        return True, f"✅ Pré-venda #{aid} criada (AGENDADO)."
+    except Exception as e:
+        conn.rollback()
+        return False, f"❌ Erro ao criar pré-venda: {e}"
+    finally:
+        conn.close()
+
+
+def associar_agendamento_pre_venda_a_item(
+    ag_id: int, venda_item_id: int
+) -> tuple[bool, str]:
+    conn = get_connection()
+    if not conn:
+        return False, "❌ Não foi possível ligar à base de dados."
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT modo_origem, status, cliente_id, servico_id
+            FROM agendamentos WHERE id = ?
+            """,
+            (int(ag_id),),
+        )
+        row = cur.fetchone()
+        if not row:
+            return False, "❌ Agendamento não encontrado."
+        modo_o, st_ag, cli_ag, srv_ag = str(row[0]), str(row[1]), int(row[2]), int(row[3])
+        if modo_o != "pre_venda":
+            return False, "❌ Só agendamentos em pré-venda podem ser associados desta forma."
+        if st_ag in ("CANCELADO", "CONCLUIDO"):
+            return False, "❌ Estado não permite associação."
+        cur.execute(
+            """
+            SELECT vi.venda_id, v.cliente_id, vi.servico_id
+            FROM venda_itens vi
+            JOIN vendas v ON v.id = vi.venda_id
+            WHERE vi.id = ?
+            """,
+            (int(venda_item_id),),
+        )
+        r2 = cur.fetchone()
+        if not r2:
+            return False, "❌ Linha de venda não encontrada."
+        venda_id, cli_v, srv_v = int(r2[0]), int(r2[1]), int(r2[2])
+        if cli_v != cli_ag:
+            return False, "❌ Cliente da venda difere do agendamento."
+        if srv_v != srv_ag:
+            return False, "❌ Serviço da linha de venda deve coincidir com o agendamento."
+        cur.execute(
+            """
+            UPDATE agendamentos
+            SET venda_id = ?, venda_item_id = ?, modo_origem = 'credito_venda',
+                data_alteracao = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (venda_id, int(venda_item_id), int(ag_id)),
+        )
+        conn.commit()
+        return True, "✅ Pré-venda associada à linha de venda — modo crédito."
+    except Exception as e:
+        conn.rollback()
+        return False, f"❌ Erro ao associar: {e}"
+    finally:
+        conn.close()
+
+
+def obter_primeiro_item_venda_por_servico(
+    venda_id: int, servico_id: int
+) -> int | None:
+    conn = get_connection()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id FROM venda_itens
+            WHERE venda_id = ? AND servico_id = ?
+            ORDER BY ordem ASC, id ASC
+            LIMIT 1
+            """,
+            (int(venda_id), int(servico_id)),
+        )
+        row = cur.fetchone()
+        return int(row[0]) if row else None
+    finally:
+        conn.close()
+
+
+def contar_pre_venda_futuros(data_referencia: str | None = None) -> int:
+    ref = (data_referencia or date.today().isoformat())[:10]
+    conn = get_connection()
+    if not conn:
+        return 0
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT COUNT(*) FROM agendamentos
+            WHERE modo_origem = 'pre_venda'
+              AND data_agendamento >= ?
+              AND status IN ('AGENDADO', 'CONFIRMADO')
+            """,
+            (ref,),
+        )
+        return int(cur.fetchone()[0])
     finally:
         conn.close()
 
@@ -705,14 +941,18 @@ def contar_por_status_periodo(data_de: str, data_ate: str) -> dict[str, int]:
 
 __all__ = [
     "alterar_status",
+    "associar_agendamento_pre_venda_a_item",
     "atualizar_agendamento",
     "cancelar_agendamento",
     "contar_por_status_periodo",
+    "contar_pre_venda_futuros",
     "criar_agendamento",
+    "criar_agendamento_pre_venda",
     "listar_agendamentos",
     "listar_buckets_credito_cliente",
     "minutos_desde_meia_noite",
     "obter_agendamento",
+    "obter_primeiro_item_venda_por_servico",
     "rotulo_pagamento_venda",
     "saldo_bucket",
     "validar_intervalo_horario",

@@ -38,6 +38,107 @@ def _ensure_column(cursor, table: str, column: str, definition: str) -> None:
         cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
+def _migrate_agendamentos_e11_if_needed(cursor) -> None:
+    """
+    E11: `modo_origem` + `venda_id`/`venda_item_id` NULL em pré-venda.
+    SQLite não remove NOT NULL com ALTER; recria tabela e repõe colaboradores.
+    """
+    if "agendamentos" not in {r[0] for r in cursor.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}:
+        return
+    cols = _table_columns(cursor, "agendamentos")
+    if "modo_origem" in cols:
+        return
+    cursor.execute("PRAGMA foreign_keys=OFF")
+    cursor.execute(
+        """
+        CREATE TABLE agendamento_colaboradores_e11_bak AS
+        SELECT agendamento_id, colaborador_id, ordem FROM agendamento_colaboradores
+        """
+    )
+    cursor.execute("DROP TABLE agendamento_colaboradores")
+    cursor.execute("ALTER TABLE agendamentos RENAME TO agendamentos_e11_old")
+    cursor.execute(
+        """
+        CREATE TABLE agendamentos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            venda_id INTEGER,
+            venda_item_id INTEGER,
+            cliente_id INTEGER NOT NULL,
+            servico_id INTEGER NOT NULL,
+            pacote_sessao_id INTEGER,
+            tipo_origem TEXT NOT NULL CHECK (
+                tipo_origem IN ('sessao_avulsa', 'pacote', 'coworking', 'evento')
+            ),
+            data_agendamento TEXT NOT NULL,
+            hora_inicio TEXT NOT NULL,
+            hora_fim TEXT NOT NULL,
+            status TEXT NOT NULL CHECK (
+                status IN ('AGENDADO', 'CONFIRMADO', 'CONCLUIDO', 'CANCELADO')
+            ),
+            devolver_ao_buffer INTEGER NOT NULL DEFAULT 0 CHECK (devolver_ao_buffer IN (0, 1)),
+            observacoes TEXT DEFAULT '',
+            data_alteracao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            modo_origem TEXT NOT NULL DEFAULT 'credito_venda' CHECK (
+                modo_origem IN ('credito_venda', 'pre_venda')
+            ),
+            preco_referencia_centavos INTEGER CHECK (
+                preco_referencia_centavos IS NULL OR preco_referencia_centavos >= 0
+            ),
+            CHECK (
+                (modo_origem = 'pre_venda' AND venda_id IS NULL AND venda_item_id IS NULL)
+                OR (
+                    modo_origem = 'credito_venda'
+                    AND venda_id IS NOT NULL
+                    AND venda_item_id IS NOT NULL
+                )
+            ),
+            FOREIGN KEY (venda_id) REFERENCES vendas(id) ON DELETE CASCADE,
+            FOREIGN KEY (venda_item_id) REFERENCES venda_itens(id) ON DELETE CASCADE,
+            FOREIGN KEY (cliente_id) REFERENCES clientes(id),
+            FOREIGN KEY (servico_id) REFERENCES servicos(id),
+            FOREIGN KEY (pacote_sessao_id) REFERENCES servico_pacote_sessoes(id)
+        )
+        """
+    )
+    cursor.execute(
+        """
+        INSERT INTO agendamentos (
+            id, venda_id, venda_item_id, cliente_id, servico_id, pacote_sessao_id,
+            tipo_origem, data_agendamento, hora_inicio, hora_fim, status,
+            devolver_ao_buffer, observacoes, data_alteracao, modo_origem,
+            preco_referencia_centavos
+        )
+        SELECT
+            id, venda_id, venda_item_id, cliente_id, servico_id, pacote_sessao_id,
+            tipo_origem, data_agendamento, hora_inicio, hora_fim, status,
+            devolver_ao_buffer, observacoes, data_alteracao, 'credito_venda',
+            NULL
+        FROM agendamentos_e11_old
+        """
+    )
+    cursor.execute("DROP TABLE agendamentos_e11_old")
+    cursor.execute(
+        """
+        CREATE TABLE agendamento_colaboradores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            agendamento_id INTEGER NOT NULL,
+            colaborador_id INTEGER NOT NULL,
+            ordem INTEGER NOT NULL,
+            FOREIGN KEY (agendamento_id) REFERENCES agendamentos(id) ON DELETE CASCADE,
+            FOREIGN KEY (colaborador_id) REFERENCES colaboradores(id)
+        )
+        """
+    )
+    cursor.execute(
+        """
+        INSERT INTO agendamento_colaboradores (agendamento_id, colaborador_id, ordem)
+        SELECT agendamento_id, colaborador_id, ordem FROM agendamento_colaboradores_e11_bak
+        """
+    )
+    cursor.execute("DROP TABLE agendamento_colaboradores_e11_bak")
+    cursor.execute("PRAGMA foreign_keys=ON")
+
+
 def _seed_servicos_exemplo(cursor) -> None:
     """Serviços de exemplo até o módulo Catálogo estar completo."""
     cursor.execute("SELECT COUNT(*) FROM servicos")
@@ -327,8 +428,8 @@ def create_tables():
         """
         CREATE TABLE IF NOT EXISTS agendamentos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            venda_id INTEGER NOT NULL,
-            venda_item_id INTEGER NOT NULL,
+            venda_id INTEGER,
+            venda_item_id INTEGER,
             cliente_id INTEGER NOT NULL,
             servico_id INTEGER NOT NULL,
             pacote_sessao_id INTEGER,
@@ -344,6 +445,20 @@ def create_tables():
             devolver_ao_buffer INTEGER NOT NULL DEFAULT 0 CHECK (devolver_ao_buffer IN (0, 1)),
             observacoes TEXT DEFAULT '',
             data_alteracao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            modo_origem TEXT NOT NULL DEFAULT 'credito_venda' CHECK (
+                modo_origem IN ('credito_venda', 'pre_venda')
+            ),
+            preco_referencia_centavos INTEGER CHECK (
+                preco_referencia_centavos IS NULL OR preco_referencia_centavos >= 0
+            ),
+            CHECK (
+                (modo_origem = 'pre_venda' AND venda_id IS NULL AND venda_item_id IS NULL)
+                OR (
+                    modo_origem = 'credito_venda'
+                    AND venda_id IS NOT NULL
+                    AND venda_item_id IS NOT NULL
+                )
+            ),
             FOREIGN KEY (venda_id) REFERENCES vendas(id) ON DELETE CASCADE,
             FOREIGN KEY (venda_item_id) REFERENCES venda_itens(id) ON DELETE CASCADE,
             FOREIGN KEY (cliente_id) REFERENCES clientes(id),
@@ -375,6 +490,13 @@ def create_tables():
     )
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_agendamento_colab_ag ON agendamento_colaboradores(agendamento_id)"
+    )
+    _migrate_agendamentos_e11_if_needed(cursor)
+    _ensure_column(
+        cursor,
+        "vendas",
+        "agendamento_contexto_id",
+        "INTEGER REFERENCES agendamentos(id) ON DELETE SET NULL",
     )
     conn.commit()
     conn.close()

@@ -4,7 +4,11 @@ import pytest
 
 from src.database.connection import create_tables
 from src.modules.catalogo import cadastrar_servico_fase1, resolver_snapshot_venda
-from src.modules.cliente import buscar_cliente_por_whatsapp, cadastrar_cliente
+from src.modules.cliente import (
+    buscar_cliente_por_whatsapp,
+    cadastrar_cliente,
+)
+from src.modules.agendamento import criar_agendamento_pre_venda
 from src.modules.venda import calcular_totais_venda, registrar_venda
 
 
@@ -97,7 +101,7 @@ def test_registrar_venda_integral_split_meios():
     sid = int(cur.fetchone()[0])
     conn.close()
 
-    ok, msg = registrar_venda(
+    ok, msg, _ = registrar_venda(
         int(cid),
         "integral",
         [
@@ -141,7 +145,7 @@ def test_registrar_pendente_previsto():
     sid = int(cur.fetchone()[0])
     conn.close()
 
-    ok, msg = registrar_venda(
+    ok, msg, _ = registrar_venda(
         int(cid),
         "pendente",
         [
@@ -180,7 +184,7 @@ def test_integral_soma_errada_falha():
     sid = int(cur.fetchone()[0])
     conn.close()
 
-    ok, msg = registrar_venda(
+    ok, msg, _ = registrar_venda(
         int(cid),
         "integral",
         [
@@ -201,3 +205,76 @@ def test_integral_soma_errada_falha():
     )
     assert ok is False
     assert "Soma" in msg or "igualar" in msg
+
+
+def test_registrar_venda_contexto_agendamento_cliente_diferente_falha():
+    cid1 = _cliente_min()
+    assert cid1
+    ok2, _ = cadastrar_cliente(
+        nome="Outro Cliente",
+        numero_contato="91333333333",
+        endereco_rua="Rua B",
+        endereco_numero="2",
+        endereco_complemento="",
+        codigo_postal="4000-002",
+        concelho="Porto",
+        freguesia="Centro",
+        distrito="",
+        pais="Portugal",
+        email="o@example.com",
+        sexo="Outro",
+        tem_filhos=False,
+        filhos=[],
+        gravida=None,
+        data_parto_prevista=None,
+        observacoes="",
+        contatos_emergencia=[],
+    )
+    assert ok2
+    cid2 = buscar_cliente_por_whatsapp("91333333333")
+    assert cid2
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão CTX",
+        "D.",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=25.0,
+    )
+    conn = __import__("src.database.connection", fromlist=["get_connection"]).get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Sessão CTX",))
+    sid = int(cur.fetchone()[0])
+    conn.close()
+    ok_ag, _ = criar_agendamento_pre_venda(
+        int(cid1), sid, "2030-05-01", "09:00", "10:00", [], "", None
+    )
+    assert ok_ag
+    conn = __import__("src.database.connection", fromlist=["get_connection"]).get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM agendamentos ORDER BY id DESC LIMIT 1")
+    ag_id = int(cur.fetchone()[0])
+    conn.close()
+    ok, msg, vid = registrar_venda(
+        int(cid2),
+        "integral",
+        [
+            {
+                "servico_id": sid,
+                "quantidade": 1,
+                "is_bonus": False,
+                "evento_preco": None,
+                "desconto_linha_tipo": "none",
+                "desconto_linha_valor": None,
+            }
+        ],
+        None,
+        None,
+        [("dinheiro", 2500)],
+        [],
+        "",
+        agendamento_contexto_id=ag_id,
+    )
+    assert not ok
+    assert vid is None
+    assert "coincidir" in msg.lower() or "cliente" in msg.lower()

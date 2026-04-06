@@ -115,7 +115,7 @@ def test_relatorio_apos_venda_e_filtro_colaborador():
     col_id = int(cur.fetchone()[0])
     conn.close()
 
-    ok_v, msg_v = registrar_venda(
+    ok_v, msg_v, _ = registrar_venda(
         int(cid),
         "integral",
         [
