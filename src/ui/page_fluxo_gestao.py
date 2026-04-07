@@ -1,4 +1,4 @@
-"""Dashboard do Fluxo oficial de governança — Torre de Controle + estado (JSON)."""
+"""Dashboard do Fluxo oficial — telemetria ao vivo + Torre de Controle + estado (JSON)."""
 
 from __future__ import annotations
 
@@ -6,6 +6,11 @@ import json
 from pathlib import Path
 
 import streamlit as st
+
+try:
+    from streamlit_autorefresh import st_autorefresh
+except ImportError:
+    st_autorefresh = None  # pragma: no cover — CI instala requirements.txt
 
 _FASES_DEFAULT = [
     {"id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "pendente"},
@@ -22,6 +27,8 @@ _ICONE_ESTADO = {
     "pendente": "⚪",
     "correccao": "🟠",
 }
+
+_LIVE_FILA_MAX = 8
 
 
 def _repo_root() -> Path:
@@ -60,6 +67,44 @@ def _fases_para_exibir(data: dict) -> list[dict]:
     return out
 
 
+def _render_status_live(data: dict) -> None:
+    st.subheader("STATUS LIVE — telemetria")
+    st.caption(
+        "Operação actual da **EQUIPE** e fila imediata (ficheiro `status_demanda.json` no disco). "
+        "O **Painel** `.md` mantém o histórico nos PCs."
+    )
+
+    live = data.get("live_status")
+    if live is None:
+        live = ""
+    live_s = str(live).strip()
+    fila_raw = data.get("etapas_pendentes")
+    if not isinstance(fila_raw, list):
+        fila: list[str] = []
+    else:
+        fila = [str(x) for x in fila_raw if str(x).strip()]
+    ts = data.get("live_actualizado_iso")
+    ts_s = str(ts).strip() if ts is not None else ""
+
+    if live_s:
+        with st.container():
+            st.markdown("🔄 **Em execução**")
+            st.info(live_s)
+    else:
+        st.success("Sem actividade registada em `live_status` — repouso ou aguarda próxima microtarefa.")
+
+    if fila:
+        st.markdown("**Fila imediata**")
+        for i, item in enumerate(fila[:_LIVE_FILA_MAX], start=1):
+            st.markdown(f"{i}. {item}")
+        if len(fila) > _LIVE_FILA_MAX:
+            st.caption(f"… e mais {len(fila) - _LIVE_FILA_MAX} item(ns).")
+    else:
+        st.caption("Fila vazia (`etapas_pendentes`).")
+
+    st.caption(f"**Última actualização telemetria:** {ts_s or '—'}")
+
+
 def render_page_fluxo_gestao(
     *,
     render_back_and_breadcrumb,
@@ -70,14 +115,32 @@ def render_page_fluxo_gestao(
     )
     st.markdown("### Fluxo e governança")
     st.caption(
-        "**Torre de Controle** + estado da demanda. Fonte: `docs/governanca/status_demanda.json`. "
-        "Entrada: **`@Files` → Analista**. Documentação: `FLUXO_SUCESSO_E_FALHA.md` (Fluxo oficial)."
+        "**STATUS LIVE** + **Torre de Controle**. Fonte: `docs/governanca/status_demanda.json`. "
+        "Entrada: **`@Files` → Analista**. Norma: `FLUXO_SUCESSO_E_FALHA.md` (Fluxo oficial)."
     )
 
     data = carregar_status_demanda()
     if "erro" in data:
         st.error(str(data["erro"]))
         return
+
+    c_auto, c_btn, _ = st.columns([2, 1, 2])
+    with c_auto:
+        auto = st.checkbox(
+            "Renovar página automaticamente (10 s)",
+            value=True,
+            key="bea_fluxo_autorefresh",
+        )
+    with c_btn:
+        if st.button("Actualizar agora", key="bea_fluxo_manual"):
+            st.rerun()
+
+    if auto and st_autorefresh is not None:
+        st_autorefresh(interval=10_000, key="bea_fluxo_live_tick")
+
+    _render_status_live(data)
+
+    st.divider()
 
     percurso = str(data.get("percurso") or "normal")
     if percurso == "correccao" or data.get("falha"):

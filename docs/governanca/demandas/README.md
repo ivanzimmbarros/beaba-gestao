@@ -21,6 +21,6 @@ Sugestão de `ID_DEMANDA`: `YYYY-MM-DD_slug_curto` (ex.: `2026-04-06_E10_estoque
 
 Opcional: `00_indice.md` — linha temporal dos PCs.
 
-**`status_demanda.json` (campos opcionais, E12+):** `fase_governanca`, `pc_foco`, `percurso`, `ultima_entrega_marco`, `fases_resumo` (6 entradas), `diario_bordo_resumo` (lista de linhas) — ver [`04_desenho_logico.md`](2026-04-07_E12_refatoracao_painel_operacional/04_desenho_logico.md).
+**`status_demanda.json` (campos opcionais, E12+):** `fase_governanca`, `pc_foco`, `percurso`, `ultima_entrega_marco`, `fases_resumo` (6 entradas), `diario_bordo_resumo` (lista de linhas) — ver [`04_desenho_logico.md`](2026-04-07_E12_refatoracao_painel_operacional/04_desenho_logico.md). **Telemetria (E14):** `live_status`, `etapas_pendentes`, `live_actualizado_iso` — ver [`02_desenho_funcional.md`](2026-04-07_E14_telemetria_live/02_desenho_funcional.md).
 
 Em **percurso de correção (FALHA):** `FALHA_<data>_<actor>.md` (pela EQUIPE, com detalhe completo).

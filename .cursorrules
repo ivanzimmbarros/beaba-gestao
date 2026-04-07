@@ -8,6 +8,8 @@
 4. **Após a primeira mensagem** do Diretor na thread da demanda, **toda** a documentação, painéis, controlos e evolução técnica ficam **sob gestão da EQUIPE** até ao próximo ponto que exija **resposta explícita** do Diretor (ex.: confirmação do desenho funcional, **PROSSIGA**).
 5. **Aprovações do Diretor** dadas **no chat** devem ser **transcritas para o Git pela EQUIPE** (`03_confirmacao_diretor.md`, selos, datas), **sem** obrigar o Diretor a abrir o repo.
 
+6. **Telemetria ao vivo (`status_demanda.json`) — E14:** antes de iniciar **cada microtarefa** com impacto visível para o Diretor (ex.: criar/editar ficheiro de código ou de governança, correr bateria de testes relevante, fechar um PC), a EQUIPE **deve** (i) **actualizar e gravar** `docs/governanca/status_demanda.json` com **`live_status`** (frase curta no presente sobre o que vai fazer **agora**), **`etapas_pendentes`** (array ordenado da fila imediata) e **`live_actualizado_iso`** (data/hora ISO 8601); (ii) **só depois** executar essa microtarefa. Ao **terminar** a microtarefa, **voltar a actualizar** o JSON (remover/atenuar itens da fila, novo `live_status` para o passo seguinte ou vazio em repouso). O Painel `.md` continua a ser a prova **histórica** nos PCs; o JSON + página **Fluxo e governança** são o núcleo **ao vivo** para quem acompanha a sessão.
+
 ---
 
 ## REGRA MÁXIMA OBRIGATÓRIA (todas as evoluções)
