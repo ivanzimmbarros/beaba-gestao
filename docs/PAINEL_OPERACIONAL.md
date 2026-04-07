@@ -1,264 +1,254 @@
-# Painel operacional — Fluxo de 15 Etapas
+# Painel operacional — BeaBa Gestão
 
-**Regra máxima:** toda evolução segue o **Fluxo SUCESSO / FALHA** em [`docs/governanca/FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md) e [`.cursorrules`](../.cursorrules). O *Fluxo de 15 Etapas* (tabelas por ciclo E0x abaixo) é **subordinado** a esse processo (implementação técnica dentro das fases Dev/QA).
+**Para que serve:** este é o **quadro de bordo** do projecto — o sítio onde vê, em linguagem simples, **em que fase estamos**, **o que já foi entregue** e **o que falta** para uma evolução.  
+**Quem actualiza:** a **EQUIPE** (agente no Cursor), após cada marco. O Diretor **não** precisa editar este ficheiro.
 
-**Entrada da demanda — mandatório:** o Diretor envia o pedido no **Cursor** com **`@Files`** dirigido ao **Analista**. **Não** é requisito preparar documentos fora do chat. A **EQUIPE** (agente Cursor) **gera e mantém automaticamente** toda a documentação (`demandas/`, pareceres, selos), **PAINEL**, **CONTROLE**, **MODELO**, **testes**, **`status_demanda.json`**, **commits e push** em `develop`. Após a **primeira intervenção** do Diretor, as actividades complementares ficam **sob gestão exclusiva da EQUIPE** até marcos que exijam resposta do Diretor no chat (confirmação, **PROSSIGA**, etc.).
-
-**Processo padrão técnico:** *Fluxo de 15 Etapas* por marco de produto.
-
-**Instrução:** em **cada ponto de controlo de Painel**, o estado aqui descrito deve estar **alinhado** com **`origin/develop`** (cloud) e com [`docs/governanca/status_demanda.json`](governanca/status_demanda.json) (dashboard na app: **Fluxo e governança**). Ordem: **GitHub primeiro** (ficheiros locais + **commit** + **`push`** ao remoto), **Painel depois** (pares PC1→2, PC3→4, … — ver tabela). Em **falha**, repetir pontos de controlo e documentar pareceres negativos (ver fluxo FALHA no documento de governança). **Actualização do JSON e deste ficheiro:** pela **EQUIPE**, não pelo Diretor.
-
-**Última revisão do painel:** 2026-04-06 — **E11 encerrada** — PC1–PC13b concluídos; implementação **`a6a9a8f`**, **49** `pytest`, [`99_encerramento.md`](governanca/demandas/2026-04-06_E11_pre_venda_agenda/99_encerramento.md).
+**Última actualização do painel:** 2026-04-06 — workflow **FLUXO OFICIAL DE GOVERNANCA** no GitHub Actions (substitui *Fabrica Zimmermann…*).
 
 ---
 
-## Última demanda encerrada — E11 (referência)
+## 1. Estado actual — visão imediata
 
-| Campo | Valor |
+| Indicador | Situação |
 |:---|:---|
-| **ID** | `2026-04-06_E11_pre_venda_agenda` |
-| **Dossier** | [`docs/governanca/demandas/2026-04-06_E11_pre_venda_agenda/`](governanca/demandas/2026-04-06_E11_pre_venda_agenda/) |
-| **Estado** | **Concluída** — `01`–`09`, **`99_encerramento.md`** |
-| **PC1–PC13** | **Fechados** (Git + Painel + JSON conforme fluxo SUCESSO) |
-| **Código** | `develop` — commit **`a6a9a8f`** (feat E11) |
+| **Demanda activa** | ⚪ *Nenhuma* — à espera de novo pedido com **`@Files` → Analista** no Cursor. |
+| **Última entrega concluída** | ✅ **Pré-venda na agenda (E11)** — reserva sem venda imediata, fecho nas Vendas, vendas ligadas à visita. |
+| **Testes automáticos** | ✅ **49** testes a passar (`python -m pytest tests/ -v`). |
+| **Resumo na aplicação** | Menu **Fluxo e governança** → lê o ficheiro [`status_demanda.json`](governanca/status_demanda.json). |
 
-**Próxima evolução:** nova entrada **`@Files` → Analista**; a EQUIPE reabre `status_demanda.json` e este bloco como **demanda activa**.
+**Última demanda fechada (referência rápida)**
 
-**Resumo entregue:** pré-venda na agenda (MVP Sessão/Coworking/Evento), fecho no Painel de Vendas, vendas com contexto de visita — ver [`02_desenho_funcional.md`](governanca/demandas/2026-04-06_E11_pre_venda_agenda/02_desenho_funcional.md).
+| | |
+|:---|:---|
+| **Nome** | Pré-venda × Agenda (`2026-04-06_E11_pre_venda_agenda`) |
+| **Pasta com todos os documentos** | [`demandas/2026-04-06_E11_pre_venda_agenda/`](governanca/demandas/2026-04-06_E11_pre_venda_agenda/) |
+| **Encerramento** | [`99_encerramento.md`](governanca/demandas/2026-04-06_E11_pre_venda_agenda/99_encerramento.md) |
+| **Código principal** | commit `a6a9a8f` no ramo `develop` |
 
 ---
 
-## Pontos de controlo Git ↔ Painel (resumo)
+## 2. Como pedir uma evolução nova
 
-| PC | Após | GitHub: **local** + **`origin/develop`** (cloud) | Painel / `CONTROLE` / JSON |
+1. No **Cursor**, use **`@Files`** e dirija-se ao **Analista** (ou diga explicitamente **EQUIPE**).  
+2. Descreva o que quer. A EQUIPE cria a documentação e propõe o desenho.  
+3. Quando estiver de acordo, responda no chat com **CONFIRMO** ou **PROSSIGA** — isso é a **sua aprovação** para a equipa avançar para a fase seguinte.  
+4. Não é obrigatório criar ficheiros à mão no repositório.
+
+---
+
+## 3. Fluxo oficial de governança — uma linha do tempo
+
+Toda a evolução do produto segue o **Fluxo oficial de governança** (regras completas no documento técnico, link abaixo). Em linguagem simples:
+
+| Ordem | Fase | O que significa | Quem trabalha | Precisa da sua palavra? |
+|:---:|:---|:---|:---|:---|
+| 1 | **Pedido** | Registo do que pediu | EQUIPE | — |
+| 2 | **Desenho funcional** | O que o sistema deve fazer, em termos de negócio | Analista (+ EQUIPE) | ✅ Sim — **CONFIRMO** / **PROSSIGA** |
+| 3 | **Desenho técnico** | Como isso encaixa na base de dados e no código | Arquiteto | — (validação interna) |
+| 4 | **Construção** | Programação e ecrãs | Dev | — |
+| 5 | **Revisão técnica** | O código está bem construído? | Arquiteto | — |
+| 6 | **Revisão de negócio** | O código faz o que o desenho funcional pedia? | Analista | — |
+| 7 | **Testes** | Baterias automáticas e verificações | QA | — |
+| 8 | **Encerramento** | Informação de que a entrega está pronta | EQUIPE | Informação (pode testar na app) |
+
+**Quando algo corre mal** (veto, erro grave, desenho a refazer): volta-se à **primeira etapa afectada** e regista-se no **Registo de retrabalhos** (secção 5). O documento técnico chama isso de «percurso de correção»; no dia-a-dia é: **parar, corrigir, voltar a validar**.
+
+📄 **Documento completo da regra:** [`docs/governanca/FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md)  
+*(O nome do ficheiro no disco mantém-se por compatibilidade; no Painel chamamos-lhe **Fluxo oficial de governança**.)*
+
+---
+
+## 4. A sua aprovação — «selo» para a etapa seguinte
+
+O que importa para avançar **não é o nome do ficheiro no GitHub**, e sim **a sua confirmação no chat** nos momentos certos (por exemplo após ler o desenho funcional).
+
+| O que faz no Cursor | O que isso significa para a equipa |
+|:---|:---|
+| **CONFIRMO** ou **PROSSIGA** | Autorização explícita para continuar — equivale ao **selo do Diretor** naquela fase. |
+| Pedir alterações | A equipa ajusta o desenho e volta a pedir a sua confirmação. |
+
+A equipa **regista** essas aprovações nos documentos da pasta da demanda (por exemplo `03_confirmacao_diretor.md`), para haver **rasto** sem o Diretor ter de editar o Git.
+
+---
+
+## 5. Registo de retrabalhos (reabertura de etapas)
+
+Use esta tabela quando uma **correção obrigue a refazer** uma fase já considerada fechada (ex.: desenho funcional rebentado nos testes, veto do Arquiteto, falha na verificação automática no servidor).
+
+| Data | Demanda | Etapa afectada | Origem | Resumo do problema | O que se fez | N.º de vezes (nesta demanda) |
+|:---|:---|:---|:---|:---|:---|:---:|
+| *—* | *—* | *—* | *—* | *Nenhum registo ainda.* | *—* | *—* |
+
+**Como preencher:** a **EQUIPE** acrescenta uma **linha nova** por evento; o campo **Origem** pode ser: Diretor, Analista, Arquiteto, Dev, QA ou CI (verificação automática).
+
+---
+
+## 6. Esclarecimento: nome do ficheiro no repositório (histórico `SUCESSO_E_FALHA`)
+
+*(Isto responde à dúvida sobre as duas «fases» que tinham sido sugeridas para o nome do fluxo.)*
+
+Hoje o ficheiro normativo chama-se **`FLUXO_SUCESSO_E_FALHA.md`**. «Sucesso» aí significa **percurso normal até à entrega**; «Falha» significa **percurso quando há veto ou retrabalho** — são **dois caminhos** no mesmo regulamento, não um «prémio» ou «castigo».
+
+**Duas formas de alinhar o nome com «Fluxo oficial de governança»:**
+
+| Opção | O que implica |
+|:---|:---|
+| **A — Só palavras no Painel** | Continuamos a chamar o fluxo de **Fluxo oficial de governança** aqui e nas conversas. O **ficheiro mantém o nome antigo**; os links no projecto **não** mudam. |
+| **B — Renomear o ficheiro** | Mudar o nome para algo como `FLUXO_OFICIAL_GOVERNANCA.md` e **actualizar todas as referências** no código, testes, regras do Cursor e documentação. |
+
+**Pode usar qualquer uma.** Para **avançar etapas**, o que vale é a **sua confirmação** (**CONFIRMO** / **PROSSIGA**) e os **pareceres da equipa** nos documentos da demanda — não depende de escolher A ou B.
+
+---
+
+## 7. Pontos de controlo (resumo técnico)
+
+Cada **entrega na nuvem** (repositório Git) vem a pares com **actualização deste Painel** e do ficheiro de estado na app. Os **pontos ímpares** fecham com: alterações guardadas + registo no histórico do Git + envio para o servidor.
+
+| Ponto | Depois de… | O que fica guardado no repositório | O que se actualiza no Painel / estado |
 |:---:|:---|:---|:---|
-| **PC1** | Passos 1–4 (Diretor confirmou no **chat**) | `01`–`03` em `demandas/<ID>/` (**EQUIPE** gera a partir de `@Files` + resposta no Cursor) | **PC2:** este ficheiro + `CONTROLE`; **EQUIPE** actualiza `status_demanda.json` |
-| **PC3** | Passos 5–9 (Analista validou desenho lógico) | Desenho lógico + **selo Analista** | **PC4:** Painel + JSON |
-| **PC5** | Passos 10–13 (Arquiteto validou código) | Parecer Arquiteto + **selo Arquiteto** | **PC6:** Painel + JSON |
-| **PC7** | Passos 14–18 (Analista validou código; plano testes) | Código aprovado por Arq.+Analista; `CADERNO_TESTES_MASTER`; **selo Analista** | **PC8:** Painel + JSON |
-| **PC9** | Passo 21 (QA alterou plano, se aplicável) | Plano de testes actualizado | **PC10:** Painel + JSON (ou registo “sem alteração ao plano”) |
-| **PC11** | Passos 22–23 (testes massivos) | Parecer final QA + **selo QA** | **PC12:** Painel + JSON |
-| **PC13a** | Passo 24 (Diretor informado) | `99_encerramento.md` no dossier da demanda | **PC13b:** Painel — demanda concluída; JSON |
+| **PC1** | O Diretor aprovar o desenho funcional no chat | Ficheiros `01`–`03` da pasta da demanda | **PC2** |
+| **PC3** | Validado o desenho técnico | Desenho lógico + validação do Analista | **PC4** |
+| **PC5** | Validado o código pelo Arquiteto | Parecer do Arquiteto | **PC6** |
+| **PC7** | Validado o código pelo Analista + plano de testes | Parecer + caderno de testes | **PC8** |
+| **PC9** | Ajustes ao plano de testes (se existirem) | Actualização do plano | **PC10** |
+| **PC11** | Testes finais | Parecer do QA | **PC12** |
+| **PC13a** | Informação de conclusão | `99_encerramento.md` | **PC13b** |
 
-**Nota (coluna GitHub):** em **cada** PC ímpar, a coluna pressupõe **três** passos cumulativos: working copy correcta, **`git commit`**, **`git push`** para o remoto (cloud) — norma completa em [`FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md) (secção *Definição: ponto de controlo GitHub*).
+*Definição completa de «ponto de controlo no repositório»:* ver secção no [`FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md).
 
-**Validação da equipa (críticas já incorporadas no doc de governança):** numeração duplicada 20/21 corrigida para 22–25; “selo” exige traço em Git; redesenho funcional ⇒ novo ciclo desde o passo 1 com confirmação do Diretor.
+### 7.1 GitHub Actions no ramo `develop`
 
-**Legado:** os antigos «checkpoints por persona» colapsam nestes PC (vários passos por fase SUCESSO).
+Cada **push** para **`origin/develop`** dispara verificações na nuvem. Duas workflows complementam-se:
 
----
+| Nome na lista do GitHub | Ficheiro | Papel |
+|:---|:---|:---|
+| **FLUXO OFICIAL DE GOVERNANCA** | [`.github/workflows/fluxo_oficial_governanca.yml`](../.github/workflows/fluxo_oficial_governanca.yml) | Confirma **artefactos** do Fluxo oficial (norma, Painel, `.cursorrules`, `status_demanda.json`, README de demandas, `CADERNO_TESTES_MASTER`, base `src/`) e corre **`pytest tests/test_governanca.py`**. Os passos seguem as **fases A–F** / **PC1–PC13** (rótulos no log da Action). |
+| **Validador Maestro V2** | [`.github/workflows/qa_automatico.yml`](../.github/workflows/qa_automatico.yml) | **Suite completa** `pytest tests/` + dependências do projecto — barreira principal de regressão técnica. |
 
-## Ciclo E09 — Agendamentos
-
-**Estado do ciclo:** **etapas 01–15 concluídas** (inclui push `develop`). *Nota de governança:* entregas anteriores ficaram só no working copy até este envio; o procedimento de 15 etapas exige **commit + push** para a Action e o repositório serem prova de auditoria.
-
-| # | Etapa | Estado | Nota |
-|:---:|:---|:---:|:---|
-| 01 | Configuração | ✅ | Herdado |
-| 02 | Cadastro de Clientes | ✅ | Dimensão **Cliente** em filtros e buffers |
-| 03 | Colaboradores + habilitações | ✅ | Colaborador(es) por ocorrência; `listar_clientes_resumo` para filtros |
-| 04 | Proposta / escopo (Analista) | ✅ | Decisões Diretor incorporadas (ver bullets abaixo) |
-| 05 | Estrutura e dados (Arquiteto) | ✅ | `agendamentos`, `agendamento_colaboradores`; secção E09 em [`MODELO_ARQUITETURA.md`](MODELO_ARQUITETURA.md) |
-| 06 | Tema / UI | ✅ | [`page_agendamentos.py`](../src/ui/page_agendamentos.py); `AGENDA_*` em [`theme.py`](../src/ui/theme.py) |
-| 07 | Persistência / migrações | ✅ | [`connection.py`](../src/database/connection.py) + índices |
-| 08 | Regras de domínio | ✅ | [`agendamento.py`](../src/modules/agendamento.py) — estados, buffer, cancelamento `devolver_ao_buffer`, rótulo pagamento |
-| 09 | Testes automáticos | ✅ | [`tests/test_agendamento.py`](../tests/test_agendamento.py) |
-| 10 | CI / workflows | ✅ | Regressão existente |
-| 11 | `pytest` local | ✅ | `python -m pytest tests/ -v` — **40** testes |
-| 12 | Documentação técnica | ✅ | `MODELO`, `CONTROLE` #06, este painel; KPIs semana na página agenda (extensão fina `relatorios`/dashboards opcional) |
-| 13 | Revisão de links (Analista) | ✅ | Tabela global abaixo |
-| 14 | Validação visual (QA) | ✅ | Smoke recomendado: Início → **Agendamentos** → buffer → criar → semana → estado/cancelar |
-| 15 | Commit final + push `develop` | ✅ | Fecho E09 no Git (`develop`; ver checkpoints por persona) |
-
-**Escopo pedido (validação do entendimento):**
-
-- **Área de agendamento:** **data** + **previsão hora início e hora fim** (controlo de sobreposição na agenda) e **colaborador(es)** por ocorrência (sessão / evento / coworking).
-- **Calendário unificado:** visão com **Serviços (sessões), Eventos e Coworking** integrados, com **detalhe** dos registos (cliente, serviço, estado, pagamento, colaboradores).
-- **Janelas operacionais:** destaque **semana atual** e **próxima semana** para fluxo de **confirmação** com o cliente.
-- **Estados operacionais:** criação em **AGENDADO** (default); pode passar a **CONFIRMADO** (cliente confirmou); após execução **CONCLUÍDO**; **cancelamento** possível **sem** data de remarcação obrigatória, alimentando contadores de **pendentes** / filas de tratamento (ver sugestões).
-- **Pagamento na UI do agendamento:** indicar se a **sessão/ocorrência** está **paga** ou **em aberto**, com ligação ao modelo de **vendas** (`vendas` / `estado_pagamento` / recebimentos).
-- **Ligação à venda:** no **ato da venda**, permitir associar **datas** (0..N conforme tipo de item); para **pacotes** com várias sessões, **nem todas** obrigatoriamente no momento da venda — **agendar sob demanda**.
-- **Buffer «sessões por agendar»:** por **cliente** e por **natureza**, total de **unidades pendentes de agendamento** (pacotes e vendas que gerem créditos de sessão); prioridade operacional; distinguir **pagas vs em aberto** no buffer.
-- **Dashboards / relatórios (extensão E08):** totais **agendados**, **confirmados**, **com pagamento em aberto** por período (**previsto** vs **atrasado** conforme regra a fechar).
-- **Edição:** alterar **datas** e **colaboradores** em registos existentes.
-- **Visual «calendário real»:** **ícones + cor de fundo** por estado operacional e por **tipo de ocorrência**; **filtros no topo** (cliente, serviço, colaborador, agendado/confirmado/concluído/cancelado, situação de pagamento, natureza, período).
-
-**Decisões do Diretor (validadas):**
-
-1. **Cancelamento e buffer:** modelo com **opção explícita** no cancelamento: **devolver crédito ao buffer** (reabre unidade para reagendar) **ou** **não devolver** (crédito consumido / tratamento comercial a definir no ato). Persistir escolha para auditoria e KPIs.
-2. **Créditos pendentes — pacote e avulso:** o buffer contempla **ambos**: (a) unidades ligadas a **linhas de pacote** (`servico_pacote_sessoes` / tipo de sessão do pacote quando aplicável); (b) **sessões avulsas** vendidas em linha (ex.: natureza Sessão, quantidade > 1 ou crédito 1:1). Agregações por cliente e por natureza **mantêm** a distinção origem pacote vs avulso quando pertinente.
-3. **Horário:** toda ocorrência agendada com **previsão de hora início** e **hora fim** (validação `fim > início` no domínio).
-4. **Léxico visual (tipos):** indicadores para separar **sessão avulsa**, **sessão de pacote**, **coworking**; **indicadores complementares** (badge/ícone secundário) para **subtipo** quando relevante (ex.: qual tipo de sessão no pacote, sala em coworking, evento no calendário). **Evento** integra no calendário unificado com o seu próprio marcador. **Produto** (venda de produto físico) **não** gera slot de agenda por defeito; se aparecer em contexto misto, usar marcador de **«não agendável»** ou exclusão do calendário (confirmado na etapa 05 se necessário).
-
-**Incrementos e decisões recomendadas (Analista):**
-
-1. **Modelo de dados em duas camadas:** (A) **Direito / crédito** por `venda_item` (e, para pacote, subtipos por **sessão componente** quando o negócio exigir fila separada por tipo); saldo = vendido − agendado − concluído − cancelado **sem** devolução ao buffer; (B) **Ocorrência** com `data`, **`hora_inicio`**, **`hora_fim`**, colaborador(es), `status`, FK venda/item, snapshot; **cancelamento** com flag **`devolver_ao_buffer`** (BOOLEAN ou equivalente) conforme decisão do utilizador no ato.
-2. **Evento vs Coworking vs Sessão:** Evento pode ter **data fixa no catálogo** + ocorrência operacional; Coworking pode exigir **slot** (início/fim) e **sala** (já no catálogo); documentar no MODELO para não misturar regras.
-3. **«PENDENTES» após cancelamento:** distinguir **(a)** sessões ainda **por agendar** (buffer), **(b)** agendamentos **cancelados** (KPI próprio), **(c)** **remarcar** opcional — sem obrigar `data_remarcacao`; contadores separados evitam ambiguidade.
-4. **Pagamento «por ocorrência»:** enquanto não houver cobrança fracionada por sessão, derivar de **`venda` + `estado_pagamento`** e/ou **parcelas vencidas** (`venda_recebimentos_previstos` vs hoje) para rótulo **em aberto / atrasado / ok** na UI do agendamento.
-5. **Máquina de estados sugerida:** `AGENDADO` → `CONFIRMADO` → `CONCLUIDO`; ramos `CANCELADO` (a partir de AGENDADO ou CONFIRMADO); opcional `NAO_COMPARECEU` futuro. Transições validadas em domínio + testes.
-6. **Calendário em Streamlit:** grelha semanal custom (HTML/CSS + `st.columns`) ou componente de terceiros; **legenda fixa** com ícone + cor + texto; alinhar tokens em `theme.py` (`AGENDA_STATUS_STYLES`).
-7. **Integração na venda (incremental):** **Fase 1** — criar direitos + 0..1 agendamentos na venda; **Fase 2** — buffer + calendário semanal; **Fase 3** — relatórios estendidos + regras «atrasado».
-8. **Conflitos de colaborador:** opcional **alerta** (não bloqueante na v1) se colaborador já ocupado no mesmo intervalo.
-9. **Auditoria:** `data_alteracao`, `usuario` (se no futuro houver login) ou campo texto «quem alterou» em v1 mínima.
-
-**Entrega incremental sugerida (após confirmação):** **Fase A** — esquema + direitos por `venda_item` + CRUD agendamento simples + estado AGENDADO/CONFIRMADO/CANCELADO; **Fase B** — calendário semana + próxima semana + estilos; **Fase C** — CONCLUÍDO + buffer pacotes + extensão dashboards; **Fase D** — regras «atrasado»/previsto finas + conflitos horário.
+**Branch protection:** se alguma regra exigir um *required status check* pelo **nome antigo** da workflow (*Fabrica Zimmermann…*), actualize no GitHub (**Settings → Rules / Branches**) para o novo nome **FLUXO OFICIAL DE GOVERNANCA** (ou para o job **Verificação — Fluxo oficial…**, conforme a UI mostrar).
 
 ---
 
-## Ciclo E08 — Dashboards e Relatórios
+## 8. Marcos de produto já entregues (resumo)
 
-**Estado do ciclo:** **E08 concluído** — filtros (Cliente, Serviço, Colaborador, Produto/natureza, Período), Group by, KPIs, série temporal, Top N, Pareto, tabela + CSV; entrada no Início.
-
-| # | Etapa | Estado | Nota |
-|:---:|:---|:---:|:---|
-| 01 | Configuração | ✅ | Herdado |
-| 02 | Cadastro de Clientes | ✅ | Dimensão **Cliente** nos filtros |
-| 03 | Colaboradores + habilitações | ✅ | `colaborador_id` opcional por linha de venda + filtro nos relatórios |
-| 04 | Proposta / escopo (Analista) | ✅ | Confirmado — Fase A receita; colaborador na linha; Plotly |
-| 05 | Estrutura e dados (Arquiteto) | ✅ | [`MODELO_ARQUITETURA.md`](MODELO_ARQUITETURA.md) — analytics E08 |
-| 06 | Tema / UI | ✅ | [`page_dashboards.py`](../src/ui/page_dashboards.py) · [`theme.py`](../src/ui/theme.py) `ANALYTICS_COLORS` · [`app.py`](../src/app.py) |
-| 07 | Persistência / migrações | ✅ | `venda_itens.colaborador_id` + índices em [`connection.py`](../src/database/connection.py) |
-| 08 | Regras de domínio | ✅ | [`relatorios.py`](../src/modules/relatorios.py) · [`venda.py`](../src/modules/venda.py) (colaborador na linha) |
-| 09 | Testes automáticos | ✅ | [`tests/test_relatorios.py`](../tests/test_relatorios.py) |
-| 10 | CI / workflows | ✅ | Sem alteração estrutural |
-| 11 | `pytest` local | ✅ | `python -m pytest tests/ -v` — **36** testes |
-| 12 | Documentação técnica | ✅ | `MODELO`, `CONTROLE` #05, este painel |
-| 13 | Revisão de links (Analista) | ✅ | Tabela global abaixo |
-| 14 | Validação visual (QA) | ✅ | Smoke Streamlit: **Dashboards e Relatórios** |
-| 15 | Commit final + push `develop` | ✅ | Após `pytest`; fecho E08 |
-
-**Escopo entregue (E08):**
-
-- **Fase A — «Lucro»:** receita em **linhas** (`SUM(total_linha_centavos)`) como proxy sem custos; **receita em vendas** (cabeçalhos) para comparar com desconto global; texto de ajuda na UI.
-- **Filtros:** período, multiselect Cliente / Serviço / Colaborador, checkbox **apenas natureza Produto**.
-- **Group by:** Serviço, Cliente, Colaborador, Natureza, Dia, Mês — alimenta ranking, Pareto e tabela.
-- **Visual:** cards `st.metric`, gráficos Plotly (linha temporal, barras horizontais Top N, Pareto barras + % cumulativo), cores `ANALYTICS_COLORS`.
-- **Export:** CSV do relatório tabular.
-- **Vendas:** por linha, **Colaborador (opcional)** no [`page_vendas.py`](../src/ui/page_vendas.py).
+| Marco | Estado | Notas para o negócio |
+|:---|:---:|:---|
+| **E11 — Pré-venda na agenda** | ✅ | Marcar sem venda imediata; fechar na Venda; ligar vendas à visita. |
+| **E09 — Agendamentos** | ✅ | Calendário, estados, buffer com vendas, colaboradores. *Detalhe técnico extenso:* [Anexo A — E09](#anexo-a--e09-agendamentos-detalhe). |
+| **E08 — Relatórios** | ✅ | Gráficos, filtros, exportar dados. |
+| **E07 — Vendas** | ✅ | Registo de venda, descontos, pagamentos, parcelas. |
+| **E06 — Catálogo e colaboradores** | ✅ | Serviços (vários tipos), pacotes, eventos, equipa. |
 
 ---
 
-## Ciclo E07 — Painel de Vendas
+## 9. Plano das 15 etapas técnicas (por marco)
 
-**Estado do ciclo:** **E07 concluído** — registo de vendas com cliente (pesquisa + edição + cadastro), catálogo ativo (todas as naturezas), descontos linha/total, bónus, estados de pagamento e `venda_recebimentos_previstos`.
+Cada grande entrega (E06, E07, …) segue internamente **15 passos** (desde configuração até envio para o `develop`). Estado global: **concluído** para o que já está no ar.
 
-| # | Etapa | Estado | Nota |
-|:---:|:---|:---:|:---|
-| 01 | Configuração | ✅ | Herdado |
-| 02 | Cadastro de Clientes | ✅ | `buscar_cliente_por_whatsapp`, `obter_cliente_completo`, `atualizar_cliente` em [`cliente.py`](../src/modules/cliente.py) |
-| 03 | Colaboradores + habilitações | ✅ | E08: `colaborador_id` opcional em `venda_itens` + filtro dashboards |
-| 04 | Proposta / escopo (Analista) | ✅ | Confirmado pelo Diretor (bónus + split) |
-| 05 | Estrutura e dados (Arquiteto) | ✅ | [`MODELO_ARQUITETURA.md`](MODELO_ARQUITETURA.md) — secção vendas E07 |
-| 06 | Tema / UI | ✅ | [`src/ui/page_vendas.py`](../src/ui/page_vendas.py) · entrada em [`app.py`](../src/app.py) |
-| 07 | Persistência / migrações | ✅ | [`connection.py`](../src/database/connection.py) — `vendas`, `venda_itens`, `venda_pagamentos`, `venda_recebimentos_previstos` |
-| 08 | Regras de domínio | ✅ | [`venda.py`](../src/modules/venda.py) · [`catalogo.py`](../src/modules/catalogo.py) `listar_servicos_para_venda`, `resolver_snapshot_venda` |
-| 09 | Testes automáticos | ✅ | [`tests/test_venda.py`](../tests/test_venda.py) |
-| 10 | CI / workflows | ✅ | Sem alteração; regressão `qa_automatico.yml` |
-| 11 | `pytest` local | ✅ | `python -m pytest tests/ -v` — **33** testes |
-| 12 | Documentação técnica | ✅ | `MODELO`, `CONTROLE_DE_VOO`, este painel |
-| 13 | Revisão de links (Analista) | ✅ | Tabela global abaixo (E07) |
-| 14 | Validação visual (QA) | ✅ | Smoke Streamlit: fluxo **Painel de Vendas** recomendado ao Diretor |
-| 15 | Commit final + push `develop` | ✅ | Após `pytest`; fecho E07 |
-
-**Escopo entregue (E07):**
-
-- **Cliente:** pesquisa por contacto; carregar ficha com edição no expander; cadastro completo na mesma página se ainda não existir.
-- **Itens:** serviços `ativo=1` (inclui Pacote e Evento); snapshots (`nome`, `descritivo`, `unidade`, `preço`); Evento: escolha **Adulto / Criança**; **bónus** = mesmo `servico_id` com preço 0.
-- **Desconto:** por linha e global; **%** ou **€**; totais persistidos em centavos.
-- **Pagamento:** estados integral / pendente / parcial / parcelado; **várias linhas** de meio (Dinheiro, Cartão, MBWay); recebimentos previstos com **data + valor**; soma meios + previstos = total final.
-- **Relatórios futuros:** histórico em `venda_itens` e cabeçalho `vendas`.
-
----
-
-## Ciclo E06 — Colaboradores (evolução) + Catálogo de serviços (híbrido)
-
-**Estado do ciclo:** **E06 concluído** — Colaboradores (evolução) + catálogo híbrido **Sessão / Produto / Coworking / Pacote / Evento**; `pytest` **28** testes.
-
-| # | Etapa | Estado | Nota |
-|:---:|:---|:---:|:---|
-| 01 | Configuração | ✅ | Herdado |
-| 02 | Cadastro de Clientes | ✅ | Sem alteração nesta entrega |
-| 03 | Colaboradores + habilitações | ✅ | Evolução: `data_insercao_linha`, remoção de linha, edição |
-| 04 | Proposta / escopo (Analista) | ✅ | Confirmada pelo Diretor; incremental |
-| 05 | Estrutura e dados (Arquiteto) | ✅ | MODELO + `servico_pacote_*` + `servico_evento_participantes` + `catalogo.py` |
-| 06 | Tema / UI | ✅ | `src/app.py` — formulários condicionais catálogo; colaboradores UUID linhas |
-| 07 | Persistência / migrações | ✅ | [`src/database/connection.py`](../src/database/connection.py) — `_ensure_column` |
-| 08 | Regras de domínio | ✅ | `cadastrar_pacote` / `cadastrar_evento` + validações; `listar_servicos` sem Pacote/Evento |
-| 09 | Testes automáticos | ✅ | `test_pacote_*`, `test_evento_*` em [`tests/test_catalogo.py`](../tests/test_catalogo.py) |
-| 10 | CI / workflows | ✅ | Sem alteração; regressão via `qa_automatico.yml` |
-| 11 | `pytest` local | ✅ | `python -m pytest tests/ -v` — 28 testes |
-| 12 | Documentação técnica | ✅ | `CADERNO_MESTRE`, `MODELO`, `CONTROLE_DE_VOO`, este painel |
-| 13 | Revisão de links (Analista) | ✅ | Tabela global + links módulos catálogo/colaborador |
-| 14 | Validação visual (QA) | ✅ | Regressão: **pytest** (28) + **CI**; smoke Streamlit (Colaboradores + Catálogo completo) continua **recomendado** ao Diretor antes de Vendas, mas não bloqueou o fecho E06 |
-| 15 | Commit final + push `develop` | ✅ | Push `develop` após `pytest` |
-
-**Escopo entregue (E06):**
-
-- **Fase 1 — Colaboradores + catálogo base:** remoção de linha; data de inserção da linha; edição; Sessão / Produto / Coworking.
-- **Fase 2 — Pacote:** linhas 1:N; produto opcional; repasse ref. sugerido+editável; valor venda; `servico_pacote_*`.
-- **Fase 3 — Evento:** data, local, observações, interno/convidado, preços criança/adulto/desconto filho adicional; participantes (colaborador ou parceiro) com repasse % ou €; `servico_evento_participantes`; **fora** de `listar_servicos`.
-
----
-
-## Concordância com o plano das 15 etapas
-
-| Marco entregue | Etapas 01–15 cobertas (resumo) |
-|:---|:---|
-| **E01 — V11.0** | 01 Configuração, 05 estrutura inicial, 06 tema, 07 BD base, 11 docs (Caderno), 12 CONTROLE |
-| **E02 / E02b — Clientes** | 02 Cadastro clientes, 07 migrações, 08 `cliente`, 08–09 testes, 10 CI, 12 docs |
-| **E03 — Morada + filhos** | 02 (evolução), 07–09, 12 |
-| **Governança — SUCESSO/FALHA + 15 etapas** | Regra máxima [`governanca/FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md); PC1–PC13 (Git→Painel); dashboard `status_demanda.json`; reinício e FALHA documentados |
-| **E04 — Colaboradores** | 03 Colaboradores + serviços seed, 05 MODELO, 07–10, 12 |
-| **CI — Auditorias (`HEAD^`)** | 10 workflows `arquiteto_audit` / `analista_audit` |
-| **E06 — Fases 1–3 (catálogo híbrido)** | 03–12 + 13 documental; 14–15 por entrega |
-| **E07 — Painel de Vendas** | 02 (evolução cliente), 05–12 MODELO/BD/`venda`/`catalogo`/UI, 09 `test_venda`, 13–15 |
-| **E08 — Dashboards e Relatórios** | 05–12 `relatorios`/`page_dashboards`/migração colaborador; 09 `test_relatorios`; 13–15 |
-| **E09 — Agendamentos** | 04–14 entregues; 15 commit/push `develop` |
-
-Todas as entregas acima seguiram o *Fluxo de 15 Etapas* com **pytest** (`tests/`) e **push em `develop`**.
-
----
-
-## Tabela das 15 etapas
-
-| # | Etapa | Link de Validação | Estado |
+| # | Etapa | Onde validar | Estado |
 |:---:|:---|:---|:---:|
-| 01 | Configuração | [`.cursorrules`](../.cursorrules) · [`governanca/FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md) · [`CADERNO_MESTRE.md`](CADERNO_MESTRE.md) · [`app.py`](../src/app.py) | ✅ |
-| 02 | Cadastro de Clientes | [`CADERNO_MESTRE.md`](CADERNO_MESTRE.md) · [`src/app.py`](../src/app.py) · [`src/modules/cliente.py`](../src/modules/cliente.py) · [`tests/test_qa_auto.py`](../tests/test_qa_auto.py) | ✅ |
-| 03 | Colaboradores + habilitações | [`CADERNO_MESTRE.md`](CADERNO_MESTRE.md) · [`src/app.py`](../src/app.py) · [`src/modules/colaborador.py`](../src/modules/colaborador.py) · [`src/database/connection.py`](../src/database/connection.py) · [`tests/test_colaborador.py`](../tests/test_colaborador.py) | ✅ |
-| 04 | Proposta / escopo (Analista) | [`CONTROLE_DE_VOO.md`](../CONTROLE_DE_VOO.md) · Ciclo E09 | ✅ |
-| 05 | Estrutura e dados (Arquiteto) | [`MODELO_ARQUITETURA.md`](MODELO_ARQUITETURA.md) · [`catalogo.py`](../src/modules/catalogo.py) · [`relatorios.py`](../src/modules/relatorios.py) | ✅ |
-| 06 | Tema / UI V11 | [`CADERNO_MESTRE.md`](CADERNO_MESTRE.md) · [`theme.py`](../src/ui/theme.py) · [`app.py`](../src/app.py) · [`page_vendas.py`](../src/ui/page_vendas.py) · [`page_dashboards.py`](../src/ui/page_dashboards.py) · [`page_agendamentos.py`](../src/ui/page_agendamentos.py) | ✅ |
-| 07 | Persistência / migrações | [`connection.py`](../src/database/connection.py) | ✅ |
-| 08 | Regras de domínio | [`colaborador.py`](../src/modules/colaborador.py) · [`catalogo.py`](../src/modules/catalogo.py) · [`venda.py`](../src/modules/venda.py) · [`agendamento.py`](../src/modules/agendamento.py) · [`relatorios.py`](../src/modules/relatorios.py) · [`validators.py`](../src/modules/validators.py) | ✅ |
-| 09 | Testes automáticos | [`tests/`](../tests/) · [`test_agendamento.py`](../tests/test_agendamento.py) · [`test_venda.py`](../tests/test_venda.py) · [`test_relatorios.py`](../tests/test_relatorios.py) | ✅ |
-| 10 | CI / workflows | [`qa_automatico.yml`](../.github/workflows/qa_automatico.yml) · [`arquiteto_audit.yml`](../.github/workflows/arquiteto_audit.yml) · [`analista_audit.yml`](../.github/workflows/analista_audit.yml) | ✅ |
-| 11 | `pytest` local | `python -m pytest tests/ -v` (obrigatório antes de push) | ✅ |
-| 12 | Documentação técnica | [`docs/`](.) · [`CONTROLE_DE_VOO.md`](../CONTROLE_DE_VOO.md) · [`PAINEL_OPERACIONAL.md`](PAINEL_OPERACIONAL.md) | ✅ |
-| 13 | Revisão de links desta tabela (Analista) | *esta tabela — E09* | ✅ |
-| 14 | Validação visual do painel (QA) | *pytest **49** + CI; smoke Vendas + **Dashboards** + **Agendamentos** (+ pré-venda E11)* | ✅ |
-| 15 | Commit final + push `develop` | Git — `develop` atualizado (E07–E09) | ✅ |
+| 01 | Configuração | [`.cursorrules`](../.cursorrules) · [Fluxo oficial](governanca/FLUXO_SUCESSO_E_FALHA.md) · [`CADERNO_MESTRE.md`](CADERNO_MESTRE.md) · [`app.py`](../src/app.py) | ✅ |
+| 02 | Clientes | [`cliente.py`](../src/modules/cliente.py) · [`test_qa_auto.py`](../tests/test_qa_auto.py) | ✅ |
+| 03 | Colaboradores | [`colaborador.py`](../src/modules/colaborador.py) · [`test_colaborador.py`](../tests/test_colaborador.py) | ✅ |
+| 04 | Proposta / escopo | [`CONTROLE_DE_VOO.md`](../CONTROLE_DE_VOO.md) | ✅ |
+| 05 | Estrutura de dados | [`MODELO_ARQUITETURA.md`](MODELO_ARQUITETURA.md) | ✅ |
+| 06 | Aspecto visual / páginas | [`theme.py`](../src/ui/theme.py) · páginas em [`ui/`](../src/ui/) | ✅ |
+| 07 | Base de dados | [`connection.py`](../src/database/connection.py) | ✅ |
+| 08 | Regras de negócio no código | `modules/` (`venda`, `agendamento`, …) | ✅ |
+| 09 | Testes automáticos | [`tests/`](../tests/) | ✅ |
+| 10 | Verificação no servidor (CI) | **FLUXO OFICIAL DE GOVERNANCA** + **Validador Maestro V2** em [`.github/workflows/`](../.github/workflows/) | ✅ |
+| 11 | Testes locais antes de enviar | `pytest tests/` | ✅ |
+| 12 | Documentação | `docs/` · `CONTROLE` · este painel | ✅ |
+| 13 | Revisão de links | Esta tabela | ✅ |
+| 14 | Revisão visual na app | Vendas, Dashboards, Agendamentos (incl. pré-venda) | ✅ |
+| 15 | Envio final para `develop` | Histórico Git | ✅ |
 
-**Legenda:** ✅ Concluído · 🚧 Em andamento · ⚪ Pendente
+**Legenda:** ✅ Feito · 🚧 Em curso · ⚪ Ainda não começado
 
-**Nota (governança):** o **Fluxo de 15 Etapas** só fica **demonstrável na Action** quando há **commits com `push`** para **`origin/develop`** (histórico na cloud). A **regra máxima** é o fluxo **SUCESSO/FALHA** e os **PC1–PC13** (Git → Painel → `status_demanda.json`) no topo deste documento.
-
-**Próximo foco de produto:** evoluções E09+ (conflitos de horário, relatórios agregados, datas na venda) conforme roadmap.
+**Nota:** as alterações só ficam **visíveis no servidor de verificação (GitHub Actions)** depois de estarem **enviadas para o repositório na nuvem** (`develop`).
 
 ---
 
-## Registo da última entrega
+## 10. Concordância marcos ↔ 15 etapas
 
-- **Entrega (esta revisão):** **E11 encerrada** — demanda `2026-04-06_E11_pre_venda_agenda`; código **`a6a9a8f`** (pré-venda); governança PC5–PC13 **`f07f85b`** (`06`–`09`, **`99_encerramento.md`**); **49** `pytest`; `status_demanda.json` sem demanda activa.
-- **Entrega (referência anterior):** **`6671f3d`** — **Canal `@Files` → Analista**; documentação e controlos **automáticos pela EQUIPE** (mandatório; Diretor não prepara dossiers). Ficheiros: `FLUXO_SUCESSO_E_FALHA.md`, `.cursorrules`, `PAINEL`, `CONTROLE`, `demandas/README`, `status_demanda.json`, `page_fluxo_gestao`, `MODELO`, `CADERNO_TESTES_MASTER`, `test_governanca`.
-- **Entrega (referência anterior):** **Regra máxima — Fluxo SUCESSO / FALHA** — commit **`f92c4f2`**: [`docs/governanca/FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md); PC1–PC13 no `PAINEL`; [`.cursorrules`](../.cursorrules); [`docs/CADERNO_TESTES_MASTER.md`](CADERNO_TESTES_MASTER.md); [`docs/governanca/status_demanda.json`](governanca/status_demanda.json); **Fluxo e governança** na app; **43** testes.
-- **Entrega (referência anterior):** **Governança — Checkpoints Git por persona** — commit **`f07395c`**: tabela + reinício no `PAINEL`, [`.cursorrules`](../.cursorrules), registo em `CONTROLE_DE_VOO.md`.
-- **Entrega (referência anterior):** **Sincronização Git `develop` — E07, E08 e E09** — commit **`7dfc53d`** (acumulado no working copy após E06; **commit + push** restauram evidência na Action e no histórico). Inclui: **E07** `venda.py`, `page_vendas.py`; **E08** `relatorios.py`, `page_dashboards.py`, Plotly; **E09** `agendamentos`/`agendamento_colaboradores`, `agendamento.py`, `page_agendamentos.py`, **40** testes; `beaba_gestao.db` **removido do índice** Git (mantém-se local, `*.db` ignorado).
-- **Entrega (referência anterior):** **E09 — Refinamento com Diretor (Agendamentos)** — validadas decisões de buffer, horários e léxico visual.
-- **Entrega (referência anterior):** **E09 — Proposta Analista (Agendamentos)** — escopo inicial; **ciclo E09** aberto.
-- **Entrega (referência anterior):** **E08 — Dashboards e Relatórios** — `relatorios.py`; `page_dashboards.py` (Plotly, `ANALYTICS_COLORS`); filtros + Group by + KPIs + temporal + Top N + Pareto + tabela/CSV; `venda_itens.colaborador_id` + UI venda; dependência `plotly`; **36** testes.
-- **Entrega (referência anterior):** **E07 — Painel de Vendas** — BD vendas; `page_vendas.py`; **33** testes (antes de E08).
-- **Entrega (referência anterior):** **E06 Fase 3 — Evento** — colunas `evento_*` em `servicos`; `servico_evento_participantes`; `cadastrar_evento`, `_detalhe_evento`; UI `NATUREZAS_CATALOGO_FASE3` em `src/app.py`; testes `test_evento_*`.
-- **Referência técnica:** `CONTROLE_DE_VOO.md` (Log), `MODELO_ARQUITETURA.md`, `CADERNO_MESTRE.md` (regra 4).
-- **Notas:** Evento: ≥1 participante; não repetir o mesmo colaborador em duas linhas; parceiro exige nome. Pacote: ver nota anterior (sessão duplicada).
+| Marco | Cobertura (resumo) |
+|:---|:---|
+| E01 V11 | Configuração, tema, base, documentação |
+| E02/E03 Clientes e morada | Cadastro, migrações, testes |
+| Governança / Fluxo oficial | [`FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md), pontos PC1–PC13, estado na app |
+| E04 Colaboradores | Módulo colaboradores, testes |
+| E06 Catálogo | Pacotes, eventos, UI catálogo |
+| E07 Vendas | Vendas, testes `test_venda` |
+| E08 Relatórios | Dashboards, Plotly, `test_relatorios` |
+| E09 Agendamentos | Agenda, buffer, testes |
+| E11 Pré-venda | Extensão E09 + vendas, 49 testes |
+
+---
+
+## 11. Histórico de entregas (mais recente primeiro)
+
+- **CI — Fluxo oficial no GitHub:** workflow renomeada para **FLUXO OFICIAL DE GOVERNANCA** (`fluxo_oficial_governanca.yml`); removido `orquestrador_zimmermann.yml`; verificações alinhadas às fases A–F / PC1–PC13 + smoke `test_governanca.py` (2026-04-06).
+- **E11 fechada** — Pré-venda na agenda; código `a6a9a8f`; documentação de fecho `f07f85b`; **49** testes; estado da app reposto sem demanda activa.
+- **`6671f3d`** — Entrada **`@Files`**, documentação automática pela EQUIPE, regras do Cursor, painel de fluxo na app.
+- **`f92c4f2`** — Fluxo de governança completo no documento normativo; **43** testes.
+- **`f07395c`** — Checkpoints por persona no Painel.
+- **`7dfc53d`** — Sincronização E07–E09 no `develop` (**40** testes nessa altura).
+- **E08, E07, E06** — Ver registos anteriores no Git e em [`CONTROLE_DE_VOO.md`](../CONTROLE_DE_VOO.md).
+
+**Ideias para próximas melhorias de produto:** conflitos de horário na agenda; mais relatórios; datas na venda — a definir com novo pedido **`@Files`**.
+
+---
+
+## Anexo A — E09 Agendamentos (detalhe)
+
+**Estado do ciclo:** etapas 01–15 **concluídas** (inclui envio para `develop`).
+
+| # | Etapa | Estado | Nota breve |
+|:---:|:---|:---:|:---|
+| 01–03 | Configuração, Clientes, Colaboradores | ✅ | Suporte a filtros e equipa na agenda |
+| 04 | Proposta / escopo | ✅ | Alinhado com o Diretor |
+| 05 | Estrutura de dados | ✅ | Tabelas `agendamentos`, `agendamento_colaboradores` — [`MODELO`](MODELO_ARQUITETURA.md) |
+| 06 | UI | ✅ | [`page_agendamentos.py`](../src/ui/page_agendamentos.py), tema `AGENDA_*` |
+| 07 | Base de dados | ✅ | [`connection.py`](../src/database/connection.py) |
+| 08 | Regras | ✅ | [`agendamento.py`](../src/modules/agendamento.py) — estados, buffer, cancelamento |
+| 09 | Testes | ✅ | [`test_agendamento.py`](../tests/test_agendamento.py) — **inclui E11 pré-venda** |
+| 10–12 | CI, documentação | ✅ | — |
+| 13–15 | Revisão, QA visual, Git | ✅ | Smoke: Início → Agendamentos |
+
+**Lembrete:** na altura do fecho E09 contavam-se **40** testes; com **E11** a suite passou a **49**.
+
+**Escopo pedido (resumo):** data + hora início/fim + colaboradores; calendário com sessões, eventos e coworking; estados Agendado / Confirmado / Concluído / Cancelado; ligação ao pagamento da venda; buffer de sessões por agendar; filtros e cores por estado e tipo.
+
+**Decisões do Diretor (validadas):** ao cancelar, escolher se o crédito **volta** ao buffer ou **não**; buffer inclui pacote e sessão avulsa; horário com fim > início; léxico visual por tipo (sessão avulsa, pacote, coworking, evento).
+
+**Sugestões técnicas registadas (Analista):** modelo crédito + ocorrência; máquina de estados; rótulos de pagamento derivados da venda; fases futuras (conflito de horário, relatórios).
+
+---
+
+## Anexo B — E08 Dashboards
+
+**Estado:** ✅ concluído. Filtros, agrupamentos, KPIs, gráficos Plotly, CSV. Ver [`page_dashboards.py`](../src/ui/page_dashboards.py), [`relatorios.py`](../src/modules/relatorios.py). Testes: **36** na altura do fecho E08.
+
+---
+
+## Anexo C — E07 Vendas
+
+**Estado:** ✅ concluído. Cliente, itens, descontos, pagamento integral/parcial/previsto. Ver [`page_vendas.py`](../src/ui/page_vendas.py), [`venda.py`](../src/modules/venda.py). Testes: **33** na altura do fecho E07.
+
+---
+
+## Anexo D — E06 Catálogo híbrido
+
+**Estado:** ✅ concluído. Sessão, Produto, Coworking, Pacote, Evento; evolução de colaboradores. Ver [`catalogo.py`](../src/modules/catalogo.py), `app.py`. **28** testes na altura do fecho E06.
+
+---
+
+## Glossário rápido
+
+| Termo | Significado simples |
+|:---|:---|
+| **EQUIPE** | O agente no Cursor que desempenha Analista, Arquiteto, programador e QA. |
+| **`develop`** | Ramo principal de desenvolvimento no Git — é para lá que vão as entregas. |
+| **PC** | Ponto de controlo — momento em que se guarda prova no repositório e se actualiza este painel. |
+| **pytest** | Programa que corre os testes automáticos do projecto. |
+| **CI / Actions** | Verificações no GitHub ao enviar para `develop`: **FLUXO OFICIAL DE GOVERNANCA** (governança) e **Validador Maestro V2** (pytest completo). |

@@ -1,4 +1,6 @@
-# Fluxo obrigatório — SUCESSO e FALHA (regra máxima)
+# Fluxo oficial de governança (regra máxima)
+
+**Ficheiro no repositório:** `FLUXO_SUCESSO_E_FALHA.md` — nome mantido por **compatibilidade de links**; no Painel e nas conversas usa-se **Fluxo oficial de governança**. **SUCESSO** = percurso **normal** até à entrega; **FALHA** = percurso de **correção** quando há veto ou retrabalho (o mesmo regulamento, dois percursos).
 
 **Normativo:** este documento define o processo **obrigatório** para **toda** evolução do BeaBa Gestão, em conjunto com [`.cursorrules`](../../.cursorrules) e [`PAINEL_OPERACIONAL.md`](../PAINEL_OPERACIONAL.md).
 
@@ -42,7 +44,7 @@ Cada PC cujo título inclui **GitHub** (PC1, PC3, PC5, PC7, PC9 quando aplicáve
 
 ---
 
-## Fluxo SUCESSO (obrigatório)
+## Percurso normal — SUCESSO (obrigatório)
 
 ### Fase A — Analista + Diretor (desenho funcional)
 
@@ -145,11 +147,11 @@ Cada PC cujo título inclui **GitHub** (PC1, PC3, PC5, PC7, PC9 quando aplicáve
 
 ## Fluxo FALHA (obrigatório)
 
-1. **Qualquer falha** numa etapa obriga a **revalidação** das etapas anteriores afectadas, **até** restabelecer o fluxo SUCESSO.
+1. **Qualquer falha** numa etapa obriga a **revalidação** das etapas anteriores afectadas, **até** restabelecer o **percurso normal (SUCESSO)**.
 2. Durante o fluxo reverso, **todos** os pontos de controlo aplicáveis devem ser **repetidos** (GitHub **e** Painel), com **pareceres negativos** documentados (motivo, evidências, actor).
 3. **Exemplo A — Falha em QA:** QA notifica Dev, Arquiteto e Analista com **parecer completo** (o que falhou e porquê). Dev corrige; volta-se às etapas **11–18** (Arquiteto + Analista + plano de testes) **antes** de novo ciclo QA completo (19–23).
 4. **Exemplo B — Falha do Analista na validação do código (após parecer favorável do Arquiteto):** Analista notifica Arquiteto e Dev com **parecer negativo**; Dev e Arquiteto tratam a causa; reexecutar **12–18** conforme necessário.
-5. **Redesenho funcional exigido pelo QA (ou por qualquer actor):** a EQUIPE prepara a nova versão do desenho funcional; **reapresentação ao Diretor no chat** e **confirmação formal** (resposta no Cursor); a EQUIPE regista em Git; **todo** o fluxo SUCESSO é **refeito** desde o passo **1** (nova pasta `demandas/<ID_v2>/` ou sufixo de versão).
+5. **Redesenho funcional exigido pelo QA (ou por qualquer actor):** a EQUIPE prepara a nova versão do desenho funcional; **reapresentação ao Diretor no chat** e **confirmação formal** (resposta no Cursor); a EQUIPE regista em Git; **todo** o **percurso normal (SUCESSO)** é **refeito** desde o passo **1** (nova pasta `demandas/<ID_v2>/` ou sufixo de versão).
 
 6. **Automático em sentido de processo:** “automático” significa que a **EQUIPE** executa as acções (ficheiros, commits, painel, JSON) **sem solicitar ao Diretor** que os faça manualmente; não dispensa **aprovações** do Diretor no chat quando o fluxo as exige.
 
@@ -164,4 +166,4 @@ Cada PC cujo título inclui **GitHub** (PC1, PC3, PC5, PC7, PC9 quando aplicáve
 
 ## Relação com o “Fluxo de 15 Etapas”
 
-O fluxo técnico em [`PAINEL_OPERACIONAL.md`](../PAINEL_OPERACIONAL.md) (etapas 01–15 por ciclo de produto) **continua válido** como **desdobramento** principalmente nas fases de **implementação e entrega técnica** (Dev, migrações, testes automatizados, CI), **sempre dentro** deste fluxo SUCESSO/FALHA e **nunca** como atalho que salte pareceres ou pontos de controlo.
+O fluxo técnico em [`PAINEL_OPERACIONAL.md`](../PAINEL_OPERACIONAL.md) (etapas 01–15 por ciclo de produto) **continua válido** como **desdobramento** principalmente nas fases de **implementação e entrega técnica** (Dev, migrações, testes automatizados, CI), **sempre dentro** deste **Fluxo oficial de governança** (percursos SUCESSO e FALHA) e **nunca** como atalho que salte pareceres ou pontos de controlo.

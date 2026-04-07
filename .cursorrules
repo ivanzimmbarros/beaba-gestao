@@ -12,9 +12,9 @@
 
 ## REGRA MÁXIMA OBRIGATÓRIA (todas as evoluções)
 
-**Todo** trabalho de evolução do produto segue o fluxo **SUCESSO** ou **FALHA** definido em:
+**Todo** trabalho de evolução do produto segue o **Fluxo oficial de governança** (percurso normal **SUCESSO**; percurso de correção **FALHA**) definido em:
 
-- **`docs/governanca/FLUXO_SUCESSO_E_FALHA.md`** (norma principal; inclui secção **Canal @Files e EQUIPE**)
+- **`docs/governanca/FLUXO_SUCESSO_E_FALHA.md`** (norma principal — nome do ficheiro histórico; inclui secção **Canal @Files e EQUIPE**)
 - **`docs/PAINEL_OPERACIONAL.md`** (estado, 15 etapas técnicas, registo)
 - **`CONTROLE_DE_VOO.md`** (visão módulos / log)
 - **`docs/governanca/status_demanda.json`** + UI **Fluxo e governança** (dashboard de status)
@@ -23,13 +23,13 @@
 
 **Selos** (Diretor, Analista, Arquiteto, QA): **rastreáveis** — commit com mensagem explícita **e** ficheiro datado em `docs/governanca/demandas/<ID>/` (criados pela **EQUIPE**).
 
-**Fluxo FALHA:** revalidação das etapas afectadas; repetir pontos de controlo (Git + Painel); pareceres negativos documentados pela **EQUIPE**. Redesenho funcional ⇒ nova confirmação do Diretor **no chat** + registo pela EQUIPE + fluxo desde o passo **1**.
+**Percurso de correção (FALHA):** revalidação das etapas afectadas; repetir pontos de controlo (Git + Painel); pareceres negativos documentados pela **EQUIPE**. Redesenho funcional ⇒ nova confirmação do Diretor **no chat** + registo pela EQUIPE + fluxo desde o passo **1**.
 
-**BLOQUEIO DE SEGURANÇA:** é proibido **PUSH** ou declarar etapa concluída se **GitHub Actions** estiver a **falhar**. Validar CI antes de reportar ao Diretor.
+**BLOQUEIO DE SEGURANÇA:** é proibido **PUSH** ou declarar etapa concluída se **GitHub Actions** estiver a **falhar**. Validar CI antes de reportar ao Diretor. No ramo **`develop`**, as workflows **FLUXO OFICIAL DE GOVERNANCA** (artefactos + `test_governanca.py`) e **Validador Maestro V2** (suite `pytest` completa) devem ficar **verdes**.
 
 ---
 
-## Resumo do fluxo SUCESSO (passos 1–25)
+## Resumo do percurso normal — SUCESSO (passos 1–25)
 
 | Fase | Passos | Pontos de controlo (Git → Painel) |
 |:---|:---|:---|
@@ -46,7 +46,7 @@ Detalhe: **`docs/governanca/FLUXO_SUCESSO_E_FALHA.md`**.
 
 ## Fluxo técnico de 15 etapas (subordinado)
 
-O *Fluxo de 15 Etapas* em `docs/PAINEL_OPERACIONAL.md` **continua válido** como desdobramento técnico **dentro** das fases **Dev / QA** do fluxo SUCESSO, **sem substituir** pareceres, selos ou pontos de controlo.
+O *Fluxo de 15 Etapas* em `docs/PAINEL_OPERACIONAL.md` **continua válido** como desdobramento técnico **dentro** das fases **Dev / QA** do **Fluxo oficial de governança** (percurso SUCESSO), **sem substituir** pareceres, selos ou pontos de controlo.
 
 ---
 

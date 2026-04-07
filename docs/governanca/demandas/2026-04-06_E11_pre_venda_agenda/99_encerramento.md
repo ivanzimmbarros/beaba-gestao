@@ -11,7 +11,7 @@ Entrega **E11 — Pré-venda na agenda** concluída no repositório (**`develop`
 
 ## Informação ao Diretor
 
-O **Diretor** foi orientado no **Cursor** com **`PROSSIGA`** ao longo do fluxo; esta demanda fica **encerrada** do ponto de vista do processo **SUCESSO** (PC1–PC13a), sujeita a **aceitação operacional** em produção (smoke UI se desejado).
+O **Diretor** foi orientado no **Cursor** com **`PROSSIGA`** ao longo do **Fluxo oficial de governança**; esta demanda fica **encerrada** do ponto de vista do **percurso normal — SUCESSO** (PC1–PC13a), sujeita a **aceitação operacional** em produção (smoke UI se desejado).
 
 ## Referências
 

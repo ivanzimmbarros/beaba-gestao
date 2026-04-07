@@ -1,0 +1,63 @@
+# Alinhado ao Fluxo oficial de governança (docs/governanca/FLUXO_SUCESSO_E_FALHA.md):
+# fases A–F e pontos de controlo PC1–PC13. Complementa o Validador Maestro V2 (suite pytest completa).
+name: FLUXO OFICIAL DE GOVERNANCA
+
+on:
+  push:
+    branches: [ develop ]
+  workflow_dispatch:
+
+jobs:
+  fluxo_oficial_governanca:
+    name: Verificação — Fluxo oficial (fases A–F / PC1–PC13)
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar pytest (smoke governança)
+        run: pip install pytest
+
+      - name: "Fase A — Analista + Diretor (PC1–PC2): norma, Painel, regras Cursor"
+        run: |
+          set -euo pipefail
+          test -f docs/governanca/FLUXO_SUCESSO_E_FALHA.md
+          test -f docs/PAINEL_OPERACIONAL.md
+          test -f .cursorrules
+          grep -q "Fluxo oficial" docs/governanca/FLUXO_SUCESSO_E_FALHA.md
+
+      - name: "Fase B — Arquiteto + Analista (PC3–PC4): estado e dossiers"
+        run: |
+          python3 <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path("docs/governanca/status_demanda.json")
+          data = json.loads(p.read_text(encoding="utf-8"))
+          for key in ("fase_actual", "pontos_controlo_concluidos", "demanda_id"):
+              assert key in data, f"Falta chave obrigatória: {key}"
+          Path("docs/governanca/demandas/README.md").read_text(encoding="utf-8")
+          print("OK: status_demanda.json + README demandas")
+          PY
+
+      - name: "Fase C — Dev + Arquiteto (PC5–PC6): código base"
+        run: |
+          set -euo pipefail
+          test -f src/database/connection.py
+          test -d src/modules
+
+      - name: "Fase D — Analista + Dev (PC7–PC8): caderno de testes mestre"
+        run: |
+          set -euo pipefail
+          test -f docs/CADERNO_TESTES_MASTER.md
+
+      - name: "Fases E–F — QA + encerramento (PC9–PC13): pytest governança"
+        run: python3 -m pytest tests/test_governanca.py -v
