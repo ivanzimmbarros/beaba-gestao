@@ -47,3 +47,10 @@ def test_caderno_testes_master_existe():
     root = Path(__file__).resolve().parents[1]
     p = root / "docs" / "CADERNO_TESTES_MASTER.md"
     assert p.is_file()
+
+
+def test_monitor_governanca_script_existe_e_compila():
+    root = Path(__file__).resolve().parents[1]
+    p = root / "monitor_governanca.py"
+    assert p.is_file()
+    compile(p.read_text(encoding="utf-8"), str(p), "exec")

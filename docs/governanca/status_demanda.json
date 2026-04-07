@@ -1,32 +1,28 @@
 {
-  "demanda_id": "2026-04-07_E15_monitor_governanca_externo",
-  "titulo": "E15 — Monitor de governança stand-alone (segundo ecrã)",
-  "fase_actual": "A — Desenho funcional",
-  "passo_referencia": "02_desenho_funcional.md (proposta)",
-  "responsavel_actual": "EQUIPE",
+  "demanda_id": "",
+  "titulo": "Nenhuma demanda activa — última concluída: E15 monitor stand-alone (2026-04-07)",
+  "fase_actual": "—",
+  "passo_referencia": null,
+  "responsavel_actual": "—",
   "pontos_controlo_concluidos": [],
-  "pendente": "CONFIRMO / PROSSIGA do Diretor sobre o desenho em docs/governanca/demandas/2026-04-07_E15_monitor_governanca_externo/02_desenho_funcional.md. Sem codificar até aprovação.",
+  "pendente": "Nova evolução: `@Files` → Analista. Última: E15 (`monitor_governanca.py`; app sem Fluxo e governança).",
   "falha": null,
   "ultima_actualizacao_iso": "2026-04-07",
-  "notas_dashboard": "Fase A E15: monitor externo monitor_governanca.py (wide + autorefresh); remoção de Fluxo e governança da app principal; PAINEL com dois acessos.",
-  "fase_governanca": "A",
+  "notas_dashboard": "E15 encerrada. Dois acessos: `streamlit run app.py` e `streamlit run monitor_governanca.py`. Telemetria E14 no monitor.",
+  "fase_governanca": "—",
   "pc_foco": null,
   "percurso": "normal",
-  "ultima_entrega_marco": "E14",
-  "live_status": "A implementar monitor stand-alone (E15) após PROSSIGA; telemetria continua em JSON.",
-  "etapas_pendentes": [
-    "Diretor: CONFIRMO / PROSSIGA sobre 02 E15",
-    "EQUIPE: criar monitor_governanca.py na raiz; migrar Torre + Diário + STATUS LIVE; remover page_fluxo_gestao da app",
-    "EQUIPE: actualizar PAINEL_OPERACIONAL.md (dois pontos de acesso)"
-  ],
-  "live_actualizado_iso": "2026-04-07",
+  "ultima_entrega_marco": "E15",
+  "live_status": "",
+  "etapas_pendentes": [],
+  "live_actualizado_iso": "",
   "fases_resumo": [
-    { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "em_curso" },
-    { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "pendente" },
-    { "id": "C", "label": "Código 1", "pcs": "PC5→6", "estado": "pendente" },
-    { "id": "D", "label": "Código 2", "pcs": "PC7→8", "estado": "pendente" },
-    { "id": "E", "label": "QA", "pcs": "PC9–12", "estado": "pendente" },
-    { "id": "F", "label": "Fecho", "pcs": "PC13", "estado": "pendente" }
+    { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
+    { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "feito" },
+    { "id": "C", "label": "Código 1", "pcs": "PC5→6", "estado": "feito" },
+    { "id": "D", "label": "Código 2", "pcs": "PC7→8", "estado": "feito" },
+    { "id": "E", "label": "QA", "pcs": "PC9–12", "estado": "feito" },
+    { "id": "F", "label": "Fecho", "pcs": "PC13", "estado": "feito" }
   ],
   "diario_bordo_resumo": [
     "E01 — V11.0: app e identidade; Caderno Mestre.",
@@ -40,9 +36,9 @@
     "E09 — Agendamentos e buffer.",
     "E10 — (reservado)",
     "E11 — Pré-venda na agenda.",
-    "E12 — Painel Torre de Controle + Diário na app.",
+    "E12 — Painel Torre de Controle + Diário (UI → E15 monitor).",
     "E13 — Copy formulários Clientes, Colaboradores, Catálogo.",
     "E14 — Telemetria ao vivo (STATUS LIVE + JSON live_*).",
-    "E15 — Monitor externo (stand-alone) em curso — Fase A."
+    "E15 — Monitor de Voo stand-alone (`monitor_governanca.py`); app sem página Fluxo."
   ]
 }

@@ -160,7 +160,7 @@ Cada PC cujo título inclui **GitHub** (PC1, PC3, PC5, PC7, PC9 quando aplicáve
 ## Dashboard de status (obrigatório)
 
 - **Ficheiro canónico:** [`status_demanda.json`](status_demanda.json) — estado actual: fase, responsável, pendentes, concluídos, falha. **Actualização:** exclusivamente pela **EQUIPE** em cada par **Painel** (após o respectivo commit), **não** pelo Diretor.
-- **Visualização:** aplicação Streamlit — **Fluxo e governança** (lê o JSON).
+- **Visualização:** aplicação Streamlit **Monitor de Voo** — `streamlit run monitor_governanca.py` na raiz do repositório (lê o JSON; segundo ecrã / stand-alone).
 
 ---
 

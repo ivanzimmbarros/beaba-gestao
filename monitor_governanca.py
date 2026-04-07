@@ -1,4 +1,8 @@
-"""Dashboard do Fluxo oficial — telemetria ao vivo + Torre de Controle + estado (JSON)."""
+"""
+Monitor de Voo — telemetria E14 + Torre de Controle + Diário (stand-alone).
+
+Arranque (raiz do repositório): streamlit run monitor_governanca.py
+"""
 
 from __future__ import annotations
 
@@ -10,7 +14,7 @@ import streamlit as st
 try:
     from streamlit_autorefresh import st_autorefresh
 except ImportError:
-    st_autorefresh = None  # pragma: no cover — CI instala requirements.txt
+    st_autorefresh = None  # pragma: no cover
 
 _FASES_DEFAULT = [
     {"id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "pendente"},
@@ -29,10 +33,11 @@ _ICONE_ESTADO = {
 }
 
 _LIVE_FILA_MAX = 8
+_AUTOREFRESH_MS = 10_000
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[2]
+    return Path(__file__).resolve().parent
 
 
 def carregar_status_demanda() -> dict:
@@ -70,14 +75,12 @@ def _fases_para_exibir(data: dict) -> list[dict]:
 def _render_status_live(data: dict) -> None:
     st.subheader("STATUS LIVE — telemetria")
     st.caption(
-        "Operação actual da **EQUIPE** e fila imediata (ficheiro `status_demanda.json` no disco). "
+        "Operação actual da **EQUIPE** e fila imediata (`status_demanda.json` no disco). "
         "O **Painel** `.md` mantém o histórico nos PCs."
     )
 
     live = data.get("live_status")
-    if live is None:
-        live = ""
-    live_s = str(live).strip()
+    live_s = str(live).strip() if live is not None else ""
     fila_raw = data.get("etapas_pendentes")
     if not isinstance(fila_raw, list):
         fila: list[str] = []
@@ -105,38 +108,38 @@ def _render_status_live(data: dict) -> None:
     st.caption(f"**Última actualização telemetria:** {ts_s or '—'}")
 
 
-def render_page_fluxo_gestao(
-    *,
-    render_back_and_breadcrumb,
-) -> None:
-    render_back_and_breadcrumb(
-        ["Home", "Fluxo e governança"],
-        back_key="bea_back_fluxo",
+def main() -> None:
+    st.set_page_config(
+        page_title="Monitor de Voo — Governança BeaBa",
+        layout="wide",
+        initial_sidebar_state="collapsed",
     )
-    st.markdown("### Fluxo e governança")
+
+    st.markdown("## Monitor de Voo")
     st.caption(
-        "**STATUS LIVE** + **Torre de Controle**. Fonte: `docs/governanca/status_demanda.json`. "
-        "Entrada: **`@Files` → Analista**. Norma: `FLUXO_SUCESSO_E_FALHA.md` (Fluxo oficial)."
+        "Telemetria e fluxo oficial — leitura directa de `docs/governanca/status_demanda.json`. "
+        "Entrada: **`@Files` → Analista**. Norma: `FLUXO_SUCESSO_E_FALHA.md`."
     )
+
+    if st_autorefresh is None:
+        st.error(
+            "Pacote **streamlit-autorefresh** não encontrado. Instale com: `pip install streamlit-autorefresh`."
+        )
+    else:
+        st_autorefresh(interval=_AUTOREFRESH_MS, key="bea_monitor_live_tick")
+        st.caption(
+            f"Renovação automática a cada {_AUTOREFRESH_MS // 1000} s. Feche o separador para parar refreshes."
+        )
+
+    c_btn, _ = st.columns([1, 4])
+    with c_btn:
+        if st.button("Actualizar agora", key="bea_monitor_manual"):
+            st.rerun()
 
     data = carregar_status_demanda()
     if "erro" in data:
         st.error(str(data["erro"]))
         return
-
-    c_auto, c_btn, _ = st.columns([2, 1, 2])
-    with c_auto:
-        auto = st.checkbox(
-            "Renovar página automaticamente (10 s)",
-            value=True,
-            key="bea_fluxo_autorefresh",
-        )
-    with c_btn:
-        if st.button("Actualizar agora", key="bea_fluxo_manual"):
-            st.rerun()
-
-    if auto and st_autorefresh is not None:
-        st_autorefresh(interval=10_000, key="bea_fluxo_live_tick")
 
     _render_status_live(data)
 
@@ -164,17 +167,16 @@ def render_page_fluxo_gestao(
             f"**Fase governança:** {fg or '—'} · **PC em foco:** {pc_foco or '—'}"
         )
 
-    c1, c2, c3 = st.columns(3)
+    ultima = data.get("ultima_entrega_marco")
+    c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.metric("Demanda", data.get("demanda_id") or "—")
     with c2:
         st.metric("Fase / passo", str(data.get("fase_actual") or "—"))
     with c3:
         st.metric("Responsável", str(data.get("responsavel_actual") or "—"))
-
-    ultima = data.get("ultima_entrega_marco")
-    if ultima:
-        st.metric("Último marco de produto", str(ultima))
+    with c4:
+        st.metric("Último marco de produto", str(ultima) if ultima else "—")
 
     diario = data.get("diario_bordo_resumo")
     if isinstance(diario, list) and diario:
@@ -205,5 +207,9 @@ def render_page_fluxo_gestao(
 
     st.divider()
     st.caption(
-        "Dossiers: `docs/governanca/demandas/<ID>/` · Painel executivo: `docs/PAINEL_OPERACIONAL.md`"
+        "Dossiers: `docs/governanca/demandas/<ID>/` · Painel executivo: `docs/PAINEL_OPERACIONAL.md` · "
+        "Norma: `docs/governanca/FLUXO_SUCESSO_E_FALHA.md`"
     )
+
+
+main()
