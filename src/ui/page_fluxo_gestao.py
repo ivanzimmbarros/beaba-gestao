@@ -1,4 +1,4 @@
-"""Dashboard de status do fluxo SUCESSO / FALHA (governança)."""
+"""Dashboard de status do Fluxo oficial de governança (governança)."""
 
 from __future__ import annotations
 
@@ -32,12 +32,13 @@ def render_page_fluxo_gestao(
     )
     st.markdown("### Fluxo e governança")
     st.caption(
-        "Estado da evolução (SUCESSO / FALHA). Fonte: `docs/governanca/status_demanda.json`. "
+        "Estado da evolução (**Fluxo oficial de governança**: percurso normal ou correção). "
+        "Fonte: `docs/governanca/status_demanda.json`. "
         "Entrada da demanda: Cursor **@Files** → Analista. **EQUIPE** mantém este JSON, o Git e o Painel — "
         "sem exigir documentação manual do Diretor."
     )
     st.markdown(
-        "Documentação normativa: `docs/governanca/FLUXO_SUCESSO_E_FALHA.md` · "
+        "Documentação normativa (**nome do ficheiro histórico**): `docs/governanca/FLUXO_SUCESSO_E_FALHA.md` · "
         "`docs/governanca/demandas/README.md`"
     )
 

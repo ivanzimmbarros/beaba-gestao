@@ -21,4 +21,4 @@ Sugestão de `ID_DEMANDA`: `YYYY-MM-DD_slug_curto` (ex.: `2026-04-06_E10_estoque
 
 Opcional: `00_indice.md` — linha temporal dos PCs.
 
-Em **FALHA:** `FALHA_<data>_<actor>.md` (pela EQUIPE, com detalhe completo).
+Em **percurso de correção (FALHA):** `FALHA_<data>_<actor>.md` (pela EQUIPE, com detalhe completo).

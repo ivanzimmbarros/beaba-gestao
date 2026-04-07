@@ -1,6 +1,6 @@
 # Caderno mestre de testes — BeaBa Gestão
 
-**Normativo:** a **EQUIPE** (persona Dev no passo **18** do fluxo [`governanca/FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md)) **actualiza** este documento com o **plano de testes** de cada demanda. O **QA** (EQUIPE) valida, incrementa se necessário, e executa testes massivos. O Diretor **não** edita este ficheiro manualmente.
+**Normativo:** a **EQUIPE** (persona Dev no passo **18** do **Fluxo oficial de governança** em [`governanca/FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md)) **actualiza** este documento com o **plano de testes** de cada demanda. O **QA** (EQUIPE) valida, incrementa se necessário, e executa testes massivos. O Diretor **não** edita este ficheiro manualmente.
 
 ## 1. Testes automatizados (regressão obrigatória)
 
@@ -39,5 +39,5 @@ Para cada **ID de demanda**, acrescentar secção:
 
 ## 4. Histórico
 
-- **2026-04-06:** Documento criado para cumprir passo 18 do fluxo SUCESSO (plano de testes mestre).
+- **2026-04-06:** Documento criado para cumprir passo 18 do percurso normal — SUCESSO (plano de testes mestre).
 - **2026-04-06:** Plano E11 (pré-venda) acrescentado; suite pytest **49** testes.

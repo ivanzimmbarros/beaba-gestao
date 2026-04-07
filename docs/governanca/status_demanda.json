@@ -8,5 +8,5 @@
   "pendente": "Nova evolução: Cursor `@Files` → Analista. Última entrega: demanda `2026-04-06_E11_pre_venda_agenda` (ver `99_encerramento.md` no dossier).",
   "falha": null,
   "ultima_actualizacao_iso": "2026-04-06",
-  "notas_dashboard": "E11 encerrada (PC1–PC13). Próximo: nova demanda via @Files. CI: validar Actions em develop após cada push."
+  "notas_dashboard": "E11 encerrada (PC1–PC13). Próximo: nova demanda via @Files. CI em develop: FLUXO OFICIAL DE GOVERNANCA + Validador Maestro V2 após cada push."
 }

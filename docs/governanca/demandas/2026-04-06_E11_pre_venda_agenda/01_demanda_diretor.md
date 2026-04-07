@@ -25,7 +25,7 @@ O Diretor pede que a **Analista (EQUIPE)** analise **todo o fluxo, telas, funç�
 
 ---
 
-## Próximo passo normativo (fluxo SUCESSO)
+## Próximo passo normativo (Fluxo oficial — percurso normal / SUCESSO)
 
 - **`02_desenho_funcional.md`** — proposta de solução para validação.  
 - **`03_confirmacao_diretor.md`** — preenchido após **confirmação formal** do Diretor no chat (ex.: «CONFIRMO», «PROSSIGA»).
