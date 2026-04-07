@@ -11,6 +11,16 @@ def test_status_demanda_json_valido():
     data = json.loads(p.read_text(encoding="utf-8"))
     assert "fase_actual" in data
     assert "pontos_controlo_concluidos" in data
+    # Campos opcionais E12 — quando presentes, forma mínima
+    if "fases_resumo" in data:
+        fr = data["fases_resumo"]
+        assert isinstance(fr, list)
+        for item in fr:
+            assert isinstance(item, dict)
+            assert "id" in item
+            assert "estado" in item
+    if "diario_bordo_resumo" in data:
+        assert isinstance(data["diario_bordo_resumo"], list)
 
 
 def test_fluxo_sucesso_doc_existe():

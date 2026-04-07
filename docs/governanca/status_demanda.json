@@ -1,12 +1,38 @@
 {
-  "demanda_id": "2026-04-07_E12_refatoracao_painel_operacional",
-  "titulo": "E12 — Refactoração Painel operacional (Torre de Controle + Diário de Bordo)",
-  "fase_actual": "A — Aguarda confirmação do Diretor sobre 02_desenho_funcional.md",
-  "passo_referencia": 3,
-  "responsavel_actual": "Diretor (confirmação formal no chat)",
+  "demanda_id": "",
+  "titulo": "Nenhuma demanda activa — última concluída: E12 refactoração Painel (2026-04-07)",
+  "fase_actual": "—",
+  "passo_referencia": null,
+  "responsavel_actual": "—",
   "pontos_controlo_concluidos": [],
-  "pendente": "Ler `docs/governanca/demandas/2026-04-07_E12_refatoracao_painel_operacional/02_desenho_funcional.md` e responder **CONFIRMO** ou **PROSSIGA** no Cursor. Sem código nem alteração ao PAINEL até PC1 (com 03) + PC2.",
+  "pendente": "Nova evolução: Cursor `@Files` → Analista. Últimas entregas: E11 (pré-venda), E12 (Painel Torre + Diário + app).",
   "falha": null,
   "ultima_actualizacao_iso": "2026-04-07",
-  "notas_dashboard": "Demanda E12 aberta (Fase A). CI: FLUXO OFICIAL DE GOVERNANCA + Validador Maestro V2."
+  "notas_dashboard": "E12 encerrada. CI: FLUXO OFICIAL DE GOVERNANCA + Validador Maestro V2.",
+  "fase_governanca": "—",
+  "pc_foco": null,
+  "percurso": "normal",
+  "ultima_entrega_marco": "E12",
+  "fases_resumo": [
+    { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "pendente" },
+    { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "pendente" },
+    { "id": "C", "label": "Código 1", "pcs": "PC5→6", "estado": "pendente" },
+    { "id": "D", "label": "Código 2", "pcs": "PC7→8", "estado": "pendente" },
+    { "id": "E", "label": "QA", "pcs": "PC9–12", "estado": "pendente" },
+    { "id": "F", "label": "Fecho", "pcs": "PC13", "estado": "pendente" }
+  ],
+  "diario_bordo_resumo": [
+    "E01 — V11.0: app e identidade; Caderno Mestre.",
+    "E02 — Clientes: contacto + ficha.",
+    "E03 — Morada estruturada e filhos com nome.",
+    "E04 — Colaboradores e habilitações.",
+    "E05 — CI auditorias estáveis.",
+    "E06 — Catálogo: pacote e evento.",
+    "E07 — Vendas e pagamentos.",
+    "E08 — Relatórios e dashboards.",
+    "E09 — Agendamentos e buffer.",
+    "E10 — (reservado)",
+    "E11 — Pré-venda na agenda.",
+    "E12 — Painel Torre de Controle + Diário na app."
+  ]
 }

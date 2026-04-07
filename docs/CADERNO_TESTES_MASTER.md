@@ -37,7 +37,15 @@ Para cada **ID de demanda**, acrescentar secção:
 - **Regressão:** `python -m pytest tests/ -v` (suite **49** testes após E11).
 - **Critérios de aceite:** alinhados ao [`04_desenho_logico.md`](governanca/demandas/2026-04-06_E11_pre_venda_agenda/04_desenho_logico.md) §8.
 
+### Demanda `2026-04-07_E12_refatoracao_painel_operacional` — Painel Torre + Diário + app
+
+- **Objectivo:** `PAINEL_OPERACIONAL.md` executivo; `status_demanda.json` com `fases_resumo`, `diario_bordo_resumo`, `pc_foco`, etc.; `page_fluxo_gestao` sem pandas.
+- **Novos casos:** `test_governanca` valida forma de `fases_resumo` / `diario_bordo_resumo` quando presentes.
+- **Regressão:** `python -m pytest tests/ -v` (**49** testes); smoke **Fluxo e governança** (Torre, Diário, expanders).
+- **Critérios de aceite:** [`02_desenho_funcional.md`](governanca/demandas/2026-04-07_E12_refatoracao_painel_operacional/02_desenho_funcional.md) e [`99_encerramento.md`](governanca/demandas/2026-04-07_E12_refatoracao_painel_operacional/99_encerramento.md).
+
 ## 4. Histórico
 
 - **2026-04-06:** Documento criado para cumprir passo 18 do percurso normal — SUCESSO (plano de testes mestre).
 - **2026-04-06:** Plano E11 (pré-venda) acrescentado; suite pytest **49** testes.
+- **2026-04-07:** Plano E12 (Painel + governança UI); suite mantém **49** testes.

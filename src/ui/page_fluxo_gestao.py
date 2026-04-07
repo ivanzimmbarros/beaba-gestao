@@ -1,4 +1,4 @@
-"""Dashboard de status do Fluxo oficial de governança (governança)."""
+"""Dashboard do Fluxo oficial de governança — Torre de Controle + estado (JSON)."""
 
 from __future__ import annotations
 
@@ -6,6 +6,22 @@ import json
 from pathlib import Path
 
 import streamlit as st
+
+_FASES_DEFAULT = [
+    {"id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "pendente"},
+    {"id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "pendente"},
+    {"id": "C", "label": "Código 1", "pcs": "PC5→6", "estado": "pendente"},
+    {"id": "D", "label": "Código 2", "pcs": "PC7→8", "estado": "pendente"},
+    {"id": "E", "label": "QA", "pcs": "PC9–12", "estado": "pendente"},
+    {"id": "F", "label": "Fecho", "pcs": "PC13", "estado": "pendente"},
+]
+
+_ICONE_ESTADO = {
+    "feito": "🟢",
+    "curso": "🔵",
+    "pendente": "⚪",
+    "correccao": "🟠",
+}
 
 
 def _repo_root() -> Path:
@@ -22,6 +38,28 @@ def carregar_status_demanda() -> dict:
         return {"erro": f"JSON inválido: {e}"}
 
 
+def _fases_para_exibir(data: dict) -> list[dict]:
+    raw = data.get("fases_resumo")
+    if not isinstance(raw, list) or len(raw) != 6:
+        return list(_FASES_DEFAULT)
+    out = []
+    for i, row in enumerate(raw):
+        if not isinstance(row, dict):
+            return list(_FASES_DEFAULT)
+        estado = str(row.get("estado") or "pendente").lower()
+        if estado not in _ICONE_ESTADO:
+            estado = "pendente"
+        out.append(
+            {
+                "id": str(row.get("id") or _FASES_DEFAULT[i]["id"]),
+                "label": str(row.get("label") or _FASES_DEFAULT[i]["label"]),
+                "pcs": str(row.get("pcs") or _FASES_DEFAULT[i]["pcs"]),
+                "estado": estado,
+            }
+        )
+    return out
+
+
 def render_page_fluxo_gestao(
     *,
     render_back_and_breadcrumb,
@@ -32,20 +70,36 @@ def render_page_fluxo_gestao(
     )
     st.markdown("### Fluxo e governança")
     st.caption(
-        "Estado da evolução (**Fluxo oficial de governança**: percurso normal ou correção). "
-        "Fonte: `docs/governanca/status_demanda.json`. "
-        "Entrada da demanda: Cursor **@Files** → Analista. **EQUIPE** mantém este JSON, o Git e o Painel — "
-        "sem exigir documentação manual do Diretor."
-    )
-    st.markdown(
-        "Documentação normativa (**nome do ficheiro histórico**): `docs/governanca/FLUXO_SUCESSO_E_FALHA.md` · "
-        "`docs/governanca/demandas/README.md`"
+        "**Torre de Controle** + estado da demanda. Fonte: `docs/governanca/status_demanda.json`. "
+        "Entrada: **`@Files` → Analista**. Documentação: `FLUXO_SUCESSO_E_FALHA.md` (Fluxo oficial)."
     )
 
     data = carregar_status_demanda()
     if "erro" in data:
         st.error(str(data["erro"]))
         return
+
+    percurso = str(data.get("percurso") or "normal")
+    if percurso == "correccao" or data.get("falha"):
+        st.warning("**Percurso de correção (FALHA)** — revalidar etapas afectadas conforme norma.")
+
+    st.subheader("Torre de Controle")
+    st.caption("🟢 feito · 🔵 em curso · ⚪ pendente · 🟠 correção")
+    fases = _fases_para_exibir(data)
+    cols = st.columns(6)
+    for col, f in zip(cols, fases):
+        ic = _ICONE_ESTADO.get(f["estado"], "⚪")
+        with col:
+            st.markdown(f"**{ic} Fase {f['id']}**")
+            st.caption(f["label"])
+            st.caption(f["pcs"])
+
+    pc_foco = data.get("pc_foco")
+    fg = data.get("fase_governanca")
+    if pc_foco or (fg and str(fg).strip() and str(fg) != "—"):
+        st.info(
+            f"**Fase governança:** {fg or '—'} · **PC em foco:** {pc_foco or '—'}"
+        )
 
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -55,26 +109,38 @@ def render_page_fluxo_gestao(
     with c3:
         st.metric("Responsável", str(data.get("responsavel_actual") or "—"))
 
-    st.subheader("Pendente e concluídos")
+    ultima = data.get("ultima_entrega_marco")
+    if ultima:
+        st.metric("Último marco de produto", str(ultima))
+
+    diario = data.get("diario_bordo_resumo")
+    if isinstance(diario, list) and diario:
+        st.subheader("Diário de Bordo (resumo)")
+        for linha in diario:
+            st.markdown(f"- {linha}")
+
+    st.subheader("Pendente")
     st.write(str(data.get("pendente") or "—"))
-    done = data.get("pontos_controlo_concluidos") or []
-    if done:
-        for x in done:
-            st.success(str(x))
-    else:
-        st.info("Nenhum ponto de controlo listado como concluído.")
+
+    with st.expander("Pontos de controlo concluídos"):
+        done = data.get("pontos_controlo_concluidos") or []
+        if done:
+            for x in done:
+                st.success(str(x))
+        else:
+            st.caption("Nenhum PC listado.")
 
     falha = data.get("falha")
-    st.subheader("Falha (fluxo reverso)")
-    if falha:
-        st.error(json.dumps(falha, ensure_ascii=False, indent=2))
-    else:
-        st.success("Sem falha registada.")
+    with st.expander("Falha / fluxo reverso (detalhe)"):
+        if falha:
+            st.error(json.dumps(falha, ensure_ascii=False, indent=2))
+        else:
+            st.caption("Sem falha registada.")
 
     with st.expander("JSON completo (auditoria)"):
         st.code(json.dumps(data, ensure_ascii=False, indent=2), language="json")
 
     st.divider()
     st.caption(
-        "Dossiers: `docs/governanca/demandas/<ID>/` · Caderno de testes: `docs/CADERNO_TESTES_MASTER.md`"
+        "Dossiers: `docs/governanca/demandas/<ID>/` · Painel executivo: `docs/PAINEL_OPERACIONAL.md`"
     )
