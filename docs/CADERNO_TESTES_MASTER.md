@@ -39,23 +39,30 @@ Para cada **ID de demanda**, acrescentar secção:
 
 ### Demanda `2026-04-07_E12_refatoracao_painel_operacional` — Painel Torre + Diário + app
 
-- **Objectivo:** `PAINEL_OPERACIONAL.md` executivo; `status_demanda.json` com `fases_resumo`, `diario_bordo_resumo`, `pc_foco`, etc.; `page_fluxo_gestao` sem pandas.
+- **Objectivo:** `PAINEL_OPERACIONAL.md` executivo; `status_demanda.json` com `fases_resumo`, `diario_bordo_resumo`, `pc_foco`, etc.; UI de governança (hoje **Monitor de Voo**).
 - **Novos casos:** `test_governanca` valida forma de `fases_resumo` / `diario_bordo_resumo` quando presentes.
-- **Regressão:** `python -m pytest tests/ -v` (**49** testes); smoke **Fluxo e governança** (Torre, Diário, expanders).
+- **Regressão:** `python -m pytest tests/ -v` (**50** testes); smoke **Monitor de Voo** (Torre, Diário, expanders).
 - **Critérios de aceite:** [`02_desenho_funcional.md`](governanca/demandas/2026-04-07_E12_refatoracao_painel_operacional/02_desenho_funcional.md) e [`99_encerramento.md`](governanca/demandas/2026-04-07_E12_refatoracao_painel_operacional/99_encerramento.md).
 
 ### Demanda `2026-04-07_E13_ajustes_copy_formularios` — copy formulários
 
 - **Objectivo:** apenas alteração de strings na UI (`app.py`) + coerência em `catalogo.py`.
-- **Regressão:** `python -m pytest tests/ -v` (**49**).
+- **Regressão:** `python -m pytest tests/ -v` (**50**).
 - **Critérios de aceite:** [`02_desenho_funcional.md`](governanca/demandas/2026-04-07_E13_ajustes_copy_formularios/02_desenho_funcional.md).
 
 ### Demanda `2026-04-07_E14_telemetria_live` — STATUS LIVE
 
 - **Objectivo:** telemetria no JSON; UI com bloco ao vivo + `streamlit-autorefresh`.
 - **Novos casos:** `test_governanca` valida `live_status`, `etapas_pendentes`, `live_actualizado_iso`.
-- **Regressão:** `python -m pytest tests/ -v` (**49**); smoke **Fluxo e governança** (checkbox autorefresh, fila).
+- **Regressão:** `python -m pytest tests/ -v` (**50**); smoke **Monitor de Voo** (autorefresh contínuo, fila).
 - **Critérios de aceite:** [`02_desenho_funcional.md`](governanca/demandas/2026-04-07_E14_telemetria_live/02_desenho_funcional.md).
+
+### Demanda `2026-04-07_E15_monitor_governanca_externo` — Monitor stand-alone
+
+- **Objectivo:** `monitor_governanca.py` na raiz; remoção da página Fluxo em `src/app.py`; PAINEL com dois pontos de acesso.
+- **Novos casos:** `test_monitor_governanca_script_existe_e_compila`.
+- **Regressão:** `python -m pytest tests/ -v` (**50**); smoke **Monitor de Voo** (`streamlit run monitor_governanca.py`).
+- **Critérios de aceite:** [`02_desenho_funcional.md`](governanca/demandas/2026-04-07_E15_monitor_governanca_externo/02_desenho_funcional.md) e [`99_encerramento.md`](governanca/demandas/2026-04-07_E15_monitor_governanca_externo/99_encerramento.md).
 
 ## 4. Histórico
 
@@ -63,4 +70,5 @@ Para cada **ID de demanda**, acrescentar secção:
 - **2026-04-06:** Plano E11 (pré-venda) acrescentado; suite pytest **49** testes.
 - **2026-04-07:** Plano E12 (Painel + governança UI); suite mantém **49** testes.
 - **2026-04-07:** E13 (copy UI) — regressão **49** testes; sem novos casos automatizados.
-- **2026-04-07:** E14 (telemetria) — `test_governanca` alargado; suite **49** testes.
+- **2026-04-07:** E14 (telemetria) — `test_governanca` alargado; suite **49** testes (pré-E15).
+- **2026-04-07:** E15 (monitor externo) — `test_monitor_governanca_script_existe_e_compila`; suite **50** testes.

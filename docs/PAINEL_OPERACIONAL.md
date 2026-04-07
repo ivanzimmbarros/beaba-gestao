@@ -1,8 +1,19 @@
 # Painel operacional — BeaBa Gestão
 
-**Última actualização:** 2026-04-07 — **E14** telemetria ao vivo (STATUS LIVE); **E13** copy; **E12** Torre + Diário.  
+**Última actualização:** 2026-04-07 — **E15** Monitor de Voo stand-alone (`monitor_governanca.py`); **E14** telemetria; **E12** Torre + Diário.  
 **Norma:** [`FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md) (**Fluxo oficial de governança**).  
 **Quem actualiza:** a **EQUIPE**; o Diretor **não** edita este ficheiro.
+
+---
+
+## Dois pontos de acesso (gestão vs monitor)
+
+| Ponto de acesso | Comando (na **raiz** do repositório) | Função |
+|:---|:---|:---|
+| **App de Gestão** | `streamlit run app.py` | Operação: clientes, colaboradores, catálogo, vendas, agendamentos, dashboards. |
+| **Monitor de Voo** | `streamlit run monitor_governanca.py` | Telemetria E14 (**STATUS LIVE**), Torre A–F, Diário, pendente, JSON — **stand-alone** para segundo ecrã. |
+
+Ambos leem o mesmo [`status_demanda.json`](governanca/status_demanda.json) no disco; o Painel `.md` permanece o registo **histórico** nos PCs.
 
 ---
 
@@ -30,9 +41,9 @@ flowchart LR
 
 **Legenda visual (também na app):** 🟢 feito · 🔵 em curso · ⚪ pendente · 🟠 correção (percurso FALHA).
 
-**PC em foco** e estado por fase: espelhados em [`status_demanda.json`](governanca/status_demanda.json) (`pc_foco`, `fases_resumo`) e no menu **Fluxo e governança** da aplicação.
+**PC em foco** e estado por fase: espelhados em [`status_demanda.json`](governanca/status_demanda.json) (`pc_foco`, `fases_resumo`) e no **Monitor de Voo** (`monitor_governanca.py`).
 
-**Ao vivo (E14):** durante o trabalho da EQUIPE, o mesmo JSON inclui **`live_status`**, **`etapas_pendentes`** e **`live_actualizado_iso`**; a app mostra o bloco **STATUS LIVE** no topo (renovação automática opcional a cada 10 s). O Painel `.md` permanece o registo **histórico** nos PCs.
+**Ao vivo (E14 + E15):** durante o trabalho da EQUIPE, o mesmo JSON inclui **`live_status`**, **`etapas_pendentes`** e **`live_actualizado_iso`**; o **Monitor de Voo** mostra o bloco **STATUS LIVE** no topo com **`streamlit-autorefresh`** (10 s, sempre activo). O Painel `.md` permanece o registo **histórico** nos PCs.
 
 ---
 
@@ -42,12 +53,12 @@ flowchart LR
 |:---|:---|
 | **Demanda activa** | ⚪ *Nenhuma* — próximo pedido: **`@Files` → Analista** no Cursor. |
 | **Última entrega de produto** | ✅ **E11** — Pré-venda na agenda (ver Diário abaixo). |
-| **Última entrega de processo** | ✅ **E14** — Telemetria **STATUS LIVE** + campos `live_*` no JSON + `streamlit-autorefresh` ([`99_encerramento.md`](governanca/demandas/2026-04-07_E14_telemetria_live/99_encerramento.md)). Antes: **E13** copy ([`99`](governanca/demandas/2026-04-07_E13_ajustes_copy_formularios/99_encerramento.md)); **E12** Torre ([`99`](governanca/demandas/2026-04-07_E12_refatoracao_painel_operacional/99_encerramento.md)). |
-| **Testes** | ✅ **49** `pytest` · CI: **FLUXO OFICIAL DE GOVERNANCA** + **Validador Maestro V2** em `develop`. |
+| **Última entrega de processo** | ✅ **E15** — **Monitor de Voo** (`monitor_governanca.py` na raiz); telemetria retirada da app principal ([`99_encerramento.md`](governanca/demandas/2026-04-07_E15_monitor_governanca_externo/99_encerramento.md)). Antes: **E14** telemetria ([`99`](governanca/demandas/2026-04-07_E14_telemetria_live/99_encerramento.md)); **E12** Torre ([`99`](governanca/demandas/2026-04-07_E12_refatoracao_painel_operacional/99_encerramento.md)). |
+| **Testes** | ✅ **50** `pytest` · CI: **FLUXO OFICIAL DE GOVERNANCA** + **Validador Maestro V2** em `develop`. |
 
 ---
 
-## Diário de Bordo — marcos E01 a E14
+## Diário de Bordo — marcos E01 a E15
 
 Resumo **executivo** (detalhe técnico nos [anexos](#apêndice-h--e09-agendamentos-detalhe) e no [`CONTROLE_DE_VOO.md`](../CONTROLE_DE_VOO.md)). **Retrabalhos de processo:** ver [Apêndice A](#apêndice-a--registo-de-retrabalhos); abaixo indica-se apenas se houve evento registado.
 
@@ -64,9 +75,10 @@ Resumo **executivo** (detalhe técnico nos [anexos](#apêndice-h--e09-agendament
 | **E09** | — | **Agendamentos** — calendário, estados, buffer, ligação à venda. | — |
 | **E10** | — | *Reservado* — sem marco de produto dedicado nesta linha. | — |
 | **E11** | 2026-04-06 | **Pré-venda × agenda** — marcação sem venda imediata; fecho na visita. | — |
-| **E12** | 2026-04-07 | **Painel** — Torre de Controle + Diário de Bordo + app **Fluxo e governança**. | — |
+| **E12** | 2026-04-07 | **Painel** — Torre de Controle + Diário de Bordo; UI de governança (posteriormente **E15** em monitor externo). | — |
 | **E13** | 2026-04-07 | **Copy UI** — legendas e rótulos em Clientes, Colaboradores e Catálogo (`app.py`). | — |
-| **E14** | 2026-04-07 | **Telemetria ao vivo** — `live_status` / `etapas_pendentes` / `live_actualizado_iso`; UI **Fluxo e governança**. | — |
+| **E14** | 2026-04-07 | **Telemetria ao vivo** — `live_status` / `etapas_pendentes` / `live_actualizado_iso`; UI integrada na app (até **E15**). | — |
+| **E15** | 2026-04-07 | **Monitor de Voo** — `monitor_governanca.py` na raiz; app principal sem entrada Fluxo; autorefresh obrigatório. | — |
 
 ---
 
@@ -166,7 +178,7 @@ Se uma regra de ramo exigir o nome antigo *Fabrica Zimmermann…*, actualize no 
 | 11 | pytest local | `pytest tests/` | ✅ |
 | 12 | Documentação | `docs/` · `CONTROLE` · este painel | ✅ |
 | 13 | Revisão de links | Esta tabela | ✅ |
-| 14 | Validação visual | Vendas, Dashboards, Agendamentos, **Fluxo e governança** | ✅ |
+| 14 | Validação visual | Vendas, Dashboards, Agendamentos, **Monitor de Voo** | ✅ |
 | 15 | Push `develop` | Git | ✅ |
 
 **Legenda:** ✅ Feito · 🚧 Em curso · ⚪ Pendente
@@ -186,17 +198,19 @@ Se uma regra de ramo exigir o nome antigo *Fabrica Zimmermann…*, actualize no 
 | E08 | Relatórios / dashboards |
 | E09 | Agendamentos |
 | E11 | Pré-venda na agenda |
-| E12 | Painel executivo + Torre na app |
+| E12 | Painel executivo + Torre (UI governança → E15 monitor) |
 | E13 | Copy formulários (`app.py` + mensagem `catalogo.py`) |
 | E14 | Telemetria ao vivo + `.cursorrules` microtarefas |
+| E15 | `monitor_governanca.py` stand-alone; remoção Fluxo da app |
 
 ---
 
 ## Apêndice H — Histórico de entregas (detalhe)
 
-- **2026-04-07 — E14:** STATUS LIVE, `streamlit-autorefresh`, campos `live_*` no JSON; regra EQUIPE em `.cursorrules`; **49** testes.
+- **2026-04-07 — E15:** `monitor_governanca.py` na raiz; `page_fluxo_gestao` removido; PAINEL com dois acessos; **50** testes.
+- **2026-04-07 — E14:** STATUS LIVE, `streamlit-autorefresh`, campos `live_*` no JSON; regra EQUIPE em `.cursorrules`; **49** testes (pré-E15).
 - **2026-04-07 — E13:** Copy Clientes, Colaboradores, Catálogo; rótulo duração pacote; Âmbito evento; **49** testes.
-- **2026-04-07 — E12:** Painel tipo Torre + Diário; `status_demanda.json` alargado; `page_fluxo_gestao` sem pandas.
+- **2026-04-07 — E12:** Painel tipo Torre + Diário; `status_demanda.json` alargado; UI Fluxo (evoluída em E15 para monitor externo).
 - **2026-04-06 — CI:** **FLUXO OFICIAL DE GOVERNANCA** (substitui *Fabrica Zimmermann*).
 - **2026-04-06 — E11:** Pré-venda na agenda; **49** testes.
 - **`6671f3d`:** `@Files`, documentação automática, fluxo na app.

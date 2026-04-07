@@ -2,7 +2,7 @@
 
 **Demanda:** `2026-04-07_E15_monitor_governanca_externo`  
 **Data:** 2026-04-07  
-**Estado:** **Proposta — aguarda CONFIRMO / PROSSIGA do Diretor.**
+**Estado:** **Implementado** — ver [`99_encerramento.md`](99_encerramento.md).
 
 ---
 
@@ -106,11 +106,11 @@ Referência cruzada ao dossier **E15** e ao `99_encerramento` após implementaç
 
 ## 5. Critérios de aceite (implementação)
 
-- [ ] `monitor_governanca.py` na raiz; `layout="wide"`; `st_autorefresh` **sempre** activo.  
-- [ ] Conteúdo equivalente ao actual `page_fluxo_gestao` (STATUS LIVE, Torre, Diário, métricas, expanders, JSON).  
-- [ ] App principal **sem** página Fluxo e governança; ficheiro `page_fluxo_gestao.py` **removido**.  
-- [ ] PAINEL actualizado com tabela dos dois acessos.  
-- [ ] `pytest` completo verde; CI **Validador Maestro** e **FLUXO OFICIAL** sem regressão.
+- [x] `monitor_governanca.py` na raiz; `layout="wide"`; `st_autorefresh` **sempre** activo.  
+- [x] Conteúdo equivalente ao actual `page_fluxo_gestao` (STATUS LIVE, Torre, Diário, métricas, expanders, JSON).  
+- [x] App principal **sem** página Fluxo e governança; ficheiro `page_fluxo_gestao.py` **removido**.  
+- [x] PAINEL actualizado com tabela dos dois acessos.  
+- [x] `pytest` completo verde; CI **Validador Maestro** e **FLUXO OFICIAL** sem regressão.
 
 ---
 

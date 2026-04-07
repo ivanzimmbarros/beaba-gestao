@@ -8,7 +8,7 @@
 4. **Após a primeira mensagem** do Diretor na thread da demanda, **toda** a documentação, painéis, controlos e evolução técnica ficam **sob gestão da EQUIPE** até ao próximo ponto que exija **resposta explícita** do Diretor (ex.: confirmação do desenho funcional, **PROSSIGA**).
 5. **Aprovações do Diretor** dadas **no chat** devem ser **transcritas para o Git pela EQUIPE** (`03_confirmacao_diretor.md`, selos, datas), **sem** obrigar o Diretor a abrir o repo.
 
-6. **Telemetria ao vivo (`status_demanda.json`) — E14:** antes de iniciar **cada microtarefa** com impacto visível para o Diretor (ex.: criar/editar ficheiro de código ou de governança, correr bateria de testes relevante, fechar um PC), a EQUIPE **deve** (i) **actualizar e gravar** `docs/governanca/status_demanda.json` com **`live_status`** (frase curta no presente sobre o que vai fazer **agora**), **`etapas_pendentes`** (array ordenado da fila imediata) e **`live_actualizado_iso`** (data/hora ISO 8601); (ii) **só depois** executar essa microtarefa. Ao **terminar** a microtarefa, **voltar a actualizar** o JSON (remover/atenuar itens da fila, novo `live_status` para o passo seguinte ou vazio em repouso). O Painel `.md` continua a ser a prova **histórica** nos PCs; o JSON + página **Fluxo e governança** são o núcleo **ao vivo** para quem acompanha a sessão.
+6. **Telemetria ao vivo (`status_demanda.json`) — E14 (+ E15 monitor):** antes de iniciar **cada microtarefa** com impacto visível para o Diretor (ex.: criar/editar ficheiro de código ou de governança, correr bateria de testes relevante, fechar um PC), a EQUIPE **deve** (i) **actualizar e gravar** `docs/governanca/status_demanda.json` com **`live_status`** (frase curta no presente sobre o que vai fazer **agora**), **`etapas_pendentes`** (array ordenado da fila imediata) e **`live_actualizado_iso`** (data/hora ISO 8601); (ii) **só depois** executar essa microtarefa. Ao **terminar** a microtarefa, **voltar a actualizar** o JSON (remover/atenuar itens da fila, novo `live_status` para o passo seguinte ou vazio em repouso). O Painel `.md` continua a ser a prova **histórica** nos PCs; o JSON + **`monitor_governanca.py`** (Monitor de Voo, `streamlit run monitor_governanca.py` na raiz) são o núcleo **ao vivo** para quem acompanha a sessão.
 
 ---
 
@@ -19,7 +19,7 @@
 - **`docs/governanca/FLUXO_SUCESSO_E_FALHA.md`** (norma principal — nome do ficheiro histórico; inclui secção **Canal @Files e EQUIPE**)
 - **`docs/PAINEL_OPERACIONAL.md`** (estado, 15 etapas técnicas, registo)
 - **`CONTROLE_DE_VOO.md`** (visão módulos / log)
-- **`docs/governanca/status_demanda.json`** + UI **Fluxo e governança** (dashboard de status)
+- **`docs/governanca/status_demanda.json`** + **Monitor de Voo** `monitor_governanca.py` na raiz (dashboard de status stand-alone; `streamlit run monitor_governanca.py`)
 
 **Ordem obrigatória em cada ponto de controlo GitHub:** **working copy** (ficheiros locais correctos) → **`git commit`** → **`git push`** para **`origin/develop`** (cloud, com artefactos e selos); em seguida **actualização do Painel** (e `CONTROLE` quando aplicável). Nunca o contrário. **Commit sem push não fecha** o PC GitHub.
 
