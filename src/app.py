@@ -129,10 +129,7 @@ def _page_home() -> None:
 def _page_clientes() -> None:
     _render_back_and_breadcrumb(["Home", "Clientes", "Cadastro"], back_key="bea_back_clientes")
     st.markdown("### Cadastro de clientes")
-    st.caption(
-        "Campos obrigatórios, exceto contactos de emergência. "
-        "Número de contacto principal: 11 dígitos (DDD + número), único na base."
-    )
+    st.caption("* - Campos obrigatórios")
 
     if "cli_form_v" not in st.session_state:
         st.session_state.cli_form_v = 0
@@ -160,7 +157,7 @@ def _page_clientes() -> None:
         gravida = None
         data_parto = None
 
-    st.subheader("Morada (estruturada)")
+    st.subheader("Informações da Morada")
     st.caption("Campos separados para pesquisas e relatórios futuros. Código postal: formato XXXX-XXX.")
     r1c1, r1c2 = st.columns(2)
     with r1c1:
@@ -215,7 +212,7 @@ def _page_clientes() -> None:
             filhos.append((fn, idade, sx))
 
     st.subheader("Contactos de emergência (opcional)")
-    st.caption("Pode adicionar vários. Cada linha válida exige nome e número (11 dígitos).")
+    st.caption("Adicione os contactos por ordem de prioridade de comunicação")
     c_add, _ = st.columns([2, 3])
     with c_add:
         if st.button("➕ Adicionar contacto de emergência", key=f"{fk}_add_em"):
@@ -270,10 +267,6 @@ def _page_clientes() -> None:
 def _page_colaboradores() -> None:
     _render_back_and_breadcrumb(["Home", "Colaboradores", "Cadastro"], back_key="bea_back_colaboradores")
     st.markdown("### Gestão de colaboradores")
-    st.caption(
-        "Contacto exclusivo (11 dígitos). Pelo menos uma linha de serviço ativa: repasse 0,01%–100,00% e "
-        "data de inserção da linha (não confundir com a data de cadastro do colaborador)."
-    )
 
     if "col_form_v" not in st.session_state:
         st.session_state.col_form_v = 0
@@ -363,9 +356,9 @@ def _page_colaboradores() -> None:
     c_sexo = st.selectbox("Sexo *", SEXOS, key=f"{fk}_sexo")
     c_dn = st.date_input("Data de nascimento *", key=f"{fk}_dn")
     c_email = st.text_input("Email *", key=f"{fk}_email")
-    c_num = st.text_input("Número de contacto *", key=f"{fk}_num", placeholder="11 dígitos, exclusivo")
+    c_num = st.text_input("Número de contacto *", key=f"{fk}_num", placeholder="DDD + número (11 dígitos)")
 
-    st.subheader("Morada (estruturada)")
+    st.subheader("Informações da Morada")
     st.caption("Mesma estrutura que o cadastro de clientes. Código postal: XXXX-XXX.")
     r1c1, r1c2 = st.columns(2)
     with r1c1:
@@ -387,7 +380,7 @@ def _page_colaboradores() -> None:
         c_pais = st.text_input("País *", key=f"{fk}_pais", value="Portugal")
 
     st.subheader("Serviços habilitados e repasse")
-    st.caption("Serviços ativos do catálogo. Cada linha tem data de **inserção da habilitação** (relatórios de desempenho).")
+    st.caption("Lista de serviços que o colaborador está apto a exercer")
     if st.button("Abrir área Catálogo de Serviços", key=f"{fk}_goto_cat"):
         st.session_state.page = "catalogo"
 
@@ -417,7 +410,7 @@ def _page_colaboradores() -> None:
             )
         with sc3:
             dlin = st.date_input(
-                "Inserção da linha *",
+                "Data de Ativação do serviço",
                 key=f"{fk}_dlin_{row_id}",
             )
         rb1, rb2 = st.columns([1, 4])
@@ -472,9 +465,7 @@ def _page_colaboradores() -> None:
 def _page_catalogo() -> None:
     _render_back_and_breadcrumb(["Home", "Catálogo"], back_key="bea_back_catalogo")
     st.markdown("### Catálogo de serviços")
-    st.caption(
-        "**E06:** Sessão, Produto, Coworking, **Pacote** e **Evento** — cadastro no catálogo; itens **Pacote** e **Evento** não aparecem nas habilitações de colaboradores."
-    )
+    st.caption("Controle de todos os serviços prestados e disponíveis para oferta")
 
     fk = "cat_form"
 
@@ -487,7 +478,7 @@ def _page_catalogo() -> None:
             height=88,
             placeholder="Texto para identificação e relatórios.",
         )
-        ativo = st.checkbox("Item ativo (disponível para habilitações e vendas futuras)", value=True, key=f"{fk}_ativo")
+        ativo = st.checkbox("Serviço Disponível (serviço apto para venda)", value=True, key=f"{fk}_ativo")
 
         sessao_dh = 1.0
         sessao_ve = 0.0
@@ -562,7 +553,7 @@ def _page_catalogo() -> None:
                     with pc3:
                         pdh = float(
                             st.number_input(
-                                "Duração (h) 0=catálogo",
+                                "Duração (h)",
                                 min_value=0.0,
                                 max_value=24.0,
                                 value=0.0,
@@ -637,7 +628,7 @@ def _page_catalogo() -> None:
             evt_obs = st.text_area("Observações", key=f"{fk}_eobs", height=70, placeholder="Opcional.")
             esc_l = st.radio(
                 "Âmbito *",
-                ["Interno (membros e colaboradores BeaBa)", "Com convidado (parcerias)"],
+                ["Interno (membros e colaboradores internos)", "Com convidado (parcerias externas)"],
                 horizontal=True,
                 key=f"{fk}_eesc",
             )

@@ -1,20 +1,20 @@
 {
-  "demanda_id": "2026-04-07_E13_ajustes_copy_formularios",
-  "titulo": "E13 — Ajustes de copy (Clientes, Colaboradores, Catálogo)",
-  "fase_actual": "A — Aguarda confirmação do Diretor sobre 02_desenho_funcional.md",
-  "passo_referencia": 3,
-  "responsavel_actual": "Diretor (CONFIRMO / PROSSIGA no Cursor)",
+  "demanda_id": "",
+  "titulo": "Nenhuma demanda activa — última concluída: E13 copy formulários (2026-04-07)",
+  "fase_actual": "—",
+  "passo_referencia": null,
+  "responsavel_actual": "—",
   "pontos_controlo_concluidos": [],
-  "pendente": "Ler `docs/governanca/demandas/2026-04-07_E13_ajustes_copy_formularios/02_desenho_funcional.md` e aprovar formalmente. Sem alterações a `src/app.py` até lá.",
+  "pendente": "Nova evolução: `@Files` → Analista. Última: E13 (textos Clientes, Colaboradores, Catálogo).",
   "falha": null,
   "ultima_actualizacao_iso": "2026-04-07",
-  "notas_dashboard": "E13 aberta (só copy UI). CI: FLUXO OFICIAL DE GOVERNANCA + Validador Maestro V2.",
-  "fase_governanca": "A",
-  "pc_foco": "PC1",
+  "notas_dashboard": "E13 encerrada. CI: FLUXO OFICIAL DE GOVERNANCA + Validador Maestro V2.",
+  "fase_governanca": "—",
+  "pc_foco": null,
   "percurso": "normal",
-  "ultima_entrega_marco": "E12",
+  "ultima_entrega_marco": "E13",
   "fases_resumo": [
-    { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "curso" },
+    { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "pendente" },
     { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "pendente" },
     { "id": "C", "label": "Código 1", "pcs": "PC5→6", "estado": "pendente" },
     { "id": "D", "label": "Código 2", "pcs": "PC7→8", "estado": "pendente" },
@@ -33,6 +33,7 @@
     "E09 — Agendamentos e buffer.",
     "E10 — (reservado)",
     "E11 — Pré-venda na agenda.",
-    "E12 — Painel Torre de Controle + Diário na app."
+    "E12 — Painel Torre de Controle + Diário na app.",
+    "E13 — Copy formulários Clientes, Colaboradores, Catálogo."
   ]
 }

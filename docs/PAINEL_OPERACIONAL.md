@@ -1,6 +1,6 @@
 # Painel operacional — BeaBa Gestão
 
-**Última actualização:** 2026-04-07 — **Torre de Controle** + **Diário de Bordo** (demanda **E12**).  
+**Última actualização:** 2026-04-07 — **E13** copy formulários; **E12** Torre + Diário.  
 **Norma:** [`FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md) (**Fluxo oficial de governança**).  
 **Quem actualiza:** a **EQUIPE**; o Diretor **não** edita este ficheiro.
 
@@ -40,12 +40,12 @@ flowchart LR
 |:---|:---|
 | **Demanda activa** | ⚪ *Nenhuma* — próximo pedido: **`@Files` → Analista** no Cursor. |
 | **Última entrega de produto** | ✅ **E11** — Pré-venda na agenda (ver Diário abaixo). |
-| **Última entrega de processo** | ✅ **E12** — Refactoração deste Painel + Torre na app ([`99_encerramento.md`](governanca/demandas/2026-04-07_E12_refatoracao_painel_operacional/99_encerramento.md)). |
+| **Última entrega de processo** | ✅ **E13** — Textos executivos nos formulários Clientes, Colaboradores e Catálogo ([`99_encerramento.md`](governanca/demandas/2026-04-07_E13_ajustes_copy_formularios/99_encerramento.md)). Antes: **E12** — Painel + Torre ([`99_encerramento.md`](governanca/demandas/2026-04-07_E12_refatoracao_painel_operacional/99_encerramento.md)). |
 | **Testes** | ✅ **49** `pytest` · CI: **FLUXO OFICIAL DE GOVERNANCA** + **Validador Maestro V2** em `develop`. |
 
 ---
 
-## Diário de Bordo — marcos E01 a E11
+## Diário de Bordo — marcos E01 a E13
 
 Resumo **executivo** (detalhe técnico nos [anexos](#apêndice-h--e09-agendamentos-detalhe) e no [`CONTROLE_DE_VOO.md`](../CONTROLE_DE_VOO.md)). **Retrabalhos de processo:** ver [Apêndice A](#apêndice-a--registo-de-retrabalhos); abaixo indica-se apenas se houve evento registado.
 
@@ -62,6 +62,8 @@ Resumo **executivo** (detalhe técnico nos [anexos](#apêndice-h--e09-agendament
 | **E09** | — | **Agendamentos** — calendário, estados, buffer, ligação à venda. | — |
 | **E10** | — | *Reservado* — sem marco de produto dedicado nesta linha. | — |
 | **E11** | 2026-04-06 | **Pré-venda × agenda** — marcação sem venda imediata; fecho na visita. | — |
+| **E12** | 2026-04-07 | **Painel** — Torre de Controle + Diário de Bordo + app **Fluxo e governança**. | — |
+| **E13** | 2026-04-07 | **Copy UI** — legendas e rótulos em Clientes, Colaboradores e Catálogo (`app.py`). | — |
 
 ---
 
@@ -182,11 +184,13 @@ Se uma regra de ramo exigir o nome antigo *Fabrica Zimmermann…*, actualize no 
 | E09 | Agendamentos |
 | E11 | Pré-venda na agenda |
 | E12 | Painel executivo + Torre na app |
+| E13 | Copy formulários (`app.py` + mensagem `catalogo.py`) |
 
 ---
 
 ## Apêndice H — Histórico de entregas (detalhe)
 
+- **2026-04-07 — E13:** Copy Clientes, Colaboradores, Catálogo; rótulo duração pacote; Âmbito evento; **49** testes.
 - **2026-04-07 — E12:** Painel tipo Torre + Diário; `status_demanda.json` alargado; `page_fluxo_gestao` sem pandas.
 - **2026-04-06 — CI:** **FLUXO OFICIAL DE GOVERNANCA** (substitui *Fabrica Zimmermann*).
 - **2026-04-06 — E11:** Pré-venda na agenda; **49** testes.
