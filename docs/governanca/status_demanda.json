@@ -1,12 +1,12 @@
 {
-  "demanda_id": "",
-  "titulo": "Nenhuma demanda activa — última concluída: E11 pré-venda na agenda (2026-04-06)",
-  "fase_actual": "—",
-  "passo_referencia": null,
-  "responsavel_actual": "—",
+  "demanda_id": "2026-04-07_E12_refatoracao_painel_operacional",
+  "titulo": "E12 — Refactoração Painel operacional (Torre de Controle + Diário de Bordo)",
+  "fase_actual": "A — Aguarda confirmação do Diretor sobre 02_desenho_funcional.md",
+  "passo_referencia": 3,
+  "responsavel_actual": "Diretor (confirmação formal no chat)",
   "pontos_controlo_concluidos": [],
-  "pendente": "Nova evolução: Cursor `@Files` → Analista. Última entrega: demanda `2026-04-06_E11_pre_venda_agenda` (ver `99_encerramento.md` no dossier).",
+  "pendente": "Ler `docs/governanca/demandas/2026-04-07_E12_refatoracao_painel_operacional/02_desenho_funcional.md` e responder **CONFIRMO** ou **PROSSIGA** no Cursor. Sem código nem alteração ao PAINEL até PC1 (com 03) + PC2.",
   "falha": null,
-  "ultima_actualizacao_iso": "2026-04-06",
-  "notas_dashboard": "E11 encerrada (PC1–PC13). Próximo: nova demanda via @Files. CI em develop: FLUXO OFICIAL DE GOVERNANCA + Validador Maestro V2 após cada push."
+  "ultima_actualizacao_iso": "2026-04-07",
+  "notas_dashboard": "Demanda E12 aberta (Fase A). CI: FLUXO OFICIAL DE GOVERNANCA + Validador Maestro V2."
 }
