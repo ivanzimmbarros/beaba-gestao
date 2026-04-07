@@ -50,9 +50,17 @@ Para cada **ID de demanda**, acrescentar secção:
 - **Regressão:** `python -m pytest tests/ -v` (**49**).
 - **Critérios de aceite:** [`02_desenho_funcional.md`](governanca/demandas/2026-04-07_E13_ajustes_copy_formularios/02_desenho_funcional.md).
 
+### Demanda `2026-04-07_E14_telemetria_live` — STATUS LIVE
+
+- **Objectivo:** telemetria no JSON; UI com bloco ao vivo + `streamlit-autorefresh`.
+- **Novos casos:** `test_governanca` valida `live_status`, `etapas_pendentes`, `live_actualizado_iso`.
+- **Regressão:** `python -m pytest tests/ -v` (**49**); smoke **Fluxo e governança** (checkbox autorefresh, fila).
+- **Critérios de aceite:** [`02_desenho_funcional.md`](governanca/demandas/2026-04-07_E14_telemetria_live/02_desenho_funcional.md).
+
 ## 4. Histórico
 
 - **2026-04-06:** Documento criado para cumprir passo 18 do percurso normal — SUCESSO (plano de testes mestre).
 - **2026-04-06:** Plano E11 (pré-venda) acrescentado; suite pytest **49** testes.
 - **2026-04-07:** Plano E12 (Painel + governança UI); suite mantém **49** testes.
 - **2026-04-07:** E13 (copy UI) — regressão **49** testes; sem novos casos automatizados.
+- **2026-04-07:** E14 (telemetria) — `test_governanca` alargado; suite **49** testes.

@@ -1,18 +1,21 @@
 {
   "demanda_id": "",
-  "titulo": "Nenhuma demanda activa — última concluída: E13 copy formulários (2026-04-07)",
+  "titulo": "Nenhuma demanda activa — última concluída: E14 telemetria ao vivo (2026-04-07)",
   "fase_actual": "—",
   "passo_referencia": null,
   "responsavel_actual": "—",
   "pontos_controlo_concluidos": [],
-  "pendente": "Nova evolução: `@Files` → Analista. Última: E13 (textos Clientes, Colaboradores, Catálogo).",
+  "pendente": "Nova evolução: `@Files` → Analista. Última: E14 (STATUS LIVE + campos telemetria no JSON).",
   "falha": null,
   "ultima_actualizacao_iso": "2026-04-07",
-  "notas_dashboard": "E13 encerrada. CI: FLUXO OFICIAL DE GOVERNANCA + Validador Maestro V2.",
+  "notas_dashboard": "E14 encerrada. Telemetria: live_status, etapas_pendentes, live_actualizado_iso. CI inalterada em espírito.",
   "fase_governanca": "—",
   "pc_foco": null,
   "percurso": "normal",
-  "ultima_entrega_marco": "E13",
+  "ultima_entrega_marco": "E14",
+  "live_status": "",
+  "etapas_pendentes": [],
+  "live_actualizado_iso": "",
   "fases_resumo": [
     { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "pendente" },
     { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "pendente" },
@@ -34,6 +37,7 @@
     "E10 — (reservado)",
     "E11 — Pré-venda na agenda.",
     "E12 — Painel Torre de Controle + Diário na app.",
-    "E13 — Copy formulários Clientes, Colaboradores, Catálogo."
+    "E13 — Copy formulários Clientes, Colaboradores, Catálogo.",
+    "E14 — Telemetria ao vivo (STATUS LIVE + JSON live_*)."
   ]
 }

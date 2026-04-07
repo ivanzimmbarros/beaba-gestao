@@ -21,6 +21,15 @@ def test_status_demanda_json_valido():
             assert "estado" in item
     if "diario_bordo_resumo" in data:
         assert isinstance(data["diario_bordo_resumo"], list)
+    # E14 — telemetria (campos presentes no canónico)
+    assert "live_status" in data
+    assert isinstance(data["live_status"], str)
+    assert "etapas_pendentes" in data
+    assert isinstance(data["etapas_pendentes"], list)
+    for step in data["etapas_pendentes"]:
+        assert isinstance(step, str)
+    assert "live_actualizado_iso" in data
+    assert data["live_actualizado_iso"] is None or isinstance(data["live_actualizado_iso"], str)
 
 
 def test_fluxo_sucesso_doc_existe():
