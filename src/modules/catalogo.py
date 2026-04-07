@@ -263,7 +263,7 @@ def cadastrar_evento(
     obs = (observacoes or "").strip()
     esc = (escopo or "").strip()
     if esc not in ("interno", "convidado"):
-        return False, "❌ Indique se o evento é interno ou com convidado (parcerias)."
+        return False, "❌ Indique se o evento é interno ou com convidado (parcerias externas)."
 
     pcc = euros_para_centavos(float(preco_crianca_euros))
     pca = euros_para_centavos(float(preco_adulto_euros))

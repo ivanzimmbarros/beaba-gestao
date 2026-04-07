@@ -44,8 +44,15 @@ Para cada **ID de demanda**, acrescentar secção:
 - **Regressão:** `python -m pytest tests/ -v` (**49** testes); smoke **Fluxo e governança** (Torre, Diário, expanders).
 - **Critérios de aceite:** [`02_desenho_funcional.md`](governanca/demandas/2026-04-07_E12_refatoracao_painel_operacional/02_desenho_funcional.md) e [`99_encerramento.md`](governanca/demandas/2026-04-07_E12_refatoracao_painel_operacional/99_encerramento.md).
 
+### Demanda `2026-04-07_E13_ajustes_copy_formularios` — copy formulários
+
+- **Objectivo:** apenas alteração de strings na UI (`app.py`) + coerência em `catalogo.py`.
+- **Regressão:** `python -m pytest tests/ -v` (**49**).
+- **Critérios de aceite:** [`02_desenho_funcional.md`](governanca/demandas/2026-04-07_E13_ajustes_copy_formularios/02_desenho_funcional.md).
+
 ## 4. Histórico
 
 - **2026-04-06:** Documento criado para cumprir passo 18 do percurso normal — SUCESSO (plano de testes mestre).
 - **2026-04-06:** Plano E11 (pré-venda) acrescentado; suite pytest **49** testes.
 - **2026-04-07:** Plano E12 (Painel + governança UI); suite mantém **49** testes.
+- **2026-04-07:** E13 (copy UI) — regressão **49** testes; sem novos casos automatizados.
