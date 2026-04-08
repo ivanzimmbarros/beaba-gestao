@@ -10,6 +10,8 @@
 
 6. **Telemetria ao vivo (`status_demanda.json`) — E14 (+ E15 monitor):** antes de iniciar **cada microtarefa** com impacto visível para o Diretor (ex.: criar/editar ficheiro de código ou de governança, correr bateria de testes relevante, fechar um PC), a EQUIPE **deve** (i) **actualizar e gravar** `docs/governanca/status_demanda.json` com **`live_status`** (frase curta no presente sobre o que vai fazer **agora**), **`etapas_pendentes`** (array ordenado da fila imediata) e **`live_actualizado_iso`** (data/hora ISO 8601); (ii) **só depois** executar essa microtarefa. Ao **terminar** a microtarefa, **voltar a actualizar** o JSON (remover/atenuar itens da fila, novo `live_status` para o passo seguinte ou vazio em repouso). O Painel `.md` continua a ser a prova **histórica** nos PCs; o JSON + **`monitor_governanca.py`** (Monitor de Voo, `streamlit run monitor_governanca.py` na raiz) são o núcleo **ao vivo** para quem acompanha a sessão.
 
+7. **Protocolo de Sincronização Física (Bloqueio de Segurança):** a EQUIPE está terminantemente proibida de iniciar qualquer codificação, alteração de lógica ou responder "Tarefa Concluída" no chat sem que o ficheiro físico docs/governanca/status_demanda.json tenha sido gravado no disco com o estado real da operação. A EQUIPE deve (i) ler o ficheiro físico antes de cada resposta para evitar "amnésia de contexto" ou desvio de telemetria; (ii) em caso de discrepância entre a memória do chat e o Monitor de Voo, interromper a execução técnica e sincronizar os ficheiros de governança primeiro. O descumprimento da gravação física antes da microtarefa é tratado como FALHA DE SISTEMA, exigindo o retorno imediato ao último ponto de controlo estável.
+
 ---
 
 ## REGRA MÁXIMA OBRIGATÓRIA (todas as evoluções)
