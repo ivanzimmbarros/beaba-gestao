@@ -19,13 +19,12 @@
   "pc_foco": "PC5–PC6",
   "percurso": "normal",
   "ultima_entrega_marco": "E17",
-  "live_status": "Implementando Protocolo de Integridade E17.1 no CursorRules",
+  "live_status": "PUSH concluído: Protocolo E17.1 gravado em `.cursorrules` + telemetria em `origin/develop` (GOV commit).",
   "etapas_pendentes": [
-    "Confirmar PUSH `develop` com `.cursorrules` + `status_demanda.json` (sincronização física §7).",
     "Configurar `BEABA_BACKUP_KEY` em GitHub Secrets e testar workflow_dispatch.",
-    "Nota D3: inventário cobre `.github/workflows/`; `.cursorrules` está na camada Git/GitHub (repositório versionado)."
+    "D3 (inventário): `.cursorrules` não está em `.github/workflows/` — cobertura = Git/GitHub + clones; workflows continuam D3 explícito."
   ],
-  "live_actualizado_iso": "2026-04-09T20:00:00Z",
+  "live_actualizado_iso": "2026-04-09T20:15:00Z",
   "fases_resumo": [
     { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
     { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "feito" },
