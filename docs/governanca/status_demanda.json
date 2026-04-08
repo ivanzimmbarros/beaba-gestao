@@ -1,34 +1,35 @@
 {
-  "demanda_id": "",
-  "titulo": "Nenhuma demanda activa — última concluída: E16 cliente NIF / E.164 (2026-04-08)",
-  "fase_actual": "—",
-  "passo_referencia": null,
-  "responsavel_actual": "EQUIPE — Auditor & Executor (`.cursorrules` Bullet 7 aplicado nesta sessão)",
+  "demanda_id": "2026-04-08_E17_backup_dr",
+  "titulo": "E17 — Backup e DR (SQLite): Fase A — desenho funcional entregue; código bloqueado até PROSSIGA",
+  "fase_actual": "A",
+  "passo_referencia": "PC1–PC2 (dossier 01 + 02_desenho_funcional.md + Monitor)",
+  "responsavel_actual": "EQUIPE — Analista (E17 iniciada; §7 — ficheiros físicos gravados antes desta resposta)",
   "pontos_controlo_concluidos": [
     "E16 — PC1 a PC13a: dossier 01–09 + 99; implementação + pareceres + QA em develop",
-    "Sessão 2026-04-08: leitura física de `status_demanda.json` + alinhamento telemetria ao chat (Bullet 7 — Sincronização Física)"
+    "Sessão 2026-04-08: leitura física de `status_demanda.json` + alinhamento telemetria ao chat (Bullet 7 — Sincronização Física)",
+    "E17 — Fase A: pasta `demandas/2026-04-08_E17_backup_dr/` com `01_demanda_diretor.md` + `02_desenho_funcional.md`; Monitor actualizado para E17 · Torre A em curso"
   ],
-  "pendente": "Integrar no Git o `.cursorrules` com Bullet 7 (commit+push) se ainda não estiver em `origin/develop`. Nova evolução: `@Files` → Analista.",
+  "pendente": "Diretor: **PROSSIGA** no chat para a EQUIPE avançar para Fase B (desenho lógico / PCs) e implementação (`scripts/` backup horário + verificação semanal + docs nuvem). Até lá: **sem** novo código de produto nem scripts executáveis.",
   "falha": null,
   "ultima_actualizacao_iso": "2026-04-08",
-  "notas_dashboard": "Bullet 7 (.cursorrules): proibição de codificar sem gravar `status_demanda.json` no disco; ler ficheiro físico antes de responder; divergência chat↔Monitor ⇒ sincronizar governança primeiro. Torre A–F em repouso pós-E16.",
-  "fase_governanca": "—",
-  "pc_foco": null,
+  "notas_dashboard": "E17 Backup/DR: hot-backup horário SQLite (Backup API), job semanal `integrity_check` em cópia de verificação (sem tocar na produção), política nuvem só sobre cópias fechadas — ver `02_desenho_funcional.md`.",
+  "fase_governanca": "A",
+  "pc_foco": "PC1–PC2",
   "percurso": "normal",
   "ultima_entrega_marco": "E16",
-  "live_status": "Auditor/Executor: validação de disco concluída; JSON actualizado para simetria total com o chat (Bullet 7). Sem alteração de código de produto nesta microtarefa.",
+  "live_status": "Analista: demanda E17 registada; dossier 01+02 no disco; Monitor de Voo alinhado (demanda_id, Fase A, live_*). Aguarda PROSSIGA para código.",
   "etapas_pendentes": [
-    "Confirmar `git status`: `.cursorrules` e este JSON versionados (commit + push `develop`).",
-    "Próxima microtarefa com código: repetir leitura física do JSON antes de editar `src/`."
+    "Diretor: confirmar **PROSSIGA** após revisão do `02_desenho_funcional.md` (backup horário, verify semanal, estratégia nuvem).",
+    "Pós-PROSSIGA: Arquiteto/Dev — `04_desenho_logico.md` (se aplicável), scripts `backup_sqlite_hourly` + `verify_restore_weekly`, `.gitignore`/`backups/`, PAINEL."
   ],
-  "live_actualizado_iso": "2026-04-08T19:00:00Z",
+  "live_actualizado_iso": "2026-04-08T22:15:00Z",
   "fases_resumo": [
-    { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
-    { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "feito" },
-    { "id": "C", "label": "Código 1", "pcs": "PC5→6", "estado": "feito" },
-    { "id": "D", "label": "Código 2", "pcs": "PC7→8", "estado": "feito" },
-    { "id": "E", "label": "QA", "pcs": "PC9–12", "estado": "feito" },
-    { "id": "F", "label": "Fecho", "pcs": "PC13", "estado": "feito" }
+    { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "curso" },
+    { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "pendente" },
+    { "id": "C", "label": "Código 1", "pcs": "PC5→6", "estado": "pendente" },
+    { "id": "D", "label": "Código 2", "pcs": "PC7→8", "estado": "pendente" },
+    { "id": "E", "label": "QA", "pcs": "PC9–12", "estado": "pendente" },
+    { "id": "F", "label": "Fecho", "pcs": "PC13", "estado": "pendente" }
   ],
   "diario_bordo_resumo": [
     "E01 — V11.0: app e identidade; Caderno Mestre.",
@@ -46,6 +47,7 @@
     "E13 — Copy formulários Clientes, Colaboradores, Catálogo.",
     "E14 — Telemetria ao vivo (STATUS LIVE + JSON live_*).",
     "E15 — Monitor de Voo stand-alone (`monitor_governanca.py`); app sem página Fluxo.",
-    "E16 — Cliente: NIF PT + doc. internacional; telefone E.164; nasc. filho opcional — entregue 2026-04-08."
+    "E16 — Cliente: NIF PT + doc. internacional; telefone E.164; nasc. filho opcional — entregue 2026-04-08.",
+    "E17 — Backup/DR SQLite: Fase A (desenho) — 2026-04-08; implementação após PROSSIGA."
   ]
 }
