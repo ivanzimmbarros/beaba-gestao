@@ -1,8 +1,10 @@
 # CURSOR RULES — BEABÁ GESTÃO
 
-## 🛡️ Protocolo de Governança e Backup (E17.1)
+## 🛡️ Protocolo de Governança e Backup (E17.2)
 
 Toda e qualquer alteração no projeto deve respeitar a estrutura de backup definida. Nenhuma feature é considerada "concluída" se não estiver coberta pela telemetria.
+
+**Restore local (compliance):** o script `scripts/restore_sqlite.py` **só** pode ser executado na branch **`backup-and-restore`**. Bloqueio mandatório em **`develop`**, **`staging`** e **`main`** (a validação é feita no próprio script; não contornar em CI excepto variável de teste documentada).
 
 ### 1. Inventário de Dimensões de Cobertura
 Sempre que criar ou modificar arquivos, verifique a inclusão nestas 4 dimensões:

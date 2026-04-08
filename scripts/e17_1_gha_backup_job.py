@@ -21,6 +21,7 @@ if str(_REPO) not in sys.path:
 from scripts.backup_sqlite_hourly import run_backup  # noqa: E402
 from scripts.e17_1_ci_prepare_db import prepare as prepare_ci_db  # noqa: E402
 from scripts.e17_1_crypto import encrypt_file, parse_backup_key  # noqa: E402
+from scripts.e17_1_sqlite_evidence import gather_evidence  # noqa: E402
 
 
 def _gh_output(name: str, value: str) -> None:
@@ -72,12 +73,20 @@ def main() -> int:
 
     steps["encrypt_rc"] = 1
     steps["encrypted_rel"] = ""
+    steps["snapshot_table_counts"] = {}
 
     if steps["backup_rc"] == 0 and steps["key_configured"]:
         hourly = repo / "backups" / "hourly"
         dbs = sorted(hourly.glob("beaba_gestao_*.db"), key=lambda p: p.stat().st_mtime)
         if dbs:
             latest = dbs[-1]
+            try:
+                ev_snap = gather_evidence(latest)
+                tc = ev_snap.get("table_counts")
+                steps["snapshot_table_counts"] = dict(tc) if isinstance(tc, dict) else {}
+            except Exception as exc:
+                steps["snapshot_table_counts"] = {}
+                steps["backup_detail"] = (steps.get("backup_detail") or "") + f"; snapshot: {exc}"
             try:
                 key = parse_backup_key()
                 out = repo / "backups" / "gha_encrypted" / f"{latest.stem}.beaba.enc"

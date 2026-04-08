@@ -1,15 +1,14 @@
-# E17.2 — Backup horário (UTC): retenção 3 dias. Chama workflow reutilizável.
-# E-mail em falha: Secrets EMAIL_* (ver PAINEL).
+# E17.2 — Backup diário 00:00 UTC, artefacto DB_DAILY_BACKUP, retenção 7 dias.
 
-name: backup_hourly
+name: backup_daily
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "0 0 * * *"
   workflow_dispatch:
 
 concurrency:
-  group: beaba-backup-telemetry-${{ github.ref }}
+  group: beaba-backup-daily-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -20,9 +19,9 @@ jobs:
     uses: ./.github/workflows/backup_encrypt_callable.yml
     secrets: inherit
     with:
-      artifact_name: beaba-sqlite-backup-encrypted
-      retention_days: 3
-      retention_label: "HOURLY (3d)"
+      artifact_name: DB_DAILY_BACKUP
+      retention_days: 7
+      retention_label: "DAILY (7d)"
 
   notify-failure:
     needs: backup
@@ -33,7 +32,7 @@ jobs:
         id: utc
         run: echo "ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
 
-      - name: E-mail — falha de backup
+      - name: E-mail — falha de backup diário
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
@@ -45,8 +44,8 @@ jobs:
           to: ivanzimmbarros@gmail.com
           from: ${{ secrets.EMAIL_FROM }}
           body: |
-            Falha no workflow backup_hourly (HOURLY, retenção 3d).
+            Falha no workflow backup_daily (DB_DAILY_BACKUP, retenção 7d).
 
             Hora (UTC): ${{ steps.utc.outputs.ts }}
-            Etapa provável: «Pipeline backup + encriptação» ou «Upload artefacto» (ver run).
+            Etapa provável: pipeline de backup ou upload do artefacto.
             Log / run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
