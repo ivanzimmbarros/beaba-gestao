@@ -87,7 +87,13 @@ def build_groups_backup(steps: dict, upload_ok: bool | None) -> dict[str, dict]:
         log_detail = "Upload não avaliado nesta execução"
     elif upload_ok:
         log_st = "ok"
-        log_detail = "Artefacto encriptado publicado (retenção 90d)"
+        art = (os.environ.get("BEABA_GHA_ARTIFACT_NAME") or "").strip()
+        rlab = (os.environ.get("BEABA_GHA_RETENTION_LABEL") or "").strip()
+        log_detail = f"Artefacto encriptado publicado"
+        if art:
+            log_detail += f" ({art})"
+        if rlab:
+            log_detail += f" — {rlab}"
     else:
         log_st = "fail"
         log_detail = "Falha ou omissão no upload do artefacto"
@@ -185,6 +191,7 @@ def build_run_record(
     git_ref: str,
     git_sha: str,
     groups: dict,
+    snapshot_table_counts: dict | None = None,
 ) -> dict:
     run_id = os.environ.get("GITHUB_RUN_ID", "local")
     rid = f"gha-{run_id}-{run_type}-{started_at.replace(':', '').replace('-', '')[:15]}"
@@ -193,7 +200,7 @@ def build_run_record(
     if "logs" in groups and wf_url:
         groups["logs"]["workflow_run_url"] = wf_url
         groups["logs"]["log_url"] = log_url or wf_url
-    return {
+    rec: dict = {
         "id": rid,
         "type": run_type,
         "started_at": started_at,
@@ -206,6 +213,9 @@ def build_run_record(
         "overall": _worst_group(groups),
         "groups": groups,
     }
+    if snapshot_table_counts is not None and isinstance(snapshot_table_counts, dict) and snapshot_table_counts:
+        rec["snapshot_table_counts"] = snapshot_table_counts
+    return rec
 
 
 def append_run(repo: Path, run: dict) -> None:
@@ -242,6 +252,8 @@ def cmd_append_backup() -> int:
         upload_ok = True if enc_ok else None
 
     groups = build_groups_backup(steps, upload_ok)
+    snap = steps.get("snapshot_table_counts")
+    snap_dict = snap if isinstance(snap, dict) else None
     run = build_run_record(
         run_type="backup",
         started_at=state["started_at"],
@@ -250,6 +262,7 @@ def cmd_append_backup() -> int:
         git_ref=str(state.get("git_ref") or "develop"),
         git_sha=str(state.get("git_sha") or ""),
         groups=groups,
+        snapshot_table_counts=snap_dict,
     )
     append_run(repo, run)
     return 0

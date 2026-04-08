@@ -1,6 +1,6 @@
 {
-  "demanda_id": "2026-04-09_E17_1_autonomia_resiliencia_cloud",
-  "titulo": "E17.1 — Cloud Total: Fase C (workflows backup_hourly + restore_weekly, criptografia, Monitor matriz)",
+  "demanda_id": "2026-04-08_E17_2_retencao_restore_ativo",
+  "titulo": "E17.2 — Retenção multi-tier (hourly/daily/weekly), restore_sqlite, e-mails de falha e teste semanal",
   "fase_actual": "C",
   "passo_referencia": "PC5–PC6 (GHA + scripts + aba Backup)",
   "responsavel_actual": "EQUIPE — Dev + Arquiteto (E17.1 Fase C; §7 — JSON físico gravado)",
@@ -9,22 +9,23 @@
     "E17 — PC13: encerramento operacional; `ultima_entrega_marco` = E17",
     "E17.1 — Fase B: 01+02+04 desenho lógico Cloud",
     "E17.1 — Auditor: `backup_dr_history.json` inicial + Monitor resiliente",
-    "E17.1 — Fase C: `.github/workflows/backup_hourly.yml` + `restore_weekly.yml`; `e17_1_crypto`, `e17_1_telemetry`, jobs GHA; append + git-auto-commit; aba Backup com matriz; run manual local com primeiro registo ✅"
+    "E17.1 — Fase C: `.github/workflows/backup_hourly.yml` + `restore_weekly.yml`; `e17_1_crypto`, `e17_1_telemetry`, jobs GHA; append + git-auto-commit; aba Backup com matriz; run manual local com primeiro registo ✅",
+    "E17.2 — Retenção hourly/daily/weekly + `restore_sqlite.py` + `test_restore_weekly.yml` + e-mails + `.cursorrules` + telemetria `snapshot_table_counts` ✅"
   ],
-  "pendente": "Operação: definir Secret **BEABA_BACKUP_KEY** (32 bytes base64/hex) no GitHub; disparar `backup_hourly` (workflow_dispatch) para validar artefacto; branch por defeito alinhada a `develop` para cron.",
+  "pendente": "Operação: Secrets `BEABA_BACKUP_KEY` + `EMAIL_*` no GitHub; validar workflows `backup_*` e `test_restore_weekly` (workflow_dispatch); garantir branch `backup-and-restore` em `origin`.",
   "falha": null,
-  "ultima_actualizacao_iso": "2026-04-09",
-  "notas_dashboard": "Workflows E17.1 em `.github/workflows/`; PAINEL com segredo e cron; telemetria com taxonomia 6 grupos; Monitor mostra tabela + matriz temporal.",
+  "ultima_actualizacao_iso": "2026-04-08",
+  "notas_dashboard": "E17.2: callable `backup_encrypt_callable.yml`; hourly/daily/weekly; `restore_sqlite.py` só em `backup-and-restore`; telemetria com `snapshot_table_counts` nos backups; e-mail em falhas e teste restore domingo.",
   "fase_governanca": "C",
   "pc_foco": "PC5–PC6",
   "percurso": "normal",
   "ultima_entrega_marco": "E17",
-  "live_status": "Sincronização GOV E17.1 concluída em origin/develop — commit b3c714b.",
+  "live_status": "Ativando Protocolo E17.2: Governança Ativa com Alertas via E-mail e Retenção",
   "etapas_pendentes": [
-    "Configurar `BEABA_BACKUP_KEY` em GitHub Secrets e testar workflow_dispatch.",
-    "D3 (inventário): workflows `.github/workflows/` + `.cursorrules` + configurações de ambiente."
+    "Push `develop` + `backup-and-restore`; validar GHA (secrets e dispatch).",
+    "Rever primeiro run `test_restore_weekly` ao domingo ou via workflow_dispatch."
   ],
-  "live_actualizado_iso": "2026-04-09T21:35:00Z",
+  "live_actualizado_iso": "2026-04-08T12:00:00Z",
   "fases_resumo": [
     { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
     { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "feito" },
@@ -51,6 +52,7 @@
     "E15 — Monitor de Voo stand-alone (`monitor_governanca.py`); app sem página Fluxo.",
     "E16 — Cliente: NIF PT + doc. internacional; telefone E.164; nasc. filho opcional — entregue 2026-04-08.",
     "E17 — Backup/DR SQLite: hot-backup horário, verify semanal integrity_check, cloud_queue, WAL — entregue 2026-04-08.",
-    "E17.1 — Cloud Total: GHA + AES-GCM + telemetria + Monitor — Fase C em curso."
+    "E17.1 — Cloud Total: GHA + AES-GCM + telemetria + Monitor — Fase C em curso.",
+    "E17.2 — Retenção 3/7/30d, restore activo, e-mails backup/teste restore — 2026-04-08."
   ]
 }

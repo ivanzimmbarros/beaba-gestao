@@ -1,0 +1,147 @@
+# E17.2 — Domingo 04:00 UTC: checkout backup-and-restore, descarregar último backup (weekly → daily → hourly), restore_sqlite + e-mail.
+# Secrets: BEABA_BACKUP_KEY, EMAIL_USERNAME, EMAIL_PASSWORD, EMAIL_FROM (igual backup_hourly).
+
+name: test_restore_weekly
+
+on:
+  schedule:
+    - cron: "0 4 * * 0"
+  workflow_dispatch:
+
+concurrency:
+  group: beaba-test-restore-weekly-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  test-restore:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+      BEABA_REPO_ROOT: ${{ github.workspace }}
+
+    steps:
+      - name: Checkout backup-and-restore
+        uses: actions/checkout@v4
+        with:
+          ref: backup-and-restore
+          fetch-depth: 0
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Dependências
+        run: pip install -r requirements.txt
+
+      - name: Hora UTC (relatório)
+        id: ts
+        run: echo "utc=$(date -u +'%Y-%m-%d %H:%M UTC')" >> "$GITHUB_OUTPUT"
+
+      - name: Artefacto DB_WEEKLY_BACKUP
+        id: art_w
+        continue-on-error: true
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: backup_weekly.yml
+          branch: develop
+          name: DB_WEEKLY_BACKUP
+          path: dl
+
+      - name: Artefacto DB_DAILY_BACKUP
+        id: art_d
+        if: steps.art_w.outcome == 'failure'
+        continue-on-error: true
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: backup_daily.yml
+          branch: develop
+          name: DB_DAILY_BACKUP
+          path: dl
+
+      - name: Artefacto backup horário
+        id: art_h
+        if: steps.art_w.outcome == 'failure' && steps.art_d.outcome == 'failure'
+        continue-on-error: true
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: backup_hourly.yml
+          branch: develop
+          name: beaba-sqlite-backup-encrypted
+          path: dl
+
+      - name: Restore + validar (restore_sqlite.py)
+        id: rst
+        continue-on-error: true
+        env:
+          BEABA_BACKUP_KEY: ${{ secrets.BEABA_BACKUP_KEY }}
+          GITHUB_REF_NAME: backup-and-restore
+        run: python scripts/restore_sqlite.py dl
+
+      - name: Resumo para e-mail (sucesso)
+        if: steps.rst.outcome == 'success'
+        id: oksum
+        run: |
+          python << 'PY'
+          import json
+          from pathlib import Path
+          p = Path("restore_result.json")
+          d = json.loads(p.read_text(encoding="utf-8")) if p.is_file() else {}
+          tc = d.get("table_counts") or {}
+          pct = d.get("consistency_success_pct")
+          lines = [
+              f"Contagens (tabelas principais): {json.dumps(tc, ensure_ascii=False)}",
+              f"% de integridade vs último backup telemetria: {pct}",
+              f"integrity_check={d.get('integrity_check')} fk_violations={d.get('foreign_key_violations')}",
+          ]
+          Path("email_ok_body.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+
+      - name: E-mail — sucesso
+        if: steps.rst.outcome == 'success'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "(Sucesso) Teste de Restore - BeaBa (${{ steps.ts.outputs.utc }})"
+          to: ivanzimmbarros@gmail.com
+          from: ${{ secrets.EMAIL_FROM }}
+          body: file://email_ok_body.txt
+          attachments: restore_result.json
+
+      - name: Corpo e-mail — falha
+        if: steps.rst.outcome != 'success'
+        run: |
+          {
+            echo "Motivo: job restore falhou (exit do restore_sqlite.py ou artefacto ausente)."
+            echo "Hora: ${{ steps.ts.outputs.utc }}"
+            echo "Download weekly: ${{ steps.art_w.outcome }} | daily: ${{ steps.art_d.outcome }} | hourly: ${{ steps.art_h.outcome }}"
+            echo "Log / run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo ""
+            echo "--- restore_result.json (se existir) ---"
+            cat restore_result.json 2>/dev/null || true
+          } > email_fail_body.txt
+
+      - name: E-mail — falha
+        if: steps.rst.outcome != 'success'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "(Atenção) Falha de Execução do Teste de Restore - BeaBa"
+          to: ivanzimmbarros@gmail.com
+          from: ${{ secrets.EMAIL_FROM }}
+          body: file://email_fail_body.txt
