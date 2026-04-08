@@ -15,18 +15,19 @@
   "pendente": "Operação: Secrets `BEABA_BACKUP_KEY` + `EMAIL_*` no GitHub; validar workflows `backup_*` e `test_restore_weekly` (workflow_dispatch); garantir branch `backup-and-restore` em `origin`.",
   "falha": null,
   "ultima_actualizacao_iso": "2026-04-08",
-  "notas_dashboard": "E17.2: `scripts/view_governance.py` (painel etapas + sprint % + branch backup-and-restore); `scripts/monitor_demanda.py` (demanda + telemetria); cascata GHA; `restore_result.json` obrigatório.",
+  "notas_dashboard": "E17.2: `scripts/app_governance.py` (Streamlit: sprint, backup/restore %, checklist .cursorrules); `view_governance.py` / `monitor_demanda.py` CLI; `monitor_governanca.py` raiz; cascata GHA; `restore_result.json`.",
   "fase_governanca": "C",
   "pc_foco": "PC5–PC6",
   "percurso": "normal",
   "ultima_entrega_marco": "E17",
-  "live_status": "Governança Ativa com Alertas via E-mail e Retenção",
+  "live_status": "Dashboard Web Streamlit Restaurado e Operacional",
   "etapas_pendentes": [
-    "Painel governança (etapas + sprint %): `python scripts/view_governance.py` na raiz do repo.",
+    "Dashboard Web: `streamlit run scripts/app_governance.py` na raiz do repo (E17.2).",
+    "Painel CLI etapas: `python scripts/view_governance.py`.",
     "Painel demanda/telemetria: `python scripts/monitor_demanda.py`.",
     "Validar GHA `test_restore_weekly` (dispatch) e secrets `EMAIL_*` / `BEABA_BACKUP_KEY`."
   ],
-  "live_actualizado_iso": "2026-04-08T20:30:00Z",
+  "live_actualizado_iso": "2026-04-08T22:00:00Z",
   "fases_resumo": [
     { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
     { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "feito" },
