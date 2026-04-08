@@ -16,6 +16,7 @@
 - `tests/test_venda.py` — vendas (incl. `agendamento_contexto_id` / cliente ≠ agendamento)
 - `tests/test_relatorios.py` — relatórios / dashboards
 - `tests/test_agendamento.py` — agendamentos (incl. E11 pré-venda, migração `modo_origem`, associação a `venda_item`)
+- `tests/test_nif_e164.py` — E16 NIF (módulo 11) e normalização E.164 / legado
 
 ## 3. Plano por demanda (template)
 
@@ -64,6 +65,13 @@ Para cada **ID de demanda**, acrescentar secção:
 - **Regressão:** `python -m pytest tests/ -v` (**50**); smoke **Monitor de Voo** (`streamlit run monitor_governanca.py`).
 - **Critérios de aceite:** [`02_desenho_funcional.md`](governanca/demandas/2026-04-07_E15_monitor_governanca_externo/02_desenho_funcional.md) e [`99_encerramento.md`](governanca/demandas/2026-04-07_E15_monitor_governanca_externo/99_encerramento.md).
 
+### Demanda `2026-04-08_E16_cliente_nif_telefone_internacional` — NIF, doc. internacional, E.164
+
+- **Objectivo:** `nif.py`, `telefone.py`, `country_dial_codes.py`, `telefone_widgets.py`; colunas `nif_ou_documento`, `identificacao_internacional`, `cliente_filhos.data_nascimento`; migração `cliente_contatos_emergencia` (remove CHECK 11 dígitos); UI Clientes + Vendas.
+- **Novos casos:** `tests/test_nif_e164.py`; regressão em `test_qa_auto`, `test_venda`, `test_agendamento`, `test_relatorios` (parâmetros `nif` / `documento_identificacao_internacional`).
+- **Regressão:** `python -m pytest tests/ -v` (**56** testes).
+- **Critérios de aceite:** [`04_desenho_logico.md`](governanca/demandas/2026-04-08_E16_cliente_nif_telefone_internacional/04_desenho_logico.md).
+
 ## 4. Histórico
 
 - **2026-04-06:** Documento criado para cumprir passo 18 do percurso normal — SUCESSO (plano de testes mestre).
@@ -72,3 +80,4 @@ Para cada **ID de demanda**, acrescentar secção:
 - **2026-04-07:** E13 (copy UI) — regressão **49** testes; sem novos casos automatizados.
 - **2026-04-07:** E14 (telemetria) — `test_governanca` alargado; suite **49** testes (pré-E15).
 - **2026-04-07:** E15 (monitor externo) — `test_monitor_governanca_script_existe_e_compila`; suite **50** testes.
+- **2026-04-08:** E16 (NIF + telefone E.164 + nasc. filho) — `test_nif_e164.py`; suite **56** testes.

@@ -1,13 +1,54 @@
 import sqlite3
+from datetime import date, datetime
 
 from src.database.connection import get_connection
 from src.modules.constants import SEXOS
+from src.modules.nif import normalizar_nif_armazenamento
+from src.modules.telefone import normalizar_telefone_legado_ou_e164
 from src.modules.validators import (
     email_valido,
     normalizar_codigo_postal_pt,
     parse_data_iso,
-    validar_e_limpar_telefone,
 )
+
+FilhoInput = tuple[str, int, str] | tuple[str, int, str, str | None]
+
+
+def _idade_anos_de_data_nascimento(iso_yyyy_mm_dd: str) -> int:
+    d = datetime.strptime(str(iso_yyyy_mm_dd).strip()[:10], "%Y-%m-%d").date()
+    today = date.today()
+    years = today.year - d.year - ((today.month, today.day) < (d.month, d.day))
+    return max(0, min(120, years))
+
+
+def _normalizar_filho(t: FilhoInput) -> tuple[bool, str, tuple[str, int, str, str | None]]:
+    """Devolve (ok, msg, (nome, idade, sexo, data_nasc_iso|None))."""
+    nome = (t[0] or "").strip()
+    idade_in = int(t[1])
+    sx = str(t[2] or "")
+    dn: str | None = None
+    if len(t) >= 4 and t[3] and str(t[3]).strip():
+        ds = str(t[3]).strip()[:10]
+        if not parse_data_iso(ds):
+            return False, "❌ Data de nascimento do filho inválida.", ("", 0, "", None)
+        dt = datetime.strptime(ds, "%Y-%m-%d").date()
+        if dt > date.today():
+            return False, "❌ Data de nascimento do filho não pode ser futura.", ("", 0, "", None)
+        oldest = date.today().replace(year=date.today().year - 121)
+        if dt < oldest:
+            return False, "❌ Data de nascimento do filho demasiado antiga.", ("", 0, "", None)
+        dn = ds
+        idade_final = _idade_anos_de_data_nascimento(ds)
+    else:
+        idade_final = idade_in
+        if idade_final < 0 or idade_final > 120:
+            return False, "❌ Idade dos filhos deve estar entre 0 e 120 anos.", ("", 0, "", None)
+
+    if not nome:
+        return False, "❌ O nome de cada filho é obrigatório.", ("", 0, "", None)
+    if sx not in SEXOS:
+        return False, "❌ Sexo de cada filho deve ser selecionado.", ("", 0, "", None)
+    return True, "", (nome, idade_final, sx, dn)
 
 
 def cadastrar_cliente(
@@ -24,24 +65,36 @@ def cadastrar_cliente(
     email: str,
     sexo: str,
     tem_filhos: bool,
-    filhos: list[tuple[str, int, str]],
+    filhos: list[FilhoInput],
     gravida: bool | None,
     data_parto_prevista: str | None,
     observacoes: str,
     contatos_emergencia: list[tuple[str, str]],
+    *,
+    nif: str,
+    documento_identificacao_internacional: bool,
 ) -> tuple[bool, str]:
     """
-    Persiste cliente + filhos + contactos de emergência.
-    `filhos`: lista de (nome, idade_anos, sexo).
-    Coluna técnica `whatsapp` guarda o número principal (11 dígitos, UNIQUE).
+    `filhos`: (nome, idade, sexo) ou (nome, idade, sexo, data_nascimento_iso opcional).
+    Coluna `whatsapp`: contacto principal em E.164.
     """
     nome = (nome or "").strip()
     if not nome:
         return False, "❌ O nome completo é obrigatório."
 
-    tel = validar_e_limpar_telefone(numero_contato)
+    tel = normalizar_telefone_legado_ou_e164(numero_contato)
     if not tel:
-        return False, "❌ O número de contacto deve ter 11 dígitos numéricos."
+        return False, (
+            "❌ Número de contacto inválido. Use país + número no formulário ou formato internacional (+…)."
+        )
+
+    ok_n, msg_n, nif_v = normalizar_nif_armazenamento(
+        nif, documento_identificacao_internacional=documento_identificacao_internacional
+    )
+    if not ok_n:
+        return False, msg_n
+
+    doc_intl = 1 if documento_identificacao_internacional else 0
 
     rua = (endereco_rua or "").strip()
     num = (endereco_numero or "").strip()
@@ -82,35 +135,33 @@ def cadastrar_cliente(
         gravida = None
         data_parto_prevista = None
 
+    filhos_norm: list[tuple[str, int, str, str | None]] = []
     if tem_filhos:
         if not filhos:
             return (
                 False,
                 "❌ Indique os dados de cada filho (nome, idade em anos completos e sexo).",
             )
-        for fn, idade, sx in filhos:
-            fn = (fn or "").strip()
-            if not fn:
-                return False, "❌ O nome de cada filho é obrigatório."
-            if idade < 0 or idade > 120:
-                return False, "❌ Idade dos filhos deve estar entre 0 e 120 anos."
-            if sx not in SEXOS:
-                return False, "❌ Sexo de cada filho deve ser selecionado."
+        for row in filhos:
+            ok_f, msg_f, expanded = _normalizar_filho(row)
+            if not ok_f:
+                return False, msg_f
+            filhos_norm.append(expanded)
     else:
-        filhos = []
+        filhos_norm = []
 
     emerg_ok: list[tuple[str, str]] = []
     for n, t in contatos_emergencia:
         n = (n or "").strip()
-        t_raw = validar_e_limpar_telefone(t or "")
-        if not n and not t_raw:
+        t_e164 = normalizar_telefone_legado_ou_e164(t or "")
+        if not n and not t_e164:
             continue
-        if not n or not t_raw:
+        if not n or not t_e164:
             return (
                 False,
-                "❌ Cada contacto de emergência deve ter nome e número de contacto (11 dígitos).",
+                "❌ Cada contacto de emergência deve ter nome e número de contacto válidos.",
             )
-        emerg_ok.append((n, t_raw))
+        emerg_ok.append((n, t_e164))
 
     obs = (observacoes or "").strip()
 
@@ -137,8 +188,9 @@ def cadastrar_cliente(
                 nome, whatsapp, morada, email, sexo, tem_filhos,
                 gravida, data_parto_prevista, observacoes,
                 endereco_rua, endereco_numero, endereco_complemento,
-                codigo_postal, concelho, freguesia, distrito, pais
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                codigo_postal, concelho, freguesia, distrito, pais,
+                nif_ou_documento, identificacao_internacional
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 nome,
@@ -158,16 +210,18 @@ def cadastrar_cliente(
                 freg,
                 dist,
                 pais_v,
+                nif_v,
+                doc_intl,
             ),
         )
         cid = cursor.lastrowid
-        for i, (fnome, idade, sx) in enumerate(filhos, start=1):
+        for i, (fnome, idade, sx, dn) in enumerate(filhos_norm, start=1):
             cursor.execute(
                 """
-                INSERT INTO cliente_filhos (cliente_id, ordem, nome, idade_anos, sexo)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO cliente_filhos (cliente_id, ordem, nome, idade_anos, sexo, data_nascimento)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (cid, i, fnome.strip(), int(idade), sx),
+                (cid, i, fnome.strip(), int(idade), sx, dn),
             )
         for i, (enome, etel) in enumerate(emerg_ok, start=1):
             cursor.execute(
@@ -191,7 +245,7 @@ def cadastrar_cliente(
 
 def buscar_cliente_por_whatsapp(numero_contato: str) -> int | None:
     """Retorna `id` do cliente ou None se não existir."""
-    tel = validar_e_limpar_telefone(numero_contato)
+    tel = normalizar_telefone_legado_ou_e164(numero_contato)
     if not tel:
         return None
     conn = get_connection()
@@ -233,7 +287,8 @@ def obter_cliente_completo(cliente_id: int) -> dict | None:
             """
             SELECT id, nome, whatsapp, email, sexo, tem_filhos, gravida, data_parto_prevista,
                    observacoes, endereco_rua, endereco_numero, endereco_complemento,
-                   codigo_postal, concelho, freguesia, distrito, pais
+                   codigo_postal, concelho, freguesia, distrito, pais,
+                   nif_ou_documento, identificacao_internacional
             FROM clientes WHERE id = ?
             """,
             (cid,),
@@ -243,12 +298,18 @@ def obter_cliente_completo(cliente_id: int) -> dict | None:
             return None
         cur.execute(
             """
-            SELECT nome, idade_anos, sexo FROM cliente_filhos
+            SELECT nome, idade_anos, sexo, data_nascimento FROM cliente_filhos
             WHERE cliente_id = ? ORDER BY ordem
             """,
             (cid,),
         )
-        filhos = [(str(a), int(b), str(c)) for a, b, c in cur.fetchall()]
+        filhos_raw = cur.fetchall()
+        filhos: list[tuple[str, int, str, str | None]] = []
+        for a, b, c, d in filhos_raw:
+            dn = str(d).strip()[:10] if d else None
+            if dn and not parse_data_iso(dn):
+                dn = None
+            filhos.append((str(a), int(b), str(c), dn))
         cur.execute(
             """
             SELECT nome, telefone FROM cliente_contatos_emergencia
@@ -268,6 +329,8 @@ def obter_cliente_completo(cliente_id: int) -> dict | None:
             grav_v = bool(row[6]) if row[6] is not None else None
         else:
             grav_v = None
+        nif_raw = row[17] if len(row) > 17 else None
+        id_intl = int(row[18]) if len(row) > 18 and row[18] is not None else 0
         return {
             "id": int(row[0]),
             "nome": str(row[1]),
@@ -286,6 +349,8 @@ def obter_cliente_completo(cliente_id: int) -> dict | None:
             "freguesia": str(row[14] or ""),
             "distrito": str(row[15] or ""),
             "pais": str(row[16] or "Portugal"),
+            "nif_ou_documento": str(nif_raw) if nif_raw is not None else "",
+            "identificacao_internacional": bool(id_intl),
             "filhos": filhos,
             "contatos_emergencia": emerg,
         }
@@ -308,11 +373,14 @@ def atualizar_cliente(
     email: str,
     sexo: str,
     tem_filhos: bool,
-    filhos: list[tuple[str, int, str]],
+    filhos: list[FilhoInput],
     gravida: bool | None,
     data_parto_prevista: str | None,
     observacoes: str,
     contatos_emergencia: list[tuple[str, str]],
+    *,
+    nif: str,
+    documento_identificacao_internacional: bool,
 ) -> tuple[bool, str]:
     """Atualiza ficha existente. Validações alinhadas a `cadastrar_cliente`."""
     cid = int(cliente_id)
@@ -323,9 +391,18 @@ def atualizar_cliente(
     if not nome:
         return False, "❌ O nome completo é obrigatório."
 
-    tel = validar_e_limpar_telefone(numero_contato)
+    tel = normalizar_telefone_legado_ou_e164(numero_contato)
     if not tel:
-        return False, "❌ O número de contacto deve ter 11 dígitos numéricos."
+        return False, (
+            "❌ Número de contacto inválido. Use país + número no formulário ou formato internacional (+…)."
+        )
+
+    ok_n, msg_n, nif_v = normalizar_nif_armazenamento(
+        nif, documento_identificacao_internacional=documento_identificacao_internacional
+    )
+    if not ok_n:
+        return False, msg_n
+    doc_intl = 1 if documento_identificacao_internacional else 0
 
     rua = (endereco_rua or "").strip()
     num = (endereco_numero or "").strip()
@@ -366,35 +443,33 @@ def atualizar_cliente(
         gravida = None
         data_parto_prevista = None
 
+    filhos_norm: list[tuple[str, int, str, str | None]] = []
     if tem_filhos:
         if not filhos:
             return (
                 False,
                 "❌ Indique os dados de cada filho (nome, idade em anos completos e sexo).",
             )
-        for fn, idade, sx in filhos:
-            fn = (fn or "").strip()
-            if not fn:
-                return False, "❌ O nome de cada filho é obrigatório."
-            if idade < 0 or idade > 120:
-                return False, "❌ Idade dos filhos deve estar entre 0 e 120 anos."
-            if sx not in SEXOS:
-                return False, "❌ Sexo de cada filho deve ser selecionado."
+        for row in filhos:
+            ok_f, msg_f, expanded = _normalizar_filho(row)
+            if not ok_f:
+                return False, msg_f
+            filhos_norm.append(expanded)
     else:
-        filhos = []
+        filhos_norm = []
 
     emerg_ok: list[tuple[str, str]] = []
     for n, t in contatos_emergencia:
         n = (n or "").strip()
-        t_raw = validar_e_limpar_telefone(t or "")
-        if not n and not t_raw:
+        t_e164 = normalizar_telefone_legado_ou_e164(t or "")
+        if not n and not t_e164:
             continue
-        if not n or not t_raw:
+        if not n or not t_e164:
             return (
                 False,
-                "❌ Cada contacto de emergência deve ter nome e número de contacto (11 dígitos).",
+                "❌ Cada contacto de emergência deve ter nome e número de contacto válidos.",
             )
-        emerg_ok.append((n, t_raw))
+        emerg_ok.append((n, t_e164))
 
     obs = (observacoes or "").strip()
     tem_filhos_int = 1 if tem_filhos else 0
@@ -431,7 +506,8 @@ def atualizar_cliente(
                 nome = ?, whatsapp = ?, morada = ?, email = ?, sexo = ?, tem_filhos = ?,
                 gravida = ?, data_parto_prevista = ?, observacoes = ?,
                 endereco_rua = ?, endereco_numero = ?, endereco_complemento = ?,
-                codigo_postal = ?, concelho = ?, freguesia = ?, distrito = ?, pais = ?
+                codigo_postal = ?, concelho = ?, freguesia = ?, distrito = ?, pais = ?,
+                nif_ou_documento = ?, identificacao_internacional = ?
             WHERE id = ?
             """,
             (
@@ -452,17 +528,19 @@ def atualizar_cliente(
                 freg,
                 dist,
                 pais_v,
+                nif_v,
+                doc_intl,
                 cid,
             ),
         )
         cursor.execute("DELETE FROM cliente_filhos WHERE cliente_id = ?", (cid,))
-        for i, (fnome, idade, sx) in enumerate(filhos, start=1):
+        for i, (fnome, idade, sx, dn) in enumerate(filhos_norm, start=1):
             cursor.execute(
                 """
-                INSERT INTO cliente_filhos (cliente_id, ordem, nome, idade_anos, sexo)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO cliente_filhos (cliente_id, ordem, nome, idade_anos, sexo, data_nascimento)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (cid, i, fnome.strip(), int(idade), sx),
+                (cid, i, fnome.strip(), int(idade), sx, dn),
             )
         cursor.execute(
             "DELETE FROM cliente_contatos_emergencia WHERE cliente_id = ?",

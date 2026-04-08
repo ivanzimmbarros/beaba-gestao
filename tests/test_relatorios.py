@@ -67,6 +67,8 @@ def _cliente():
         data_parto_prevista=None,
         observacoes="",
         contatos_emergencia=[],
+        nif="286303850",
+        documento_identificacao_internacional=False,
     )
     return buscar_cliente_por_whatsapp("91333333330")
 
