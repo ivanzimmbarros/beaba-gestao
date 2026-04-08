@@ -1,0 +1,8 @@
+name: backup_hourly
+on:
+  workflow_dispatch:
+jobs:
+  registro:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Workflow registrado na interface!"
