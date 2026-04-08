@@ -1,36 +1,36 @@
 {
-  "demanda_id": "",
-  "titulo": "Nenhuma demanda activa — última concluída: E17 Backup/DR SQLite (2026-04-08)",
-  "fase_actual": "—",
-  "passo_referencia": null,
-  "responsavel_actual": "EQUIPE — Dev/QA (E17 entregue; §7 — JSON gravado no disco antes da resposta)",
+  "demanda_id": "2026-04-09_E17_1_autonomia_resiliencia_cloud",
+  "titulo": "E17.1 — Autonomia e Resiliência Cloud Total: Fase B (Desenho lógico Cloud); código após PROSSIGA",
+  "fase_actual": "B",
+  "passo_referencia": "PC3–PC4 (01 + 02 + 04 + Monitor)",
+  "responsavel_actual": "EQUIPE — Arquiteto + Analista (E17.1; §7 — JSON físico gravado antes da resposta)",
   "pontos_controlo_concluidos": [
     "E16 — PC1 a PC13a: dossier 01–09 + 99; implementação + pareceres + QA em develop",
     "Sessão 2026-04-08: leitura física de `status_demanda.json` + alinhamento telemetria ao chat (Bullet 7 — Sincronização Física)",
-    "E17 — Fase A: dossier 01+02 + Monitor; PROSSIGA recebido — implementação scripts backup/verify, WAL, testes, PAINEL, 04+99, push develop",
-    "E17 — PC13: encerramento operacional; `ultima_entrega_marco` = E17"
+    "E17 — PC13: encerramento operacional; `ultima_entrega_marco` = E17",
+    "E17.1 — 2026-04-09: dossier `2026-04-09_E17_1_autonomia_resiliencia_cloud` com 01+02+04 (infra GHA, AES-GCM, restore semanal, telemetria, esquema aba Monitor); **sem** `.yml` nem código Streamlit nesta entrega"
   ],
-  "pendente": "Próxima evolução: `@Files` → Analista. Repetir leitura física do JSON antes de microtarefas com código.",
+  "pendente": "Diretor: rever `04_desenho_logico.md` e enviar **PROSSIGA** para Fase C (workflows GitHub Actions, scripts encrypt/decrypt, `backup_dr_history.json`, aba «Backup e Restore» no `monitor_governanca.py`).",
   "falha": null,
-  "ultima_actualizacao_iso": "2026-04-08",
-  "notas_dashboard": "E17 concluída: `scripts/backup_sqlite_hourly.py`, `verify_restore_weekly.py`, `backups/*`, WAL em connection. Nuvem só sobre cópias fechadas (ver PAINEL).",
-  "fase_governanca": "—",
-  "pc_foco": null,
+  "ultima_actualizacao_iso": "2026-04-09",
+  "notas_dashboard": "E17.1 Fase B: GHA backup horário + restore semanal; runners sem DB exigem S2 (object storage) ou S1 (self-hosted); telemetria em docs/governanca/telemetry/; Monitor com st.tabs e matriz ✅⚠️❌.",
+  "fase_governanca": "B",
+  "pc_foco": "PC3–PC4",
   "percurso": "normal",
   "ultima_entrega_marco": "E17",
-  "live_status": "E17 entregue pós-PROSSIGA: backup horário + verify semanal + documentação; suite pytest 62; sem demanda activa.",
+  "live_status": "Arquiteto/Analista: E17.1 iniciada — Desenho lógico Cloud entregue (04); Monitor em Fase B; aguarda PROSSIGA para implementação.",
   "etapas_pendentes": [
-    "Operação: agendar Task Scheduler (`backup_hourly.cmd`, `verify_restore_weekly.cmd`) no ambiente de produção.",
-    "Próximo pedido de funcionalidade: `@Files` → Analista."
+    "Revisão do `04_desenho_logico.md` (premissa S1/S2/S3, cron UTC, schema telemetria, aba Monitor).",
+    "Pós-PROSSIGA: Dev — `.github/workflows/*`, scripts Python GCM, telemetria, testes schema, PAINEL."
   ],
-  "live_actualizado_iso": "2026-04-08T23:30:00Z",
+  "live_actualizado_iso": "2026-04-09T14:00:00Z",
   "fases_resumo": [
     { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
-    { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "feito" },
-    { "id": "C", "label": "Código 1", "pcs": "PC5→6", "estado": "feito" },
-    { "id": "D", "label": "Código 2", "pcs": "PC7→8", "estado": "feito" },
-    { "id": "E", "label": "QA", "pcs": "PC9–12", "estado": "feito" },
-    { "id": "F", "label": "Fecho", "pcs": "PC13", "estado": "feito" }
+    { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "curso" },
+    { "id": "C", "label": "Código 1", "pcs": "PC5→6", "estado": "pendente" },
+    { "id": "D", "label": "Código 2", "pcs": "PC7→8", "estado": "pendente" },
+    { "id": "E", "label": "QA", "pcs": "PC9–12", "estado": "pendente" },
+    { "id": "F", "label": "Fecho", "pcs": "PC13", "estado": "pendente" }
   ],
   "diario_bordo_resumo": [
     "E01 — V11.0: app e identidade; Caderno Mestre.",
@@ -49,6 +49,7 @@
     "E14 — Telemetria ao vivo (STATUS LIVE + JSON live_*).",
     "E15 — Monitor de Voo stand-alone (`monitor_governanca.py`); app sem página Fluxo.",
     "E16 — Cliente: NIF PT + doc. internacional; telefone E.164; nasc. filho opcional — entregue 2026-04-08.",
-    "E17 — Backup/DR SQLite: hot-backup horário, verify semanal integrity_check, cloud_queue, WAL — entregue 2026-04-08."
+    "E17 — Backup/DR SQLite: hot-backup horário, verify semanal integrity_check, cloud_queue, WAL — entregue 2026-04-08.",
+    "E17.1 — Cloud Total: GHA + AES-GCM + restore prova + aba Monitor — Fase B em curso (2026-04-09)."
   ]
 }
