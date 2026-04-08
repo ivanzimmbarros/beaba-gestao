@@ -21,7 +21,7 @@ from src.modules.agendamento import (
 from src.modules.catalogo import euros_para_centavos, listar_itens_catalogo
 from src.modules.cliente import listar_clientes_resumo
 from src.modules.colaborador import listar_colaboradores_resumo
-from src.ui.theme import agenda_status_style, agenda_tipo_icon
+from src.ui.theme import agenda_pagamento_dot, agenda_status_style, agenda_tipo_icon
 
 
 def _week_range(anchor: date) -> tuple[date, date]:
@@ -32,8 +32,9 @@ def _week_range(anchor: date) -> tuple[date, date]:
 
 def _render_legenda() -> None:
     st.caption(
-        "**Estados:** Agendado · Confirmado · Concluído · Cancelado  |  "
-        "**Tipos:** ◇ sessão avulsa · 📦 pacote · ⌂ coworking · 📅 evento"
+        "**Estados (fundo):** pré-ag. · agend. · confirm. · realizado/pgto · concl. · cancel.  |  "
+        "**Tipos:** ◇ sessão · 📦 pacote · ⌂ cowork · 📅 evento  |  "
+        "**Pagamento (ponto):** ● pago · ● parcial/atraso · ○ em aberto"
     )
 
 
@@ -78,13 +79,23 @@ def render_page_agendamentos(
     w1b = w0b + timedelta(days=7)
     c0 = contar_por_status_periodo(w0a.isoformat(), w0b.isoformat())
     c1 = contar_por_status_periodo(w1a.isoformat(), w1b.isoformat())
-    a0 = c0.get("AGENDADO", 0) + c0.get("CONFIRMADO", 0)
-    a1 = c1.get("AGENDADO", 0) + c1.get("CONFIRMADO", 0)
+    a0 = (
+        c0.get("PRE_AGENDADO", 0)
+        + c0.get("AGENDADO", 0)
+        + c0.get("CONFIRMADO", 0)
+        + c0.get("REALIZADO_PENDENTE_PGTO", 0)
+    )
+    a1 = (
+        c1.get("PRE_AGENDADO", 0)
+        + c1.get("AGENDADO", 0)
+        + c1.get("CONFIRMADO", 0)
+        + c1.get("REALIZADO_PENDENTE_PGTO", 0)
+    )
     mcols = st.columns(4)
     with mcols[0]:
-        st.metric("Esta semana — ativos (Ag+Conf)", a0)
+        st.metric("Esta semana — ativos (operacionais)", a0)
     with mcols[1]:
-        st.metric("Próxima semana — ativos (Ag+Conf)", a1)
+        st.metric("Próxima semana — ativos (operacionais)", a1)
     with mcols[2]:
         st.metric("Esta semana — concluídos", c0.get("CONCLUIDO", 0))
     with mcols[3]:
@@ -121,8 +132,20 @@ def render_page_agendamentos(
     with fr1:
         sel_status = st.multiselect(
             "Estado",
-            options=["AGENDADO", "CONFIRMADO", "CONCLUIDO", "CANCELADO"],
-            default=["AGENDADO", "CONFIRMADO", "CONCLUIDO"],
+            options=[
+                "PRE_AGENDADO",
+                "AGENDADO",
+                "CONFIRMADO",
+                "REALIZADO_PENDENTE_PGTO",
+                "CONCLUIDO",
+                "CANCELADO",
+            ],
+            default=[
+                "AGENDADO",
+                "CONFIRMADO",
+                "REALIZADO_PENDENTE_PGTO",
+                "CONCLUIDO",
+            ],
             key="ag_f_status",
         )
     with fr2:
@@ -147,7 +170,12 @@ def render_page_agendamentos(
         st.write("")
         st.write("")
         if st.button("Reset filtros de estado", key="ag_reset_st"):
-            st.session_state.ag_f_status = ["AGENDADO", "CONFIRMADO", "CONCLUIDO"]
+            st.session_state.ag_f_status = [
+                "AGENDADO",
+                "CONFIRMADO",
+                "REALIZADO_PENDENTE_PGTO",
+                "CONCLUIDO",
+            ]
             st.rerun()
 
     rows = listar_agendamentos(
@@ -366,9 +394,14 @@ def render_page_agendamentos(
         for ev in by_day.get(ds, []):
             stl = agenda_status_style(ev["status"])
             ic = agenda_tipo_icon(ev["tipo_origem"])
+            pg_sym, pg_col = agenda_pagamento_dot(str(ev.get("pagamento") or ""))
             pre_badge = "🔖 " if ev.get("modo_origem") == "pre_venda" else ""
             tit = f"{pre_badge}{ic} {_html_escape(ev['servico_nome'])} · {_html_escape(ev['cliente_nome'])}"
-            sub = f"{_html_escape(ev['hora_inicio'])}–{_html_escape(ev['hora_fim'])} · {_html_escape(ev['status'])}"
+            sub = (
+                f"{_html_escape(ev['hora_inicio'])}–{_html_escape(ev['hora_fim'])} · "
+                f"{_html_escape(ev['status'])} · "
+                f"<span style='color:{pg_col};font-weight:700' title='Pagamento'>{pg_sym}</span>"
+            )
             inner_parts.append(
                 f"<div style='margin:4px 0;padding:6px 8px;border-radius:10px;"
                 f"background:{stl['bg']};border:1px solid {stl['border']};font-size:0.8rem;'>"
@@ -430,6 +463,7 @@ def render_page_agendamentos(
             if ag.get("modo_origem") == "pre_venda" and ag["status"] in (
                 "AGENDADO",
                 "CONFIRMADO",
+                "PRE_AGENDADO",
             ):
                 if st.button(
                     "Fechar pré-venda no Painel de Vendas",
@@ -484,7 +518,7 @@ def render_page_agendamentos(
                     else:
                         st.error(msg)
 
-            ac1, ac2, ac3 = st.columns(3)
+            ac1, ac2, ac3, ac4 = st.columns(4)
             with ac1:
                 if st.button("→ Confirmado", key="ag_st_conf"):
                     if ag["status"] == "AGENDADO":
@@ -495,20 +529,38 @@ def render_page_agendamentos(
                     else:
                         st.warning("Só disponível em AGENDADO.")
             with ac2:
-                if st.button("→ Concluído", key="ag_st_done"):
+                if st.button("→ Realizado (pgto pendente)", key="ag_st_rp"):
                     if ag["status"] in ("AGENDADO", "CONFIRMADO"):
+                        ok, msg = alterar_status(int(pick), "REALIZADO_PENDENTE_PGTO")
+                        (st.success(msg) if ok else st.error(msg))
+                        if ok:
+                            st.rerun()
+                    else:
+                        st.warning("Só em AGENDADO ou CONFIRMADO.")
+            with ac3:
+                if st.button("→ Concluído", key="ag_st_done"):
+                    if ag["status"] in (
+                        "AGENDADO",
+                        "CONFIRMADO",
+                        "REALIZADO_PENDENTE_PGTO",
+                    ):
                         ok, msg = alterar_status(int(pick), "CONCLUIDO")
                         (st.success(msg) if ok else st.error(msg))
                         if ok:
                             st.rerun()
                     else:
-                        st.warning("Só disponível em AGENDADO ou CONFIRMADO.")
-            with ac3:
+                        st.warning("Indisponível neste estado.")
+            with ac4:
                 dev = st.checkbox(
                     "Devolver crédito ao buffer ao cancelar",
                     value=True,
                     key="ag_can_dev",
                     disabled=ag.get("modo_origem") == "pre_venda",
+                )
+                cred_loja = st.checkbox(
+                    "Converter valor sugerido em saldo de loja",
+                    value=False,
+                    key="ag_can_cred",
                 )
                 if ag.get("modo_origem") == "pre_venda":
                     st.caption("Pré-venda: sem crédito em buffer.")
@@ -516,7 +568,11 @@ def render_page_agendamentos(
                     if ag["status"] in ("CONCLUIDO", "CANCELADO"):
                         st.error("Estado não permite cancelamento.")
                     else:
-                        ok, msg = cancelar_agendamento(int(pick), devolver_ao_buffer=dev)
+                        ok, msg = cancelar_agendamento(
+                            int(pick),
+                            devolver_ao_buffer=dev,
+                            converter_valor_pago_em_credito_loja=cred_loja,
+                        )
                         (st.success(msg) if ok else st.error(msg))
                         if ok:
                             st.rerun()

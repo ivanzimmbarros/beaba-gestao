@@ -1,13 +1,18 @@
-"""Dashboards e relatórios — UI Streamlit (E08)."""
+"""Dashboards e relatórios — UI Streamlit (E08 + E19 DW)."""
 
 from __future__ import annotations
 
+import sqlite3
+import subprocess
+import sys
 from datetime import date, timedelta
+from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from src.database.connection import get_connection
 from src.modules.relatorios import (
     DimensaoGroupBy,
     FiltrosDashboard,
@@ -22,6 +27,139 @@ from src.modules.relatorios import (
     top_n_dimensao,
 )
 from src.ui.theme import ANALYTICS_COLORS, COLORS
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _db_path() -> Path:
+    return _repo_root() / "data" / "beaba_gestao.db"
+
+
+def _dw_table_exists(conn: sqlite3.Connection, name: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1",
+        (name,),
+    ).fetchone()
+    return row is not None
+
+
+def _run_etl_subprocess() -> tuple[int, str]:
+    root = _repo_root()
+    script = root / "scripts" / "etl_analytics.py"
+    dbp = _db_path()
+    if not script.is_file():
+        return 1, f"Script em falta: {script}"
+    if not dbp.is_file():
+        return 1, f"Base em falta: {dbp}"
+    proc = subprocess.run(
+        [sys.executable, str(script), "--db", str(dbp)],
+        cwd=str(root),
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    out = (proc.stdout or "") + (proc.stderr or "")
+    return proc.returncode, out.strip() or "(sem saída)"
+
+
+def _render_dw_analytics_block() -> None:
+    """
+    E19 — métricas só a partir de tabelas `dw_*` (sem cálculos de cohort/LTV na UI).
+    """
+    st.subheader("Analytics — Data Warehouse (E19)")
+    st.caption(
+        "Fonte: apenas tabelas **`dw_*`** geridas por `scripts/etl_analytics.py`. "
+        "LTV Real respeita o ledger E18 (exclui vendas **pendentes** no ETL)."
+    )
+
+    c_run, _ = st.columns([1, 3])
+    with c_run:
+        if st.button("Actualizar Data Warehouse (ETL)", key="bea_dw_refresh_etl"):
+            with st.spinner("A executar ETL…"):
+                code, msg = _run_etl_subprocess()
+            if code == 0:
+                st.success("ETL concluído com sucesso.")
+            else:
+                st.error(f"ETL terminou com código {code}.")
+            with st.expander("Saída do ETL", expanded=code != 0):
+                st.code(msg, language="text")
+            st.rerun()
+
+    conn = get_connection()
+    if not conn:
+        st.error("Sem ligação à base de dados.")
+        return
+    try:
+        if not _dw_table_exists(conn, "dw_fact_agendamento") or not _dw_table_exists(
+            conn, "dw_cliente_kpi"
+        ):
+            st.warning(
+                "Tabelas **`dw_*`** ainda não existem. Use o botão **Actualizar Data Warehouse (ETL)**."
+            )
+            return
+
+        row = conn.execute(
+            """
+            SELECT
+              (SELECT COALESCE(SUM(carga_horaria_h), 0)
+               FROM dw_fact_agendamento
+               WHERE is_cancelado = 0 AND carga_horaria_h IS NOT NULL) AS ocupacao_h,
+              (SELECT COALESCE(SUM(receita_ltv_real_total_centavos), 0)
+               FROM dw_cliente_kpi) AS ltv_real_c
+            """
+        ).fetchone()
+        ocup_h = float(row[0] or 0)
+        ltv_c = int(row[1] or 0)
+
+        m1, m2 = st.columns(2)
+        with m1:
+            st.metric(
+                "Ocupação agendada (horas)",
+                f"{ocup_h:.2f} h",
+                help="Soma de `carga_horaria_h` em `dw_fact_agendamento` (não cancelados).",
+            )
+        with m2:
+            st.metric(
+                "LTV Real acumulado",
+                f"{ltv_c / 100:.2f} €",
+                help="Soma de `receita_ltv_real_total_centavos` em `dw_cliente_kpi` (ETL / ledger E18).",
+            )
+
+        st.markdown("##### Risco de churn — maior intervalo médio entre visitas")
+        st.caption(
+            "Ordenação: maior `media_dias_entre_visitas` primeiro (clientes com mais dias entre visitas consecutivas). "
+            "Apenas dados de `dw_cliente_kpi`."
+        )
+        df_kpi = pd.read_sql_query(
+            """
+            SELECT *
+            FROM dw_cliente_kpi
+            ORDER BY
+              (CASE WHEN media_dias_entre_visitas IS NULL THEN 1 ELSE 0 END),
+              media_dias_entre_visitas DESC
+            """,
+            conn,
+        )
+        if df_kpi.empty:
+            st.info("Sem linhas em `dw_cliente_kpi`.")
+        else:
+            display = df_kpi.copy()
+            if "receita_ltv_real_total_centavos" in display.columns:
+                display["ltv_real_€"] = (
+                    display["receita_ltv_real_total_centavos"].fillna(0).astype(int) / 100.0
+                )
+            if "ticket_medio_ltv_real_centavos" in display.columns:
+                display["ticket_medio_€"] = display["ticket_medio_ltv_real_centavos"].apply(
+                    lambda x: (int(x) / 100.0) if pd.notna(x) and x is not None else None
+                )
+            st.dataframe(display, hide_index=True, width="stretch")
+
+    except Exception as e:
+        st.error(f"Erro ao ler `dw_*`: {e}")
+    finally:
+        conn.close()
 
 
 def _bea_plotly_layout(fig: go.Figure) -> go.Figure:
@@ -43,6 +181,11 @@ def render_page_dashboards(
 ) -> None:
     render_back_and_breadcrumb(["Home", "Dashboards e Relatórios"], back_key="bea_back_dash")
     st.markdown("### Dashboards e relatórios")
+
+    _render_dw_analytics_block()
+
+    st.markdown("---")
+    st.markdown("#### Relatórios operacionais (E08)")
     st.caption(
         "**Fase A:** receita com base em vendas registadas; «margem / lucro» = receita (sem custos). "
         "Desconto global na venda pode fazer divergir soma das linhas do total do cabeçalho — ambos os valores são mostrados."
@@ -172,7 +315,7 @@ def render_page_dashboards(
             )
         )
         fig_l.update_layout(title="Receita agregada no período", xaxis_title="Período", yaxis_title="€")
-        st.plotly_chart(_bea_plotly_layout(fig_l), use_container_width=True)
+        st.plotly_chart(_bea_plotly_layout(fig_l), width="stretch")
     else:
         st.info("Sem dados no período e filtros selecionados.")
 
@@ -198,7 +341,7 @@ def render_page_dashboards(
                 )
             )
             fig_b.update_layout(title="Ranking por receita (linhas)", yaxis=dict(autorange="reversed"))
-            st.plotly_chart(_bea_plotly_layout(fig_b), use_container_width=True)
+            st.plotly_chart(_bea_plotly_layout(fig_b), width="stretch")
         else:
             st.caption("Sem dados.")
 
@@ -234,7 +377,7 @@ def render_page_dashboards(
                 yaxis2=dict(title="% acumulado", overlaying="y", side="right", range=[0, 105]),
             )
             fig_p.update_xaxes(tickangle=-28)
-            st.plotly_chart(_bea_plotly_layout(fig_p), use_container_width=True)
+            st.plotly_chart(_bea_plotly_layout(fig_p), width="stretch")
         else:
             st.caption("Sem dados.")
 
@@ -242,7 +385,7 @@ def render_page_dashboards(
     st.subheader("Relatório tabular")
     tab = tabela_agregada(filt, dim_gb)
     if tab:
-        st.dataframe(pd.DataFrame(tab), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(tab), hide_index=True, width="stretch")
         csv = pd.DataFrame(tab).to_csv(index=False).encode("utf-8")
         st.download_button(
             "Descarregar CSV",

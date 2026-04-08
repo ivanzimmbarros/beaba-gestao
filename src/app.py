@@ -15,12 +15,13 @@ from src.modules.catalogo import (
     cadastrar_evento,
     cadastrar_pacote,
     cadastrar_servico_fase1,
+    centavos_para_texto_euros,
     listar_itens_catalogo,
     listar_servicos_produto_para_pacote,
     listar_servicos_sessao_para_pacote,
     repasse_medio_ponderado_pacote,
 )
-from src.modules.cliente import cadastrar_cliente
+from src.modules.cliente import cadastrar_cliente, listar_clientes_resumo_com_credito
 from src.ui.telefone_widgets import ler_e164_de_widgets, render_grupo_telefone
 from src.ui.page_agendamentos import render_page_agendamentos
 from src.ui.page_dashboards import render_page_dashboards
@@ -122,6 +123,32 @@ def _page_clientes() -> None:
     _render_back_and_breadcrumb(["Home", "Clientes", "Cadastro"], back_key="bea_back_clientes")
     st.markdown("### Cadastro de clientes")
     st.caption("* - Campos obrigatórios")
+
+    st.subheader("Consulta — saldo de crédito de loja")
+    filtro_saldo = st.radio(
+        "Filtrar lista por saldo",
+        ["todos", "com_saldo", "sem_saldo"],
+        horizontal=True,
+        format_func=lambda x: {
+            "todos": "Todos",
+            "com_saldo": "Com saldo (> 0)",
+            "sem_saldo": "Sem saldo",
+        }[x],
+        key="cli_filtro_cred",
+    )
+    rows_cc = listar_clientes_resumo_com_credito(filtro_saldo=filtro_saldo)
+    if rows_cc:
+        st.dataframe(
+            {
+                "ID": [r[0] for r in rows_cc],
+                "Nome": [r[1] for r in rows_cc],
+                "Saldo crédito": [centavos_para_texto_euros(r[2]) for r in rows_cc],
+            },
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.info("Nenhum cliente neste filtro.")
 
     if "cli_form_v" not in st.session_state:
         st.session_state.cli_form_v = 0

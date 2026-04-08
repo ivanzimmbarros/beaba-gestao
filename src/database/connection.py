@@ -159,6 +159,288 @@ def _seed_servicos_exemplo(cursor) -> None:
         )
 
 
+def _migrate_e18_if_needed(cursor) -> None:
+    """
+    E18: ledger, histórico, linhas de pagamento, repasse, novos estados em agendamentos,
+    coluna credito_abatido em vendas, view saldo cliente.
+    """
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS credito_movimentos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cliente_id INTEGER NOT NULL,
+            tipo_movimento TEXT NOT NULL CHECK (
+                tipo_movimento IN (
+                    'CREDITO_CANCELAMENTO',
+                    'USO_VENDA',
+                    'USO_AGENDAMENTO',
+                    'AJUSTE_MANUAL',
+                    'ESTORNO'
+                )
+            ),
+            valor_centavos INTEGER NOT NULL,
+            referencia_tipo TEXT NOT NULL DEFAULT '',
+            referencia_id INTEGER,
+            observacoes TEXT,
+            actor TEXT,
+            criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (cliente_id) REFERENCES clientes(id),
+            UNIQUE (referencia_tipo, referencia_id, tipo_movimento)
+        )
+        """
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_credito_mov_cliente ON credito_movimentos(cliente_id)"
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS venda_pagamento_linhas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            venda_id INTEGER NOT NULL,
+            ordem INTEGER NOT NULL DEFAULT 0,
+            tipo_meio TEXT NOT NULL CHECK (
+                tipo_meio IN ('DINHEIRO_MBWAY', 'IBAN', 'CARTAO_CREDITO', 'CREDITO_LOJA')
+            ),
+            valor_centavos INTEGER NOT NULL CHECK (valor_centavos > 0),
+            criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (venda_id) REFERENCES vendas(id) ON DELETE CASCADE,
+            UNIQUE (venda_id, ordem)
+        )
+        """
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_venda_pagamento_linhas_v ON venda_pagamento_linhas(venda_id)"
+    )
+
+    cursor.execute("DROP VIEW IF EXISTS vw_cliente_saldo_credito")
+    cursor.execute(
+        """
+        CREATE VIEW vw_cliente_saldo_credito AS
+        SELECT
+            cliente_id,
+            COALESCE(SUM(valor_centavos), 0) AS saldo_credito_centavos
+        FROM credito_movimentos
+        GROUP BY cliente_id
+        """
+    )
+
+    _ensure_column(
+        cursor,
+        "vendas",
+        "credito_abatido_centavos",
+        "INTEGER NOT NULL DEFAULT 0 CHECK (credito_abatido_centavos >= 0)",
+    )
+
+    cursor.execute(
+        """
+        INSERT OR IGNORE INTO venda_pagamento_linhas (venda_id, ordem, tipo_meio, valor_centavos)
+        SELECT
+            vp.venda_id,
+            vp.ordem,
+            CASE vp.meio
+                WHEN 'dinheiro' THEN 'DINHEIRO_MBWAY'
+                WHEN 'mbway' THEN 'DINHEIRO_MBWAY'
+                WHEN 'cartao_credito' THEN 'CARTAO_CREDITO'
+                ELSE 'DINHEIRO_MBWAY'
+            END,
+            vp.valor_centavos
+        FROM venda_pagamentos vp
+        WHERE vp.valor_centavos > 0
+          AND NOT EXISTS (
+              SELECT 1 FROM venda_pagamento_linhas x WHERE x.venda_id = vp.venda_id AND x.ordem = vp.ordem
+          )
+        """
+    )
+
+    cursor.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='agendamentos'"
+    )
+    row = cursor.fetchone()
+    ag_sql = (row[0] or "") if row else ""
+    need_ag_rebuild = bool(ag_sql) and "PRE_AGENDADO" not in ag_sql
+
+    if need_ag_rebuild:
+        cursor.execute("PRAGMA foreign_keys=OFF")
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS _e18_ag_ctx (venda_id INTEGER PRIMARY KEY, ag_id INTEGER NOT NULL)
+            """
+        )
+        cursor.execute("DELETE FROM _e18_ag_ctx")
+        cursor.execute(
+            """
+            INSERT INTO _e18_ag_ctx (venda_id, ag_id)
+            SELECT id, agendamento_contexto_id FROM vendas
+            WHERE agendamento_contexto_id IS NOT NULL
+            """
+        )
+        cursor.execute(
+            "UPDATE vendas SET agendamento_contexto_id = NULL WHERE agendamento_contexto_id IS NOT NULL"
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE agendamento_colaboradores_e18_bak AS
+            SELECT * FROM agendamento_colaboradores
+            """
+        )
+        cursor.execute("DROP TABLE agendamento_colaboradores")
+        cursor.execute(
+            """
+            CREATE TABLE agendamentos_e18_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                venda_id INTEGER,
+                venda_item_id INTEGER,
+                cliente_id INTEGER NOT NULL,
+                servico_id INTEGER NOT NULL,
+                pacote_sessao_id INTEGER,
+                tipo_origem TEXT NOT NULL CHECK (
+                    tipo_origem IN ('sessao_avulsa', 'pacote', 'coworking', 'evento')
+                ),
+                data_agendamento TEXT NOT NULL,
+                hora_inicio TEXT NOT NULL,
+                hora_fim TEXT NOT NULL,
+                status TEXT NOT NULL CHECK (
+                    status IN (
+                        'PRE_AGENDADO',
+                        'AGENDADO',
+                        'CONFIRMADO',
+                        'REALIZADO_PENDENTE_PGTO',
+                        'CONCLUIDO',
+                        'CANCELADO'
+                    )
+                ),
+                devolver_ao_buffer INTEGER NOT NULL DEFAULT 0 CHECK (devolver_ao_buffer IN (0, 1)),
+                observacoes TEXT DEFAULT '',
+                data_alteracao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                modo_origem TEXT NOT NULL DEFAULT 'credito_venda' CHECK (
+                    modo_origem IN ('credito_venda', 'pre_venda')
+                ),
+                preco_referencia_centavos INTEGER CHECK (
+                    preco_referencia_centavos IS NULL OR preco_referencia_centavos >= 0
+                ),
+                CHECK (
+                    (modo_origem = 'pre_venda' AND venda_id IS NULL AND venda_item_id IS NULL)
+                    OR (
+                        modo_origem = 'credito_venda'
+                        AND venda_id IS NOT NULL
+                        AND venda_item_id IS NOT NULL
+                    )
+                ),
+                FOREIGN KEY (venda_id) REFERENCES vendas(id) ON DELETE CASCADE,
+                FOREIGN KEY (venda_item_id) REFERENCES venda_itens(id) ON DELETE CASCADE,
+                FOREIGN KEY (cliente_id) REFERENCES clientes(id),
+                FOREIGN KEY (servico_id) REFERENCES servicos(id),
+                FOREIGN KEY (pacote_sessao_id) REFERENCES servico_pacote_sessoes(id)
+            )
+            """
+        )
+        cursor.execute(
+            """
+            INSERT INTO agendamentos_e18_new (
+                id, venda_id, venda_item_id, cliente_id, servico_id, pacote_sessao_id,
+                tipo_origem, data_agendamento, hora_inicio, hora_fim, status,
+                devolver_ao_buffer, observacoes, data_alteracao, modo_origem, preco_referencia_centavos
+            )
+            SELECT
+                id, venda_id, venda_item_id, cliente_id, servico_id, pacote_sessao_id,
+                tipo_origem, data_agendamento, hora_inicio, hora_fim, status,
+                devolver_ao_buffer, observacoes, data_alteracao, modo_origem, preco_referencia_centavos
+            FROM agendamentos
+            """
+        )
+        cursor.execute("DROP TABLE agendamentos")
+        cursor.execute("ALTER TABLE agendamentos_e18_new RENAME TO agendamentos")
+        cursor.execute(
+            """
+            CREATE TABLE agendamento_colaboradores (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                agendamento_id INTEGER NOT NULL,
+                colaborador_id INTEGER NOT NULL,
+                ordem INTEGER NOT NULL,
+                FOREIGN KEY (agendamento_id) REFERENCES agendamentos(id) ON DELETE CASCADE,
+                FOREIGN KEY (colaborador_id) REFERENCES colaboradores(id)
+            )
+            """
+        )
+        cursor.execute(
+            """
+            INSERT INTO agendamento_colaboradores (id, agendamento_id, colaborador_id, ordem)
+            SELECT id, agendamento_id, colaborador_id, ordem FROM agendamento_colaboradores_e18_bak
+            """
+        )
+        cursor.execute("DROP TABLE agendamento_colaboradores_e18_bak")
+        cursor.execute(
+            """
+            UPDATE vendas SET agendamento_contexto_id = (
+                SELECT ag_id FROM _e18_ag_ctx WHERE _e18_ag_ctx.venda_id = vendas.id
+            )
+            WHERE id IN (SELECT venda_id FROM _e18_ag_ctx)
+            """
+        )
+        cursor.execute("DROP TABLE _e18_ag_ctx")
+        cursor.execute("PRAGMA foreign_keys=ON")
+
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_agendamentos_data ON agendamentos(data_agendamento)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_agendamentos_cliente ON agendamentos(cliente_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_agendamentos_venda ON agendamentos(venda_id)")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_agendamento_colab_ag ON agendamento_colaboradores(agendamento_id)"
+        )
+
+    cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='repasse_linhas'"
+    )
+    if cursor.fetchone():
+        cursor.execute("SELECT COUNT(*) FROM repasse_linhas")
+        if int(cursor.fetchone()[0]) == 0:
+            cursor.execute("DROP TABLE repasse_linhas")
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS repasse_linhas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            agendamento_id INTEGER NOT NULL,
+            colaborador_id INTEGER NOT NULL,
+            base_calculo_centavos INTEGER NOT NULL DEFAULT 0 CHECK (base_calculo_centavos >= 0),
+            percentual_bp INTEGER,
+            valor_repasse_centavos INTEGER NOT NULL DEFAULT 0 CHECK (valor_repasse_centavos >= 0),
+            status_repasse TEXT NOT NULL DEFAULT 'PENDENTE_REPASSE' CHECK (
+                status_repasse IN ('PENDENTE_REPASSE', 'REPASSE_PAGO')
+            ),
+            pago_em TEXT,
+            observacoes TEXT,
+            criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (agendamento_id) REFERENCES agendamentos(id) ON DELETE CASCADE,
+            FOREIGN KEY (colaborador_id) REFERENCES colaboradores(id)
+        )
+        """
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_repasse_linhas_ag ON repasse_linhas(agendamento_id)"
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS agendamento_historico (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            agendamento_id INTEGER NOT NULL,
+            campo TEXT NOT NULL,
+            valor_anterior TEXT,
+            valor_novo TEXT,
+            motivo TEXT,
+            actor TEXT,
+            criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (agendamento_id) REFERENCES agendamentos(id) ON DELETE CASCADE
+        )
+        """
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_agendamento_historico_ag ON agendamento_historico(agendamento_id)"
+    )
+
+
 def _migrate_cliente_contatos_emergencia_e16_if_needed(cursor) -> None:
     """E16: remove CHECK length(telefone)=11 para permitir E.164."""
     cursor.execute(
@@ -476,7 +758,14 @@ def create_tables():
             hora_inicio TEXT NOT NULL,
             hora_fim TEXT NOT NULL,
             status TEXT NOT NULL CHECK (
-                status IN ('AGENDADO', 'CONFIRMADO', 'CONCLUIDO', 'CANCELADO')
+                status IN (
+                    'PRE_AGENDADO',
+                    'AGENDADO',
+                    'CONFIRMADO',
+                    'REALIZADO_PENDENTE_PGTO',
+                    'CONCLUIDO',
+                    'CANCELADO'
+                )
             ),
             devolver_ao_buffer INTEGER NOT NULL DEFAULT 0 CHECK (devolver_ao_buffer IN (0, 1)),
             observacoes TEXT DEFAULT '',
@@ -534,5 +823,6 @@ def create_tables():
         "agendamento_contexto_id",
         "INTEGER REFERENCES agendamentos(id) ON DELETE SET NULL",
     )
+    _migrate_e18_if_needed(cursor)
     conn.commit()
     conn.close()

@@ -1,6 +1,6 @@
 # Painel operacional — BeaBa Gestão
 
-**Última actualização:** 2026-04-08 — **E17** concluída (backup/DR SQLite); **E16** (NIF + E.164 + filhos); **E15** Monitor de Voo; **E14** telemetria; **E12** Torre + Diário.  
+**Última actualização:** 2026-04-09 — **E19** Analytics DW **concluído** (ETL `scripts/etl_analytics.py` + UI `dw_*` em Dashboards). **Painel v2** mantido. **Próximo foco operacional:** **E17.1** Cloud Total (Fase B → CONFIRMO para C/D). **E18** operacional-financeiro **concluído**; **E17.2** **concluída**; **E17** backup/DR; **E16** NIF + E.164; **E15** Monitor; **E14** telemetria; **E12** Torre + Diário.  
 **Norma:** [`FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md) (**Fluxo oficial de governança**).  
 **Quem actualiza:** a **EQUIPE**; o Diretor **não** edita este ficheiro.
 
@@ -14,6 +14,36 @@
 | **Monitor de Voo** | `streamlit run monitor_governanca.py` | Telemetria E14 (**STATUS LIVE**), Torre A–F, Diário, pendente, JSON — **stand-alone** para segundo ecrã. |
 
 Ambos leem o mesmo [`status_demanda.json`](governanca/status_demanda.json) no disco; o Painel `.md` permanece o registo **histórico** nos PCs.
+
+---
+
+## Painel de demandas (layout v2 — espelho canónico)
+
+A **fonte estruturada** é [`status_demanda.json`](governanca/status_demanda.json) (`painel_layout_version` **2**). Abaixo replica-se o esqueleto para leitura humana e PCs; o **Monitor de Voo** e `python scripts/view_governance.py` mostram o mesmo conteúdo a partir do JSON.
+
+### [SEÇÃO: ÉPICOS EM EXECUÇÃO]
+
+Reservado a demandas com status **Em Aberto** ou **Pendente**.
+
+| ID | Título | Status | Fase | PC foco |
+|:---|:---|:---:|:---:|:---|
+| `2026-04-09_E17_1_autonomia_resiliencia_cloud` | **E17.1** — Autonomia e Resiliência Cloud Total (GHA, AES-GCM, restore semanal, telemetria) | **Pendente** | B | PC3–PC4 |
+
+**Próximo foco (prioridade):** **E17.1** — revisão do [`04_desenho_logico.md`](governanca/demandas/2026-04-09_E17_1_autonomia_resiliencia_cloud/04_desenho_logico.md) pelo Diretor; após **CONFIRMO** / **PROSSIGA** — Fases C/D (workflows GHA, scripts partilhados, aba Monitor, testes). Até lá, operação continua com backups locais + telemetria existente.
+
+### [SEÇÃO: HISTÓRICO DE ÉPICOS CONCLUÍDOS]
+
+Lista **cronológica inversa** (entrega mais recente primeiro). Cada linha liga ao dossier em `docs/governanca/demandas/` para **auditoria**.
+
+| Data | ID | Título | Validação (resumo) | Documentos |
+|:---|:---|:---|:---|:---|
+| 2026-04-09 | *E19 (registo técnico)* | **E19** — Analytics de alta performance (DW `dw_*`, ETL, UI só leitura) | `pytest` + ETL + `dw_fact_*` / `dw_cliente_kpi`; LTV Real alinhado ao ledger E18 | `scripts/etl_analytics.py` · `src/ui/page_dashboards.py` (bloco E19) |
+| 2026-04-08 | `2026-04-08_E18_operacional_financeiro` | **E18** — Reestruturação operacional-financeira | 69 testes passados; **integrity_check:** ok | [`01_demanda_diretor.md`](governanca/demandas/2026-04-08_E18_operacional_financeiro/01_demanda_diretor.md) · [`02_desenho_funcional.md`](governanca/demandas/2026-04-08_E18_operacional_financeiro/02_desenho_funcional.md) |
+| 2026-04-08 | `2026-04-08_E17_2_retencao_restore_ativo` | **E17.2** — Retenção / restore / e-mails | Integração trilho E17.1/E18; telemetria [`backup_dr_history.json`](governanca/telemetry/backup_dr_history.json) | [`01_demanda_diretor.md`](governanca/demandas/2026-04-08_E17_backup_dr/01_demanda_diretor.md) · [`99_encerramento.md`](governanca/demandas/2026-04-08_E17_backup_dr/99_encerramento.md) |
+
+**Entregas E18 (negócio):** máquina de estados dual (agendamento), ledger de créditos, gate de integridade financeira (CONCLUIDO vs REALIZADO_PENDENTE_PGTO), repasses, multi-meio em `venda_pagamento_linhas`.
+
+**Encerramento E17.2:** requisitos operacionais do perímetro E17.2 foram **integrados e superados** pela arquitectura operacional-financeira do **E18** (ledger, gate de pagamento, estados de agendamento).
 
 ---
 
@@ -77,14 +107,14 @@ flowchart LR
 
 | Indicador | Situação |
 |:---|:---|
-| **Demanda activa** | ⚪ *Nenhuma* — última: **E17** entregue ([`99_encerramento.md`](governanca/demandas/2026-04-08_E17_backup_dr/99_encerramento.md)); antes **E16** ([`99`](governanca/demandas/2026-04-08_E16_cliente_nif_telefone_internacional/99_encerramento.md)). Próximo: **`@Files` → Analista**. |
-| **Última entrega de produto** | ✅ **E11** — Pré-venda na agenda (marco de negócio de referência no Diário); evoluções posteriores: E12–E17 (processo, monitor, backup/DR). |
-| **Última entrega de processo** | ✅ **E17** — Backup/DR SQLite ([`99`](governanca/demandas/2026-04-08_E17_backup_dr/99_encerramento.md)). Antes: **E16** NIF / E.164; **E15** Monitor; **E14** telemetria; **E12** Torre. |
-| **Testes** | ✅ **66** `pytest` · CI: **FLUXO OFICIAL DE GOVERNANCA** + **Validador Maestro V2** em `develop`. |
+| **Demanda activa** | 🔵 **E17.1** — Cloud Total, **Pendente**, Fase **B**, PC **PC3–PC4** ([dossier](governanca/demandas/2026-04-09_E17_1_autonomia_resiliencia_cloud/01_demanda_diretor.md)). **Próximo passo:** selo do Diretor no desenho lógico + arranque Fase C. |
+| **Última entrega de produto** | ✅ **E19** — Data Warehouse `dw_*`, ETL batch, métricas ocupação + LTV Real e KPIs churn na app (Dashboards). |
+| **Última entrega de processo** | ✅ **E19** (2026-04-09); antes **E18** (2026-04-08); **E17.2** concluída; **E17** backup/DR base ([`99` E17](governanca/demandas/2026-04-08_E17_backup_dr/99_encerramento.md)). |
+| **Testes** | ✅ Suite **`pytest tests/`** (CI: **FLUXO OFICIAL DE GOVERNANCA** + **Validador Maestro V2** em `develop`). Registo de encerramento E18: **69** testes + **integrity_check** ok (ver histórico JSON). |
 
 ---
 
-## Diário de Bordo — marcos E01 a E17
+## Diário de Bordo — marcos E01 a E19
 
 Resumo **executivo** (detalhe técnico nos [anexos](#apêndice-h--e09-agendamentos-detalhe) e no [`CONTROLE_DE_VOO.md`](../CONTROLE_DE_VOO.md)). **Retrabalhos de processo:** ver [Apêndice A](#apêndice-a--registo-de-retrabalhos); abaixo indica-se apenas se houve evento registado.
 
@@ -107,6 +137,10 @@ Resumo **executivo** (detalhe técnico nos [anexos](#apêndice-h--e09-agendament
 | **E15** | 2026-04-07 | **Monitor de Voo** — `monitor_governanca.py` na raiz; app principal sem entrada Fluxo; autorefresh obrigatório. | — |
 | **E16** | 2026-04-08 | **Cliente** — NIF PT + doc. internacional; telefone E.164; `cliente_filhos.data_nascimento`; migração emergência. **Entregue** ([`99`](governanca/demandas/2026-04-08_E16_cliente_nif_telefone_internacional/99_encerramento.md)). | — |
 | **E17** | 2026-04-08 | **Backup/DR** — hot-backup horário SQLite, verificação semanal `integrity_check`, `cloud_queue`, WAL; scripts + PAINEL. **Entregue** ([`99`](governanca/demandas/2026-04-08_E17_backup_dr/99_encerramento.md)). | — |
+| **E17.1** | 2026-04-09 | **Cloud Total** — GHA, AES-GCM, restore semanal, telemetria; **em curso** Fase B ([`01`](governanca/demandas/2026-04-09_E17_1_autonomia_resiliencia_cloud/01_demanda_diretor.md)). | — |
+| **E17.2** | 2026-04-08 | **Retenção multi-tier + restore activo + e-mails** — concluído; requisitos operacionais integrados / superados pelo **E18**. | — |
+| **E18** | 2026-04-08 | **Operacional-financeiro** — ledger de créditos, linhas de pagamento multi-meio, gate CONCLUIDO, `repasse_linhas`, máquina de estados de agendamento. **Entregue** ([`01`](governanca/demandas/2026-04-08_E18_operacional_financeiro/01_demanda_diretor.md) · [`02`](governanca/demandas/2026-04-08_E18_operacional_financeiro/02_desenho_funcional.md)). | — |
+| **E19** | 2026-04-09 | **Analytics DW** — `scripts/etl_analytics.py` (tabelas `dw_*`), carga horária decimal, recorrência/LTV Real no ETL (ledger E18); UI apenas `SELECT` sobre `dw_*` + botão ETL. | — |
 
 ---
 
@@ -230,11 +264,18 @@ Se uma regra de ramo exigir o nome antigo *Fabrica Zimmermann…*, actualize no 
 | E13 | Copy formulários (`app.py` + mensagem `catalogo.py`) |
 | E14 | Telemetria ao vivo + `.cursorrules` microtarefas |
 | E15 | `monitor_governanca.py` stand-alone; remoção Fluxo da app |
+| E17.1 | Backup/DR na nuvem (GHA + cifra + telemetria + matriz Monitor) |
+| E17.2 | Retenção 3/7/30d, restore activo, e-mails, dashboards Web/CLI — concluído; legado operacional alinhado ao E18 |
+| E18 | Vendas/agendamentos: ledger `credito_movimentos`, `venda_pagamento_linhas`, gate financeiro, repasses, estados |
+| E19 | ETL `dw_*` + dashboards só leitura; LTV Real e ocupação fora da UI (batch) |
 
 ---
 
 ## Apêndice H — Histórico de entregas (detalhe)
 
+- **2026-04-09 — E19:** `scripts/etl_analytics.py`; tabelas `dw_fact_agendamento`, `dw_fact_venda`, `dw_cliente_kpi`, `dw_etl_run`; secção Analytics em `page_dashboards.py`.
+- **2026-04-08 — E18:** modelo híbrido operacional-financeiro; dossier [`2026-04-08_E18_operacional_financeiro`](governanca/demandas/2026-04-08_E18_operacional_financeiro/01_demanda_diretor.md); painel v2 no JSON + Monitor.
+- **2026-04-08 — E17.2:** fecho operacional; integração narrativa com E18 (ver secção histórico no JSON / PAINEL).
 - **2026-04-07 — E15:** `monitor_governanca.py` na raiz; `page_fluxo_gestao` removido; PAINEL com dois acessos; **50** testes.
 - **2026-04-07 — E14:** STATUS LIVE, `streamlit-autorefresh`, campos `live_*` no JSON; regra EQUIPE em `.cursorrules`; **49** testes (pré-E15).
 - **2026-04-07 — E13:** Copy Clientes, Colaboradores, Catálogo; rótulo duração pacote; Âmbito evento; **49** testes.
@@ -249,7 +290,7 @@ Se uma regra de ramo exigir o nome antigo *Fabrica Zimmermann…*, actualize no 
 
 ## Apêndice I — E09 Agendamentos (detalhe)
 
-**Estado:** etapas 01–15 concluídas.
+**Estado:** etapas 01–15 concluídas na linha E09; **E18** evoluiu estados, histórico, crédito e gate financeiro (ver [`02_desenho_funcional.md` E18](governanca/demandas/2026-04-08_E18_operacional_financeiro/02_desenho_funcional.md)).
 
 | # | Etapa | Estado | Nota |
 |:---:|:---|:---:|:---|
@@ -274,7 +315,7 @@ Se uma regra de ramo exigir o nome antigo *Fabrica Zimmermann…*, actualize no 
 
 ## Apêndice K — E07 Vendas
 
-✅ [`page_vendas.py`](../src/ui/page_vendas.py), [`venda.py`](../src/modules/venda.py). Testes: **33** no fecho E07.
+✅ [`page_vendas.py`](../src/ui/page_vendas.py), [`venda.py`](../src/modules/venda.py). Testes: **33** no fecho E07. **E18:** linhas `venda_pagamento_linhas`, abatimento de crédito, coerência com gate de agendamento CONCLUIDO.
 
 ---
 

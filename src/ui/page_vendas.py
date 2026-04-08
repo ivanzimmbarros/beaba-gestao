@@ -26,6 +26,7 @@ from src.modules.agendamento import (
     obter_agendamento,
     obter_primeiro_item_venda_por_servico,
 )
+from src.modules.credito_ledger import obter_saldo_credito_cliente
 from src.modules.venda import calcular_totais_venda, registrar_venda
 from src.ui.telefone_widgets import (
     ler_e164_de_widgets,
@@ -186,7 +187,11 @@ def render_page_vendas(
     cli_id = st.session_state.venda_cliente_id
 
     if cli_id:
-        st.info(f"Cliente selecionado: **#{cli_id}**. Pode atualizar a ficha antes de fechar a venda.")
+        saldo_loja = obter_saldo_credito_cliente(int(cli_id))
+        st.info(
+            f"Cliente selecionado: **#{cli_id}**. "
+            f"Saldo de crédito de loja: **{centavos_para_texto_euros(saldo_loja)}**."
+        )
         with st.expander("Editar ficha do cliente", expanded=False):
             p = f"{fk}_vc"
             st.text_input("Nome completo *", key=f"{p}_nome")
@@ -580,6 +585,7 @@ def render_page_vendas(
         ge = euros_para_centavos(g_eur)
         gval = ge if ge is not None else None
 
+    ok_t = False
     tot_preview = None
     if cart:
         slim_all: list[dict] = []
@@ -629,6 +635,19 @@ def render_page_vendas(
             st.error(msg_t)
 
     st.subheader("4. Pagamento")
+    abat_cred_eur = 0.0
+    if cli_id:
+        saldo_ab = obter_saldo_credito_cliente(int(cli_id))
+        abat_cred_eur = float(
+            st.number_input(
+                "Abatimento de crédito de loja (€)",
+                min_value=0.0,
+                value=0.0,
+                step=0.01,
+                key=f"{fk}_abat_cred",
+                help=f"Máximo sugerido: saldo {centavos_para_texto_euros(saldo_ab)}.",
+            )
+        )
     est_label = st.selectbox(
         "Estado do pagamento",
         [
@@ -657,6 +676,7 @@ def render_page_vendas(
         ("dinheiro", "Dinheiro"),
         ("cartao_credito", "Cartão de crédito"),
         ("mbway", "MBWay"),
+        ("iban", "IBAN / transferência"),
     ]
     pag_rows: list[tuple[str, int]] = []
     for j in range(n_m):
@@ -693,6 +713,27 @@ def render_page_vendas(
             ve2 = st.number_input(f"Valor (€) prev. {j + 1}", min_value=0.0, value=0.0, step=0.01, key=f"{fk}_pv_{j}")
         vc2 = euros_para_centavos(float(ve2)) or 0
         prev_rows.append((dv.isoformat(), vc2))
+
+    if ok_t and tot_preview is not None and cli_id:
+        tf = int(tot_preview["total_final_centavos"])
+        cab_try = euros_para_centavos(float(abat_cred_eur)) or 0
+        saldo_c2 = obter_saldo_credito_cliente(int(cli_id))
+        cab = min(max(0, cab_try), max(0, saldo_c2), tf)
+        liq = max(0, tf - cab)
+        sp = sum(v for _, v in pag_rows)
+        sa = sum(v for _, v in prev_rows)
+        falta = liq - sp - sa
+        fc1, fc2, fc3 = st.columns(3)
+        with fc1:
+            st.metric("Total final (venda)", centavos_para_texto_euros(tf))
+        with fc2:
+            st.metric("Abatimento de crédito", centavos_para_texto_euros(cab))
+        with fc3:
+            st.metric(
+                "Falta lançar",
+                centavos_para_texto_euros(max(0, falta)),
+                help="Meios + previstos devem fechar o total após abatimento.",
+            )
 
     obs = st.text_area("Observações da venda", key=f"{fk}_obs_v")
 
@@ -734,6 +775,16 @@ def render_page_vendas(
         fechar_before = st.session_state.get("venda_fechar_agendamento_id")
         ctx_before = st.session_state.get("venda_agendamento_contexto_id")
         ctx_arg = fechar_before or ctx_before
+        cab_reg = 0
+        if (
+            st.session_state.venda_cliente_id
+            and ok_t
+            and tot_preview is not None
+        ):
+            tfc = int(tot_preview["total_final_centavos"])
+            cab_try_r = euros_para_centavos(float(abat_cred_eur)) or 0
+            sd = obter_saldo_credito_cliente(int(st.session_state.venda_cliente_id))
+            cab_reg = min(max(0, cab_try_r), max(0, sd), tfc)
         ok_f, msg_f, vid_new = registrar_venda(
             int(st.session_state.venda_cliente_id),
             estado,  # type: ignore[arg-type]
@@ -744,6 +795,7 @@ def render_page_vendas(
             prev_rows,
             obs,
             agendamento_contexto_id=int(ctx_arg) if ctx_arg else None,
+            credito_abatido_centavos=int(cab_reg),
         )
         if ok_f:
             if fechar_before and vid_new is not None:

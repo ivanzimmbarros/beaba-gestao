@@ -150,6 +150,62 @@ def _fases_para_exibir(data: dict) -> list[dict]:
     return out
 
 
+def _render_secoes_painel_demandas(data: dict) -> None:
+    """Painel v2: épicos em execução vs histórico concluído (`status_demanda.json`)."""
+    sec_ab = data.get("secao_epicos_em_execucao")
+    sec_hi = data.get("secao_historico_epicos_concluidos")
+    if not isinstance(sec_ab, dict) and not isinstance(sec_hi, dict):
+        return
+
+    st.subheader("Painel de demandas (layout v2)")
+    if isinstance(sec_ab, dict):
+        st.markdown(f"**{sec_ab.get('titulo') or '[SEÇÃO: ÉPICOS EM EXECUÇÃO]'}**")
+        if sec_ab.get("descricao"):
+            st.caption(str(sec_ab["descricao"]))
+        itens = sec_ab.get("itens")
+        if isinstance(itens, list) and itens:
+            for ep in itens:
+                if not isinstance(ep, dict):
+                    continue
+                st.markdown(
+                    f"- **{ep.get('titulo', '—')}** (`{ep.get('demanda_id', '—')}`) — "
+                    f"**{ep.get('status_demanda', '—')}** · Fase {ep.get('fase_actual', '—')} · PC {ep.get('pc_foco', '—')}"
+                )
+                if ep.get("resumo_foco"):
+                    st.caption(str(ep["resumo_foco"]))
+        else:
+            st.info("Nenhum épico em «Em Aberto» ou «Pendente».")
+
+    st.divider()
+
+    if isinstance(sec_hi, dict):
+        st.markdown(f"**{sec_hi.get('titulo') or '[SEÇÃO: HISTÓRICO DE ÉPICOS CONCLUÍDOS]'}**")
+        if sec_hi.get("descricao"):
+            st.caption(str(sec_hi["descricao"]))
+        itens = sec_hi.get("itens")
+        if isinstance(itens, list) and itens:
+            for ep in itens:
+                if not isinstance(ep, dict):
+                    continue
+                st.markdown(
+                    f"**{ep.get('data_conclusao', '—')}** — **{ep.get('titulo', '—')}** "
+                    f"— `{ep.get('demanda_id', '—')}` — *{ep.get('status_demanda', 'CONCLUÍDO')}*"
+                )
+                if ep.get("entrega"):
+                    st.caption(f"Entrega: {ep['entrega']}")
+                if ep.get("validacao"):
+                    st.caption(f"Validação: {ep['validacao']}")
+                refs = ep.get("refs_docs")
+                if isinstance(refs, list) and refs:
+                    st.markdown("Documentos (auditoria):")
+                    for r in refs:
+                        st.markdown(f"- `{r}`")
+        else:
+            st.caption("Histórico vazio.")
+
+    st.divider()
+
+
 def _render_status_live(data: dict) -> None:
     st.subheader("STATUS LIVE — telemetria")
     st.caption(
@@ -187,6 +243,7 @@ def _render_status_live(data: dict) -> None:
 
 
 def _render_governanca_tab(data: dict) -> None:
+    _render_secoes_painel_demandas(data)
     _render_status_live(data)
 
     st.divider()
@@ -314,7 +371,7 @@ def _render_backup_dr_tab() -> None:
 
     df_main = pd.DataFrame(rows_main)
     st.markdown("### Tabela de execuções")
-    st.dataframe(df_main, hide_index=True, use_container_width=True)
+    st.dataframe(df_main, hide_index=True, width="stretch")
     st.markdown("**Links rápidos (Markdown)**")
     for r in runs[:8]:
         if not isinstance(r, dict):
@@ -326,7 +383,7 @@ def _render_backup_dr_tab() -> None:
     st.markdown("### Matriz temporal (ícones por grupo)")
     st.caption("Colunas: Ambiente, Estrutura, Config, Arquivos, User Data, Logs — ✅ ok · ⚠️ aviso · ❌ falha · ⚪ desconhecido")
     df_mat = pd.DataFrame(rows_matrix)
-    st.dataframe(df_mat, hide_index=True, use_container_width=True)
+    st.dataframe(df_mat, hide_index=True, width="stretch")
 
     with st.expander("Detalhe textual por grupo (última execução)"):
         last = runs[0] if runs else {}

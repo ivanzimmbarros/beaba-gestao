@@ -1,39 +1,86 @@
 {
-  "demanda_id": "2026-04-08_E17_2_retencao_restore_ativo",
-  "titulo": "E17.2 — Retenção multi-tier (hourly/daily/weekly), restore_sqlite, e-mails de falha e teste semanal",
-  "fase_actual": "F",
-  "passo_referencia": "PC13 (fecho E17.2 — selo Diretor + painel)",
-  "responsavel_actual": "EQUIPE — Fases C–E E17.2 concluídas; foco fecho PC13 e operação GHA (§7)",
+  "painel_layout_version": 2,
+  "secao_epicos_em_execucao": {
+    "titulo": "[SEÇÃO: ÉPICOS EM EXECUÇÃO]",
+    "descricao": "Demandas com status «Em Aberto» ou «Pendente» (foco operacional actual).",
+    "itens": [
+      {
+        "demanda_id": "2026-04-09_E17_1_autonomia_resiliencia_cloud",
+        "titulo": "E17.1 — Autonomia e Resiliência Cloud Total (GHA, AES-GCM, restore semanal, telemetria)",
+        "status_demanda": "Pendente",
+        "fase_actual": "B",
+        "pc_foco": "PC3–PC4",
+        "resumo_foco": "Revisão do desenho lógico Cloud (`04_desenho_logico.md`) pelo Diretor; após CONFIRMO/PROSSIGA — Fases C/D (workflows, aba Monitor, testes)."
+      }
+    ]
+  },
+  "secao_historico_epicos_concluidos": {
+    "titulo": "[SEÇÃO: HISTÓRICO DE ÉPICOS CONCLUÍDOS]",
+    "descricao": "Entregas finalizadas (ordem: mais recente primeiro). Cada entrada referencia dossier em `docs/governanca/demandas/` para auditoria.",
+    "itens": [
+      {
+        "demanda_id": "2026-04-08_E18_operacional_financeiro",
+        "titulo": "E18 — Reestruturação operacional-financeira (modelo híbrido)",
+        "status_demanda": "CONCLUÍDO",
+        "data_conclusao": "2026-04-08",
+        "entrega": "Máquina de estados dual, Ledger de Créditos, Gate de Integridade Financeira e Repasses.",
+        "validacao": "69 testes passados e integrity_check: ok.",
+        "refs_docs": [
+          "docs/governanca/demandas/2026-04-08_E18_operacional_financeiro/01_demanda_diretor.md",
+          "docs/governanca/demandas/2026-04-08_E18_operacional_financeiro/02_desenho_funcional.md"
+        ]
+      },
+      {
+        "demanda_id": "2026-04-08_E17_2_retencao_restore_ativo",
+        "titulo": "E17.2 — Retenção multi-tier (hourly/daily/weekly), restore_sqlite, e-mails de falha e teste semanal",
+        "status_demanda": "CONCLUÍDO",
+        "data_conclusao": "2026-04-08",
+        "entrega": "Retenção 3/7/30d, restore activo, e-mails, dashboards Web/CLI; requisitos operacionais integrados e superados pela arquitectura operacional-financeira do E18 (ledger, gate de pagamento, estados de agendamento).",
+        "validacao": "Integração com trilho E17.1/E18; provas de restore e telemetria em `docs/governanca/telemetry/backup_dr_history.json`.",
+        "refs_docs": [
+          "docs/governanca/demandas/2026-04-08_E17_backup_dr/01_demanda_diretor.md",
+          "docs/governanca/demandas/2026-04-08_E17_backup_dr/99_encerramento.md"
+        ]
+      }
+    ]
+  },
+  "demanda_id": "2026-04-09_E17_1_autonomia_resiliencia_cloud",
+  "titulo": "E17.1 — Autonomia e Resiliência Cloud Total (GHA, AES-GCM, restore semanal, telemetria)",
+  "fase_actual": "B",
+  "passo_referencia": "PC3–PC4 (revisão 04_desenho_logico + autorização Fase C)",
+  "responsavel_actual": "EQUIPE — foco E17.1; E18 fechado; E17.2 encerrada (legado operacional absorvido pelo E18)",
   "pontos_controlo_concluidos": [
     "E16 — PC1 a PC13a: dossier 01–09 + 99; implementação + pareceres + QA em develop",
-    "E17 — PC13: encerramento operacional; `ultima_entrega_marco` = E17",
+    "E17 — PC13: encerramento operacional; `ultima_entrega_marco` evoluiu até E18",
     "E17.1 — Fase B: 01+02+04 desenho lógico Cloud",
     "E17.1 — Auditor: `backup_dr_history.json` inicial + Monitor resiliente",
     "E17.1 — Fase C: `.github/workflows/backup_hourly.yml` + `restore_weekly.yml`; `e17_1_crypto`, `e17_1_telemetry`, jobs GHA; append + git-auto-commit; aba Backup com matriz; run manual local com primeiro registo ✅",
     "E17.2 — Retenção hourly/daily/weekly + `restore_sqlite.py` + `test_restore_weekly.yml` + e-mails + `.cursorrules` + telemetria `snapshot_table_counts` ✅",
-    "E17.2 — Fases C–E (código 1/2 + QA) concluídas: dashboards CLI/Web, testes, push develop + backup-and-restore ✅"
+    "E17.2 — Fases C–E + fecho PC13: CONCLUÍDO 2026-04-08 — requisitos operacionais integrados / superados pelo E18",
+    "E18 — Operacional-financeiro: ledger `credito_movimentos`, `venda_pagamento_linhas`, gate CONCLUIDO, `repasse_linhas`, estados agendamento — CONCLUÍDO 2026-04-08",
+    "E18 — Validação: suite `pytest tests/` + integrity_check ok"
   ],
-  "pendente": "Operação: Secrets `BEABA_BACKUP_KEY` + `EMAIL_*` no GitHub; validar workflows `backup_*` e `test_restore_weekly` (workflow_dispatch); garantir branch `backup-and-restore` em `origin`.",
+  "pendente": "E17.1: confirmação do Diretor sobre `04_desenho_logico.md`; depois Fase C/D (workflows, scripts partilhados, aba Streamlit). Operação: Secrets `BEABA_BACKUP_KEY` + `EMAIL_*` no GitHub; validar workflows `backup_*` e `test_restore_weekly`.",
   "falha": null,
   "ultima_actualizacao_iso": "2026-04-08",
-  "notas_dashboard": "E17.2: `scripts/app_governance.py` (Streamlit: sprint, backup/restore %, checklist .cursorrules); `view_governance.py` / `monitor_demanda.py` CLI; `monitor_governanca.py` raiz; cascata GHA; `restore_result.json`.",
-  "fase_governanca": "F",
-  "pc_foco": "PC13",
+  "notas_dashboard": "Painel v2: secções «Épicos em execução» e «Histórico de épicos concluídos» em `status_demanda.json`. Apps: `scripts/app_governance.py`, `view_governance.py`, `monitor_demanda.py`, `monitor_governanca.py` (aba Governança).",
+  "fase_governanca": "B",
+  "pc_foco": "PC3–PC4",
   "percurso": "normal",
-  "ultima_entrega_marco": "E17",
-  "live_status": "E17.2: fases C–E marcadas feitas — sprint ~83%; foco em fecho PC13",
+  "ultima_entrega_marco": "E18",
+  "live_status": "E17.1 em B — aguarda revisão do 04_desenho_logico pelo Diretor; E18 e E17.2 registados no histórico concluído.",
   "etapas_pendentes": [
-    "Fecho (PC13): selo Diretor no chat + registo EQUIPE no Git / PAINEL quando aplicável.",
-    "Operação: secrets `BEABA_BACKUP_KEY` + `EMAIL_*`; `workflow_dispatch` nos workflows de backup/restore.",
-    "Dashboard Web: `streamlit run scripts/app_governance.py` (monitorização contínua)."
+    "Diretor: rever `docs/governanca/demandas/2026-04-09_E17_1_autonomia_resiliencia_cloud/04_desenho_logico.md` e autorizar Fase C.",
+    "Pós-autorização: implementar workflows/scripts cloud conforme dossier E17.1.",
+    "Operação: secrets GitHub + disparo manual inicial de `backup_hourly` / matriz no Monitor."
   ],
-  "live_actualizado_iso": "2026-04-08T23:30:00Z",
+  "live_actualizado_iso": "2026-04-08T23:59:00Z",
   "fases_resumo": [
     { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
-    { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "feito" },
-    { "id": "C", "label": "Código 1", "pcs": "PC5→6", "estado": "feito" },
-    { "id": "D", "label": "Código 2", "pcs": "PC7→8", "estado": "feito" },
-    { "id": "E", "label": "QA", "pcs": "PC9–12", "estado": "feito" },
+    { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "curso" },
+    { "id": "C", "label": "Código 1", "pcs": "PC5→6", "estado": "pendente" },
+    { "id": "D", "label": "Código 2", "pcs": "PC7→8", "estado": "pendente" },
+    { "id": "E", "label": "QA", "pcs": "PC9–12", "estado": "pendente" },
     { "id": "F", "label": "Fecho", "pcs": "PC13", "estado": "pendente" }
   ],
   "diario_bordo_resumo": [
@@ -52,9 +99,10 @@
     "E13 — Copy formulários Clientes, Colaboradores, Catálogo.",
     "E14 — Telemetria ao vivo (STATUS LIVE + JSON live_*).",
     "E15 — Monitor de Voo stand-alone (`monitor_governanca.py`); app sem página Fluxo.",
-    "E16 — Cliente: NIF PT + doc. internacional; telefone E.164; nasc. filho opcional — entregue 2026-04-08.",
-    "E17 — Backup/DR SQLite: hot-backup horário, verify semanal integrity_check, cloud_queue, WAL — entregue 2026-04-08.",
-    "E17.1 — Cloud Total: GHA + AES-GCM + telemetria + Monitor — Fase C em curso.",
-    "E17.2 — Retenção 3/7/30d, restore activo, e-mails, dashboards Web/CLI — fases C–E feitas; fecho PC13 pendente — 2026-04-08."
+    "E16 — Cliente: NIF PT + doc. internacional; telefone E.164 — entregue 2026-04-08.",
+    "E17 — Backup/DR SQLite — entregue 2026-04-08.",
+    "E17.1 — Cloud Total: GHA + AES-GCM + telemetria + Monitor — Fase B; aguarda CONFIRMO.",
+    "E17.2 — Retenção / restore / e-mails — CONCLUÍDO 2026-04-08 (encerramento; legado operacional alinhado ao E18).",
+    "E18 — Operacional-financeiro: ledger, multi-meio, gate CONCLUIDO, repasses — CONCLUÍDO 2026-04-08 (refs: `docs/governanca/demandas/2026-04-08_E18_operacional_financeiro/`)."
   ]
 }

@@ -7,8 +7,8 @@ Toda e qualquer alteração no projeto deve respeitar a estrutura de backup defi
 **Restore local (compliance):** o script `scripts/restore_sqlite.py` **só** pode ser executado na branch **`backup-and-restore`**. Bloqueio mandatório em **`develop`**, **`staging`** e **`main`** (a validação é feita no próprio script; não contornar em CI excepto variável de teste documentada).
 
 ### 1. Inventário de Dimensões de Cobertura
-Sempre que criar ou modificar arquivos, verifique a inclusão nestas 4 dimensões:
-* **D1: User Data (Crítico):** Bases SQLite (`*.db`), arquivos `.env` (estrutura, não valores) e uploads.
+Sempre que criar ou modificar ficheiros, verifique a inclusão nestas 4 dimensões:
+* **D1: User Data (Crítico):** Bases SQLite (`*.db`), ficheiros `.env` (estrutura, não valores) e uploads. **E18:** o ledger (`credito_movimentos`), `repasse_linhas` e `venda_pagamento_linhas` são dados críticos; o script `scripts/e17_1_sqlite_evidence.py` inclui contagens destas tabelas no conjunto `critical`.
 * **D2: Telemetria:** Arquivos de log de auditoria (`backup_dr_history.json`).
 * **D3: Infraestrutura e Regras:** Workflows em `.github/workflows/`, ficheiro .cursorrules e configurações de ambiente.
 * **D4: Scripts de Recuperação:** Scripts Python de backup/restore e suas dependências.

@@ -25,7 +25,15 @@ def gather_evidence(db_path: Path) -> dict:
             if not str(r[0]).startswith("sqlite_")
         ]
         counts: dict[str, int | None] = {}
-        critical = ("clientes", "vendas", "agendamentos", "colaboradores")
+        critical = (
+            "clientes",
+            "vendas",
+            "agendamentos",
+            "colaboradores",
+            "credito_movimentos",
+            "repasse_linhas",
+            "venda_pagamento_linhas",
+        )
         for name in tables:
             if name not in critical:
                 continue

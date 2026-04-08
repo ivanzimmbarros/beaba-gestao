@@ -36,8 +36,10 @@ ANALYTICS_COLORS: list[str] = [
 
 # Agenda (E09) — fundo + borda por estado; ícones por tipo de ocorrência
 AGENDA_STATUS_STYLES: dict[str, dict[str, str]] = {
+    "PRE_AGENDADO": {"bg": "#F0F4FF", "border": "#7B9BD4", "label": "Pré-agendado"},
     "AGENDADO": {"bg": "#E8F4F3", "border": "#97C9C5", "label": "Agendado"},
     "CONFIRMADO": {"bg": "#D4EDDA", "border": "#5CB85C", "label": "Confirmado"},
+    "REALIZADO_PENDENTE_PGTO": {"bg": "#FFF3CD", "border": "#E0A800", "label": "Realizado · pgto pendente"},
     "CONCLUIDO": {"bg": "#E2E3E5", "border": "#6C757D", "label": "Concluído"},
     "CANCELADO": {"bg": "#FCE8E8", "border": "#DC3545", "label": "Cancelado"},
 }
@@ -59,6 +61,20 @@ def agenda_status_style(status: str) -> dict[str, str]:
 
 def agenda_tipo_icon(tipo_origem: str) -> str:
     return AGENDA_TIPO_ORIGEM_ICONS.get(tipo_origem, "•")
+
+
+def agenda_pagamento_dot(rotulo_pagamento: str) -> tuple[str, str]:
+    """Símbolo + cor (hex) para estado financeiro da venda ligada (legenda no calendário)."""
+    r = (rotulo_pagamento or "").strip()
+    if r.startswith("Pago"):
+        return ("●", "#5CB85C")
+    if "Parcialmente" in r:
+        return ("●", "#F0AD4E")
+    if "atrasado" in r.lower():
+        return ("●", "#DC3545")
+    if "Pré-venda" in r:
+        return ("◌", "#999999")
+    return ("○", "#AAAAAA")
 
 
 def inject_bea_theme() -> None:
