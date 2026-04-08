@@ -1,5 +1,29 @@
 # CURSOR RULES — BEABÁ GESTÃO
 
+## 🛡️ Protocolo de Governança e Backup (E17.1)
+
+Toda e qualquer alteração no projeto deve respeitar a estrutura de backup definida. Nenhuma feature é considerada "concluída" se não estiver coberta pela telemetria.
+
+### 1. Inventário de Dimensões de Cobertura
+Sempre que criar ou modificar arquivos, verifique a inclusão nestas 4 dimensões:
+* **D1: User Data (Crítico):** Bases SQLite (`*.db`), arquivos `.env` (estrutura, não valores) e uploads.
+* **D2: Telemetria:** Arquivos de log de auditoria (`backup_dr_history.json`).
+* **D3: Infraestrutura:** Workflows em `.github/workflows/`.
+* **D4: Scripts de Recuperação:** Scripts Python de backup/restore e suas dependências.
+
+### 2. Regras de Compliance para o Desenvolvedor/IA
+1. **Sync Check:** Antes de sugerir um novo diretório ou banco de dados, verifique se o script `backup_sqlite.py` e o workflow `backup_hourly.yml` precisam ser atualizados para incluir o novo caminho.
+2. **Double-Check de Telemetria:** Qualquer falha em novos processos deve ser obrigatoriamente reportada ao `backup_dr_history.json` para manter o painel Streamlit (Monitor de Voo) fidedigno.
+3. **Isolamento de Branch:** Workflows de backup devem ser testados no branch `develop` usando `workflow_dispatch` antes de qualquer movimentação para `main` (PRD).
+4. **Alerta de Falha:** Novos processos críticos devem incluir o step de alerta (WhatsApp/CallMeBot) em caso de erro.
+
+### 3. Validação de "100% Covered"
+Antes de finalizar qualquer tarefa, responda:
+- "O novo dado gerado será persistido no próximo ciclo de backup?"
+- "O log de telemetria refletirá o sucesso/falha desta nova funcionalidade?"
+
+---
+
 ## ENTRADA OFICIAL — `@Files` → ANALISTA / EQUIPE (mandatório)
 
 1. **Canal único da demanda:** o Diretor inicia **toda** evolução no **Cursor** usando **`@Files`** dirigido à persona **Analista** (ou menção explícita à **EQUIPE** no mesmo sentido). O conteúdo dessa conversa é a **fonte** da demanda.
