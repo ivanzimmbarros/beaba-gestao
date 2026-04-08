@@ -40,6 +40,55 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parent
 
 
+def _path_backup_dr_history() -> Path:
+    return _repo_root() / "docs" / "governanca" / "telemetry" / "backup_dr_history.json"
+
+
+def carregar_backup_dr_history() -> tuple[list[dict], str | None]:
+    """
+    Lê `docs/governanca/telemetry/backup_dr_history.json` de forma resiliente.
+
+    Retorna (runs, aviso): `runs` só inclui entradas que são dict; `aviso` é mensagem
+    para o utilizador se o ficheiro falhar, estiver vazio ou o JSON for inválido.
+    """
+    p = _path_backup_dr_history()
+    if not p.is_file():
+        return [], (
+            "Ficheiro de telemetria **não encontrado**: `docs/governanca/telemetry/backup_dr_history.json`. "
+            "O Monitor continua operacional; aguarde commit inicial ou restaure o ficheiro."
+        )
+    try:
+        raw = p.read_text(encoding="utf-8")
+    except OSError as exc:
+        return [], f"Não foi possível ler a telemetria de backup: {exc}"
+
+    stripped = raw.strip()
+    if not stripped:
+        return [], (
+            "Ficheiro de telemetria **vazio** — sem dados JSON. "
+            "Preenchimento previsto pelos workflows E17.1 (`runs` permanece `[]` até primeira execução)."
+        )
+    try:
+        data = json.loads(stripped)
+    except json.JSONDecodeError as exc:
+        return [], f"**JSON inválido** em `backup_dr_history.json`: {exc}"
+
+    if not isinstance(data, dict):
+        return [], "Conteúdo de telemetria inválido: raiz deve ser um objecto JSON."
+
+    runs = data.get("runs")
+    if runs is None:
+        return [], (
+            "Campo **`runs`** ausente — schema esperado: "
+            '`{"schema_version": 1, "runs": []}`.'
+        )
+    if not isinstance(runs, list):
+        return [], "Campo **`runs`** deve ser uma lista."
+
+    clean = [r for r in runs if isinstance(r, dict)]
+    return clean, None
+
+
 def carregar_status_demanda() -> dict:
     p = _repo_root() / "docs" / "governanca" / "status_demanda.json"
     if not p.is_file():
@@ -108,39 +157,7 @@ def _render_status_live(data: dict) -> None:
     st.caption(f"**Última actualização telemetria:** {ts_s or '—'}")
 
 
-def main() -> None:
-    st.set_page_config(
-        page_title="Monitor de Voo — Governança BeaBa",
-        layout="wide",
-        initial_sidebar_state="collapsed",
-    )
-
-    st.markdown("## Monitor de Voo")
-    st.caption(
-        "Telemetria e fluxo oficial — leitura directa de `docs/governanca/status_demanda.json`. "
-        "Entrada: **`@Files` → Analista**. Norma: `FLUXO_SUCESSO_E_FALHA.md`."
-    )
-
-    if st_autorefresh is None:
-        st.error(
-            "Pacote **streamlit-autorefresh** não encontrado. Instale com: `pip install streamlit-autorefresh`."
-        )
-    else:
-        st_autorefresh(interval=_AUTOREFRESH_MS, key="bea_monitor_live_tick")
-        st.caption(
-            f"Renovação automática a cada {_AUTOREFRESH_MS // 1000} s. Feche o separador para parar refreshes."
-        )
-
-    c_btn, _ = st.columns([1, 4])
-    with c_btn:
-        if st.button("Actualizar agora", key="bea_monitor_manual"):
-            st.rerun()
-
-    data = carregar_status_demanda()
-    if "erro" in data:
-        st.error(str(data["erro"]))
-        return
-
+def _render_governanca_tab(data: dict) -> None:
     _render_status_live(data)
 
     st.divider()
@@ -210,6 +227,72 @@ def main() -> None:
         "Dossiers: `docs/governanca/demandas/<ID>/` · Painel executivo: `docs/PAINEL_OPERACIONAL.md` · "
         "Norma: `docs/governanca/FLUXO_SUCESSO_E_FALHA.md`"
     )
+
+
+def _render_backup_dr_tab() -> None:
+    st.subheader("Controle de Backup e Restore (E17.1)")
+    st.caption(
+        "Histórico canónico: `docs/governanca/telemetry/backup_dr_history.json` "
+        "(preenchido pelos workflows após implementação)."
+    )
+
+    runs, aviso = carregar_backup_dr_history()
+    if aviso:
+        st.warning(aviso)
+
+    if not runs:
+        st.info(
+            "⚪ **Sem execuções registadas** — `runs` está vazio ou indisponível. "
+            "A matriz temporal e os detalhes por grupo aparecerão quando os workflows "
+            "passarem a anexar entradas."
+        )
+    else:
+        st.success(f"**{len(runs)}** execução(ões) em `runs` — vista detalhada (matriz ✅⚠️❌) na fase seguinte da E17.1.")
+        with st.expander("Pré-visualização JSON (primeiras entradas)"):
+            st.code(
+                json.dumps(runs[:5], ensure_ascii=False, indent=2),
+                language="json",
+            )
+
+
+def main() -> None:
+    st.set_page_config(
+        page_title="Monitor de Voo — Governança BeaBa",
+        layout="wide",
+        initial_sidebar_state="collapsed",
+    )
+
+    st.markdown("## Monitor de Voo")
+    st.caption(
+        "Telemetria e fluxo oficial — leitura directa de `docs/governanca/status_demanda.json`. "
+        "Entrada: **`@Files` → Analista**. Norma: `FLUXO_SUCESSO_E_FALHA.md`."
+    )
+
+    if st_autorefresh is None:
+        st.error(
+            "Pacote **streamlit-autorefresh** não encontrado. Instale com: `pip install streamlit-autorefresh`."
+        )
+    else:
+        st_autorefresh(interval=_AUTOREFRESH_MS, key="bea_monitor_live_tick")
+        st.caption(
+            f"Renovação automática a cada {_AUTOREFRESH_MS // 1000} s. Feche o separador para parar refreshes."
+        )
+
+    c_btn, _ = st.columns([1, 4])
+    with c_btn:
+        if st.button("Actualizar agora", key="bea_monitor_manual"):
+            st.rerun()
+
+    data = carregar_status_demanda()
+    if "erro" in data:
+        st.error(str(data["erro"]))
+        return
+
+    tab_gov, tab_backup = st.tabs(["Governança", "Backup e Restore"])
+    with tab_gov:
+        _render_governanca_tab(data)
+    with tab_backup:
+        _render_backup_dr_tab()
 
 
 main()

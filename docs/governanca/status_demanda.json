@@ -1,29 +1,30 @@
 {
   "demanda_id": "2026-04-09_E17_1_autonomia_resiliencia_cloud",
-  "titulo": "E17.1 — Autonomia e Resiliência Cloud Total: Fase B (Desenho lógico Cloud); código após PROSSIGA",
+  "titulo": "E17.1 — Cloud Total: Fase B; telemetria `backup_dr_history.json` inicializada no repo (Auditor)",
   "fase_actual": "B",
-  "passo_referencia": "PC3–PC4 (01 + 02 + 04 + Monitor)",
-  "responsavel_actual": "EQUIPE — Arquiteto + Analista (E17.1; §7 — JSON físico gravado antes da resposta)",
+  "passo_referencia": "PC3–PC4 + evidência física telemetry JSON",
+  "responsavel_actual": "EQUIPE — Auditor & Executor (§7 — JSON gravado no disco antes da resposta)",
   "pontos_controlo_concluidos": [
     "E16 — PC1 a PC13a: dossier 01–09 + 99; implementação + pareceres + QA em develop",
     "Sessão 2026-04-08: leitura física de `status_demanda.json` + alinhamento telemetria ao chat (Bullet 7 — Sincronização Física)",
     "E17 — PC13: encerramento operacional; `ultima_entrega_marco` = E17",
-    "E17.1 — 2026-04-09: dossier `2026-04-09_E17_1_autonomia_resiliencia_cloud` com 01+02+04 (infra GHA, AES-GCM, restore semanal, telemetria, esquema aba Monitor); **sem** `.yml` nem código Streamlit nesta entrega"
+    "E17.1 — 2026-04-09: dossier 01+02+04 (desenho lógico Cloud)",
+    "E17.1 — Auditor: criado `docs/governanca/telemetry/backup_dr_history.json` (schema v1, `runs`: []); Monitor lê caminho com tolerância a ausência/vazio/JSON inválido"
   ],
-  "pendente": "Diretor: rever `04_desenho_logico.md` e enviar **PROSSIGA** para Fase C (workflows GitHub Actions, scripts encrypt/decrypt, `backup_dr_history.json`, aba «Backup e Restore» no `monitor_governanca.py`).",
+  "pendente": "Diretor: **PROSSIGA** para Fase C — workflows GitHub Actions (sem avançar antes da evidência telemetry, já satisfeita). Scripts encrypt/decrypt e matriz completa na aba Backup.",
   "falha": null,
   "ultima_actualizacao_iso": "2026-04-09",
-  "notas_dashboard": "E17.1 Fase B: GHA backup horário + restore semanal; runners sem DB exigem S2 (object storage) ou S1 (self-hosted); telemetria em docs/governanca/telemetry/; Monitor com st.tabs e matriz ✅⚠️❌.",
+  "notas_dashboard": "Telemetria DR: ficheiro físico `backup_dr_history.json` versionado; Monitor → aba Backup e Restore. Workflows ainda por implementar após PROSSIGA.",
   "fase_governanca": "B",
   "pc_foco": "PC3–PC4",
   "percurso": "normal",
   "ultima_entrega_marco": "E17",
-  "live_status": "Arquiteto/Analista: E17.1 iniciada — Desenho lógico Cloud entregue (04); Monitor em Fase B; aguarda PROSSIGA para implementação.",
+  "live_status": "Auditor: telemetry JSON inicializado + commit; `monitor_governanca.py` com `st.tabs` e leitura resiliente de `backup_dr_history.json`.",
   "etapas_pendentes": [
-    "Revisão do `04_desenho_logico.md` (premissa S1/S2/S3, cron UTC, schema telemetria, aba Monitor).",
-    "Pós-PROSSIGA: Dev — `.github/workflows/*`, scripts Python GCM, telemetria, testes schema, PAINEL."
+    "Push/commit de inicialização em `develop` (evidência física).",
+    "Pós-PROSSIGA: workflows `.github/workflows/*` e append a `runs`."
   ],
-  "live_actualizado_iso": "2026-04-09T14:00:00Z",
+  "live_actualizado_iso": "2026-04-09T16:00:00Z",
   "fases_resumo": [
     { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
     { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "curso" },
@@ -50,6 +51,6 @@
     "E15 — Monitor de Voo stand-alone (`monitor_governanca.py`); app sem página Fluxo.",
     "E16 — Cliente: NIF PT + doc. internacional; telefone E.164; nasc. filho opcional — entregue 2026-04-08.",
     "E17 — Backup/DR SQLite: hot-backup horário, verify semanal integrity_check, cloud_queue, WAL — entregue 2026-04-08.",
-    "E17.1 — Cloud Total: GHA + AES-GCM + restore prova + aba Monitor — Fase B em curso (2026-04-09)."
+    "E17.1 — Cloud Total: GHA + AES-GCM + restore prova + aba Monitor — Fase B; telemetry JSON no repo."
   ]
 }

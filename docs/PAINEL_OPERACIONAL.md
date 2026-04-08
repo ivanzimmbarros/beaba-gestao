@@ -71,7 +71,7 @@ flowchart LR
 | **Demanda activa** | ⚪ *Nenhuma* — última: **E17** entregue ([`99_encerramento.md`](governanca/demandas/2026-04-08_E17_backup_dr/99_encerramento.md)); antes **E16** ([`99`](governanca/demandas/2026-04-08_E16_cliente_nif_telefone_internacional/99_encerramento.md)). Próximo: **`@Files` → Analista**. |
 | **Última entrega de produto** | ✅ **E11** — Pré-venda na agenda (marco de negócio de referência no Diário); evoluções posteriores: E12–E17 (processo, monitor, backup/DR). |
 | **Última entrega de processo** | ✅ **E17** — Backup/DR SQLite ([`99`](governanca/demandas/2026-04-08_E17_backup_dr/99_encerramento.md)). Antes: **E16** NIF / E.164; **E15** Monitor; **E14** telemetria; **E12** Torre. |
-| **Testes** | ✅ **62** `pytest` · CI: **FLUXO OFICIAL DE GOVERNANCA** + **Validador Maestro V2** em `develop`. |
+| **Testes** | ✅ **63** `pytest` · CI: **FLUXO OFICIAL DE GOVERNANCA** + **Validador Maestro V2** em `develop`. |
 
 ---
 
