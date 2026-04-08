@@ -122,23 +122,49 @@ def _consistency_pct(baseline: dict[str, int] | None, current: dict[str, int | N
 
 
 def _write_result(repo: Path, payload: dict) -> None:
+    """Grava sempre restore_result.json na raiz do repo (obrigatório em todos os exits)."""
     out = repo / RESULT_JSON
+    if "consistency_success_pct" not in payload:
+        payload = {**payload, "consistency_success_pct": None}
     out.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def main(argv: list[str]) -> int:
     repo = _repo_root()
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
     if len(argv) < 2:
         print(
             f"Uso: restore_sqlite.py <ficheiro.beaba.enc|pasta_com_artefacto>",
             file=sys.stderr,
         )
+        _write_result(
+            repo,
+            {
+                "ok": False,
+                "finished_at_utc": now,
+                "step": "usage",
+                "error": "argumentos em falta",
+                "consistency_success_pct": None,
+            },
+        )
         return 1
 
     if not _branch_allowed(repo):
         print(
-            "restore_sqlite.py: bloqueado — executar apenas na branch backup-and-restore.",
+            "restore_sqlite.py: bloqueado — executar apenas na branch backup-and-restore "
+            "(excepção: BEABA_ALLOW_RESTORE_OFF_BRANCH=1 em testes locais).",
             file=sys.stderr,
+        )
+        _write_result(
+            repo,
+            {
+                "ok": False,
+                "finished_at_utc": now,
+                "step": "branch_lock",
+                "error": "branch != backup-and-restore",
+                "consistency_success_pct": None,
+            },
         )
         return 2
 
@@ -152,9 +178,11 @@ def main(argv: list[str]) -> int:
             repo,
             {
                 "ok": False,
+                "finished_at_utc": now,
                 "step": "resolve_encrypted",
                 "error": "encrypted_not_found",
                 "path": str(enc_arg),
+                "consistency_success_pct": None,
             },
         )
         return 3
@@ -170,7 +198,16 @@ def main(argv: list[str]) -> int:
         key = parse_backup_key()
     except ValueError as exc:
         print(f"restore_sqlite.py: chave: {exc}", file=sys.stderr)
-        _write_result(repo, {"ok": False, "step": "parse_key", "error": str(exc)})
+        _write_result(
+            repo,
+            {
+                "ok": False,
+                "finished_at_utc": now,
+                "step": "parse_key",
+                "error": str(exc),
+                "consistency_success_pct": None,
+            },
+        )
         return 4
 
     backups_dir = repo / "backups"
@@ -182,21 +219,48 @@ def main(argv: list[str]) -> int:
             decrypt_file(enc_path, decrypted, key)
         except Exception as exc:
             print(f"restore_sqlite.py: decrypt falhou: {exc}", file=sys.stderr)
-            _write_result(repo, {"ok": False, "step": "decrypt", "error": str(exc)})
+            _write_result(
+                repo,
+                {
+                    "ok": False,
+                    "finished_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "step": "decrypt",
+                    "error": str(exc),
+                    "consistency_success_pct": None,
+                },
+            )
             return 5
 
         try:
             shutil.copy2(decrypted, db_target)
         except OSError as exc:
             print(f"restore_sqlite.py: cópia para {db_target}: {exc}", file=sys.stderr)
-            _write_result(repo, {"ok": False, "step": "copy_db", "error": str(exc)})
+            _write_result(
+                repo,
+                {
+                    "ok": False,
+                    "finished_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "step": "copy_db",
+                    "error": str(exc),
+                    "consistency_success_pct": None,
+                },
+            )
             return 6
 
     try:
         ev = gather_evidence(db_target)
     except Exception as exc:
         print(f"restore_sqlite.py: evidência SQLite: {exc}", file=sys.stderr)
-        _write_result(repo, {"ok": False, "step": "gather_evidence", "error": str(exc)})
+        _write_result(
+            repo,
+            {
+                "ok": False,
+                "finished_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "step": "gather_evidence",
+                "error": str(exc),
+                "consistency_success_pct": None,
+            },
+        )
         return 7
 
     counts = ev.get("table_counts") if isinstance(ev.get("table_counts"), dict) else {}

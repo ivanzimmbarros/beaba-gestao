@@ -40,7 +40,9 @@ jobs:
 
       - name: Hora UTC (relatório)
         id: ts
-        run: echo "utc=$(date -u +'%Y-%m-%d %H:%M UTC')" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "utc=$(date -u +'%Y-%m-%d %H:%M UTC')" >> "$GITHUB_OUTPUT"
+          echo "dia_hora=$(date -u +'%d/%m/%Y às %H:%M UTC')" >> "$GITHUB_OUTPUT"
 
       - name: Artefacto DB_WEEKLY_BACKUP
         id: art_w
@@ -77,8 +79,34 @@ jobs:
           name: beaba-sqlite-backup-encrypted
           path: dl
 
+      - name: Cascata — falhar só se nenhum dos três artefactos existir
+        id: art_ok
+        continue-on-error: true
+        run: |
+          python << 'PY'
+          import sys
+          from pathlib import Path
+          MAGIC = b"BEA1"
+          dl = Path("dl")
+          ok = False
+          if dl.is_dir():
+              for p in dl.rglob("*"):
+                  if p.is_file() and p.stat().st_size > 20:
+                      try:
+                          if p.read_bytes()[:4] == MAGIC:
+                              ok = True
+                              break
+                      except OSError:
+                          pass
+          if not ok:
+              print("::error::Cascata: nenhum ficheiro BEA1 após weekly → daily → horário.")
+              sys.exit(1)
+          print("Artefacto encriptado encontrado em dl/")
+          PY
+
       - name: Restore + validar (restore_sqlite.py)
         id: rst
+        if: steps.art_ok.outcome == 'success'
         continue-on-error: true
         env:
           BEABA_BACKUP_KEY: ${{ secrets.BEABA_BACKUP_KEY }}
@@ -97,9 +125,11 @@ jobs:
           tc = d.get("table_counts") or {}
           pct = d.get("consistency_success_pct")
           lines = [
-              f"Contagens (tabelas principais): {json.dumps(tc, ensure_ascii=False)}",
-              f"% de integridade vs último backup telemetria: {pct}",
-              f"integrity_check={d.get('integrity_check')} fk_violations={d.get('foreign_key_violations')}",
+              "Contagem de registros (tabelas principais):",
+              json.dumps(tc, ensure_ascii=False, indent=2),
+              "",
+              f"Validação de integridade (vs telemetria do último backup): {pct}%",
+              f"PRAGMA integrity_check: {d.get('integrity_check')} | FK violations: {d.get('foreign_key_violations')}",
           ]
           Path("email_ok_body.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
           PY
@@ -113,17 +143,22 @@ jobs:
           secure: true
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "(Sucesso) Teste de Restore - BeaBa (${{ steps.ts.outputs.utc }})"
+          subject: "(Sucesso) Teste de Restore - BeaBa (${{ steps.ts.outputs.dia_hora }})"
           to: ivanzimmbarros@gmail.com
           from: ${{ secrets.EMAIL_FROM }}
           body: file://email_ok_body.txt
           attachments: restore_result.json
 
       - name: Corpo e-mail — falha
-        if: steps.rst.outcome != 'success'
+        if: always() && (steps.art_ok.outcome == 'failure' || steps.rst.outcome == 'failure')
         run: |
           {
-            echo "Motivo: job restore falhou (exit do restore_sqlite.py ou artefacto ausente)."
+            echo "Motivo:"
+            if [ "${{ steps.art_ok.outcome }}" = "failure" ]; then
+              echo "  Nenhum artefacto disponível na cascata (DB_WEEKLY_BACKUP, DB_DAILY_BACKUP, beaba-sqlite-backup-encrypted)."
+            else
+              echo "  Falha do restore_sqlite.py ou validação SQLite / consistência."
+            fi
             echo "Hora: ${{ steps.ts.outputs.utc }}"
             echo "Download weekly: ${{ steps.art_w.outcome }} | daily: ${{ steps.art_d.outcome }} | hourly: ${{ steps.art_h.outcome }}"
             echo "Log / run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
@@ -133,7 +168,7 @@ jobs:
           } > email_fail_body.txt
 
       - name: E-mail — falha
-        if: steps.rst.outcome != 'success'
+        if: always() && (steps.art_ok.outcome == 'failure' || steps.rst.outcome == 'failure')
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
@@ -145,3 +180,15 @@ jobs:
           to: ivanzimmbarros@gmail.com
           from: ${{ secrets.EMAIL_FROM }}
           body: file://email_fail_body.txt
+
+      - name: Estado final do job (cascata + restore devem ter sucesso)
+        if: always()
+        run: |
+          if [ "${{ steps.art_ok.outcome }}" != "success" ]; then
+            echo "::error::Cascata: nenhum artefacto DB_WEEKLY_BACKUP / DB_DAILY_BACKUP / horário."
+            exit 1
+          fi
+          if [ "${{ steps.rst.outcome }}" != "success" ]; then
+            echo "::error::restore_sqlite.py falhou ou validação não passou."
+            exit 1
+          fi

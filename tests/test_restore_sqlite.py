@@ -87,6 +87,11 @@ def test_restore_blocks_without_allowed_branch(tmp_path: Path, monkeypatch: pyte
         text=True,
     )
     assert r.returncode == 2
+    rr = tmp_path / "restore_result.json"
+    assert rr.is_file(), "restore_result.json é obrigatório mesmo na trava de branch"
+    data = json.loads(rr.read_text(encoding="utf-8"))
+    assert data.get("step") == "branch_lock"
+    assert data.get("consistency_success_pct") is None
 
 
 def test_restore_ok_with_allow_flag_and_encrypted_file(tiny_repo: Path, monkeypatch: pytest.MonkeyPatch):
