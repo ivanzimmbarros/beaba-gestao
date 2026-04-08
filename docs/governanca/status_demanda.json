@@ -19,13 +19,13 @@
   "pc_foco": "PC5–PC6",
   "percurso": "normal",
   "ultima_entrega_marco": "E17",
-  "live_status": "Fase C entregue: GHA backup/restore, AES-GCM, commit telemetria bot, Dashboard Backup; pytest 66; run manual gravou 1ª entrada ✅ em backup_dr_history.json.",
+  "live_status": "Implementando Protocolo de Integridade E17.1 no CursorRules",
   "etapas_pendentes": [
+    "Confirmar PUSH `develop` com `.cursorrules` + `status_demanda.json` (sincronização física §7).",
     "Configurar `BEABA_BACKUP_KEY` em GitHub Secrets e testar workflow_dispatch.",
-    "Fase D/E: endurecer restore se `dawidd6/download-artifact` exigir ajuste de `workflow`/branch.",
-    "Screenshot: ver imagem gerada nesta sessão ou `streamlit run monitor_governanca.py` → aba Backup e Restore."
+    "Nota D3: inventário cobre `.github/workflows/`; `.cursorrules` está na camada Git/GitHub (repositório versionado)."
   ],
-  "live_actualizado_iso": "2026-04-09T18:30:00Z",
+  "live_actualizado_iso": "2026-04-09T20:00:00Z",
   "fases_resumo": [
     { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
     { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "feito" },
