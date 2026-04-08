@@ -1,10 +1,13 @@
 """
-E17 — Hot-backup horário SQLite: Backup API, PRAGMA quick_check no destino, rotação.
+E17 / E19.1 — Hot-backup horário SQLite: Backup API (cópia integral do ficheiro, todas as
+tabelas incluindo E18 ledger/repasse e E19 `dw_*`), verificação de integridade no destino,
+rotação.
 
 Variáveis de ambiente (opcionais):
   BEABA_REPO_ROOT      — raiz do repositório (defeito: pai de scripts/)
   BEABA_BACKUP_KEEP    — máximo de ficheiros em backups/hourly (defeito: 168)
   BEABA_BACKUP_CLOUD_QUEUE — "0" / "false" desliga cópia para backups/cloud_queue/
+  BEABA_BACKUP_INTEGRITY_FULL — "1" / "true" para PRAGMA integrity_check no destino (mais lento)
 """
 
 from __future__ import annotations
@@ -16,6 +19,12 @@ import sqlite3
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+_REPO = Path(__file__).resolve().parents[1]
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))
+
+from scripts.sqlite_backup_verify import verify_backup_destination  # noqa: E402
 
 DEFAULT_KEEP = 168
 
@@ -103,24 +112,13 @@ def run_backup(
     finally:
         source.close()
 
-    try:
-        qc_conn = sqlite3.connect(dest)
-        try:
-            row = qc_conn.execute("PRAGMA quick_check").fetchone()
-            qresult = row[0] if row else ""
-        finally:
-            qc_conn.close()
-    except sqlite3.Error as exc:
-        _logger.error("quick_check falhou: %s", exc)
+    ok_v, msg_v = verify_backup_destination(dest)
+    if not ok_v:
+        _logger.error("Verificação pós-backup falhou: %s", msg_v)
         dest.unlink(missing_ok=True)
         return 1
 
-    if qresult != "ok":
-        _logger.error("quick_check não ok: %s", qresult)
-        dest.unlink(missing_ok=True)
-        return 1
-
-    _logger.info("Backup criado: %s", dest.name)
+    _logger.info("Backup criado e verificado (header + pragma): %s", dest.name)
     _rotate_hourly(hourly, keep)
 
     if copy_to_cloud_queue:
@@ -128,7 +126,12 @@ def run_backup(
         try:
             cq_dest = cloud_queue / dest.name
             shutil.copy2(dest, cq_dest)
-            _logger.info("Cópia para cloud_queue: %s", cq_dest.name)
+            ok_cq, msg_cq = verify_backup_destination(cq_dest)
+            if not ok_cq:
+                _logger.error("cloud_queue: cópia corrompida ou inválida — removida: %s", msg_cq)
+                cq_dest.unlink(missing_ok=True)
+            else:
+                _logger.info("Cópia para cloud_queue verificada: %s", cq_dest.name)
         except OSError as exc:
             _logger.warning("cloud_queue: cópia falhou: %s", exc)
 

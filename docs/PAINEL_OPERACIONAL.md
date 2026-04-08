@@ -1,6 +1,6 @@
 # Painel operacional — BeaBa Gestão
 
-**Última actualização:** 2026-04-09 — **E19** Analytics DW **concluído** (ETL `scripts/etl_analytics.py` + UI `dw_*` em Dashboards). **Painel v2** mantido. **Próximo foco operacional:** **E17.1** Cloud Total (Fase B → CONFIRMO para C/D). **E18** operacional-financeiro **concluído**; **E17.2** **concluída**; **E17** backup/DR; **E16** NIF + E.164; **E15** Monitor; **E14** telemetria; **E12** Torre + Diário.  
+**Última actualização:** 2026-04-09 — **E19.1** **activa** (Cloud Total — **Fase B**): blindagem de backup/integridade e caminho de **restauro operacional** a partir de cópias espelhadas (`backups/hourly`, `cloud_queue`, GHA). Actua como **escudo protetor** de todo o trabalho **financeiro (E18)** e **analítico (E19 DW)** já entregue. **E19** DW concluído; **E18** concluído; **E17.2** concluída; **E17** backup/DR base; **E16**–**E12** estáveis. **Painel v2** mantido.  
 **Norma:** [`FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md) (**Fluxo oficial de governança**).  
 **Quem actualiza:** a **EQUIPE**; o Diretor **não** edita este ficheiro.
 
@@ -27,9 +27,10 @@ Reservado a demandas com status **Em Aberto** ou **Pendente**.
 
 | ID | Título | Status | Fase | PC foco |
 |:---|:---|:---:|:---:|:---|
-| `2026-04-09_E17_1_autonomia_resiliencia_cloud` | **E17.1** — Autonomia e Resiliência Cloud Total (GHA, AES-GCM, restore semanal, telemetria) | **Pendente** | B | PC3–PC4 |
+| **E19.1** (trilho [`E17.1`](governanca/demandas/2026-04-09_E17_1_autonomia_resiliencia_cloud/01_demanda_diretor.md)) | **Escudo Cloud Total** — auditoria de backup (integridade no destino), espelho `cloud_queue`, restauro operacional a partir de cópia verificada; alinhado à Fase B do desenho lógico Cloud | **Em curso** | B | PC3–PC4 |
+| `2026-04-09_E17_1_autonomia_resiliencia_cloud` | **E17.1** — dossier técnico (GHA, AES-GCM, restore semanal, telemetria) | **Pendente** (selo Diretor) | B | PC3–PC4 |
 
-**Próximo foco (prioridade):** **E17.1** — revisão do [`04_desenho_logico.md`](governanca/demandas/2026-04-09_E17_1_autonomia_resiliencia_cloud/04_desenho_logico.md) pelo Diretor; após **CONFIRMO** / **PROSSIGA** — Fases C/D (workflows GHA, scripts partilhados, aba Monitor, testes). Até lá, operação continua com backups locais + telemetria existente.
+**Próximo foco (prioridade):** **E19.1 / E17.1** — fechar **Fase B** com **CONFIRMO** / **PROSSIGA** sobre o [`04_desenho_logico.md`](governanca/demandas/2026-04-09_E17_1_autonomia_resiliencia_cloud/04_desenho_logico.md); depois **Fases C/D** (workflows, bucket/OIDC, Monitor). A **E19.1** garante que o que já está em produção (ledger, `dw_*`, vendas) não fica sem cópia verificada nem sem percurso de restauro local.
 
 ### [SEÇÃO: HISTÓRICO DE ÉPICOS CONCLUÍDOS]
 
@@ -47,16 +48,20 @@ Lista **cronológica inversa** (entrega mais recente primeiro). Cada linha liga 
 
 ---
 
-## Backup e recuperação (E17 — SQLite)
+## Backup e recuperação (E17 — SQLite) + **E19.1** (integridade)
 
 | Artefacto | Uso |
 |:---|:---|
-| **`scripts/backup_sqlite_hourly.py`** | Cópia online (`Backup` API) de `data/beaba_gestao.db` → `backups/hourly/beaba_gestao_UTC_*.db`, `PRAGMA quick_check`, rotação (defeito **168** ficheiros). |
+| **`scripts/backup_sqlite_hourly.py`** | Cópia **integral** (`Backup` API) de `data/beaba_gestao.db` → `backups/hourly/beaba_gestao_*.db` — inclui **todas** as tabelas (E18 ledger/repasse, E19 `dw_*`, etc.). **Sucesso** só após **`scripts/sqlite_backup_verify.py`** (header mágico SQLite + `PRAGMA quick_check`; opcional `integrity_check` com `BEABA_BACKUP_INTEGRITY_FULL=1`). Rotação defeito **168** ficheiros. |
+| **`scripts/sqlite_backup_verify.py`** | Funções partilhadas: validação de header (16 bytes) + pragma; usada pelo backup horário e pela cópia em `cloud_queue`. |
+| **`scripts/restore_operacional_de_copia.py`** | **Fase B (restauro local):** repõe `data/beaba_gestao.db` a partir da **última** cópia em `backups/hourly` ou `backups/cloud_queue` (ou ficheiro explícito), **após** as mesmas verificações. Requer `--confirmar` ou `BEABA_RESTORE_OPERACIONAL=1`. **Pare a app** antes (Windows). Complementa `restore_sqlite.py` (artefacto encriptado GHA). |
 | **`scripts/backup_hourly.cmd`** | Entrada para **Task Scheduler** (Windows), cada **1 hora** — ajustar caminho do `python` / venv. |
 | **`scripts/verify_restore_weekly.py`** | Semanal: última cópia horária → staging em `backups/restore_verify/`, `integrity_check` + `foreign_key_check`, **sem** alterar produção. |
 | **`scripts/verify_restore_weekly.cmd`** | Task Scheduler (ex.: domingo 03:00). |
 
-**Ambiente (opcional):** `BEABA_REPO_ROOT` (raiz do clone); `BEABA_BACKUP_KEEP`; `BEABA_BACKUP_CLOUD_QUEUE=0` para desligar cópia espelho em `backups/cloud_queue/`.
+**Ambiente (opcional):** `BEABA_REPO_ROOT` (raiz do clone); `BEABA_BACKUP_KEEP`; `BEABA_BACKUP_CLOUD_QUEUE=0` para desligar cópia espelho em `backups/cloud_queue/`; `BEABA_BACKUP_INTEGRITY_FULL=1` para verificação completa pós-backup.
+
+**`.gitignore`:** `*.db` mantém **fora do Git** tanto `data/beaba_gestao.db` (vivo) como réplicas em `backups/` — **intencional**; a «nuvem» não é `git push` de `.db`, mas **OneDrive/rclone/S3** sobre `backups/cloud_queue/` e/ou **artefactos GHA**.
 
 **Nuvem:** **não** sincronizar `data/beaba_gestao.db` em uso (OneDrive/Dropbox/etc.). Sincronizar apenas **cópias fechadas** — recomendado: apontar o cliente de nuvem só a `backups/cloud_queue/` **ou** usar rclone/S3/Azure com encriptação. Detalhe: [`99_encerramento.md`](governanca/demandas/2026-04-08_E17_backup_dr/99_encerramento.md) (restauro manual).
 
@@ -107,9 +112,9 @@ flowchart LR
 
 | Indicador | Situação |
 |:---|:---|
-| **Demanda activa** | 🔵 **E17.1** — Cloud Total, **Pendente**, Fase **B**, PC **PC3–PC4** ([dossier](governanca/demandas/2026-04-09_E17_1_autonomia_resiliencia_cloud/01_demanda_diretor.md)). **Próximo passo:** selo do Diretor no desenho lógico + arranque Fase C. |
-| **Última entrega de produto** | ✅ **E19** — Data Warehouse `dw_*`, ETL batch, métricas ocupação + LTV Real e KPIs churn na app (Dashboards). |
-| **Última entrega de processo** | ✅ **E19** (2026-04-09); antes **E18** (2026-04-08); **E17.2** concluída; **E17** backup/DR base ([`99` E17](governanca/demandas/2026-04-08_E17_backup_dr/99_encerramento.md)). |
+| **Demanda activa** | 🔵 **E19.1** — **Escudo** Cloud Total (Fase **B**): backup com verificação de integridade, espelho para nuvem, restauro operacional a partir de cópia; trilho técnico **E17.1** ([dossier](governanca/demandas/2026-04-09_E17_1_autonomia_resiliencia_cloud/01_demanda_diretor.md)). **Próximo passo:** selo **CONFIRMO** no `04_desenho_logico` + Fase C (GHA/OIDC). |
+| **Última entrega de produto** | ✅ **E19** — Data Warehouse `dw_*`, ETL, UI Analytics (protecção operacional sob **E19.1**). |
+| **Última entrega de processo** | ✅ **E19** (2026-04-09); **E19.1** em curso (backup/restore reforçados); **E18** (2026-04-08); **E17.2** concluída; **E17** base ([`99` E17](governanca/demandas/2026-04-08_E17_backup_dr/99_encerramento.md)). |
 | **Testes** | ✅ Suite **`pytest tests/`** (CI: **FLUXO OFICIAL DE GOVERNANCA** + **Validador Maestro V2** em `develop`). Registo de encerramento E18: **69** testes + **integrity_check** ok (ver histórico JSON). |
 
 ---
@@ -141,6 +146,7 @@ Resumo **executivo** (detalhe técnico nos [anexos](#apêndice-h--e09-agendament
 | **E17.2** | 2026-04-08 | **Retenção multi-tier + restore activo + e-mails** — concluído; requisitos operacionais integrados / superados pelo **E18**. | — |
 | **E18** | 2026-04-08 | **Operacional-financeiro** — ledger de créditos, linhas de pagamento multi-meio, gate CONCLUIDO, `repasse_linhas`, máquina de estados de agendamento. **Entregue** ([`01`](governanca/demandas/2026-04-08_E18_operacional_financeiro/01_demanda_diretor.md) · [`02`](governanca/demandas/2026-04-08_E18_operacional_financeiro/02_desenho_funcional.md)). | — |
 | **E19** | 2026-04-09 | **Analytics DW** — `scripts/etl_analytics.py` (tabelas `dw_*`), carga horária decimal, recorrência/LTV Real no ETL (ledger E18); UI apenas `SELECT` sobre `dw_*` + botão ETL. | — |
+| **E19.1** | 2026-04-09 | **Cloud Total (Fase B) + escudo** — integridade pós-backup (`sqlite_backup_verify`), restauro operacional (`restore_operacional_de_copia.py`); alinhado a E17.1 / nuvem. | — |
 
 ---
 
@@ -268,11 +274,13 @@ Se uma regra de ramo exigir o nome antigo *Fabrica Zimmermann…*, actualize no 
 | E17.2 | Retenção 3/7/30d, restore activo, e-mails, dashboards Web/CLI — concluído; legado operacional alinhado ao E18 |
 | E18 | Vendas/agendamentos: ledger `credito_movimentos`, `venda_pagamento_linhas`, gate financeiro, repasses, estados |
 | E19 | ETL `dw_*` + dashboards só leitura; LTV Real e ocupação fora da UI (batch) |
+| E19.1 | Backup integral verificado + restauro a partir de cópia espelhada; trilho Cloud E17.1 |
 
 ---
 
 ## Apêndice H — Histórico de entregas (detalhe)
 
+- **2026-04-09 — E19.1 (em curso):** `sqlite_backup_verify.py`; reforço `backup_sqlite_hourly.py`; `restore_operacional_de_copia.py`; `.gitignore` documentado para `.db`.
 - **2026-04-09 — E19:** `scripts/etl_analytics.py`; tabelas `dw_fact_agendamento`, `dw_fact_venda`, `dw_cliente_kpi`, `dw_etl_run`; secção Analytics em `page_dashboards.py`.
 - **2026-04-08 — E18:** modelo híbrido operacional-financeiro; dossier [`2026-04-08_E18_operacional_financeiro`](governanca/demandas/2026-04-08_E18_operacional_financeiro/01_demanda_diretor.md); painel v2 no JSON + Monitor.
 - **2026-04-08 — E17.2:** fecho operacional; integração narrativa com E18 (ver secção histórico no JSON / PAINEL).
