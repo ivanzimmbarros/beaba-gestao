@@ -3,7 +3,7 @@
 **Demanda:** `2026-04-08_E16_cliente_nif_telefone_internacional`  
 **Marco:** **E16**  
 **Data:** 2026-04-08  
-**Estado:** **Aprovado pelo Diretor** — ver [`03_confirmacao_diretor.md`](03_confirmacao_diretor.md).
+**Estado:** **Implementado** — ver [`99_encerramento.md`](99_encerramento.md).
 
 ---
 
@@ -46,11 +46,11 @@
 
 ## 4. Critérios de aceite (implementação — Fases C–E)
 
-- [ ] NIF PT inválido **não** grava; doc. internacional fora do padrão **não** grava.  
-- [ ] Telefone: país + nacional + tipo de linha → E.164 válido ou erro explicável.  
-- [ ] UI: grupo telefone reutilizável sem duplicar lógica nos ecrãs principais.  
-- [ ] `pytest` verde; CI **Validador Maestro** e **Fluxo oficial** sem regressão.  
-- [ ] `CADERNO_TESTES_MASTER` actualizado no passo normativo (PC7 / Dev).
+- [x] NIF PT inválido **não** grava; doc. internacional fora do padrão **não** grava.  
+- [x] Telefone: país + nacional + tipo de linha → E.164 válido ou erro explicável.  
+- [x] UI: grupo telefone reutilizável sem duplicar lógica nos ecrãs principais.  
+- [x] `pytest` verde; CI **Validador Maestro** e **Fluxo oficial** sem regressão.  
+- [x] `CADERNO_TESTES_MASTER` actualizado no passo normativo (PC7 / Dev).
 
 ---
 

@@ -1,37 +1,30 @@
 {
-  "demanda_id": "E16",
-  "titulo": "E16 — Cliente: NIF (PT + doc. internacional), telefone E.164 e widgets de contacto",
-  "fase_actual": "C - Código 1",
-  "passo_referencia": 12,
-  "responsavel_actual": "Arquiteto",
+  "demanda_id": "",
+  "titulo": "Nenhuma demanda activa — última concluída: E16 cliente NIF / E.164 (2026-04-08)",
+  "fase_actual": "—",
+  "passo_referencia": null,
+  "responsavel_actual": "—",
   "pontos_controlo_concluidos": [
-    "PC1 — GitHub: dossier 2026-04-08_E16_cliente_nif_telefone_internacional (01–03) + selo Diretor no 03",
-    "PC2 — Painel operacional + status_demanda.json (Fase A)",
-    "PC3 — GitHub: 04 + 05 desenho lógico",
-    "PC4 — Painel (referência E16)"
+    "E16 — PC1 a PC13a: dossier 01–09 + 99; implementação + pareceres + QA em develop"
   ],
-  "pendente": "Parecer Arquiteto (06) + PC5–PC6; depois Analista código (07) + plano testes + PC7–PC8; QA.",
+  "pendente": "Nova evolução: `@Files` → Analista. Última: E16 (NIF, telefone E.164, nasc. filho).",
   "falha": null,
   "ultima_actualizacao_iso": "2026-04-08",
-  "notas_dashboard": "E16: implementação Dev em src/ (NIF, E.164, UI, migração emergência); pytest 56 verde.",
-  "fase_governanca": "C - Código 1",
-  "pc_foco": "PC5",
+  "notas_dashboard": "E16 encerrada (percurso normal). Suite pytest 56; ver 99_encerramento no dossier.",
+  "fase_governanca": "—",
+  "pc_foco": null,
   "percurso": "normal",
-  "ultima_entrega_marco": "E15",
-  "live_status": "E16: código e testes integrados; aguarda parecer Arquiteto (06) e fecho PC5.",
-  "etapas_pendentes": [
-    "Arquiteto: 06_parecer_arquiteto_codigo.md após revisão do diff E16.",
-    "Actualizar PAINEL se necessário após PC6.",
-    "Analista: 07 + CADERNO; QA: pytest + 09."
-  ],
-  "live_actualizado_iso": "2026-04-08T16:30:00Z",
+  "ultima_entrega_marco": "E16",
+  "live_status": "",
+  "etapas_pendentes": [],
+  "live_actualizado_iso": "2026-04-08T18:00:00Z",
   "fases_resumo": [
     { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
     { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "feito" },
-    { "id": "C", "label": "Código 1", "pcs": "PC5→6", "estado": "curso" },
-    { "id": "D", "label": "Código 2", "pcs": "PC7→8", "estado": "pendente" },
-    { "id": "E", "label": "QA", "pcs": "PC9–12", "estado": "pendente" },
-    { "id": "F", "label": "Fecho", "pcs": "PC13", "estado": "pendente" }
+    { "id": "C", "label": "Código 1", "pcs": "PC5→6", "estado": "feito" },
+    { "id": "D", "label": "Código 2", "pcs": "PC7→8", "estado": "feito" },
+    { "id": "E", "label": "QA", "pcs": "PC9–12", "estado": "feito" },
+    { "id": "F", "label": "Fecho", "pcs": "PC13", "estado": "feito" }
   ],
   "diario_bordo_resumo": [
     "E01 — V11.0: app e identidade; Caderno Mestre.",
@@ -49,6 +42,6 @@
     "E13 — Copy formulários Clientes, Colaboradores, Catálogo.",
     "E14 — Telemetria ao vivo (STATUS LIVE + JSON live_*).",
     "E15 — Monitor de Voo stand-alone (`monitor_governanca.py`); app sem página Fluxo.",
-    "E16 — (em curso) Cliente: NIF PT + doc. internacional; telefone E.164; nasc. filho opcional — Fase C."
+    "E16 — Cliente: NIF PT + doc. internacional; telefone E.164; nasc. filho opcional — entregue 2026-04-08."
   ]
 }
