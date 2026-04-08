@@ -1,0 +1,88 @@
+# E17.1 — Backup horário (UTC), checkout develop, encriptação AES-GCM, artefacto 90d, telemetria + commit.
+# Requer Secret: BEABA_BACKUP_KEY (base64 de 32 bytes ou hex 64 chars).
+# Nota: workflows agendados executam no branch por defeito do repositório; o checkout usa sempre `develop`.
+
+name: backup_hourly
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: beaba-backup-telemetry-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+      BEABA_REPO_ROOT: ${{ github.workspace }}
+      BEABA_BACKUP_CLOUD_QUEUE: "0"
+      BEABA_BACKUP_KEEP: "50"
+      BEABA_CI_PREPARE_EMPTY_DB: "1"
+
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Dependências
+        run: pip install -r requirements.txt
+
+      - name: Pipeline backup + encriptação
+        id: pipe
+        continue-on-error: true
+        env:
+          BEABA_BACKUP_KEY: ${{ secrets.BEABA_BACKUP_KEY }}
+        run: python scripts/e17_1_gha_backup_job.py
+
+      - name: Upload artefacto encriptado
+        id: up
+        if: ${{ steps.pipe.outputs.encrypted_path != '' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: beaba-sqlite-backup-encrypted
+          path: ${{ github.workspace }}/${{ steps.pipe.outputs.encrypted_path }}
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: Telemetria + persistência JSON
+        if: always()
+        env:
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+        run: |
+          ENC="${{ steps.pipe.outputs.encrypted_path }}"
+          if [ -z "$ENC" ]; then
+            export TELEMETRY_UPLOAD_OK=""
+          elif [ "${{ steps.up.outcome }}" = "success" ]; then
+            export TELEMETRY_UPLOAD_OK=1
+          else
+            export TELEMETRY_UPLOAD_OK=0
+          fi
+          python scripts/e17_1_telemetry.py append-backup
+
+      - name: Commit backup_dr_history.json
+        if: always()
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          branch: develop
+          commit_user_name: github-actions[bot]
+          commit_user_email: github-actions[bot]@users.noreply.github.com
+          commit_message: "chore(telemetry): backup hourly run ${{ github.run_id }}"
+          file_pattern: docs/governanca/telemetry/backup_dr_history.json

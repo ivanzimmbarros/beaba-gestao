@@ -3,3 +3,8 @@ __pycache__/
 
 # E17 — logs de backup (réplicas .db em backups/ já cobertas por *.db)
 backups/logs/*.log
+
+# E17.1 — estado efémero GHA e blobs encriptados locais
+gha_backup_state.json
+gha_restore_state.json
+*.beaba.enc

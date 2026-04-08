@@ -1,34 +1,35 @@
 {
   "demanda_id": "2026-04-09_E17_1_autonomia_resiliencia_cloud",
-  "titulo": "E17.1 — Cloud Total: Fase B; telemetria `backup_dr_history.json` inicializada no repo (Auditor)",
-  "fase_actual": "B",
-  "passo_referencia": "PC3–PC4 + evidência física telemetry JSON",
-  "responsavel_actual": "EQUIPE — Auditor & Executor (§7 — JSON gravado no disco antes da resposta)",
+  "titulo": "E17.1 — Cloud Total: Fase C (workflows backup_hourly + restore_weekly, criptografia, Monitor matriz)",
+  "fase_actual": "C",
+  "passo_referencia": "PC5–PC6 (GHA + scripts + aba Backup)",
+  "responsavel_actual": "EQUIPE — Dev + Arquiteto (E17.1 Fase C; §7 — JSON físico gravado)",
   "pontos_controlo_concluidos": [
     "E16 — PC1 a PC13a: dossier 01–09 + 99; implementação + pareceres + QA em develop",
-    "Sessão 2026-04-08: leitura física de `status_demanda.json` + alinhamento telemetria ao chat (Bullet 7 — Sincronização Física)",
     "E17 — PC13: encerramento operacional; `ultima_entrega_marco` = E17",
-    "E17.1 — 2026-04-09: dossier 01+02+04 (desenho lógico Cloud)",
-    "E17.1 — Auditor: criado `docs/governanca/telemetry/backup_dr_history.json` (schema v1, `runs`: []); Monitor lê caminho com tolerância a ausência/vazio/JSON inválido"
+    "E17.1 — Fase B: 01+02+04 desenho lógico Cloud",
+    "E17.1 — Auditor: `backup_dr_history.json` inicial + Monitor resiliente",
+    "E17.1 — Fase C: `.github/workflows/backup_hourly.yml` + `restore_weekly.yml`; `e17_1_crypto`, `e17_1_telemetry`, jobs GHA; append + git-auto-commit; aba Backup com matriz; run manual local com primeiro registo ✅"
   ],
-  "pendente": "Diretor: **PROSSIGA** para Fase C — workflows GitHub Actions (sem avançar antes da evidência telemetry, já satisfeita). Scripts encrypt/decrypt e matriz completa na aba Backup.",
+  "pendente": "Operação: definir Secret **BEABA_BACKUP_KEY** (32 bytes base64/hex) no GitHub; disparar `backup_hourly` (workflow_dispatch) para validar artefacto; branch por defeito alinhada a `develop` para cron.",
   "falha": null,
   "ultima_actualizacao_iso": "2026-04-09",
-  "notas_dashboard": "Telemetria DR: ficheiro físico `backup_dr_history.json` versionado; Monitor → aba Backup e Restore. Workflows ainda por implementar após PROSSIGA.",
-  "fase_governanca": "B",
-  "pc_foco": "PC3–PC4",
+  "notas_dashboard": "Workflows E17.1 em `.github/workflows/`; PAINEL com segredo e cron; telemetria com taxonomia 6 grupos; Monitor mostra tabela + matriz temporal.",
+  "fase_governanca": "C",
+  "pc_foco": "PC5–PC6",
   "percurso": "normal",
   "ultima_entrega_marco": "E17",
-  "live_status": "Auditor: telemetry JSON inicializado + commit; `monitor_governanca.py` com `st.tabs` e leitura resiliente de `backup_dr_history.json`.",
+  "live_status": "Fase C entregue: GHA backup/restore, AES-GCM, commit telemetria bot, Dashboard Backup; pytest 66; run manual gravou 1ª entrada ✅ em backup_dr_history.json.",
   "etapas_pendentes": [
-    "Push/commit de inicialização em `develop` (evidência física).",
-    "Pós-PROSSIGA: workflows `.github/workflows/*` e append a `runs`."
+    "Configurar `BEABA_BACKUP_KEY` em GitHub Secrets e testar workflow_dispatch.",
+    "Fase D/E: endurecer restore se `dawidd6/download-artifact` exigir ajuste de `workflow`/branch.",
+    "Screenshot: ver imagem gerada nesta sessão ou `streamlit run monitor_governanca.py` → aba Backup e Restore."
   ],
-  "live_actualizado_iso": "2026-04-09T16:00:00Z",
+  "live_actualizado_iso": "2026-04-09T18:30:00Z",
   "fases_resumo": [
     { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
-    { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "curso" },
-    { "id": "C", "label": "Código 1", "pcs": "PC5→6", "estado": "pendente" },
+    { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "feito" },
+    { "id": "C", "label": "Código 1", "pcs": "PC5→6", "estado": "curso" },
     { "id": "D", "label": "Código 2", "pcs": "PC7→8", "estado": "pendente" },
     { "id": "E", "label": "QA", "pcs": "PC9–12", "estado": "pendente" },
     { "id": "F", "label": "Fecho", "pcs": "PC13", "estado": "pendente" }
@@ -51,6 +52,6 @@
     "E15 — Monitor de Voo stand-alone (`monitor_governanca.py`); app sem página Fluxo.",
     "E16 — Cliente: NIF PT + doc. internacional; telefone E.164; nasc. filho opcional — entregue 2026-04-08.",
     "E17 — Backup/DR SQLite: hot-backup horário, verify semanal integrity_check, cloud_queue, WAL — entregue 2026-04-08.",
-    "E17.1 — Cloud Total: GHA + AES-GCM + restore prova + aba Monitor — Fase B; telemetry JSON no repo."
+    "E17.1 — Cloud Total: GHA + AES-GCM + telemetria + Monitor — Fase C em curso."
   ]
 }
