@@ -17,6 +17,7 @@
 - `tests/test_relatorios.py` — relatórios / dashboards
 - `tests/test_agendamento.py` — agendamentos (incl. E11 pré-venda, migração `modo_origem`, associação a `venda_item`)
 - `tests/test_nif_e164.py` — E16 NIF (módulo 11) e normalização E.164 / legado
+- `tests/test_e17_backup_dr.py` — E17 backup horário + verificação semanal (subprocess, repo isolado)
 
 ## 3. Plano por demanda (template)
 
@@ -81,3 +82,11 @@ Para cada **ID de demanda**, acrescentar secção:
 - **2026-04-07:** E14 (telemetria) — `test_governanca` alargado; suite **49** testes (pré-E15).
 - **2026-04-07:** E15 (monitor externo) — `test_monitor_governanca_script_existe_e_compila`; suite **50** testes.
 - **2026-04-08:** E16 (NIF + telefone E.164 + nasc. filho) — `test_nif_e164.py`; suite **56** testes.
+- **2026-04-08:** E17 (backup/DR SQLite) — `test_e17_backup_dr.py`; suite **62** testes.
+
+### Demanda `2026-04-08_E17_backup_dr` — backup e DR SQLite
+
+- **Objectivo:** `scripts/backup_sqlite_hourly.py`, `scripts/verify_restore_weekly.py`; WAL em `connection.py`; pasta `backups/`; política nuvem documentada no PAINEL.
+- **Novos casos:** compilação dos scripts; backup sem fonte (exit 1); backup + verify OK; verify sem backups (exit 1); rotação com `BEABA_BACKUP_KEEP=2`; corrupção binária na cópia horária → verify falha.
+- **Regressão:** `python -m pytest tests/ -v` (**62** testes).
+- **Critérios de aceite:** [`04_desenho_logico.md`](governanca/demandas/2026-04-08_E17_backup_dr/04_desenho_logico.md) e [`99_encerramento.md`](governanca/demandas/2026-04-08_E17_backup_dr/99_encerramento.md).

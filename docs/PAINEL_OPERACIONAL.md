@@ -1,6 +1,6 @@
 # Painel operacional — BeaBa Gestão
 
-**Última actualização:** 2026-04-08 — **E16** concluída (NIF + E.164 + filhos); sem demanda activa; **E15** Monitor de Voo; **E14** telemetria; **E12** Torre + Diário.  
+**Última actualização:** 2026-04-08 — **E17** concluída (backup/DR SQLite); **E16** (NIF + E.164 + filhos); **E15** Monitor de Voo; **E14** telemetria; **E12** Torre + Diário.  
 **Norma:** [`FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md) (**Fluxo oficial de governança**).  
 **Quem actualiza:** a **EQUIPE**; o Diretor **não** edita este ficheiro.
 
@@ -14,6 +14,23 @@
 | **Monitor de Voo** | `streamlit run monitor_governanca.py` | Telemetria E14 (**STATUS LIVE**), Torre A–F, Diário, pendente, JSON — **stand-alone** para segundo ecrã. |
 
 Ambos leem o mesmo [`status_demanda.json`](governanca/status_demanda.json) no disco; o Painel `.md` permanece o registo **histórico** nos PCs.
+
+---
+
+## Backup e recuperação (E17 — SQLite)
+
+| Artefacto | Uso |
+|:---|:---|
+| **`scripts/backup_sqlite_hourly.py`** | Cópia online (`Backup` API) de `data/beaba_gestao.db` → `backups/hourly/beaba_gestao_UTC_*.db`, `PRAGMA quick_check`, rotação (defeito **168** ficheiros). |
+| **`scripts/backup_hourly.cmd`** | Entrada para **Task Scheduler** (Windows), cada **1 hora** — ajustar caminho do `python` / venv. |
+| **`scripts/verify_restore_weekly.py`** | Semanal: última cópia horária → staging em `backups/restore_verify/`, `integrity_check` + `foreign_key_check`, **sem** alterar produção. |
+| **`scripts/verify_restore_weekly.cmd`** | Task Scheduler (ex.: domingo 03:00). |
+
+**Ambiente (opcional):** `BEABA_REPO_ROOT` (raiz do clone); `BEABA_BACKUP_KEEP`; `BEABA_BACKUP_CLOUD_QUEUE=0` para desligar cópia espelho em `backups/cloud_queue/`.
+
+**Nuvem:** **não** sincronizar `data/beaba_gestao.db` em uso (OneDrive/Dropbox/etc.). Sincronizar apenas **cópias fechadas** — recomendado: apontar o cliente de nuvem só a `backups/cloud_queue/` **ou** usar rclone/S3/Azure com encriptação. Detalhe: [`99_encerramento.md`](governanca/demandas/2026-04-08_E17_backup_dr/99_encerramento.md) (restauro manual).
+
+**App:** conexão SQLite com **`PRAGMA journal_mode=WAL`** (`src/database/connection.py`).
 
 ---
 
@@ -51,14 +68,14 @@ flowchart LR
 
 | Indicador | Situação |
 |:---|:---|
-| **Demanda activa** | ⚪ *Nenhuma* — última: **E16** entregue ([`99_encerramento.md`](governanca/demandas/2026-04-08_E16_cliente_nif_telefone_internacional/99_encerramento.md)). Próximo: **`@Files` → Analista**. |
-| **Última entrega de produto** | ✅ **E11** — Pré-venda na agenda (marco de negócio de referência no Diário); evoluções posteriores: E12–E15 (processo + monitor). |
-| **Última entrega de processo** | ✅ **E16** — NIF / E.164 / filhos ([`99`](governanca/demandas/2026-04-08_E16_cliente_nif_telefone_internacional/99_encerramento.md)). Antes: **E15** Monitor de Voo ([`99`](governanca/demandas/2026-04-07_E15_monitor_governanca_externo/99_encerramento.md)); **E14** telemetria; **E12** Torre. |
-| **Testes** | ✅ **56** `pytest` · CI: **FLUXO OFICIAL DE GOVERNANCA** + **Validador Maestro V2** em `develop`. |
+| **Demanda activa** | ⚪ *Nenhuma* — última: **E17** entregue ([`99_encerramento.md`](governanca/demandas/2026-04-08_E17_backup_dr/99_encerramento.md)); antes **E16** ([`99`](governanca/demandas/2026-04-08_E16_cliente_nif_telefone_internacional/99_encerramento.md)). Próximo: **`@Files` → Analista**. |
+| **Última entrega de produto** | ✅ **E11** — Pré-venda na agenda (marco de negócio de referência no Diário); evoluções posteriores: E12–E17 (processo, monitor, backup/DR). |
+| **Última entrega de processo** | ✅ **E17** — Backup/DR SQLite ([`99`](governanca/demandas/2026-04-08_E17_backup_dr/99_encerramento.md)). Antes: **E16** NIF / E.164; **E15** Monitor; **E14** telemetria; **E12** Torre. |
+| **Testes** | ✅ **62** `pytest` · CI: **FLUXO OFICIAL DE GOVERNANCA** + **Validador Maestro V2** em `develop`. |
 
 ---
 
-## Diário de Bordo — marcos E01 a E15
+## Diário de Bordo — marcos E01 a E17
 
 Resumo **executivo** (detalhe técnico nos [anexos](#apêndice-h--e09-agendamentos-detalhe) e no [`CONTROLE_DE_VOO.md`](../CONTROLE_DE_VOO.md)). **Retrabalhos de processo:** ver [Apêndice A](#apêndice-a--registo-de-retrabalhos); abaixo indica-se apenas se houve evento registado.
 
@@ -80,6 +97,7 @@ Resumo **executivo** (detalhe técnico nos [anexos](#apêndice-h--e09-agendament
 | **E14** | 2026-04-07 | **Telemetria ao vivo** — `live_status` / `etapas_pendentes` / `live_actualizado_iso`; UI integrada na app (até **E15**). | — |
 | **E15** | 2026-04-07 | **Monitor de Voo** — `monitor_governanca.py` na raiz; app principal sem entrada Fluxo; autorefresh obrigatório. | — |
 | **E16** | 2026-04-08 | **Cliente** — NIF PT + doc. internacional; telefone E.164; `cliente_filhos.data_nascimento`; migração emergência. **Entregue** ([`99`](governanca/demandas/2026-04-08_E16_cliente_nif_telefone_internacional/99_encerramento.md)). | — |
+| **E17** | 2026-04-08 | **Backup/DR** — hot-backup horário SQLite, verificação semanal `integrity_check`, `cloud_queue`, WAL; scripts + PAINEL. **Entregue** ([`99`](governanca/demandas/2026-04-08_E17_backup_dr/99_encerramento.md)). | — |
 
 ---
 

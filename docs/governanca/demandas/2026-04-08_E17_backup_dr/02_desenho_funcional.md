@@ -3,7 +3,7 @@
 **Demanda:** `2026-04-08_E17_backup_dr`  
 **Marco:** **E17**  
 **Data:** 2026-04-08  
-**Estado:** **Fase A** — desenho aprovado pelo Diretor com **PROSSIGA** antes de qualquer código.
+**Estado:** **Encerrada** — implementação pós-**PROSSIGA**; ver [`99_encerramento.md`](99_encerramento.md).
 
 ---
 
@@ -112,14 +112,14 @@ Sincronizar **`data/beaba_gestao.db`** activo com OneDrive/Dropbox/Google Drive 
 
 ## 6. Critérios de aceite (implementação — Fases C–E)
 
-- [ ] Backup horário corre com app em uso; ficheiros gerados passam `quick_check` no destino.  
-- [ ] Rotação respeita N configurável; logs com timestamp e erros claros.  
-- [ ] Job semanal executa `integrity_check` sobre cópia de teste; falha ⇒ código de saída ≠ 0 e registo no log.  
-- [ ] Documentação de nuvem: exclusão de `data/*.db` activo + destino de réplicas; nenhum segredo no repositório.  
-- [ ] `pytest` verde; não regressão na app; **CADERNO** actualizado no PC normativo.
+- [x] Backup horário corre com app em uso; ficheiros gerados passam `quick_check` no destino.  
+- [x] Rotação respeita N configurável; logs com timestamp e erros claros.  
+- [x] Job semanal executa `integrity_check` sobre cópia de teste; falha ⇒ código de saída ≠ 0 e registo no log.  
+- [x] Documentação de nuvem: exclusão de `data/*.db` activo + destino de réplicas; nenhum segredo no repositório.  
+- [x] `pytest` verde; não regressão na app; **CADERNO** actualizado no PC normativo.
 
 ---
 
-## 7. Pedido ao Diretor
+## 7. Pedido ao Diretor *(cumprido)*
 
-Confirmar com **PROSSIGA** no chat para a EQUIPE avançar para **Fase B** (desenho lógico / PCs) e **código** nos scripts acima.
+**PROSSIGA** recebido — implementação em `scripts/`, `connection.py`, testes e documentação conforme [`99_encerramento.md`](99_encerramento.md).

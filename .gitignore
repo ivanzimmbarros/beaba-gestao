@@ -1,2 +1,5 @@
 __pycache__/
 *.db
+
+# E17 — logs de backup (réplicas .db em backups/ já cobertas por *.db)
+backups/logs/*.log
