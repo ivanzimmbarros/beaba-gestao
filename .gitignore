@@ -1,4 +1,10 @@
 __pycache__/
+
+# SQLite — todos os .db ficam fora do Git (intencional):
+#   - data/beaba_gestao.db (operacional, vivo) nunca versionado;
+#   - backups/hourly/*.db e backups/cloud_queue/*.db (réplicas para DR) também *.db —
+#     sincronização «nuvem» = OneDrive/rclone/S3 na pasta backups/ ou artefactos GHA,
+#     não commit em origin.
 *.db
 
 # E17 — logs de backup (réplicas .db em backups/ já cobertas por *.db)
