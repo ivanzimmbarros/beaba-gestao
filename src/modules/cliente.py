@@ -273,6 +273,34 @@ def listar_clientes_resumo() -> list[tuple[int, str]]:
         conn.close()
 
 
+def listar_clientes_resumo_com_credito(
+    *, filtro_saldo: str = "todos"
+) -> list[tuple[int, str, int]]:
+    """`(id, nome, saldo_credito_centavos)` — `filtro_saldo`: todos | com_saldo | sem_saldo."""
+    conn = get_connection()
+    if not conn:
+        return []
+    f = str(filtro_saldo or "todos").strip().lower()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT c.id, c.nome, COALESCE(w.saldo_credito_centavos, 0)
+            FROM clientes c
+            LEFT JOIN vw_cliente_saldo_credito w ON w.cliente_id = c.id
+            ORDER BY c.nome COLLATE NOCASE
+            """
+        )
+        rows = [(int(a), str(b), int(c)) for a, b, c in cur.fetchall()]
+        if f == "com_saldo":
+            return [r for r in rows if r[2] > 0]
+        if f == "sem_saldo":
+            return [r for r in rows if r[2] <= 0]
+        return rows
+    finally:
+        conn.close()
+
+
 def obter_cliente_completo(cliente_id: int) -> dict | None:
     """Ficha completa para edição (cliente + filhos + emergência)."""
     cid = int(cliente_id)

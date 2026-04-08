@@ -111,7 +111,52 @@ def _estado_line(estado: str, use_color: bool) -> str:
     return label
 
 
+def _print_secoes_painel(data: dict, *, use_color: bool) -> None:
+    b = _BOLD if use_color else ""
+    r = _RESET if use_color else ""
+    sec_ab = data.get("secao_epicos_em_execucao")
+    sec_hi = data.get("secao_historico_epicos_concluidos")
+    if not isinstance(sec_ab, dict) and not isinstance(sec_hi, dict):
+        return
+
+    print()
+    print(f"{b}── Painel de demandas (layout v2) ──{r}")
+    if isinstance(sec_ab, dict):
+        print(str(sec_ab.get("titulo") or "[SEÇÃO: ÉPICOS EM EXECUÇÃO]"))
+        itens = sec_ab.get("itens")
+        if isinstance(itens, list) and itens:
+            for ep in itens:
+                if not isinstance(ep, dict):
+                    continue
+                print(
+                    f"  • {ep.get('titulo', '—')} | {ep.get('demanda_id', '—')} | "
+                    f"{ep.get('status_demanda', '—')} | fase {ep.get('fase_actual', '—')}"
+                )
+        else:
+            print("  (nenhum item)")
+    print()
+    if isinstance(sec_hi, dict):
+        print(str(sec_hi.get("titulo") or "[SEÇÃO: HISTÓRICO DE ÉPICOS CONCLUÍDOS]"))
+        itens = sec_hi.get("itens")
+        if isinstance(itens, list) and itens:
+            for ep in itens:
+                if not isinstance(ep, dict):
+                    continue
+                print(
+                    f"  • {ep.get('data_conclusao', '—')} | {ep.get('titulo', '—')} | "
+                    f"{ep.get('demanda_id', '—')} | {ep.get('status_demanda', '—')}"
+                )
+                refs = ep.get("refs_docs")
+                if isinstance(refs, list) and refs:
+                    for ref in refs:
+                        print(f"      → {ref}")
+        else:
+            print("  (nenhum item)")
+    print()
+
+
 def _print_panel(data: dict, *, use_color: bool) -> None:
+    _print_secoes_painel(data, use_color=use_color)
     ver = _e17_label(data)
     titulo = str(data.get("titulo") or "—")
     demanda = str(data.get("demanda_id") or "—")

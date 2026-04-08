@@ -7,8 +7,20 @@ from datetime import date
 from typing import Any, Literal
 
 from src.database.connection import get_connection
+from src.modules.credito_ledger import (
+    registrar_credito_por_cancelamento_agendamento,
+    total_esperado_liquidacao_venda_centavos,
+    total_liquidado_venda_centavos,
+)
 
-StatusAgendamento = Literal["AGENDADO", "CONFIRMADO", "CONCLUIDO", "CANCELADO"]
+StatusAgendamento = Literal[
+    "PRE_AGENDADO",
+    "AGENDADO",
+    "CONFIRMADO",
+    "REALIZADO_PENDENTE_PGTO",
+    "CONCLUIDO",
+    "CANCELADO",
+]
 TipoOrigem = Literal["sessao_avulsa", "pacote", "coworking", "evento"]
 
 _HHMM = re.compile(r"^\d{1,2}:\d{2}$")
@@ -40,7 +52,13 @@ def validar_intervalo_horario(hora_inicio: str, hora_fim: str) -> tuple[bool, st
 
 
 def _consome_credito(status: str, devolver: int) -> bool:
-    if status in ("AGENDADO", "CONFIRMADO", "CONCLUIDO"):
+    if status in (
+        "PRE_AGENDADO",
+        "AGENDADO",
+        "CONFIRMADO",
+        "REALIZADO_PENDENTE_PGTO",
+        "CONCLUIDO",
+    ):
         return True
     if status == "CANCELADO" and int(devolver) == 0:
         return True
@@ -177,11 +195,9 @@ def rotulo_pagamento_venda(cur, venda_id: int | None) -> str:
     if not row:
         return "—"
     est, total = str(row[0]), int(row[1])
-    cur.execute(
-        "SELECT COALESCE(SUM(valor_centavos), 0) FROM venda_pagamentos WHERE venda_id = ?",
-        (int(venda_id),),
-    )
-    pago = int(cur.fetchone()[0])
+    vid = int(venda_id)
+    pago = total_liquidado_venda_centavos(cur, vid)
+    esperado_liq = total_esperado_liquidacao_venda_centavos(cur, vid)
     hoje = date.today().isoformat()
     cur.execute(
         """
@@ -191,8 +207,10 @@ def rotulo_pagamento_venda(cur, venda_id: int | None) -> str:
         (int(venda_id), hoje),
     )
     atrasado = int(cur.fetchone()[0])
-    if est == "integral" and pago >= total:
+    if pago >= esperado_liq and esperado_liq > 0:
         return "Pago"
+    if pago > 0 and pago < esperado_liq:
+        return f"Parcialmente pago ({pago/100:.2f}/{esperado_liq/100:.2f} € · {est})"
     if atrasado > 0:
         return f"Em aberto / atrasado ({est})"
     return f"Em aberto ({est})"
@@ -638,11 +656,134 @@ def atualizar_agendamento(
         conn.close()
 
 
-def alterar_status(ag_id: int, novo: StatusAgendamento) -> tuple[bool, str]:
+def _append_ag_hist(
+    cur,
+    ag_id: int,
+    campo: str,
+    valor_anterior: str | None,
+    valor_novo: str | None,
+    *,
+    motivo: str | None = None,
+    actor: str | None = None,
+) -> None:
+    cur.execute(
+        """
+        INSERT INTO agendamento_historico (
+            agendamento_id, campo, valor_anterior, valor_novo, motivo, actor
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (int(ag_id), campo, valor_anterior, valor_novo, motivo, actor),
+    )
+
+
+def _base_repasse_centavos(cur, ag_id: int) -> tuple[int, int]:
+    cur.execute(
+        """
+        SELECT a.modo_origem, a.preco_referencia_centavos, a.venda_item_id, a.servico_id
+        FROM agendamentos a WHERE a.id = ?
+        """,
+        (int(ag_id),),
+    )
+    r = cur.fetchone()
+    if not r:
+        return 0, 0
+    modo, pref, viid, sid = str(r[0]), r[1], r[2], int(r[3])
+    if modo == "pre_venda":
+        return max(0, int(pref or 0)), sid
+    if viid is None:
+        return 0, sid
+    cur.execute(
+        "SELECT total_linha_centavos, quantidade FROM venda_itens WHERE id = ?",
+        (int(viid),),
+    )
+    r2 = cur.fetchone()
+    if not r2:
+        return 0, sid
+    tlin, q = int(r2[0]), max(1, int(r2[1]))
+    return int(tlin // q), sid
+
+
+def _gerar_repasse_linhas(cur, ag_id: int) -> None:
+    base, servico_id = _base_repasse_centavos(cur, ag_id)
+    if base <= 0 or servico_id <= 0:
+        return
+    cur.execute(
+        """
+        DELETE FROM repasse_linhas
+        WHERE agendamento_id = ? AND status_repasse = 'PENDENTE_REPASSE'
+        """,
+        (int(ag_id),),
+    )
+    cur.execute(
+        """
+        SELECT ac.colaborador_id, cs.percentual_centesimos
+        FROM agendamento_colaboradores ac
+        LEFT JOIN colaborador_servicos cs
+          ON cs.colaborador_id = ac.colaborador_id AND cs.servico_id = ?
+        WHERE ac.agendamento_id = ?
+        ORDER BY ac.ordem
+        """,
+        (servico_id, int(ag_id)),
+    )
+    for colab_id, pct in cur.fetchall():
+        bp = int(pct or 0)
+        if colab_id is None or bp <= 0:
+            continue
+        val = int(base * bp / 10000)
+        if val <= 0:
+            continue
+        cur.execute(
+            """
+            INSERT INTO repasse_linhas (
+                agendamento_id, colaborador_id, base_calculo_centavos,
+                percentual_bp, valor_repasse_centavos, status_repasse
+            ) VALUES (?, ?, ?, ?, ?, 'PENDENTE_REPASSE')
+            """,
+            (int(ag_id), int(colab_id), base, bp, val),
+        )
+
+
+def _valor_credito_cancelamento_sugerido_cur(cur, ag_id: int) -> int:
+    cur.execute(
+        """
+        SELECT modo_origem, preco_referencia_centavos, venda_item_id
+        FROM agendamentos WHERE id = ?
+        """,
+        (int(ag_id),),
+    )
+    r = cur.fetchone()
+    if not r:
+        return 0
+    modo, pref, viid = str(r[0]), r[1], r[2]
+    if modo == "pre_venda":
+        return max(0, int(pref or 0))
+    if viid is None:
+        return 0
+    cur.execute(
+        "SELECT total_linha_centavos, quantidade FROM venda_itens WHERE id = ?",
+        (int(viid),),
+    )
+    r2 = cur.fetchone()
+    if not r2:
+        return 0
+    tlin, q = int(r2[0]), max(1, int(r2[1]))
+    return int(tlin // q)
+
+
+def alterar_status(
+    ag_id: int, novo: StatusAgendamento, *, actor: str | None = None
+) -> tuple[bool, str]:
     n = str(novo)
     if n == "CANCELADO":
         return False, "❌ Use cancelar_agendamento com a opção de buffer."
-    if n not in ("CONFIRMADO", "CONCLUIDO"):
+    permitidos = {
+        "PRE_AGENDADO",
+        "AGENDADO",
+        "CONFIRMADO",
+        "REALIZADO_PENDENTE_PGTO",
+        "CONCLUIDO",
+    }
+    if n not in permitidos:
         return False, "❌ Estado inválido para esta operação."
     conn = get_connection()
     if not conn:
@@ -659,22 +800,66 @@ def alterar_status(ag_id: int, novo: StatusAgendamento) -> tuple[bool, str]:
         atual, modo_o, vid_chk = str(row[0]), str(row[1]), row[2]
         if atual == "CANCELADO":
             return False, "❌ Já cancelado."
-        if atual == "CONCLUIDO":
+        if atual == "CONCLUIDO" and n != "CONCLUIDO":
             return False, "❌ Já concluído."
         if n == atual:
             return True, "Sem alteração."
         if n == "CONFIRMADO":
             if atual != "AGENDADO":
                 return False, "❌ Só AGENDADO passa a CONFIRMADO."
-        elif n == "CONCLUIDO":
+        elif n == "REALIZADO_PENDENTE_PGTO":
             if atual not in ("AGENDADO", "CONFIRMADO"):
-                return False, "❌ Só AGENDADO ou CONFIRMADO passam a CONCLUIDO."
+                return False, "❌ Só AGENDADO ou CONFIRMADO podem passar a REALIZADO_PENDENTE_PGTO."
+        elif n == "CONCLUIDO":
+            if atual not in ("AGENDADO", "CONFIRMADO", "REALIZADO_PENDENTE_PGTO"):
+                return False, "❌ Estado atual não permite concluir."
             if modo_o == "pre_venda" and vid_chk is None:
                 return False, "❌ Pré-venda sem venda associada — não pode concluir."
+            if modo_o != "pre_venda" and vid_chk is None:
+                return False, "❌ Sem venda associada."
+            vid = int(vid_chk)
+            esp = total_esperado_liquidacao_venda_centavos(cur, vid)
+            liq = total_liquidado_venda_centavos(cur, vid)
+            if liq < esp:
+                cur.execute(
+                    """
+                    UPDATE agendamentos
+                    SET status = 'REALIZADO_PENDENTE_PGTO', data_alteracao = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                    """,
+                    (int(ag_id),),
+                )
+                _append_ag_hist(
+                    cur,
+                    int(ag_id),
+                    "status",
+                    atual,
+                    "REALIZADO_PENDENTE_PGTO",
+                    motivo="gate_pagamento_incompleto",
+                    actor=actor,
+                )
+                _gerar_repasse_linhas(cur, int(ag_id))
+                conn.commit()
+                return (
+                    True,
+                    f"⚠️ Pagamento incompleto ({liq / 100:.2f} € de {esp / 100:.2f} € a liquidar) — "
+                    "estado REALIZADO_PENDENTE_PGTO.",
+                )
+        elif n == "PRE_AGENDADO":
+            return False, "❌ Transição para PRE_AGENDADO não suportada neste fluxo."
+        elif n == "AGENDADO":
+            return False, "❌ Transição para AGENDADO não suportada neste fluxo."
         cur.execute(
-            "UPDATE agendamentos SET status = ?, data_alteracao = CURRENT_TIMESTAMP WHERE id = ?",
+            """
+            UPDATE agendamentos
+            SET status = ?, data_alteracao = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
             (n, int(ag_id)),
         )
+        _append_ag_hist(cur, int(ag_id), "status", atual, n, actor=actor)
+        if n in ("REALIZADO_PENDENTE_PGTO", "CONCLUIDO"):
+            _gerar_repasse_linhas(cur, int(ag_id))
         conn.commit()
         return True, f"✅ Estado: {n}."
     except Exception as e:
@@ -684,25 +869,40 @@ def alterar_status(ag_id: int, novo: StatusAgendamento) -> tuple[bool, str]:
         conn.close()
 
 
-def cancelar_agendamento(ag_id: int, devolver_ao_buffer: bool) -> tuple[bool, str]:
+def cancelar_agendamento(
+    ag_id: int,
+    devolver_ao_buffer: bool,
+    *,
+    converter_valor_pago_em_credito_loja: bool = False,
+    actor: str | None = None,
+) -> tuple[bool, str]:
     conn = get_connection()
     if not conn:
         return False, "❌ Não foi possível ligar à base de dados."
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT status, modo_origem FROM agendamentos WHERE id = ?",
+            "SELECT status, modo_origem, cliente_id FROM agendamentos WHERE id = ?",
             (int(ag_id),),
         )
         row = cur.fetchone()
         if not row:
             return False, "❌ Agendamento não encontrado."
-        atual, modo_o = str(row[0]), str(row[1])
+        atual, modo_o, cliente_id = str(row[0]), str(row[1]), int(row[2])
         if atual == "CANCELADO":
             return False, "❌ Já cancelado."
         if atual == "CONCLUIDO":
             return False, "❌ Não é possível cancelar concluído."
         dev = 0 if modo_o == "pre_venda" else (1 if devolver_ao_buffer else 0)
+        _append_ag_hist(
+            cur,
+            int(ag_id),
+            "status",
+            atual,
+            "CANCELADO",
+            motivo="cancelamento",
+            actor=actor,
+        )
         cur.execute(
             """
             UPDATE agendamentos
@@ -712,15 +912,33 @@ def cancelar_agendamento(ag_id: int, devolver_ao_buffer: bool) -> tuple[bool, st
             """,
             (dev, int(ag_id)),
         )
+        extra_cred = ""
+        if converter_valor_pago_em_credito_loja:
+            val = _valor_credito_cancelamento_sugerido_cur(cur, int(ag_id))
+            if val > 0:
+                ok_ins = registrar_credito_por_cancelamento_agendamento(
+                    cur,
+                    cliente_id=cliente_id,
+                    agendamento_id=int(ag_id),
+                    valor_centavos=val,
+                    actor=actor,
+                )
+                if ok_ins:
+                    extra_cred = f" Crédito de loja +{val / 100:.2f} € registado."
+                else:
+                    extra_cred = " (Crédito de cancelamento já existia — sem duplicar.)"
+            else:
+                extra_cred = " (Sem valor sugerido para crédito.)"
         conn.commit()
         if modo_o == "pre_venda":
-            msg = "✅ Cancelado (pré-venda — sem crédito em buffer)."
+            msg = "✅ Cancelado (pré-venda — sem crédito em buffer)." + extra_cred
         else:
             msg = (
                 "✅ Cancelado — crédito devolvido ao buffer."
                 if dev
                 else "✅ Cancelado — crédito não devolvido ao buffer."
             )
+            msg += extra_cred
         return True, msg
     except Exception as e:
         conn.rollback()
@@ -839,7 +1057,7 @@ def associar_agendamento_pre_venda_a_item(
         modo_o, st_ag, cli_ag, srv_ag = str(row[0]), str(row[1]), int(row[2]), int(row[3])
         if modo_o != "pre_venda":
             return False, "❌ Só agendamentos em pré-venda podem ser associados desta forma."
-        if st_ag in ("CANCELADO", "CONCLUIDO"):
+        if st_ag in ("CANCELADO", "CONCLUIDO", "REALIZADO_PENDENTE_PGTO"):
             return False, "❌ Estado não permite associação."
         cur.execute(
             """

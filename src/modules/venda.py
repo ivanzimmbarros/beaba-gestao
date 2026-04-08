@@ -6,11 +6,16 @@ from typing import Any, Literal
 
 from src.database.connection import get_connection
 from src.modules.catalogo import resolver_snapshot_venda
+from src.modules.credito_ledger import (
+    meio_legacy_para_tipo_linha,
+    registrar_uso_credito_em_venda,
+    saldo_credito_cliente_centavos,
+)
 
 PCT_BASIS = 10000  # 100,00% = 10000 (centésimos de ponto percentual)
 
 EstadoPagamento = Literal["integral", "pendente", "parcial", "parcelado"]
-MeioPagamento = Literal["dinheiro", "cartao_credito", "mbway"]
+MeioPagamento = Literal["dinheiro", "cartao_credito", "mbway", "iban"]
 
 
 def _desconto_percent_sobre(bruto: int, basis: int) -> int:
@@ -88,23 +93,30 @@ def _validar_pagamento(
     total_final: int,
     pagamentos: list[tuple[MeioPagamento, int]],
     previstos: list[tuple[str, int]],
+    *,
+    credito_abatido_centavos: int = 0,
 ) -> tuple[bool, str]:
+    cab = max(0, int(credito_abatido_centavos))
     pago = sum(v for _, v in pagamentos)
     agend = sum(v for _, v in previstos)
     if pago < 0 or agend < 0:
         return False, "❌ Valores de pagamento inválidos."
-    if pago + agend != total_final:
+    liquido_necessario = total_final - cab
+    if liquido_necessario < 0:
+        return False, "❌ Abatimento de crédito não pode exceder o total da venda."
+    if pago + agend != liquido_necessario:
         return (
             False,
             f"❌ Soma dos meios ({pago/100:.2f} €) + recebimentos previstos ({agend/100:.2f} €) "
-            f"deve igualar o total da venda ({total_final/100:.2f} €).",
+            f"deve igualar o total a liquidar ({liquido_necessario/100:.2f} €) "
+            f"(total {total_final/100:.2f} € − crédito {cab/100:.2f} €).",
         )
     if estado == "integral":
-        if pago != total_final or agend != 0:
+        if pago != liquido_necessario or agend != 0:
             return False, "❌ Pagamento integral: liquidar o total nos meios indicados, sem recebimentos previstos."
     elif estado == "pendente":
-        if pago != 0 or agend != total_final:
-            return False, "❌ Pendente: nada liquidado agora; o total deve constar nos recebimentos previstos."
+        if pago != 0 or agend != liquido_necessario:
+            return False, "❌ Pendente: nada liquidado agora; o total a receber deve constar nos recebimentos previstos."
     elif estado == "parcial":
         if pago <= 0 or agend <= 0:
             return False, "❌ Parcial: indique valor já liquidado (meios) e complementos previstos."
@@ -130,6 +142,7 @@ def registrar_venda(
     observacoes: str,
     *,
     agendamento_contexto_id: int | None = None,
+    credito_abatido_centavos: int = 0,
 ) -> tuple[bool, str, int | None]:
     """
     `linhas_entrada`: servico_id, quantidade, is_bonus, evento_preco (adulto|crianca|None),
@@ -252,14 +265,20 @@ def registrar_venda(
     meios_norm: list[tuple[MeioPagamento, int]] = []
     for meio, val in pagamentos:
         m = str(meio).strip()
-        if m not in ("dinheiro", "cartao_credito", "mbway"):
+        if m not in ("dinheiro", "cartao_credito", "mbway", "iban"):
             return False, f"❌ Meio de pagamento inválido: {meio}.", None
         meios_norm.append((m, int(val)))
 
     prev_norm = [(str(d)[:10], int(v)) for d, v in recebimentos_previstos]
 
+    cab = max(0, int(credito_abatido_centavos))
+
     ok_p, msg_p = _validar_pagamento(
-        estado_pagamento, total_final, meios_norm, prev_norm
+        estado_pagamento,
+        total_final,
+        meios_norm,
+        prev_norm,
+        credito_abatido_centavos=cab,
     )
     if not ok_p:
         return False, msg_p, None
@@ -273,6 +292,15 @@ def registrar_venda(
         cur.execute("SELECT id FROM clientes WHERE id = ?", (cid,))
         if cur.fetchone() is None:
             return False, "❌ Cliente não encontrado.", None
+
+        if cab > 0:
+            saldo = saldo_credito_cliente_centavos(cur, cid)
+            if saldo < cab:
+                return (
+                    False,
+                    f"❌ Saldo de crédito insuficiente (disponível {saldo / 100:.2f} €, pedido {cab / 100:.2f} €).",
+                    None,
+                )
 
         ag_ctx = agendamento_contexto_id
         if ag_ctx is not None:
@@ -303,8 +331,9 @@ def registrar_venda(
                 cliente_id, estado_pagamento,
                 subtotal_bruto_centavos, subtotal_apos_descontos_linha_centavos,
                 desconto_global_tipo, desconto_global_valor, desconto_global_centavos_aplicado,
-                total_final_centavos, observacoes, agendamento_contexto_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                total_final_centavos, observacoes, agendamento_contexto_id,
+                credito_abatido_centavos
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 cid,
@@ -317,6 +346,7 @@ def registrar_venda(
                 total_final,
                 (observacoes or "").strip(),
                 int(ag_ctx) if ag_ctx is not None else None,
+                cab,
             ),
         )
         vid = int(cur.lastrowid)
@@ -374,6 +404,18 @@ def registrar_venda(
                     """,
                     (vid, o, m, vc),
                 )
+                cur.execute(
+                    """
+                    INSERT INTO venda_pagamento_linhas (venda_id, ordem, tipo_meio, valor_centavos)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (vid, o, meio_legacy_para_tipo_linha(m), vc),
+                )
+
+        if cab > 0:
+            registrar_uso_credito_em_venda(
+                cur, cliente_id=cid, venda_id=vid, valor_abatido_centavos=cab
+            )
 
         for o, (dp, vc) in enumerate(prev_norm, start=1):
             if vc > 0:
