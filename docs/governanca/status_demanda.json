@@ -15,17 +15,17 @@
   "pendente": "Operação: Secrets `BEABA_BACKUP_KEY` + `EMAIL_*` no GitHub; validar workflows `backup_*` e `test_restore_weekly` (workflow_dispatch); garantir branch `backup-and-restore` em `origin`.",
   "falha": null,
   "ultima_actualizacao_iso": "2026-04-08",
-  "notas_dashboard": "E17.2: callable `backup_encrypt_callable.yml`; hourly/daily/weekly; `restore_sqlite.py` só em `backup-and-restore`; telemetria com `snapshot_table_counts` nos backups; e-mail em falhas e teste restore domingo.",
+  "notas_dashboard": "Consolidação E17.2: `scripts/monitor_demanda.py`; cascata GHA weekly→daily→hourly; `restore_result.json` sempre gerado; e-mails sucesso `(Sucesso) Teste de Restore - BeaBa (dia & hora)` com contagens e % integridade.",
   "fase_governanca": "C",
   "pc_foco": "PC5–PC6",
   "percurso": "normal",
   "ultima_entrega_marco": "E17",
-  "live_status": "Ativando Protocolo E17.2: Governança Ativa com Alertas via E-mail e Retenção",
+  "live_status": "Governança Ativa com Alertas via E-mail e Retenção",
   "etapas_pendentes": [
-    "Push `develop` + `backup-and-restore`; validar GHA (secrets e dispatch).",
-    "Rever primeiro run `test_restore_weekly` ao domingo ou via workflow_dispatch."
+    "Comando painel: `python scripts/monitor_demanda.py` na raiz do repo.",
+    "Validar GHA `test_restore_weekly` (dispatch) e secrets `EMAIL_*` / `BEABA_BACKUP_KEY`."
   ],
-  "live_actualizado_iso": "2026-04-08T12:00:00Z",
+  "live_actualizado_iso": "2026-04-08T18:00:00Z",
   "fases_resumo": [
     { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
     { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "feito" },
