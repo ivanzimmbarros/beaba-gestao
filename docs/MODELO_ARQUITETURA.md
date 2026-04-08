@@ -13,14 +13,14 @@
 ## 🛢️ PADRÕES DE BANCO DE DADOS (SQL)
 1. **Nomenclatura:** Tabelas em `snake_case` e no plural (ex: `clientes`, `venda_itens`).
 2. **Integridade:** 
-   - Número principal do cliente (`clientes.whatsapp`): **11 dígitos**, `UNIQUE` (validação também na aplicação).
-   - Telefones em `cliente_contatos_emergencia.telefone`: **11 dígitos** (`CHECK` na tabela).
+   - Número principal do cliente (`clientes.whatsapp`): **E.164** (ex.: `+351…`), `UNIQUE`; aceita legado 11/9 dígitos na entrada com normalização (`phonenumbers`).
+   - Telefones em `cliente_contatos_emergencia.telefone`: **E.164** (sem CHECK de comprimento fixo; migração E16 removeu o CHECK de 11 dígitos).
 3. **Tipagem:** Valores financeiros devem ser `INTEGER` (Centavos) para evitar erros de ponto flutuante.
 
 ### Tabelas — núcleo de clientes (V11.0+)
-- **`clientes`:** `nome`, `whatsapp` (contacto principal, 11 dígitos, UNIQUE), `email`, `sexo`, `tem_filhos`, `gravida`, `data_parto_prevista`, `observacoes`; morada normalizada em `endereco_rua`, `endereco_numero`, `endereco_complemento`, `codigo_postal`, `concelho`, `freguesia`, `distrito`, `pais`. Coluna `morada` legada mantida (vazia em novos cadastros).
-- **`cliente_filhos`:** `cliente_id`, `ordem`, `nome`, `idade_anos`, `sexo` (um registo por filho).
-- **`cliente_contatos_emergencia`:** `cliente_id`, `ordem`, `nome`, `telefone` (opcional no negócio; 0..N registos).
+- **`clientes`:** `nome`, `whatsapp` (contacto principal **E.164**, UNIQUE), `nif_ou_documento`, `identificacao_internacional` (0/1), `email`, `sexo`, `tem_filhos`, `gravida`, `data_parto_prevista`, `observacoes`; morada normalizada em `endereco_rua`, `endereco_numero`, `endereco_complemento`, `codigo_postal`, `concelho`, `freguesia`, `distrito`, `pais`. Coluna `morada` legada mantida (vazia em novos cadastros).
+- **`cliente_filhos`:** `cliente_id`, `ordem`, `nome`, `idade_anos`, `sexo`, `data_nascimento` (TEXT ISO opcional — E16).
+- **`cliente_contatos_emergencia`:** `cliente_id`, `ordem`, `nome`, `telefone` (E.164; opcional no negócio; 0..N registos).
 
 ### Tabelas — colaboradores e catálogo (E06 — Fases 1 a 3)
 - **`servicos`:** `nome` (UNIQUE), `natureza` (`Sessão` | `Produto` | `Coworking` | `Pacote` | `Evento`), `ativo`, `descritivo`. Colunas de detalhe por natureza (nullable quando não aplicável):
@@ -61,6 +61,9 @@
 - **Métricas Fase A (“lucro”):** sem custos na base — **receita em linhas** = `SUM(total_linha_centavos)` (após desconto de linha); **receita em cabeçalhos** = soma de `total_final_centavos` por `venda_id` distinto no conjunto filtrado (inclui desconto global). Na UI, «margem / lucro» na Fase A alinha-se à **receita (linhas)** com nota explícita; **Fase B** poderá introduzir custos ou reparte analítica.
 - **Pareto:** percentagem cumulativa calculada **só sobre as categorias exibidas** (Top N barras), não sobre universo completo.
 - **UI:** `page_dashboards.py`; gráficos **Plotly**; paleta `ANALYTICS_COLORS` em `theme.py` (tons suaves).
+
+### Evolução E16 — NIF e contacto internacional *(entregue em `develop`; demanda encerrada 2026-04-08)*
+- Demanda [`2026-04-08_E16_cliente_nif_telefone_internacional`](governanca/demandas/2026-04-08_E16_cliente_nif_telefone_internacional/04_desenho_logico.md): NIF PT (módulo 11) ou documento internacional; UI com `telefone_widgets` + lista de países; dependência **`phonenumbers`**.
 
 ## Governança de evolução (regra máxima)
 - Demanda: **Cursor `@Files` → Analista**; documentação em **`docs/governanca/demandas/<ID>/`** é **criada pela EQUIPE**. Alterações de arquitetura seguem o **Fluxo oficial de governança** em **`docs/governanca/FLUXO_SUCESSO_E_FALHA.md`** (Fase B, PC3–PC4).
