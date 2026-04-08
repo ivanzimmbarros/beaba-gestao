@@ -1,0 +1,79 @@
+# E17.1 — Restore de prova semanal (domingo 03:00 UTC): último artefacto de backup_hourly, decrypt, verify, telemetria + commit.
+# Requer Secret: BEABA_BACKUP_KEY (igual ao workflow de backup).
+
+name: restore_weekly
+
+on:
+  schedule:
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
+
+concurrency:
+  group: beaba-restore-telemetry-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+      BEABA_REPO_ROOT: ${{ github.workspace }}
+
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Dependências
+        run: pip install -r requirements.txt
+
+      - name: Descarregar último backup encriptado
+        id: dl
+        continue-on-error: true
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: backup_hourly.yml
+          branch: develop
+          name: beaba-sqlite-backup-encrypted
+          path: dl
+
+      - name: Restore de prova + evidências
+        id: restore
+        continue-on-error: true
+        env:
+          BEABA_BACKUP_KEY: ${{ secrets.BEABA_BACKUP_KEY }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+        run: python scripts/e17_1_gha_restore_job.py
+
+      - name: Telemetria restore
+        if: always()
+        env:
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+        run: python scripts/e17_1_telemetry.py append-restore
+
+      - name: Commit backup_dr_history.json
+        if: always()
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          branch: develop
+          commit_user_name: github-actions[bot]
+          commit_user_email: github-actions[bot]@users.noreply.github.com
+          commit_message: "chore(telemetry): restore weekly run ${{ github.run_id }}"
+          file_pattern: docs/governanca/telemetry/backup_dr_history.json

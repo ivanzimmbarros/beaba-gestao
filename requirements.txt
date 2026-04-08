@@ -2,3 +2,5 @@ streamlit==1.32.0
 plotly>=5.18.0,<6
 streamlit-autorefresh>=1.0.1,<2
 phonenumbers>=8.13,<10
+cryptography>=42.0.0,<46
+pandas>=2.0,<3

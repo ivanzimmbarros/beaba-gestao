@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pandas as pd
 import streamlit as st
 
 try:
@@ -34,6 +35,34 @@ _ICONE_ESTADO = {
 
 _LIVE_FILA_MAX = 8
 _AUTOREFRESH_MS = 10_000
+
+_BACKUP_GROUP_KEYS = (
+    "ambiente",
+    "estrutura",
+    "configuracao",
+    "arquivos",
+    "user_data",
+    "logs",
+)
+_BACKUP_GROUP_LABELS = {
+    "ambiente": "Ambiente",
+    "estrutura": "Estrutura",
+    "configuracao": "Config",
+    "arquivos": "Arquivos",
+    "user_data": "User Data",
+    "logs": "Logs",
+}
+
+
+def _backup_status_icon(status: str | None) -> str:
+    s = (status or "").strip().lower()
+    if s == "ok":
+        return "✅"
+    if s == "warn":
+        return "⚠️"
+    if s == "fail":
+        return "❌"
+    return "⚪"
 
 
 def _repo_root() -> Path:
@@ -233,7 +262,7 @@ def _render_backup_dr_tab() -> None:
     st.subheader("Controle de Backup e Restore (E17.1)")
     st.caption(
         "Histórico canónico: `docs/governanca/telemetry/backup_dr_history.json` "
-        "(preenchido pelos workflows após implementação)."
+        "(workflows `backup_hourly` / `restore_weekly` + commits do bot)."
     )
 
     runs, aviso = carregar_backup_dr_history()
@@ -243,16 +272,76 @@ def _render_backup_dr_tab() -> None:
     if not runs:
         st.info(
             "⚪ **Sem execuções registadas** — `runs` está vazio ou indisponível. "
-            "A matriz temporal e os detalhes por grupo aparecerão quando os workflows "
-            "passarem a anexar entradas."
+            "Dispare `backup_hourly` (workflow_dispatch) após configurar `BEABA_BACKUP_KEY`."
         )
-    else:
-        st.success(f"**{len(runs)}** execução(ões) em `runs` — vista detalhada (matriz ✅⚠️❌) na fase seguinte da E17.1.")
-        with st.expander("Pré-visualização JSON (primeiras entradas)"):
-            st.code(
-                json.dumps(runs[:5], ensure_ascii=False, indent=2),
-                language="json",
-            )
+        return
+
+    st.success(f"**{len(runs)}** execução(ões) registadas.")
+
+    rows_main: list[dict] = []
+    rows_matrix: list[dict] = []
+    for r in runs:
+        if not isinstance(r, dict):
+            continue
+        g = r.get("groups")
+        if not isinstance(g, dict):
+            g = {}
+        log_u = str(r.get("workflow_run_url") or r.get("log_url") or "").strip()
+        row_m: dict = {
+            "Início (UTC)": str(r.get("started_at") or "—"),
+            "Tipo": str(r.get("type") or "—"),
+            "Overall": _backup_status_icon(str(r.get("overall") or "")),
+            "Duração s": r.get("duration_seconds", "—"),
+            "SHA": (str(r.get("git_sha") or "")[:7] + "…") if r.get("git_sha") else "—",
+            "Log (URL)": log_u if log_u else "—",
+        }
+        for k in _BACKUP_GROUP_KEYS:
+            sg = g.get(k)
+            stt = (sg.get("status") if isinstance(sg, dict) else None) or ""
+            row_m[_BACKUP_GROUP_LABELS[k]] = _backup_status_icon(stt)
+        rows_main.append(row_m)
+
+        rm = {
+            "Ano-Mês-Dia": str(r.get("started_at") or "")[:10],
+            "Hora": str(r.get("started_at") or "")[11:16],
+            "Tipo": str(r.get("type") or "—"),
+        }
+        for k in _BACKUP_GROUP_KEYS:
+            sg = g.get(k)
+            stt = (sg.get("status") if isinstance(sg, dict) else None) or ""
+            rm[_BACKUP_GROUP_LABELS[k]] = _backup_status_icon(stt)
+        rows_matrix.append(rm)
+
+    df_main = pd.DataFrame(rows_main)
+    st.markdown("### Tabela de execuções")
+    st.dataframe(df_main, hide_index=True, use_container_width=True)
+    st.markdown("**Links rápidos (Markdown)**")
+    for r in runs[:8]:
+        if not isinstance(r, dict):
+            continue
+        u = str(r.get("workflow_run_url") or r.get("log_url") or "").strip()
+        if u:
+            st.markdown(f"- `{r.get('started_at')}` — [{u}]({u})")
+
+    st.markdown("### Matriz temporal (ícones por grupo)")
+    st.caption("Colunas: Ambiente, Estrutura, Config, Arquivos, User Data, Logs — ✅ ok · ⚠️ aviso · ❌ falha · ⚪ desconhecido")
+    df_mat = pd.DataFrame(rows_matrix)
+    st.dataframe(df_mat, hide_index=True, use_container_width=True)
+
+    with st.expander("Detalhe textual por grupo (última execução)"):
+        last = runs[0] if runs else {}
+        if isinstance(last, dict):
+            lg = last.get("groups")
+            if isinstance(lg, dict):
+                for k in _BACKUP_GROUP_KEYS:
+                    block = lg.get(k)
+                    if isinstance(block, dict):
+                        st.markdown(f"**{_BACKUP_GROUP_LABELS[k]}** ({block.get('status', '—')})")
+                        st.caption(str(block.get("detail") or "—"))
+            st.json(last)
+
+    with st.expander("JSON bruto (auditoria)"):
+        st.code(json.dumps(runs[:20], ensure_ascii=False, indent=2), language="json")
 
 
 def main() -> None:

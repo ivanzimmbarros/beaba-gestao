@@ -19,6 +19,7 @@
 - `tests/test_nif_e164.py` — E16 NIF (módulo 11) e normalização E.164 / legado
 - `tests/test_e17_backup_dr.py` — E17 backup horário + verificação semanal (subprocess, repo isolado)
 - `tests/test_governanca.py` — inclui `test_backup_dr_history_json_existe_e_schema_vazio` (E17.1 telemetry)
+- `tests/test_e17_1_cloud.py` — E17.1 AES-GCM, evidências SQLite, append telemetria
 
 ## 3. Plano por demanda (template)
 
@@ -85,17 +86,18 @@ Para cada **ID de demanda**, acrescentar secção:
 - **2026-04-08:** E16 (NIF + telefone E.164 + nasc. filho) — `test_nif_e164.py`; suite **56** testes.
 - **2026-04-08:** E17 (backup/DR SQLite) — `test_e17_backup_dr.py`; suite **62** testes.
 - **2026-04-09:** E17.1 — `test_backup_dr_history_json_existe_e_schema_vazio`; suite **63** testes.
+- **2026-04-09:** E17.1 Fase C — `test_e17_1_cloud.py`; suite **66** testes.
 
 ### Demanda `2026-04-09_E17_1_autonomia_resiliencia_cloud` — telemetria backup/DR (Monitor)
 
-- **Objectivo:** ficheiro canónico `docs/governanca/telemetry/backup_dr_history.json` (schema v1, `runs` vazio); Monitor lê com tolerância a erro.
-- **Novos casos:** `test_backup_dr_history_json_existe_e_schema_vazio`.
-- **Regressão:** `python -m pytest tests/ -v` (**63** testes).
-- **Critérios de aceite:** [`04_desenho_logico.md`](governanca/demandas/2026-04-09_E17_1_autonomia_resiliencia_cloud/04_desenho_logico.md) §6.
+- **Objectivo:** `backup_dr_history.json` + workflows GHA + AES-GCM + aba Monitor (matriz).
+- **Novos casos:** `test_backup_dr_history_json_existe_e_schema_vazio`; `test_e17_1_cloud.py` (GCM, evidências SQLite, append telemetria).
+- **Regressão:** `python -m pytest tests/ -v` (**66** testes).
+- **Critérios de aceite:** [`04_desenho_logico.md`](governanca/demandas/2026-04-09_E17_1_autonomia_resiliencia_cloud/04_desenho_logico.md) §6 e workflows.
 
 ### Demanda `2026-04-08_E17_backup_dr` — backup e DR SQLite
 
 - **Objectivo:** `scripts/backup_sqlite_hourly.py`, `scripts/verify_restore_weekly.py`; WAL em `connection.py`; pasta `backups/`; política nuvem documentada no PAINEL.
 - **Novos casos:** compilação dos scripts; backup sem fonte (exit 1); backup + verify OK; verify sem backups (exit 1); rotação com `BEABA_BACKUP_KEEP=2`; corrupção binária na cópia horária → verify falha.
-- **Regressão:** `python -m pytest tests/ -v` (**62** testes).
+- **Regressão:** `python -m pytest tests/ -v` (suite actual **66** testes; E17 manteve casos em `test_e17_backup_dr.py`).
 - **Critérios de aceite:** [`04_desenho_logico.md`](governanca/demandas/2026-04-08_E17_backup_dr/04_desenho_logico.md) e [`99_encerramento.md`](governanca/demandas/2026-04-08_E17_backup_dr/99_encerramento.md).

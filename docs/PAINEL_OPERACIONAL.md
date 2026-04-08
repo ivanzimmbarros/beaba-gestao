@@ -32,6 +32,15 @@ Ambos leem o mesmo [`status_demanda.json`](governanca/status_demanda.json) no di
 
 **App:** conexão SQLite com **`PRAGMA journal_mode=WAL`** (`src/database/connection.py`).
 
+### E17.1 — GitHub Actions (nuvem)
+
+| Workflow | Gatilho | Função |
+|:---|:---|:---|
+| [`.github/workflows/backup_hourly.yml`](../.github/workflows/backup_hourly.yml) | `cron: 0 * * * *` UTC + `workflow_dispatch` | Checkout **`develop`**, `e17_1_gha_backup_job.py` (backup + AES-256-GCM com Secret **`BEABA_BACKUP_KEY`**), artefacto **`beaba-sqlite-backup-encrypted`** (90 d), telemetria + commit em **`backup_dr_history.json`**. |
+| [`.github/workflows/restore_weekly.yml`](../.github/workflows/restore_weekly.yml) | `cron: 0 3 * * 0` UTC + `workflow_dispatch` | Download último artefacto, decrypt, `verify_restore_weekly` + evidências, telemetria + commit. |
+
+**Secret obrigatório:** `BEABA_BACKUP_KEY` — base64 de **32 bytes** (ou hex com 64 caracteres). **Monitor de Voo** → separador **Backup e Restore** lê `docs/governanca/telemetry/backup_dr_history.json`.
+
 ---
 
 ## Torre de Controle — onde estamos no fluxo
@@ -71,7 +80,7 @@ flowchart LR
 | **Demanda activa** | ⚪ *Nenhuma* — última: **E17** entregue ([`99_encerramento.md`](governanca/demandas/2026-04-08_E17_backup_dr/99_encerramento.md)); antes **E16** ([`99`](governanca/demandas/2026-04-08_E16_cliente_nif_telefone_internacional/99_encerramento.md)). Próximo: **`@Files` → Analista**. |
 | **Última entrega de produto** | ✅ **E11** — Pré-venda na agenda (marco de negócio de referência no Diário); evoluções posteriores: E12–E17 (processo, monitor, backup/DR). |
 | **Última entrega de processo** | ✅ **E17** — Backup/DR SQLite ([`99`](governanca/demandas/2026-04-08_E17_backup_dr/99_encerramento.md)). Antes: **E16** NIF / E.164; **E15** Monitor; **E14** telemetria; **E12** Torre. |
-| **Testes** | ✅ **63** `pytest` · CI: **FLUXO OFICIAL DE GOVERNANCA** + **Validador Maestro V2** em `develop`. |
+| **Testes** | ✅ **66** `pytest` · CI: **FLUXO OFICIAL DE GOVERNANCA** + **Validador Maestro V2** em `develop`. |
 
 ---
 

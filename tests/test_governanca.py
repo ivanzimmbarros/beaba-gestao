@@ -56,12 +56,15 @@ def test_monitor_governanca_script_existe_e_compila():
     compile(p.read_text(encoding="utf-8"), str(p), "exec")
 
 
-def test_backup_dr_history_json_existe_e_schema_vazio():
-    """E17.1 — telemetria canónica inicial (Auditor)."""
+def test_backup_dr_history_json_existe_e_schema_minimo():
+    """E17.1 — telemetria canónica (schema v1; runs lista, entradas com type + groups)."""
     root = Path(__file__).resolve().parents[1]
     p = root / "docs" / "governanca" / "telemetry" / "backup_dr_history.json"
     assert p.is_file()
     data = json.loads(p.read_text(encoding="utf-8"))
     assert data.get("schema_version") == 1
     assert isinstance(data.get("runs"), list)
-    assert data["runs"] == []
+    for run in data["runs"]:
+        assert isinstance(run, dict)
+        assert "type" in run
+        assert isinstance(run.get("groups"), dict)
