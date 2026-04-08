@@ -1,6 +1,6 @@
 # Painel operacional — BeaBa Gestão
 
-**Última actualização:** 2026-04-08 — **E16** activa (Fase **B** — Desenho lógico; PC3 em foco); **E15** Monitor de Voo; **E14** telemetria; **E12** Torre + Diário.  
+**Última actualização:** 2026-04-08 — **E16** activa (Fase **C** — código 1; PC5 em foco); **E15** Monitor de Voo; **E14** telemetria; **E12** Torre + Diário.  
 **Norma:** [`FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md) (**Fluxo oficial de governança**).  
 **Quem actualiza:** a **EQUIPE**; o Diretor **não** edita este ficheiro.
 
@@ -51,7 +51,7 @@ flowchart LR
 
 | Indicador | Situação |
 |:---|:---|
-| **Demanda activa** | 🔵 **E16** — Cliente: NIF (PT + internacional), telefone E.164, widgets ([`01`](governanca/demandas/2026-04-08_E16_cliente_nif_telefone_internacional/01_demanda_diretor.md) · [`02`](governanca/demandas/2026-04-08_E16_cliente_nif_telefone_internacional/02_desenho_funcional.md) · [`03`](governanca/demandas/2026-04-08_E16_cliente_nif_telefone_internacional/03_confirmacao_diretor.md)). **Fase A** concluída (PC1→PC2); **Fase B** em curso — acionar Arquiteto para **PC3**. |
+| **Demanda activa** | 🔵 **E16** — NIF (PT + internacional), telefone E.164, nasc. filho opcional — dossier [`01`](governanca/demandas/2026-04-08_E16_cliente_nif_telefone_internacional/01_demanda_diretor.md) · [`04`](governanca/demandas/2026-04-08_E16_cliente_nif_telefone_internacional/04_desenho_logico.md) · [`05`](governanca/demandas/2026-04-08_E16_cliente_nif_telefone_internacional/05_validacao_analista_desenho_logico.md). **Fases A–B** fechadas; **Fase C** em curso (parecer Arquiteto **PC5**). |
 | **Última entrega de produto** | ✅ **E11** — Pré-venda na agenda (marco de negócio de referência no Diário); evoluções posteriores: E12–E15 (processo + monitor). |
 | **Última entrega de processo** | ✅ **E15** — **Monitor de Voo** (`monitor_governanca.py` na raiz); telemetria retirada da app principal ([`99_encerramento.md`](governanca/demandas/2026-04-07_E15_monitor_governanca_externo/99_encerramento.md)). Antes: **E14** telemetria ([`99`](governanca/demandas/2026-04-07_E14_telemetria_live/99_encerramento.md)); **E12** Torre ([`99`](governanca/demandas/2026-04-07_E12_refatoracao_painel_operacional/99_encerramento.md)). |
 | **Testes** | ✅ **50** `pytest` · CI: **FLUXO OFICIAL DE GOVERNANCA** + **Validador Maestro V2** em `develop`. |
@@ -79,7 +79,7 @@ Resumo **executivo** (detalhe técnico nos [anexos](#apêndice-h--e09-agendament
 | **E13** | 2026-04-07 | **Copy UI** — legendas e rótulos em Clientes, Colaboradores e Catálogo (`app.py`). | — |
 | **E14** | 2026-04-07 | **Telemetria ao vivo** — `live_status` / `etapas_pendentes` / `live_actualizado_iso`; UI integrada na app (até **E15**). | — |
 | **E15** | 2026-04-07 | **Monitor de Voo** — `monitor_governanca.py` na raiz; app principal sem entrada Fluxo; autorefresh obrigatório. | — |
-| **E16** | 2026-04-08 | **Cliente** — NIF PT + documento internacional; telefone E.164 (`phonenumbers`); widgets de contacto. *Em Fase B (desenho lógico).* | — |
+| **E16** | 2026-04-08 | **Cliente** — NIF PT + doc. internacional; telefone E.164; `cliente_filhos.data_nascimento`; migração emergência sem CHECK 11 dígitos. *Fase C (código).* | — |
 
 ---
 

@@ -39,6 +39,8 @@ def _cliente_min():
         data_parto_prevista=None,
         observacoes="",
         contatos_emergencia=[],
+        nif="123456789",
+        documento_identificacao_internacional=False,
     )
     assert ok
     return buscar_cliente_por_whatsapp("91234567890")
@@ -229,6 +231,8 @@ def test_registrar_venda_contexto_agendamento_cliente_diferente_falha():
         data_parto_prevista=None,
         observacoes="",
         contatos_emergencia=[],
+        nif="286303850",
+        documento_identificacao_internacional=False,
     )
     assert ok2
     cid2 = buscar_cliente_por_whatsapp("91333333333")

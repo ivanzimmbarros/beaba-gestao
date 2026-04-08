@@ -27,12 +27,19 @@ from src.modules.agendamento import (
     obter_primeiro_item_venda_por_servico,
 )
 from src.modules.venda import calcular_totais_venda, registrar_venda
+from src.ui.telefone_widgets import (
+    ler_e164_de_widgets,
+    preencher_session_telefone_de_e164,
+    render_grupo_telefone,
+)
 
 
 def _prime_cliente_form(prefix: str, d: dict) -> None:
     """Preenche widgets Streamlit a partir de ficha carregada."""
     st.session_state[f"{prefix}_nome"] = d["nome"]
-    st.session_state[f"{prefix}_num"] = d["whatsapp"]
+    preencher_session_telefone_de_e164(f"{prefix}_tel", str(d.get("whatsapp") or ""))
+    st.session_state[f"{prefix}_docintl"] = bool(d.get("identificacao_internacional"))
+    st.session_state[f"{prefix}_nif"] = str(d.get("nif_ou_documento") or "")
     st.session_state[f"{prefix}_email"] = d["email"]
     st.session_state[f"{prefix}_sexo"] = d["sexo"]
     st.session_state[f"{prefix}_rua"] = d["endereco_rua"]
@@ -52,36 +59,54 @@ def _prime_cliente_form(prefix: str, d: dict) -> None:
             st.session_state[f"{prefix}_parto"] = datetime.strptime(str(dp)[:10], "%Y-%m-%d").date()
     filhos = d.get("filhos") or []
     st.session_state[f"{prefix}_qfil"] = max(1, len(filhos)) if d["tem_filhos"] else 1
-    for j, (fn, ida, sx) in enumerate(filhos):
+    for j, row in enumerate(filhos):
+        fn, ida, sx = row[0], row[1], row[2]
         st.session_state[f"{prefix}_fn_{j}"] = fn
         st.session_state[f"{prefix}_fi_{j}"] = int(ida)
         st.session_state[f"{prefix}_fs_{j}"] = sx
+        dn = row[3] if len(row) >= 4 else None
+        if dn and parse_data_iso(str(dn)[:10]):
+            st.session_state[f"{prefix}_fhas_{j}"] = True
+            st.session_state[f"{prefix}_fdn_{j}"] = datetime.strptime(str(dn)[:10], "%Y-%m-%d").date()
+        else:
+            st.session_state[f"{prefix}_fhas_{j}"] = False
     em = d.get("contatos_emergencia") or []
     st.session_state[f"{prefix}_nem"] = max(1, len(em))
     for j, (en, et) in enumerate(em):
         st.session_state[f"{prefix}_em_n_{j}"] = en
-        st.session_state[f"{prefix}_em_t_{j}"] = et
+        preencher_session_telefone_de_e164(f"{prefix}_emerg_{j}", str(et or ""))
 
 
-def _collect_filhos(prefix: str, tem: bool, qtd: int) -> list[tuple[str, int, str]]:
+def _collect_filhos(
+    prefix: str, tem: bool, qtd: int
+) -> list[tuple[str, int, str] | tuple[str, int, str, str]]:
     if not tem:
         return []
-    out: list[tuple[str, int, str]] = []
+    out: list[tuple[str, int, str] | tuple[str, int, str, str]] = []
     for j in range(qtd):
         fn = st.session_state.get(f"{prefix}_fn_{j}", "")
         ida = int(st.session_state.get(f"{prefix}_fi_{j}", 0))
         sx = st.session_state.get(f"{prefix}_fs_{j}", SEXOS[0])
+        if st.session_state.get(f"{prefix}_fhas_{j}", False):
+            d_obj = st.session_state.get(f"{prefix}_fdn_{j}")
+            if d_obj is not None and hasattr(d_obj, "isoformat"):
+                out.append((str(fn), ida, str(sx), d_obj.isoformat()))
+                continue
         out.append((str(fn), ida, str(sx)))
     return out
 
 
-def _collect_emerg(prefix: str, n: int) -> list[tuple[str, str]]:
+def _collect_emerg_e164(prefix: str, n: int) -> tuple[bool, str, list[tuple[str, str]]]:
     out: list[tuple[str, str]] = []
     for j in range(n):
-        en = st.session_state.get(f"{prefix}_em_n_{j}", "")
-        et = st.session_state.get(f"{prefix}_em_t_{j}", "")
-        out.append((str(en), str(et)))
-    return out
+        en = str(st.session_state.get(f"{prefix}_em_n_{j}", "") or "").strip()
+        ok_t, e164, err = ler_e164_de_widgets(f"{prefix}_emerg_{j}")
+        if not en and not ok_t:
+            continue
+        if not en or not ok_t:
+            return False, err or "❌ Contacto de emergência incompleto.", []
+        out.append((en, e164))
+    return True, "", out
 
 
 def render_page_vendas(
@@ -135,7 +160,7 @@ def render_page_vendas(
     c1, c2, c3 = st.columns([2, 1, 1])
     with c1:
         tel_busca = st.text_input(
-            "Número de contacto (11 dígitos)",
+            "Número de contacto (E.164, +351… ou legado 11 dígitos)",
             key=f"{fk}_tel_busca",
             placeholder="Procurar na base",
         )
@@ -165,7 +190,12 @@ def render_page_vendas(
         with st.expander("Editar ficha do cliente", expanded=False):
             p = f"{fk}_vc"
             st.text_input("Nome completo *", key=f"{p}_nome")
-            st.text_input("Número de contacto *", key=f"{p}_num")
+            st.checkbox(
+                "Documento de identificação **não** é NIF português",
+                key=f"{p}_docintl",
+            )
+            st.text_input("NIF ou documento *", key=f"{p}_nif")
+            render_grupo_telefone(st, prefix=f"{p}_tel", label="Contacto principal *")
             st.text_input("Email *", key=f"{p}_email")
             sx = st.selectbox("Sexo *", SEXOS, key=f"{p}_sexo")
             gravida: bool | None = None
@@ -216,6 +246,16 @@ def render_page_vendas(
                         st.number_input("Idade (anos) *", 0, 120, key=f"{p}_fi_{j}")
                     with f3:
                         st.selectbox("Sexo *", SEXOS, key=f"{p}_fs_{j}")
+                    fh = st.checkbox(
+                        "Data de nascimento (opcional)",
+                        key=f"{p}_fhas_{j}",
+                    )
+                    if fh:
+                        st.date_input(
+                            "Data de nascimento",
+                            max_value=datetime.now().date(),
+                            key=f"{p}_fdn_{j}",
+                        )
             nem = int(
                 st.number_input(
                     "Linhas de contacto de emergência (0–10)",
@@ -226,45 +266,62 @@ def render_page_vendas(
                 )
             )
             for j in range(nem):
-                e1, e2 = st.columns(2)
-                with e1:
-                    st.text_input(f"Nome emerg. {j + 1}", key=f"{p}_em_n_{j}")
-                with e2:
-                    st.text_input(f"Telefone emerg. {j + 1}", key=f"{p}_em_t_{j}")
+                st.text_input(f"Nome emerg. {j + 1}", key=f"{p}_em_n_{j}")
+                render_grupo_telefone(
+                    st,
+                    prefix=f"{p}_emerg_{j}",
+                    label=f"Telefone emerg. {j + 1}",
+                )
             st.text_area("Observações", key=f"{p}_obs")
             if st.button("Guardar alterações na ficha", key=f"{p}_save"):
-                filhos_l = _collect_filhos(p, temf, qfil if temf else 0)
-                em_l = _collect_emerg(p, nem)
-                ok_u, msg_u = atualizar_cliente(
-                    int(cli_id),
-                    nome=str(st.session_state.get(f"{p}_nome", "")),
-                    numero_contato=str(st.session_state.get(f"{p}_num", "")),
-                    endereco_rua=str(st.session_state.get(f"{p}_rua", "")),
-                    endereco_numero=str(st.session_state.get(f"{p}_numero", "")),
-                    endereco_complemento=str(st.session_state.get(f"{p}_comp", "")),
-                    codigo_postal=str(st.session_state.get(f"{p}_cp", "")),
-                    concelho=str(st.session_state.get(f"{p}_conc", "")),
-                    freguesia=str(st.session_state.get(f"{p}_freg", "")),
-                    distrito=str(st.session_state.get(f"{p}_dist", "")),
-                    pais=str(st.session_state.get(f"{p}_pais", "Portugal")),
-                    email=str(st.session_state.get(f"{p}_email", "")),
-                    sexo=str(st.session_state.get(f"{p}_sexo", SEXOS[0])),
-                    tem_filhos=temf,
-                    filhos=filhos_l,
-                    gravida=gravida,
-                    data_parto_prevista=data_parto,
-                    observacoes=str(st.session_state.get(f"{p}_obs", "")),
-                    contatos_emergencia=em_l,
-                )
-                if ok_u:
-                    st.success(msg_u)
+                ok_t, tel_e164, err_t = ler_e164_de_widgets(f"{p}_tel")
+                if not ok_t:
+                    st.error(err_t)
                 else:
-                    st.error(msg_u)
+                    ok_em, err_em, em_l = _collect_emerg_e164(p, nem)
+                    if not ok_em:
+                        st.error(err_em)
+                    else:
+                        filhos_l = _collect_filhos(p, temf, qfil if temf else 0)
+                        ok_u, msg_u = atualizar_cliente(
+                            int(cli_id),
+                            nome=str(st.session_state.get(f"{p}_nome", "")),
+                            numero_contato=tel_e164,
+                            endereco_rua=str(st.session_state.get(f"{p}_rua", "")),
+                            endereco_numero=str(st.session_state.get(f"{p}_numero", "")),
+                            endereco_complemento=str(st.session_state.get(f"{p}_comp", "")),
+                            codigo_postal=str(st.session_state.get(f"{p}_cp", "")),
+                            concelho=str(st.session_state.get(f"{p}_conc", "")),
+                            freguesia=str(st.session_state.get(f"{p}_freg", "")),
+                            distrito=str(st.session_state.get(f"{p}_dist", "")),
+                            pais=str(st.session_state.get(f"{p}_pais", "Portugal")),
+                            email=str(st.session_state.get(f"{p}_email", "")),
+                            sexo=str(st.session_state.get(f"{p}_sexo", SEXOS[0])),
+                            tem_filhos=temf,
+                            filhos=filhos_l,
+                            gravida=gravida,
+                            data_parto_prevista=data_parto,
+                            observacoes=str(st.session_state.get(f"{p}_obs", "")),
+                            contatos_emergencia=em_l,
+                            nif=str(st.session_state.get(f"{p}_nif", "")),
+                            documento_identificacao_internacional=bool(
+                                st.session_state.get(f"{p}_docintl")
+                            ),
+                        )
+                        if ok_u:
+                            st.success(msg_u)
+                        else:
+                            st.error(msg_u)
     else:
         st.markdown("**Novo cliente** (cadastro completo — mesmas regras do menu Clientes)")
         pn = f"{fk}_nv"
         st.text_input("Nome completo *", key=f"{pn}_nome")
-        st.text_input("Número de contacto *", key=f"{pn}_num")
+        st.checkbox(
+            "Documento de identificação **não** é NIF português",
+            key=f"{pn}_docintl",
+        )
+        st.text_input("NIF ou documento *", key=f"{pn}_nif")
+        render_grupo_telefone(st, prefix=f"{pn}_tel", label="Contacto principal *")
         st.text_input("Email *", key=f"{pn}_email")
         sxn = st.selectbox("Sexo *", SEXOS, key=f"{pn}_sexo")
         gn: bool | None = None
@@ -304,45 +361,67 @@ def render_page_vendas(
                     st.number_input(f"Idade {j + 1} *", 0, 120, key=f"{pn}_fi_{j}")
                 with u3:
                     st.selectbox(f"Sexo {j + 1} *", SEXOS, key=f"{pn}_fs_{j}")
+                fhn = st.checkbox(
+                    "Data nasc. (opcional)",
+                    key=f"{pn}_fhas_{j}",
+                )
+                if fhn:
+                    st.date_input(
+                        f"Data nasc. filho {j + 1}",
+                        max_value=datetime.now().date(),
+                        key=f"{pn}_fdn_{j}",
+                    )
         nemn = int(st.number_input("Contactos emergência (0–10)", 0, 10, 0, key=f"{pn}_nem"))
         for j in range(nemn):
-            v1, v2 = st.columns(2)
-            with v1:
-                st.text_input(f"Emerg. nome {j + 1}", key=f"{pn}_em_n_{j}")
-            with v2:
-                st.text_input(f"Emerg. tel {j + 1}", key=f"{pn}_em_t_{j}")
+            st.text_input(f"Emerg. nome {j + 1}", key=f"{pn}_em_n_{j}")
+            render_grupo_telefone(
+                st,
+                prefix=f"{pn}_emerg_{j}",
+                label=f"Emerg. telefone {j + 1}",
+            )
         st.text_area("Observações", key=f"{pn}_obs")
         if st.button("Cadastrar e usar este cliente", key=f"{pn}_cad"):
-            fl = _collect_filhos(pn, temfn, qfn if temfn else 0)
-            el = _collect_emerg(pn, nemn)
-            ok_c, msg_c = cadastrar_cliente(
-                nome=str(st.session_state.get(f"{pn}_nome", "")),
-                numero_contato=str(st.session_state.get(f"{pn}_num", "")),
-                endereco_rua=str(st.session_state.get(f"{pn}_rua", "")),
-                endereco_numero=str(st.session_state.get(f"{pn}_numero", "")),
-                endereco_complemento=str(st.session_state.get(f"{pn}_comp", "")),
-                codigo_postal=str(st.session_state.get(f"{pn}_cp", "")),
-                concelho=str(st.session_state.get(f"{pn}_conc", "")),
-                freguesia=str(st.session_state.get(f"{pn}_freg", "")),
-                distrito=str(st.session_state.get(f"{pn}_dist", "")),
-                pais=str(st.session_state.get(f"{pn}_pais", "Portugal")),
-                email=str(st.session_state.get(f"{pn}_email", "")),
-                sexo=str(st.session_state.get(f"{pn}_sexo", SEXOS[0])),
-                tem_filhos=temfn,
-                filhos=fl,
-                gravida=gn,
-                data_parto_prevista=dpn,
-                observacoes=str(st.session_state.get(f"{pn}_obs", "")),
-                contatos_emergencia=el,
-            )
-            if ok_c:
-                cid2 = buscar_cliente_por_whatsapp(str(st.session_state.get(f"{pn}_num", "")))
-                st.session_state.venda_cliente_id = cid2
-                st.session_state.venda_fv += 1
-                st.success(msg_c)
-                st.rerun()
+            ok_tn, tel_nv, err_nv = ler_e164_de_widgets(f"{pn}_tel")
+            if not ok_tn:
+                st.error(err_nv)
             else:
-                st.error(msg_c)
+                ok_en, err_en, el = _collect_emerg_e164(pn, nemn)
+                if not ok_en:
+                    st.error(err_en)
+                else:
+                    fl = _collect_filhos(pn, temfn, qfn if temfn else 0)
+                    ok_c, msg_c = cadastrar_cliente(
+                        nome=str(st.session_state.get(f"{pn}_nome", "")),
+                        numero_contato=tel_nv,
+                        endereco_rua=str(st.session_state.get(f"{pn}_rua", "")),
+                        endereco_numero=str(st.session_state.get(f"{pn}_numero", "")),
+                        endereco_complemento=str(st.session_state.get(f"{pn}_comp", "")),
+                        codigo_postal=str(st.session_state.get(f"{pn}_cp", "")),
+                        concelho=str(st.session_state.get(f"{pn}_conc", "")),
+                        freguesia=str(st.session_state.get(f"{pn}_freg", "")),
+                        distrito=str(st.session_state.get(f"{pn}_dist", "")),
+                        pais=str(st.session_state.get(f"{pn}_pais", "Portugal")),
+                        email=str(st.session_state.get(f"{pn}_email", "")),
+                        sexo=str(st.session_state.get(f"{pn}_sexo", SEXOS[0])),
+                        tem_filhos=temfn,
+                        filhos=fl,
+                        gravida=gn,
+                        data_parto_prevista=dpn,
+                        observacoes=str(st.session_state.get(f"{pn}_obs", "")),
+                        contatos_emergencia=el,
+                        nif=str(st.session_state.get(f"{pn}_nif", "")),
+                        documento_identificacao_internacional=bool(
+                            st.session_state.get(f"{pn}_docintl")
+                        ),
+                    )
+                    if ok_c:
+                        cid2 = buscar_cliente_por_whatsapp(tel_nv)
+                        st.session_state.venda_cliente_id = cid2
+                        st.session_state.venda_fv += 1
+                        st.success(msg_c)
+                        st.rerun()
+                    else:
+                        st.error(msg_c)
 
     # --- Catálogo / carrinho ---
     st.subheader("2. Itens (catálogo ativo)")

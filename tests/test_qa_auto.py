@@ -35,6 +35,8 @@ def _cli(**kw):
         data_parto_prevista=None,
         observacoes="",
         contatos_emergencia=[],
+        nif="123456789",
+        documento_identificacao_internacional=False,
     )
     base.update(kw)
     return cadastrar_cliente(**base)
@@ -61,7 +63,7 @@ def test_duplicidade_proibida():
 def test_numero_invalido_curto():
     ok, msg = _cli(numero_contato="123")
     assert ok is False
-    assert "11" in msg
+    assert "inválido" in msg.lower() or "contacto" in msg.lower()
 
 
 def test_limpeza_caracteres_especiais():

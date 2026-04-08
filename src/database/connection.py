@@ -158,6 +158,38 @@ def _seed_servicos_exemplo(cursor) -> None:
         )
 
 
+def _migrate_cliente_contatos_emergencia_e16_if_needed(cursor) -> None:
+    """E16: remove CHECK length(telefone)=11 para permitir E.164."""
+    cursor.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='cliente_contatos_emergencia'"
+    )
+    row = cursor.fetchone()
+    if not row or not row[0] or "length(telefone) = 11" not in row[0]:
+        return
+    cursor.execute("PRAGMA foreign_keys=OFF")
+    cursor.execute(
+        """
+        CREATE TABLE cliente_contatos_emergencia_e16 (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cliente_id INTEGER NOT NULL,
+            ordem INTEGER NOT NULL,
+            nome TEXT NOT NULL,
+            telefone TEXT NOT NULL,
+            FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE
+        )
+        """
+    )
+    cursor.execute(
+        """
+        INSERT INTO cliente_contatos_emergencia_e16 (id, cliente_id, ordem, nome, telefone)
+        SELECT id, cliente_id, ordem, nome, telefone FROM cliente_contatos_emergencia
+        """
+    )
+    cursor.execute("DROP TABLE cliente_contatos_emergencia")
+    cursor.execute("ALTER TABLE cliente_contatos_emergencia_e16 RENAME TO cliente_contatos_emergencia")
+    cursor.execute("PRAGMA foreign_keys=ON")
+
+
 def create_tables():
     """Garante esquema base, migrações incrementais e tabelas relacionadas."""
     conn = get_connection()
@@ -191,6 +223,8 @@ def create_tables():
         ("freguesia", "TEXT DEFAULT ''"),
         ("distrito", "TEXT DEFAULT ''"),
         ("pais", "TEXT DEFAULT 'Portugal'"),
+        ("nif_ou_documento", "TEXT"),
+        ("identificacao_internacional", "INTEGER NOT NULL DEFAULT 0"),
     ):
         _ensure_column(cursor, "clientes", col, definition)
 
@@ -207,6 +241,7 @@ def create_tables():
         """
     )
     _ensure_column(cursor, "cliente_filhos", "nome", "TEXT DEFAULT ''")
+    _ensure_column(cursor, "cliente_filhos", "data_nascimento", "TEXT")
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS servicos (
@@ -330,11 +365,11 @@ def create_tables():
             ordem INTEGER NOT NULL,
             nome TEXT NOT NULL,
             telefone TEXT NOT NULL,
-            FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE,
-            CHECK (length(telefone) = 11)
+            FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE
         )
         """
     )
+    _migrate_cliente_contatos_emergencia_e16_if_needed(cursor)
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS vendas (

@@ -21,6 +21,7 @@ from src.modules.catalogo import (
     repasse_medio_ponderado_pacote,
 )
 from src.modules.cliente import cadastrar_cliente
+from src.ui.telefone_widgets import ler_e164_de_widgets, render_grupo_telefone
 from src.ui.page_agendamentos import render_page_agendamentos
 from src.ui.page_dashboards import render_page_dashboards
 from src.ui.page_vendas import render_page_vendas
@@ -132,7 +133,16 @@ def _page_clientes() -> None:
 
     st.subheader("Dados pessoais")
     nome = st.text_input("Nome completo *", key=f"{fk}_nome")
-    numero = st.text_input("Número de contacto *", key=f"{fk}_num", placeholder="DDD + número (11 dígitos)")
+    doc_intl = st.checkbox(
+        "Documento de identificação **não** é NIF português",
+        key=f"{fk}_docintl",
+    )
+    nif_val = st.text_input(
+        "NIF ou documento de identificação *",
+        key=f"{fk}_nif",
+        placeholder="9 dígitos (PT) ou documento internacional",
+    )
+    render_grupo_telefone(st, prefix=f"{fk}_tel_pri", label="Contacto principal *")
     email = st.text_input("Email *", key=f"{fk}_email")
     sexo = st.selectbox("Sexo *", SEXOS, key=f"{fk}_sexo")
 
@@ -171,7 +181,7 @@ def _page_clientes() -> None:
 
     st.subheader("Filhos")
     tem_filhos = st.radio("Possui filhos? *", ["Não", "Sim"], horizontal=True, key=f"{fk}_temf") == "Sim"
-    filhos: list[tuple[str, int, str]] = []
+    filhos: list[tuple[str, int, str] | tuple[str, int, str, str]] = []
     if tem_filhos:
         qtd = int(
             st.number_input(
@@ -200,7 +210,22 @@ def _page_clientes() -> None:
                 )
             with cf3:
                 sx = st.selectbox(f"Sexo *", SEXOS, key=f"{fk}_f_sx_{j}")
-            filhos.append((fn, idade, sx))
+            has_dn = st.checkbox(
+                "Indicar data de nascimento (opcional)",
+                key=f"{fk}_f_hasdn_{j}",
+            )
+            dn_iso: str | None = None
+            if has_dn:
+                d_birth = st.date_input(
+                    "Data de nascimento",
+                    max_value=date.today(),
+                    key=f"{fk}_f_dn_{j}",
+                )
+                dn_iso = d_birth.isoformat() if d_birth else None
+            if dn_iso:
+                filhos.append((fn, idade, sx, dn_iso))
+            else:
+                filhos.append((fn, idade, sx))
 
     st.subheader("Contactos de emergência (opcional)")
     st.caption("Adicione os contactos por ordem de prioridade de comunicação")
@@ -209,14 +234,13 @@ def _page_clientes() -> None:
         if st.button("➕ Adicionar contacto de emergência", key=f"{fk}_add_em"):
             st.session_state.cli_n_emergency = min(st.session_state.cli_n_emergency + 1, 10)
 
-    emerg: list[tuple[str, str]] = []
     for i in range(st.session_state.cli_n_emergency):
-        ec1, ec2 = st.columns(2)
-        with ec1:
-            en = st.text_input(f"Nome (emergência {i + 1})", key=f"{fk}_em_n_{i}")
-        with ec2:
-            et = st.text_input(f"Número de contacto (emergência {i + 1})", key=f"{fk}_em_t_{i}")
-        emerg.append((en or "", et or ""))
+        st.text_input(f"Nome (emergência {i + 1})", key=f"{fk}_em_n_{i}")
+        render_grupo_telefone(
+            st,
+            prefix=f"{fk}_emerg_{i}",
+            label=f"Telefone (emergência {i + 1})",
+        )
 
     st.subheader("Observações")
     observacoes = st.text_area(
@@ -227,32 +251,51 @@ def _page_clientes() -> None:
     )
 
     if st.button("Cadastrar cliente", type="primary", key=f"{fk}_submit"):
-        ok, msg = cadastrar_cliente(
-            nome=nome,
-            numero_contato=numero,
-            endereco_rua=end_rua,
-            endereco_numero=end_num,
-            endereco_complemento=end_comp,
-            codigo_postal=end_cp,
-            concelho=end_conc,
-            freguesia=end_freg,
-            distrito=end_dist,
-            pais=end_pais,
-            email=email,
-            sexo=sexo,
-            tem_filhos=tem_filhos,
-            filhos=filhos,
-            gravida=gravida,
-            data_parto_prevista=data_parto,
-            observacoes=observacoes or "",
-            contatos_emergencia=emerg,
-        )
-        if ok:
-            st.session_state.cli_form_v += 1
-            st.session_state.cli_n_emergency = 1
-            st.success(msg)
+        ok_t, tel_e164, err_t = ler_e164_de_widgets(f"{fk}_tel_pri")
+        if not ok_t:
+            st.error(err_t)
         else:
-            st.error(msg)
+            emerg_l: list[tuple[str, str]] = []
+            em_err = False
+            for i in range(st.session_state.cli_n_emergency):
+                en = str(st.session_state.get(f"{fk}_em_n_{i}", "") or "").strip()
+                ok_e, e164_e, err_e = ler_e164_de_widgets(f"{fk}_emerg_{i}")
+                if not en and not ok_e:
+                    continue
+                if not en or not ok_e:
+                    st.error(err_e or "❌ Contacto de emergência incompleto.")
+                    em_err = True
+                    break
+                emerg_l.append((en, e164_e))
+            if not em_err:
+                ok, msg = cadastrar_cliente(
+                    nome=nome,
+                    numero_contato=tel_e164,
+                    endereco_rua=end_rua,
+                    endereco_numero=end_num,
+                    endereco_complemento=end_comp,
+                    codigo_postal=end_cp,
+                    concelho=end_conc,
+                    freguesia=end_freg,
+                    distrito=end_dist,
+                    pais=end_pais,
+                    email=email,
+                    sexo=sexo,
+                    tem_filhos=tem_filhos,
+                    filhos=filhos,
+                    gravida=gravida,
+                    data_parto_prevista=data_parto,
+                    observacoes=observacoes or "",
+                    contatos_emergencia=emerg_l,
+                    nif=nif_val,
+                    documento_identificacao_internacional=bool(doc_intl),
+                )
+                if ok:
+                    st.session_state.cli_form_v += 1
+                    st.session_state.cli_n_emergency = 1
+                    st.success(msg)
+                else:
+                    st.error(msg)
 
 
 def _page_colaboradores() -> None:
