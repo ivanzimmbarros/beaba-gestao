@@ -19,13 +19,12 @@
   "pc_foco": "PC5–PC6",
   "percurso": "normal",
   "ultima_entrega_marco": "E17",
-  "live_status": "Sincronizando regras de governança E17.1 com a nuvem",
+  "live_status": "Sincronização GOV E17.1 concluída em origin/develop — commit b3c714b.",
   "etapas_pendentes": [
-    "Commit auditoria GOV (.cursorrules) + push `develop`; confirmar HASH ao Diretor.",
     "Configurar `BEABA_BACKUP_KEY` em GitHub Secrets e testar workflow_dispatch.",
-    "D3 (inventário actualizado): workflows `.github/workflows/` + `.cursorrules` + configurações de ambiente."
+    "D3 (inventário): workflows `.github/workflows/` + `.cursorrules` + configurações de ambiente."
   ],
-  "live_actualizado_iso": "2026-04-09T21:30:00Z",
+  "live_actualizado_iso": "2026-04-09T21:35:00Z",
   "fases_resumo": [
     { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
     { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "feito" },
