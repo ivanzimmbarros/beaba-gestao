@@ -8,7 +8,7 @@ Toda e qualquer alteração no projeto deve respeitar a estrutura de backup defi
 Sempre que criar ou modificar arquivos, verifique a inclusão nestas 4 dimensões:
 * **D1: User Data (Crítico):** Bases SQLite (`*.db`), arquivos `.env` (estrutura, não valores) e uploads.
 * **D2: Telemetria:** Arquivos de log de auditoria (`backup_dr_history.json`).
-* **D3: Infraestrutura:** Workflows em `.github/workflows/`.
+* **D3: Infraestrutura e Regras:** Workflows em `.github/workflows/`, ficheiro .cursorrules e configurações de ambiente.
 * **D4: Scripts de Recuperação:** Scripts Python de backup/restore e suas dependências.
 
 ### 2. Regras de Compliance para o Desenvolvedor/IA
