@@ -22,6 +22,7 @@ def get_connection():
     try:
         conn = sqlite3.connect(db_path, check_same_thread=False)
         conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("PRAGMA journal_mode=WAL")
         return conn
     except Exception as e:
         st.error(f"Falha crítica na base de dados: {e}")

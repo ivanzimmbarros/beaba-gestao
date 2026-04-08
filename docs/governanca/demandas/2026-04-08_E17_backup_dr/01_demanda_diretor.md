@@ -15,11 +15,10 @@ O **Diretor** exige **Backup e recuperação (DR)** sobre a base **SQLite** usad
 2. **Script de auto-restauro semanal** — procedimento automatizado que valide integridade com **`PRAGMA integrity_check`** (e variantes seguras), com registo de resultado.
 3. **Estratégia de sincronização externa (nuvem)** — definir como réplicas de backup saem da máquina local (ex.: pasta sincronizada, object storage, regras de exclusão do ficheiro **vivo**).
 
-**Restrição (Fase A — §7):** nesta fase produzem-se **`01`**, **`02_desenho_funcional.md`** e **actualização física** de [`status_demanda.json`](../../status_demanda.json) para **E17 · Fase A**. **Sem** implementação em `src/`, **sem** novos scripts executáveis no repositório até **PROSSIGA** formal no chat do Diretor.
+**Restrição (Fase A — §7):** cumprida em 2026-04-08; **PROSSIGA** recebido — ver [`99_encerramento.md`](99_encerramento.md) para entregas (`scripts/`, `connection.py`, `backups/`, testes, PAINEL).
 
 ---
 
 ## Próximo passo
 
-- **`02_desenho_funcional.md`** — arquitectura de backup, agendamento, restauro de verificação e política de nuvem.  
-- Após **PROSSIGA**: **`03`**, PCs (B–F), código, testes e encerramento normativo.
+- Demanda **encerrada** no marco E17. Próximo pedido: **`@Files` → Analista**.
