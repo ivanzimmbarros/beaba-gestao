@@ -1,28 +1,35 @@
 {
-  "demanda_id": "",
-  "titulo": "Nenhuma demanda activa — última concluída: E15 monitor stand-alone (2026-04-07)",
-  "fase_actual": "—",
-  "passo_referencia": null,
-  "responsavel_actual": "—",
-  "pontos_controlo_concluidos": [],
-  "pendente": "Nova evolução: `@Files` → Analista. Última: E15 (`monitor_governanca.py`; app sem Fluxo e governança).",
+  "demanda_id": "E16",
+  "titulo": "E16 — Cliente: NIF (PT + doc. internacional), telefone E.164 e widgets de contacto",
+  "fase_actual": "B - Desenho Lógico",
+  "passo_referencia": 5,
+  "responsavel_actual": "Arquiteto",
+  "pontos_controlo_concluidos": [
+    "PC1 — GitHub: dossier 2026-04-08_E16_cliente_nif_telefone_internacional (01–03) + selo Diretor no 03",
+    "PC2 — Painel operacional + status_demanda.json actualizados (Fase A fechada; Fase B em curso)"
+  ],
+  "pendente": "Produzir 04_desenho_logico.md e 05_validacao_analista_desenho_logico.md; fechar PC3 (Git) e PC4 (Painel).",
   "falha": null,
-  "ultima_actualizacao_iso": "2026-04-07",
-  "notas_dashboard": "E15 encerrada. Dois acessos: `streamlit run app.py` e `streamlit run monitor_governanca.py`. Telemetria E14 no monitor.",
-  "fase_governanca": "—",
-  "pc_foco": null,
+  "ultima_actualizacao_iso": "2026-04-08",
+  "notas_dashboard": "Rutura de governança corrigida: E16 com Fase A concluída (PC1–PC2). Torre: A 🟢 B 🔵.",
+  "fase_governanca": "B - Desenho Lógico",
+  "pc_foco": "PC3",
   "percurso": "normal",
   "ultima_entrega_marco": "E15",
-  "live_status": "",
-  "etapas_pendentes": [],
-  "live_actualizado_iso": "",
+  "live_status": "Acionando Arquiteto para PC3",
+  "etapas_pendentes": [
+    "Arquiteto: 04_desenho_logico.md (contratos BD, fluxos cliente/telefone/NIF).",
+    "Analista: 05_validacao_analista_desenho_logico.md após revisão do 04.",
+    "Dev: aguardar PC3–PC4 antes de consolidar código em develop conforme desenho lógico."
+  ],
+  "live_actualizado_iso": "2026-04-08T12:00:00Z",
   "fases_resumo": [
     { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
-    { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "feito" },
-    { "id": "C", "label": "Código 1", "pcs": "PC5→6", "estado": "feito" },
-    { "id": "D", "label": "Código 2", "pcs": "PC7→8", "estado": "feito" },
-    { "id": "E", "label": "QA", "pcs": "PC9–12", "estado": "feito" },
-    { "id": "F", "label": "Fecho", "pcs": "PC13", "estado": "feito" }
+    { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "curso" },
+    { "id": "C", "label": "Código 1", "pcs": "PC5→6", "estado": "pendente" },
+    { "id": "D", "label": "Código 2", "pcs": "PC7→8", "estado": "pendente" },
+    { "id": "E", "label": "QA", "pcs": "PC9–12", "estado": "pendente" },
+    { "id": "F", "label": "Fecho", "pcs": "PC13", "estado": "pendente" }
   ],
   "diario_bordo_resumo": [
     "E01 — V11.0: app e identidade; Caderno Mestre.",
@@ -39,6 +46,7 @@
     "E12 — Painel Torre de Controle + Diário (UI → E15 monitor).",
     "E13 — Copy formulários Clientes, Colaboradores, Catálogo.",
     "E14 — Telemetria ao vivo (STATUS LIVE + JSON live_*).",
-    "E15 — Monitor de Voo stand-alone (`monitor_governanca.py`); app sem página Fluxo."
+    "E15 — Monitor de Voo stand-alone (`monitor_governanca.py`); app sem página Fluxo.",
+    "E16 — (em curso) Cliente: NIF PT + doc. internacional; telefone E.164; widgets — Fase B."
   ]
 }
