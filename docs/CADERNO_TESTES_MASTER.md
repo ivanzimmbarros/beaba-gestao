@@ -18,6 +18,7 @@
 - `tests/test_agendamento.py` — agendamentos (incl. E11 pré-venda, migração `modo_origem`, associação a `venda_item`)
 - `tests/test_nif_e164.py` — E16 NIF (módulo 11) e normalização E.164 / legado
 - `tests/test_e17_backup_dr.py` — E17 backup horário + verificação semanal (subprocess, repo isolado)
+- `tests/test_governanca.py` — inclui `test_backup_dr_history_json_existe_e_schema_vazio` (E17.1 telemetry)
 
 ## 3. Plano por demanda (template)
 
@@ -83,6 +84,14 @@ Para cada **ID de demanda**, acrescentar secção:
 - **2026-04-07:** E15 (monitor externo) — `test_monitor_governanca_script_existe_e_compila`; suite **50** testes.
 - **2026-04-08:** E16 (NIF + telefone E.164 + nasc. filho) — `test_nif_e164.py`; suite **56** testes.
 - **2026-04-08:** E17 (backup/DR SQLite) — `test_e17_backup_dr.py`; suite **62** testes.
+- **2026-04-09:** E17.1 — `test_backup_dr_history_json_existe_e_schema_vazio`; suite **63** testes.
+
+### Demanda `2026-04-09_E17_1_autonomia_resiliencia_cloud` — telemetria backup/DR (Monitor)
+
+- **Objectivo:** ficheiro canónico `docs/governanca/telemetry/backup_dr_history.json` (schema v1, `runs` vazio); Monitor lê com tolerância a erro.
+- **Novos casos:** `test_backup_dr_history_json_existe_e_schema_vazio`.
+- **Regressão:** `python -m pytest tests/ -v` (**63** testes).
+- **Critérios de aceite:** [`04_desenho_logico.md`](governanca/demandas/2026-04-09_E17_1_autonomia_resiliencia_cloud/04_desenho_logico.md) §6.
 
 ### Demanda `2026-04-08_E17_backup_dr` — backup e DR SQLite
 
