@@ -28,11 +28,11 @@ jobs:
         run: |
           git config --global user.name "Maestro Bot"
           git config --global user.email "bot@beaba.com"
-          
+
           mkdir -p "$(dirname "${{ github.event.inputs.numero }}")"
           # Decodifica o código secreto "|||" para quebras de linha reais
           printf "%s" "$CONTEUDO" | sed 's/|||/\n/g' > "${{ github.event.inputs.numero }}"
-          
+
           git add .
           git commit -m "📦 Maestro: Deploy Estruturado de ${{ github.event.inputs.numero }}"
           git push

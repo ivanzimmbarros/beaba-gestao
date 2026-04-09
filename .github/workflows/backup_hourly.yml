@@ -2,6 +2,9 @@
 # E-mail em falha: Secrets EMAIL_* (ver PAINEL).
 # Reindexação 2026-04-09 (E17.1): cron deslocado para o minuto :05 UTC — a documentação GitHub
 # indica que disparos no minuto :00 concentram carga e podem falhar ou atrasar; :05 reduz colisão.
+#
+# E17.1 — O *evento* do run pode aparecer em `main` (cron na branch por defeito). O *commit* de
+# telemetria é sempre em `telemetry_git_branch` (= develop). Comando local: `git pull origin develop`.
 
 name: backup_hourly
 
@@ -28,6 +31,7 @@ jobs:
       artifact_name: beaba-sqlite-backup-encrypted
       retention_days: 3
       retention_label: "HOURLY (3d)"
+      telemetry_git_branch: develop
 
   notify-failure:
     needs: backup
