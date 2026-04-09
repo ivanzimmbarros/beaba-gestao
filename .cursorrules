@@ -8,7 +8,7 @@ Toda e qualquer alteração no projeto deve respeitar a estrutura de backup defi
 
 ### 1. Inventário de Dimensões de Cobertura
 Sempre que criar ou modificar ficheiros, verifique a inclusão nestas 4 dimensões:
-* **D1: User Data (Crítico):** Bases SQLite (`*.db`), ficheiros `.env` (estrutura, não valores) e uploads. **E18:** o ledger (`credito_movimentos`), `repasse_linhas` e `venda_pagamento_linhas` são dados críticos; o script `scripts/e17_1_sqlite_evidence.py` inclui contagens destas tabelas no conjunto `critical`.
+* **D1: User Data (Crítico):** Bases SQLite (`*.db`), ficheiros `.env` (estrutura, não valores) e uploads. **E18:** o ledger (`credito_movimentos`), `repasse_linhas` e `venda_pagamento_linhas` são dados críticos; o script `scripts/e17_1_sqlite_evidence.py` inclui contagens destas tabelas no conjunto `critical`. **Seed de validação:** `scripts/seed_validacao_massiva.py` repõe dados de teste; uso em `data/beaba_gestao.db` exige `--wipe-live-confirm` (**apaga** o conteúdo actual). O backup horário (`scripts/backup_sqlite_hourly.py` / GHA) continua a copiar o ficheiro **integral** — sem novo caminho.
 * **D2: Telemetria:** Arquivos de log de auditoria (`backup_dr_history.json`).
 * **D3: Infraestrutura e Regras:** Workflows em `.github/workflows/`, ficheiro .cursorrules e configurações de ambiente.
 * **D4: Scripts de Recuperação:** Scripts Python de backup/restore e suas dependências.

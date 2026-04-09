@@ -79,13 +79,13 @@
   "pc_foco": "PC3–PC4",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "E17.1 em B — aguarda 04_desenho_logico. Protocolo Fortaleza (E20+E17.1) gravado: PC12.5 stress≥1000 + relatório + backup D1–D4 + bolinha zero + GHA verde antes de PC13.",
+  "live_status": "Seed validação aplicado em `data/beaba_gestao.db`: 100 clientes, 20 colaboradores, 20 serviços, 300+ vendas, 300 agendamentos; integrity_check ok; pytest 80. Próximo backup horário cobre o `.db` completo. E17.1 em B.",
   "etapas_pendentes": [
     "Diretor: rever `docs/governanca/demandas/2026-04-09_E17_1_autonomia_resiliencia_cloud/04_desenho_logico.md` e autorizar Fase C.",
     "Pós-autorização: implementar workflows/scripts cloud conforme dossier E17.1.",
     "Operação: secrets GitHub + disparo manual inicial de `backup_hourly` / matriz no Monitor."
   ],
-  "live_actualizado_iso": "2026-04-09T01:05:00Z",
+  "live_actualizado_iso": "2026-04-09T12:30:00Z",
   "fases_resumo": [
     { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
     { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "curso" },
@@ -115,6 +115,7 @@
     "E17.1 — Cloud Total: GHA + AES-GCM + telemetria + Monitor — Fase B; aguarda CONFIRMO.",
     "E17.2 — Retenção / restore / e-mails — CONCLUÍDO 2026-04-08 (encerramento; legado operacional alinhado ao E18).",
     "E18 — Operacional-financeiro: ledger, multi-meio, gate CONCLUIDO, repasses — CONCLUÍDO 2026-04-08 (refs: `docs/governanca/demandas/2026-04-08_E18_operacional_financeiro/`).",
-    "E20 — Fortaleza operacional: portão stress E2E obrigatório antes de PC13; MAPA_FLUXOS + e2e_stress_test; norma em FLUXO_SUCESSO_E_FALHA + PAINEL + protocolo_fortaleza no JSON."
+    "E20 — Fortaleza operacional: portão stress E2E obrigatório antes de PC13; MAPA_FLUXOS + e2e_stress_test; norma em FLUXO_SUCESSO_E_FALHA + PAINEL + protocolo_fortaleza no JSON.",
+    "Operação 2026-04-09 — Carga massiva de validação (`seed_validacao_massiva.py`) na base habitual `data/beaba_gestao.db` para testes integrados na app (destrutiva: substituiu dados anteriores)."
   ]
 }
