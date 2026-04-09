@@ -29,6 +29,8 @@
 | Paralelismo | Dev “adiantar” QA sem pareceres | Fluxo **estritamente sequencial**; regressões voltam ao **primeiro** passo afectado. |
 | PC13 | Texto mencionava só Painel após GitHub | **PC13a** Git (encerramento) **antes** de **PC13b** Painel. |
 | Documentação “manual” pelo Diretor | Gargalo e incoerência com o uso de Cursor | **Proibido exigir**; EQUIPE gera **todos** os ficheiros a partir do `@Files` + respostas no chat. |
+| Stress E2E isolado | Épico fechado sem prova sob carga | **Portão Fortaleza (E20)** obrigatório **antes** de **PC13a** — ver secção homónima. |
+| Backup desalinhado (D1–D4) | Dados críticos fora do ciclo de cópia/telemetria | Validar `backup_sqlite*` + workflows + `backup_dr_history.json` em **todo** fecho de épico com dados novos. |
 
 ---
 
@@ -131,11 +133,26 @@ Cada PC cujo título inclui **GitHub** (PC1, PC3, PC5, PC7, PC9 quando aplicáve
 
 ---
 
+### Portão Fortaleza — stress E2E + backup (E20 + E17.1) — **obrigatório antes de PC13**
+
+**Norma:** o stress test E2E deixa de ser evento isolado e passa a ser **portão de saída obrigatório** de **todo** épico. Integra-se ao percurso **SUCESSO** **depois** da fase **E** (pytest + parecer QA em PC11) e **antes** da **Fase F** e do **PC13a**.
+
+| # | Actor | Acção |
+|:---:|:---|:---|
+| 23a | **EQUIPE (QA + Dev)** | **Actualizar** `tests/e2e_stress_test.py` no **mesmo** ciclo de entrega quando o épico criar ou alterar tabelas, campos ou regras de negócio: a **«Jornada do Herói»** e os blocos de fronteira/concorrência devem **exercer** a nova funcionalidade sob carga. |
+| 23b | **EQUIPE (QA)** | **Ordem de execução obrigatória:** (1) **`pytest tests/`** (suite completa, verde); (2) **`python tests/e2e_stress_test.py`** com **mínimo 1000** iterações da jornada do herói (parâmetro ou variável de ambiente equivalente, desde que o mínimo normativo seja respeitado); (3) rever **`tests/last_stress_report.txt`** — **sem** falhas de integridade ou de lógica bloqueantes. |
+| 23c | **EQUIPE (Dev/QA)** | **Sincronia backup (D1–D4):** antes de qualquer **commit final** do fecho, validar que a lógica de backup em uso (**`scripts/backup_sqlite*.py`**, workflows em **`.github/workflows/`**) cobre **novos** directórios ou **dados críticos** gerados pelo épico; a telemetria em **`docs/governanca/telemetry/backup_dr_history.json`** deve **reflectir** a saúde da implementação (sucessos/falhas registados de forma coerente). |
+| 23d | **EQUIPE** | **Bolinha zero + cloud:** é **proibido** declarar tarefa ou épico **concluído** no chat com ficheiros **modified** ou **untracked** na working copy. Ciclo de encerramento: **`git add`** → **`git commit`** → **`git push`** para **`origin/develop`** → **validar GitHub Actions** (**FLUXO OFICIAL DE GOVERNANCA** + **Validador Maestro V2**) **verdes** antes do anúncio de conclusão. |
+
+**PC12.5 — Portão Fortaleza (evidência):** o parecer QA (`09_parecer_final_qa.md` ou addendum no dossier) **referencia** a execução do portão (pytest + stress ≥1000 + relatório + checklist backup). Se o script de stress ou a norma forem alterados, isso entra em **commit** no mesmo PC que fechar a documentação. O ficheiro `tests/last_stress_report.txt` é **gerado** localmente/CI conforme política do repositório (pode estar em `.gitignore`); a **prova** no Git é o parecer + versão do script actualizada.
+
+---
+
 ### Fase F — Diretor (encerramento)
 
 | # | Actor | Acção |
 |:---:|:---|:---|
-| 24 | **EQUIPE (Analista)** | Informa o **Diretor no chat** da conclusão e libertação para testes finais / aceitação. **`99_encerramento.md`** gerado pela EQUIPE com data e referência ao parecer QA. |
+| 24 | **EQUIPE (Analista)** | **Após** cumprimento do **Portão Fortaleza** (secção anterior). Informa o **Diretor no chat** da conclusão e libertação para testes finais / aceitação. **`99_encerramento.md`** gerado pela EQUIPE com data e referência ao parecer QA **e** à evidência do portão E20 (stress + backup). |
 
 **PC13 — GitHub (13a):** `99_encerramento.md`; **commit + push** para **`origin/develop`** (local + cloud).
 
@@ -152,6 +169,8 @@ Cada PC cujo título inclui **GitHub** (PC1, PC3, PC5, PC7, PC9 quando aplicáve
 3. **Exemplo A — Falha em QA:** QA notifica Dev, Arquiteto e Analista com **parecer completo** (o que falhou e porquê). Dev corrige; volta-se às etapas **11–18** (Arquiteto + Analista + plano de testes) **antes** de novo ciclo QA completo (19–23).
 4. **Exemplo B — Falha do Analista na validação do código (após parecer favorável do Arquiteto):** Analista notifica Arquiteto e Dev com **parecer negativo**; Dev e Arquiteto tratam a causa; reexecutar **12–18** conforme necessário.
 5. **Redesenho funcional exigido pelo QA (ou por qualquer actor):** a EQUIPE prepara a nova versão do desenho funcional; **reapresentação ao Diretor no chat** e **confirmação formal** (resposta no Cursor); a EQUIPE regista em Git; **todo** o **percurso normal (SUCESSO)** é **refeito** desde o passo **1** (nova pasta `demandas/<ID_v2>/` ou sufixo de versão).
+
+5a. **Falha no Portão Fortaleza (E20):** falhas em `pytest`, no stress E2E (≥1000 iterações), em **`tests/last_stress_report.txt`**, ou incumprimento do checklist **D1–D4** (backup/telemetria) **bloqueiam** **PC13** até correcção, reexecução do portão e parecer QA actualizado.
 
 6. **Automático em sentido de processo:** “automático” significa que a **EQUIPE** executa as acções (ficheiros, commits, painel, JSON) **sem solicitar ao Diretor** que os faça manualmente; não dispensa **aprovações** do Diretor no chat quando o fluxo as exige.
 

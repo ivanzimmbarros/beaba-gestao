@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -19,5 +20,5 @@ def test_monitor_demanda_runs_zero():
         text=True,
     )
     assert r.returncode == 0, r.stderr
-    assert "E17.2" in r.stdout or "Versão:" in r.stdout
     assert "Live Status" in r.stdout
+    assert re.search(r"Vers.o:\s*E\d", r.stdout) or "E17.1" in r.stdout or "E17.2" in r.stdout
