@@ -71,22 +71,22 @@
     "E18 — Operacional-financeiro: ledger `credito_movimentos`, `venda_pagamento_linhas`, gate CONCLUIDO, `repasse_linhas`, estados agendamento — CONCLUÍDO 2026-04-08",
     "E18 — Validação: suite `pytest tests/` + integrity_check ok"
   ],
-  "pendente": "E17.1: após deploy cron `5 * * * *` + `repository_dispatch`, verificar **dois** runs `schedule` seguidos em `gh run list` (minuto :05 UTC) e `git pull develop` no PC do Monitor. Plano B: `POST /repos/.../dispatches` com `event_type: backup_hourly_keepalive` (PAT `repo`) ou cron externo (ex. cron-job.org).",
-  "falha": "2026-04-09 — Teste Diretor: Monitor sem `git pull` parecia sem pulsação; GHA tem run `schedule` 24210920681 (20:08Z). Lacunas 21h–22h UTC com cron `0 * * * *` — mitigação: cron deslocado para **:05 UTC** + dispatch keepalive; Grounding até 2× `schedule` consecutivos comprovados.",
+  "pendente": "E17.1: GitHub repo → Settings → Actions → General → **Workflow permissions** = «Read and write» (se estiver só leitura, o YAML `permissions: contents: write` é ignorado). Após fix `github.token`, `git pull develop` deve trazer `backup_dr_history.json` após cada run.",
+  "falha": "2026-04-09 — Causa provável push telemetria: uso incorrecto de `secrets.GITHUB_TOKEN` (vazio); corrigido para `github.token` + `github_token` no git-auto-commit. Grounding: até Diretor confirmar `git pull` com JSON actualizado por run automático.",
   "ultima_actualizacao_iso": "2026-04-09",
   "notas_dashboard": "Painel v2: secções «Épicos em execução» e «Histórico de épicos concluídos» em `status_demanda.json`. Apps: `scripts/app_governance.py`, `view_governance.py`, `monitor_demanda.py`, `monitor_governanca.py` (aba Governança).",
   "fase_governanca": "B",
   "pc_foco": "PC3–PC4",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "E17.1 plantão: `main` `ee42935` + `develop` `6eebde9` (cron `5 * * * *`). Prova Plan B: `repository_dispatch` run 24214307140 ok + telemetria no JSON após pull. Critério Grounding: ≥2 runs `schedule` **após** este deploy (próximos :05 UTC).",
+  "live_status": "E17.1: correcção token GHA (`github.token` em checkout + git-auto-commit); `permissions` reforçados no callable. Push `develop`+sync `main` do callable; disparar `workflow_dispatch` e validar commit em `develop`.",
   "etapas_pendentes": [
-    "Plantão QA: às **HH:06 UTC** correr `gh run list --workflow backup_hourly.yml` até 2× `event=schedule` com `createdAt` após push `ee42935` (não contar `repository_dispatch`).",
-    "PC local: `git pull origin develop` antes de julgar o Monitor.",
-    "E20: Grounding até critério acima (ou parecer Diretor).",
-    "Plano B comprovado: `gh api --method POST repos/ivanzimmbarros/beaba-gestao/dispatches -f event_type=backup_hourly_keepalive` (run 24214307140)."
+    "Diretor: verificar Settings → Actions → workflow permissions (read/write).",
+    "Após run verde: `git pull origin develop` — topo do `backup_dr_history.json` = último `run_id`.",
+    "E20 / Cloud E17.1: Grounding até prova real no PC do Diretor.",
+    "Logs: se push falhar, abrir step «Commit backup_dr_history.json» no run."
   ],
-  "live_actualizado_iso": "2026-04-09T22:40:00Z",
+  "live_actualizado_iso": "2026-04-10T00:00:00Z",
   "fases_resumo": [
     { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
     { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "curso" },
@@ -121,6 +121,7 @@
     "Correcção 2026-04-09 — `pytest` passou a usar SQLite isolado (`BEABA_SQLITE_PATH` em `tmp_path`) para não apagar `data/beaba_gestao.db` após seed.",
     "2026-04-08 — Hotfix UI Colaboradores/Clientes (Streamlit session_state); governança: commit+push develop + PAINEL/CONTROLE/JSON live.",
     "2026-04-09 — Governança E17.1: cron inactivo — `main` stub; GitHub `schedule` só na branch por defeito. Prova `gh workflow run` 24200710587; push `main` `6f2ab27` com `backup_hourly` + `backup_encrypt_callable` alinhados a `develop`.",
-    "2026-04-09 — E17.1: primeiro `schedule` GHA 24210920681; Monitor estático sem pull; mitigação cron `5 * * * *` + `repository_dispatch` keepalive (carga :00 GitHub)."
+    "2026-04-09 — E17.1: primeiro `schedule` GHA 24210920681; Monitor estático sem pull; mitigação cron `5 * * * *` + `repository_dispatch` keepalive (carga :00 GitHub).",
+    "2026-04-10 — E17.1: `secrets.GITHUB_TOKEN` → `github.token` nos workflows (checkout/push telemetria); permissões explícitas no callable."
   ]
 }
