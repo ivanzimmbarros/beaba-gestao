@@ -72,14 +72,14 @@
     "E18 — Validação: suite `pytest tests/` + integrity_check ok"
   ],
   "pendente": "E17.1: GitHub repo → Settings → Actions → General → **Workflow permissions** = «Read and write» (se estiver só leitura, o YAML `permissions: contents: write` é ignorado). Após fix `github.token`, `git pull develop` deve trazer `backup_dr_history.json` após cada run.",
-  "falha": "2026-04-09 — Causa provável push telemetria: uso incorrecto de `secrets.GITHUB_TOKEN` (vazio); corrigido para `github.token` + `github_token` no git-auto-commit. Grounding: até Diretor confirmar `git pull` com JSON actualizado por run automático.",
+  "falha": "2026-04-09 — Push telemetria: `secrets.GITHUB_TOKEN` incorrecto (não é o token automático). Correcção: `github.token` no `actions/checkout`. Prova EQUIPE: run **24215460665** → commit em `develop` → `git pull` traz `gha-24215460665` no JSON. Grounding: Diretor validar pull local + schedules seguintes.",
   "ultima_actualizacao_iso": "2026-04-09",
   "notas_dashboard": "Painel v2: secções «Épicos em execução» e «Histórico de épicos concluídos» em `status_demanda.json`. Apps: `scripts/app_governance.py`, `view_governance.py`, `monitor_demanda.py`, `monitor_governanca.py` (aba Governança).",
   "fase_governanca": "B",
   "pc_foco": "PC3–PC4",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "E17.1: correcção token GHA (`github.token` em checkout + git-auto-commit); `permissions` reforçados no callable. Push `develop`+sync `main` do callable; disparar `workflow_dispatch` e validar commit em `develop`.",
+  "live_status": "E17.1: token corrigido; prova `workflow_dispatch` 24215460665 com commit telemetria em `develop`. Diretor: `git pull origin develop` — topo JSON deve listar esse run.",
   "etapas_pendentes": [
     "Diretor: verificar Settings → Actions → workflow permissions (read/write).",
     "Após run verde: `git pull origin develop` — topo do `backup_dr_history.json` = último `run_id`.",
