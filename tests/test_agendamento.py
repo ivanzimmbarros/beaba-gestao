@@ -1,8 +1,6 @@
-import os
-
 import pytest
 
-from src.database.connection import create_tables, get_connection
+from src.database.connection import get_connection
 from src.modules.agendamento import (
     alterar_status,
     associar_agendamento_pre_venda_a_item,
@@ -17,13 +15,6 @@ from src.modules.agendamento import (
 from src.modules.catalogo import cadastrar_pacote, cadastrar_servico_fase1
 from src.modules.cliente import buscar_cliente_por_whatsapp, cadastrar_cliente
 from src.modules.venda import registrar_venda
-
-
-@pytest.fixture(autouse=True)
-def setup_db():
-    if os.path.exists("data/beaba_gestao.db"):
-        os.remove("data/beaba_gestao.db")
-    create_tables()
 
 
 def _cliente():

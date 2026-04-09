@@ -1,8 +1,5 @@
-import os
-
 import pytest
 
-from src.database.connection import create_tables
 from src.modules.catalogo import cadastrar_servico_fase1, resolver_snapshot_venda
 from src.modules.cliente import (
     buscar_cliente_por_whatsapp,
@@ -10,13 +7,6 @@ from src.modules.cliente import (
 )
 from src.modules.agendamento import criar_agendamento_pre_venda
 from src.modules.venda import calcular_totais_venda, registrar_venda
-
-
-@pytest.fixture(autouse=True)
-def setup_db():
-    if os.path.exists("data/beaba_gestao.db"):
-        os.remove("data/beaba_gestao.db")
-    create_tables()
 
 
 def _cliente_min():

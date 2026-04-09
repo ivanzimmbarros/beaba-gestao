@@ -1,9 +1,7 @@
-import os
 from datetime import date, timedelta
 
 import pytest
 
-from src.database.connection import create_tables
 from src.modules.colaborador import (
     atualizar_colaborador,
     cadastrar_colaborador,
@@ -11,13 +9,6 @@ from src.modules.colaborador import (
     media_repasse_percentual_servico,
     obter_colaborador,
 )
-
-
-@pytest.fixture(autouse=True)
-def setup_db():
-    if os.path.exists("data/beaba_gestao.db"):
-        os.remove("data/beaba_gestao.db")
-    create_tables()
 
 
 def _adult_dob():
