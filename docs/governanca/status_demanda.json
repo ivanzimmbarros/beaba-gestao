@@ -79,14 +79,14 @@
   "pc_foco": "PC3–PC4",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "E17.1 plantão: YAML validado (`gh workflow view`); deploy cron `5 * * * *` + `repository_dispatch` em `main`+`develop`; Monitor requer `git pull` para ver 24210920681. Aguardar 2× `schedule` após :05 UTC.",
+  "live_status": "E17.1 plantão: `main` `ee42935` + `develop` `6eebde9` (cron `5 * * * *`). Prova Plan B: `repository_dispatch` run 24214307140 ok + telemetria no JSON após pull. Critério Grounding: ≥2 runs `schedule` **após** este deploy (próximos :05 UTC).",
   "etapas_pendentes": [
-    "Plantão QA: após cada :06 UTC executar `gh run list --workflow backup_hourly.yml` até existirem ≥2 eventos `schedule` após o deploy (excl. 24210920681 se cron mudou).",
+    "Plantão QA: às **HH:06 UTC** correr `gh run list --workflow backup_hourly.yml` até 2× `event=schedule` com `createdAt` após push `ee42935` (não contar `repository_dispatch`).",
     "PC local: `git pull origin develop` antes de julgar o Monitor.",
     "E20: Grounding até critério acima (ou parecer Diretor).",
-    "Plano B activo: `gh api repos/ivanzimmbarros/beaba-gestao/dispatches -f event_type=backup_hourly_keepalive` (pós-push)."
+    "Plano B comprovado: `gh api --method POST repos/ivanzimmbarros/beaba-gestao/dispatches -f event_type=backup_hourly_keepalive` (run 24214307140)."
   ],
-  "live_actualizado_iso": "2026-04-09T22:35:00Z",
+  "live_actualizado_iso": "2026-04-09T22:40:00Z",
   "fases_resumo": [
     { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
     { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "curso" },
