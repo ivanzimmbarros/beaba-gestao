@@ -71,7 +71,7 @@
     "E18 — Operacional-financeiro: ledger `credito_movimentos`, `venda_pagamento_linhas`, gate CONCLUIDO, `repasse_linhas`, estados agendamento — CONCLUÍDO 2026-04-08",
     "E18 — Validação: suite `pytest tests/` + integrity_check ok"
   ],
-  "pendente": "E17.1: GitHub repo → Settings → Actions → General → **Workflow permissions** = «Read and write» (se estiver só leitura, o YAML `permissions: contents: write` é ignorado). Após fix `github.token`, `git pull develop` deve trazer `backup_dr_history.json` após cada run.",
+  "pendente": "E17.1: Diretor segue `docs/governanca/PASSO_A_PASSO_GITHUB_ACTIONS_READ_WRITE.md` → Workflow permissions = Read and write → Save. Avisar no chat; EQUIPE dispara run manual e indica run_id + SHA. Grounding: só levanta com git pull do Diretor a trazer ficheiros novos.",
   "falha": "2026-04-09 — Push telemetria: `secrets.GITHUB_TOKEN` incorrecto (não é o token automático). Correcção: `github.token` no `actions/checkout`. Prova EQUIPE: run **24215460665** → commit em `develop` → `git pull` traz `gha-24215460665` no JSON. Grounding: Diretor validar pull local + schedules seguintes.",
   "ultima_actualizacao_iso": "2026-04-09",
   "notas_dashboard": "Painel v2: secções «Épicos em execução» e «Histórico de épicos concluídos» em `status_demanda.json`. Apps: `scripts/app_governance.py`, `view_governance.py`, `monitor_demanda.py`, `monitor_governanca.py` (aba Governança).",
@@ -79,14 +79,14 @@
   "pc_foco": "PC3–PC4",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "E17.1: token corrigido; prova `workflow_dispatch` 24215460665 com commit telemetria em `develop`. Diretor: `git pull origin develop` — topo JSON deve listar esse run.",
+  "live_status": "E17.1: guia PASSO_A_PASSO_GITHUB_ACTIONS_READ_WRITE.md no repo. Aguardando Diretor confirmar Read and write + Save; depois novo dispatch e SHA em Code/commits/develop.",
   "etapas_pendentes": [
-    "Diretor: verificar Settings → Actions → workflow permissions (read/write).",
-    "Após run verde: `git pull origin develop` — topo do `backup_dr_history.json` = último `run_id`.",
-    "E20 / Cloud E17.1: Grounding até prova real no PC do Diretor.",
-    "Logs: se push falhar, abrir step «Commit backup_dr_history.json» no run."
+    "Diretor: abrir guia `docs/governanca/PASSO_A_PASSO_GITHUB_ACTIONS_READ_WRITE.md` e activar Read and write (Settings → Actions → General).",
+    "Diretor: confirmar no chat; EQUIPE dispara `backup_hourly` manual e cola aqui `ultimo_run_prova` + `ultimo_commit_develop_sha`.",
+    "Diretor: `git pull origin develop` — obrigatório para levantar Grounding.",
+    "Verificação Code: `https://github.com/ivanzimmbarros/beaba-gestao/commits/develop` — commit `github-actions[bot]` com `chore(telemetry): backup`."
   ],
-  "live_actualizado_iso": "2026-04-10T00:00:00Z",
+  "live_actualizado_iso": "2026-04-10T12:00:00Z",
   "fases_resumo": [
     { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
     { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "curso" },
@@ -122,6 +122,7 @@
     "2026-04-08 — Hotfix UI Colaboradores/Clientes (Streamlit session_state); governança: commit+push develop + PAINEL/CONTROLE/JSON live.",
     "2026-04-09 — Governança E17.1: cron inactivo — `main` stub; GitHub `schedule` só na branch por defeito. Prova `gh workflow run` 24200710587; push `main` `6f2ab27` com `backup_hourly` + `backup_encrypt_callable` alinhados a `develop`.",
     "2026-04-09 — E17.1: primeiro `schedule` GHA 24210920681; Monitor estático sem pull; mitigação cron `5 * * * *` + `repository_dispatch` keepalive (carga :00 GitHub).",
-    "2026-04-10 — E17.1: `secrets.GITHUB_TOKEN` → `github.token` nos workflows (checkout/push telemetria); permissões explícitas no callable."
+    "2026-04-10 — E17.1: `secrets.GITHUB_TOKEN` → `github.token` nos workflows (checkout/push telemetria); permissões explícitas no callable.",
+    "2026-04-10 — E17.1: guia `docs/governanca/PASSO_A_PASSO_GITHUB_ACTIONS_READ_WRITE.md` para Diretor (Workflow permissions Read and write + Save); dispatch manual após confirmação no chat."
   ]
 }
