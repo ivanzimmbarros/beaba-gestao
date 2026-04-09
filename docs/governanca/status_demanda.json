@@ -79,13 +79,13 @@
   "pc_foco": "PC3–PC4",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "E17.1: dispatch validação run 24215865149 (ok). Commit em develop: e13ec9b — telemetria no Code. Diretor: executar `git pull origin develop` agora.",
+  "live_status": "E17.1: merge `main`→`develop` (maestro_v2 Turbo); telemetria só em `develop` via `telemetry_git_branch`; PR GitHub + bypass bot documentado. Grounding TOTAL até `git pull origin develop` limpo.",
   "etapas_pendentes": [
-    "Diretor: `git pull origin develop` (confirma `backup_dr_history.json` com gha-24215865149).",
-    "Após pull: Grounding E20/E17.1 Cloud pode ser levantado pelo Diretor se critérios internos estiverem cumpridos.",
-    "Histórico Code: https://github.com/ivanzimmbarros/beaba-gestao/commits/develop"
+    "Diretor: fundir PR `chore/pr-merge-main-e17` → `develop` (ou equivalente) no GitHub; configurar bypass bot em `docs/governanca/GITHUB_BRANCH_PROTECTION_BACKUP_BOT.md`.",
+    "Diretor: `git pull origin develop` — sem conflitos; telemetria actualizada.",
+    "E20 / E17.1 Cloud: Grounding até estrada `develop` confirmada pelo Diretor."
   ],
-  "live_actualizado_iso": "2026-04-10T14:30:00Z",
+  "live_actualizado_iso": "2026-04-10T16:00:00Z",
   "fases_resumo": [
     { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
     { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "curso" },
