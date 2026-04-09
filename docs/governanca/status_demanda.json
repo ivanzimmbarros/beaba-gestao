@@ -79,14 +79,14 @@
   "pc_foco": "PC3–PC4",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "PC Git: correcção Streamlit (País/Repasse % sem conflito session_state); pytest; commit+push origin/develop; auditoria D1 backup integral alinhada.",
+  "live_status": "Push `8c0ef41` em origin/develop (hotfix Streamlit + governança). Local: pytest 80 ok. Verificar GHA no GitHub.",
   "etapas_pendentes": [
-    "Validar GitHub Actions (FLUXO OFICIAL + Validador Maestro V2) após push.",
+    "QA: confirmar GitHub Actions verdes (FLUXO OFICIAL + Validador Maestro V2) no commit `8c0ef41`.",
     "Diretor: rever `docs/governanca/demandas/2026-04-09_E17_1_autonomia_resiliencia_cloud/04_desenho_logico.md` e autorizar Fase C.",
     "Pós-autorização: implementar workflows/scripts cloud conforme dossier E17.1.",
     "Operação: secrets GitHub + disparo manual inicial de `backup_hourly` / matriz no Monitor."
   ],
-  "live_actualizado_iso": "2026-04-08T20:00:00Z",
+  "live_actualizado_iso": "2026-04-08T20:15:00Z",
   "fases_resumo": [
     { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
     { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "curso" },
