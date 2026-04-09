@@ -23,6 +23,7 @@ jobs:
       artifact_name: DB_DAILY_BACKUP
       retention_days: 7
       retention_label: "DAILY (7d)"
+      telemetry_git_branch: develop
 
   notify-failure:
     needs: backup

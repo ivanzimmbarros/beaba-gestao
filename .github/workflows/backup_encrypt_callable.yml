@@ -1,7 +1,10 @@
-# E17.2 — Workflow reutilizável: backup SQLite + encriptação + telemetria + commit (develop).
+# E17.2 — Workflow reutilizável: backup SQLite + encriptação + telemetria + commit na branch de governança.
 # Chamado por backup_hourly / backup_daily / backup_weekly.
 # Token: usar sempre github.token (GITHUB_TOKEN automático). secrets.GITHUB_TOKEN é inválido
 # excepto se existir secret manual com esse nome — deixa checkout/push sem credencial.
+#
+# O run do GitHub pode listar `main` (workflow na branch por defeito); checkout + push da telemetria
+# usam sempre `inputs.telemetry_git_branch` (defeito: develop).
 
 on:
   workflow_call:
@@ -15,6 +18,11 @@ on:
       retention_label:
         required: true
         type: string
+      telemetry_git_branch:
+        description: "Branch de governança — JSON telemetria (Monitor: git pull nesta branch)."
+        required: false
+        type: string
+        default: develop
     secrets:
       BEABA_BACKUP_KEY:
         required: true
@@ -39,10 +47,10 @@ jobs:
       BEABA_GHA_ARTIFACT_NAME: ${{ inputs.artifact_name }}
 
     steps:
-      - name: Checkout develop
+      - name: Checkout branch de governança (telemetria)
         uses: actions/checkout@v4
         with:
-          ref: develop
+          ref: ${{ inputs.telemetry_git_branch }}
           fetch-depth: 0
           token: ${{ github.token }}
 
@@ -89,12 +97,21 @@ jobs:
           fi
           python scripts/e17_1_telemetry.py append-backup
 
-      - name: Commit backup_dr_history.json
+      - name: Commit backup_dr_history.json → branch de governança
         if: always()
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          branch: develop
+          branch: ${{ inputs.telemetry_git_branch }}
           commit_user_name: github-actions[bot]
           commit_user_email: github-actions[bot]@users.noreply.github.com
           commit_message: "chore(telemetry): backup ${{ inputs.artifact_name }} run ${{ github.run_id }}"
           file_pattern: docs/governanca/telemetry/backup_dr_history.json
+
+      - name: Prova — HEAD em origin/${{ inputs.telemetry_git_branch }}
+        if: success()
+        run: |
+          set -eux
+          BRANCH="${{ inputs.telemetry_git_branch }}"
+          git fetch origin "$BRANCH"
+          echo "BEABA_TELEMETRY_BRANCH=$BRANCH (git pull origin $BRANCH no PC local)"
+          git log -1 --format='%H %h %s (%an)' "origin/$BRANCH"
