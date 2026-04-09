@@ -79,14 +79,14 @@
   "pc_foco": "PC3–PC4",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "Push `8c0ef41` em origin/develop (hotfix Streamlit + governança). Local: pytest 80 ok. Verificar GHA no GitHub.",
+  "live_status": "QA: validado aviso Streamlit `col_*_pais` — `src/app.py` sem `text_input(..., value=)` conflituoso; repasse % com setdefault. HEAD `c4e780c`. Reiniciar `streamlit run` se o terminal ainda mostrar stack antigo.",
   "etapas_pendentes": [
-    "QA: confirmar GitHub Actions verdes (FLUXO OFICIAL + Validador Maestro V2) no commit `8c0ef41`.",
+    "QA: confirmar GitHub Actions verdes (FLUXO OFICIAL + Validador Maestro V2) no HEAD `develop` (`c4e780c` ou posterior).",
     "Diretor: rever `docs/governanca/demandas/2026-04-09_E17_1_autonomia_resiliencia_cloud/04_desenho_logico.md` e autorizar Fase C.",
     "Pós-autorização: implementar workflows/scripts cloud conforme dossier E17.1.",
     "Operação: secrets GitHub + disparo manual inicial de `backup_hourly` / matriz no Monitor."
   ],
-  "live_actualizado_iso": "2026-04-08T20:15:00Z",
+  "live_actualizado_iso": "2026-04-08T21:00:00Z",
   "fases_resumo": [
     { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
     { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "curso" },
