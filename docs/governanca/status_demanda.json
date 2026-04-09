@@ -62,19 +62,19 @@
   ],
   "pendente": "E17.1: confirmação do Diretor sobre `04_desenho_logico.md`; depois Fase C/D (workflows, scripts partilhados, aba Streamlit). Operação: Secrets `BEABA_BACKUP_KEY` + `EMAIL_*` no GitHub; validar workflows `backup_*` e `test_restore_weekly`.",
   "falha": null,
-  "ultima_actualizacao_iso": "2026-04-08",
+  "ultima_actualizacao_iso": "2026-04-09",
   "notas_dashboard": "Painel v2: secções «Épicos em execução» e «Histórico de épicos concluídos» em `status_demanda.json`. Apps: `scripts/app_governance.py`, `view_governance.py`, `monitor_demanda.py`, `monitor_governanca.py` (aba Governança).",
   "fase_governanca": "B",
   "pc_foco": "PC3–PC4",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "E17.1 em B — aguarda revisão do 04_desenho_logico pelo Diretor; E18 e E17.2 registados no histórico concluído.",
+  "live_status": "E17.1 em B — aguarda revisão do 04_desenho_logico; entregue fix técnico Streamlit (width em vez de use_container_width) na app e Monitor.",
   "etapas_pendentes": [
     "Diretor: rever `docs/governanca/demandas/2026-04-09_E17_1_autonomia_resiliencia_cloud/04_desenho_logico.md` e autorizar Fase C.",
     "Pós-autorização: implementar workflows/scripts cloud conforme dossier E17.1.",
     "Operação: secrets GitHub + disparo manual inicial de `backup_hourly` / matriz no Monitor."
   ],
-  "live_actualizado_iso": "2026-04-08T23:59:00Z",
+  "live_actualizado_iso": "2026-04-09T00:15:15Z",
   "fases_resumo": [
     { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
     { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "curso" },

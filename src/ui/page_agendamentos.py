@@ -209,7 +209,7 @@ def render_page_agendamentos(
                     "Pagamento": [b["pagamento"] for b in buckets],
                     "Venda": [b["venda_id"] for b in buckets],
                 },
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
     else:
@@ -434,7 +434,7 @@ def render_page_agendamentos(
                 "Colaboradores": [", ".join(r["colaboradores_nomes"]) for r in rows],
                 "Pagamento": [r["pagamento"] for r in rows],
             },
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 
