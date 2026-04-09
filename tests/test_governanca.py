@@ -38,6 +38,8 @@ def test_fluxo_sucesso_doc_existe():
     assert p.is_file()
     text = p.read_text(encoding="utf-8")
     assert "PC13" in text
+    assert "PC12.5" in text
+    assert "Portão Fortaleza" in text
     assert "Fluxo FALHA" in text
     assert "@Files" in text
     assert "EQUIPE" in text

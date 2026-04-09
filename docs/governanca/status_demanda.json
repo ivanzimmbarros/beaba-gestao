@@ -1,4 +1,15 @@
 {
+  "protocolo_fortaleza": {
+    "versao_iso": "2026-04-09",
+    "e20_portao_stress": "Antes de PC13: pytest tests/ → python tests/e2e_stress_test.py (mín. 1000 iterações jornada herói) → validar tests/last_stress_report.txt sem falhas bloqueantes. Em todo fecho de épico, actualizar e2e_stress_test.py para novas tabelas, campos e regras; o herói deve executar a nova funcionalidade sob carga.",
+    "e17_1_backup_d1_d4": "Nenhum commit final sem validar que backup_sqlite (scripts em uso) e workflows .github/workflows/ cobrem novos directórios ou dados críticos; backup_dr_history.json deve reflectir a saúde da implementação.",
+    "push_bolinha_zero_gha": "Proibido declarar concluído com modified/untracked. Ciclo: git add → commit → push origin/develop → GitHub Actions verdes (FLUXO OFICIAL DE GOVERNANCA + Validador Maestro V2).",
+    "refs_normativos": [
+      "docs/governanca/FLUXO_SUCESSO_E_FALHA.md",
+      "docs/PAINEL_OPERACIONAL.md",
+      ".cursorrules"
+    ]
+  },
   "painel_layout_version": 2,
   "secao_epicos_em_execucao": {
     "titulo": "[SEÇÃO: ÉPICOS EM EXECUÇÃO]",
@@ -68,13 +79,13 @@
   "pc_foco": "PC3–PC4",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "E17.1 em B — aguarda revisão do 04_desenho_logico; entregue fix técnico Streamlit (width em vez de use_container_width) na app e Monitor.",
+  "live_status": "E17.1 em B — aguarda 04_desenho_logico. Protocolo Fortaleza (E20+E17.1) gravado: PC12.5 stress≥1000 + relatório + backup D1–D4 + bolinha zero + GHA verde antes de PC13.",
   "etapas_pendentes": [
     "Diretor: rever `docs/governanca/demandas/2026-04-09_E17_1_autonomia_resiliencia_cloud/04_desenho_logico.md` e autorizar Fase C.",
     "Pós-autorização: implementar workflows/scripts cloud conforme dossier E17.1.",
     "Operação: secrets GitHub + disparo manual inicial de `backup_hourly` / matriz no Monitor."
   ],
-  "live_actualizado_iso": "2026-04-09T00:15:15Z",
+  "live_actualizado_iso": "2026-04-09T01:05:00Z",
   "fases_resumo": [
     { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
     { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "curso" },
@@ -103,6 +114,7 @@
     "E17 — Backup/DR SQLite — entregue 2026-04-08.",
     "E17.1 — Cloud Total: GHA + AES-GCM + telemetria + Monitor — Fase B; aguarda CONFIRMO.",
     "E17.2 — Retenção / restore / e-mails — CONCLUÍDO 2026-04-08 (encerramento; legado operacional alinhado ao E18).",
-    "E18 — Operacional-financeiro: ledger, multi-meio, gate CONCLUIDO, repasses — CONCLUÍDO 2026-04-08 (refs: `docs/governanca/demandas/2026-04-08_E18_operacional_financeiro/`)."
+    "E18 — Operacional-financeiro: ledger, multi-meio, gate CONCLUIDO, repasses — CONCLUÍDO 2026-04-08 (refs: `docs/governanca/demandas/2026-04-08_E18_operacional_financeiro/`).",
+    "E20 — Fortaleza operacional: portão stress E2E obrigatório antes de PC13; MAPA_FLUXOS + e2e_stress_test; norma em FLUXO_SUCESSO_E_FALHA + PAINEL + protocolo_fortaleza no JSON."
   ]
 }

@@ -1,6 +1,6 @@
 # Painel operacional — BeaBa Gestão
 
-**Última actualização:** 2026-04-09 — **E19.1** **activa** (Cloud Total — **Fase B**): blindagem de backup/integridade e caminho de **restauro operacional** a partir de cópias espelhadas (`backups/hourly`, `cloud_queue`, GHA). Actua como **escudo protetor** de todo o trabalho **financeiro (E18)** e **analítico (E19 DW)** já entregue. **E19** DW concluído; **E18** concluído; **E17.2** concluída; **E17** backup/DR base; **E16**–**E12** estáveis. **Painel v2** mantido.  
+**Última actualização:** 2026-04-09 — **Protocolo Fortaleza (E20 + E17.1)** integrado no [Fluxo oficial](governanca/FLUXO_SUCESSO_E_FALHA.md): **portão de stress E2E** (`tests/e2e_stress_test.py`, ≥1000 iterações, relatório `tests/last_stress_report.txt`) **obrigatório antes de PC13**; validação **backup D1–D4** e **bolinha zero + GHA verde** no fecho. **E19.1** **activa** (Cloud Total — **Fase B**): blindagem de backup/integridade e **restauro operacional** a partir de cópias espelhadas (`backups/hourly`, `cloud_queue`, GHA). **E19** DW concluído; **E18** concluído; **E17.2** concluída; **E17** backup/DR base; **E16**–**E12** estáveis. **Painel v2** mantido.  
 **Norma:** [`FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md) (**Fluxo oficial de governança**).  
 **Quem actualiza:** a **EQUIPE**; o Diretor **não** edita este ficheiro.
 
@@ -98,6 +98,7 @@ flowchart LR
 | **C** | Dev + Arquiteto | **PC5** → **PC6** | Código + parecer Arquiteto |
 | **D** | Analista + Dev | **PC7** → **PC8** | Código + plano de testes |
 | **E** | QA | **PC9** → **PC10** → **PC11** → **PC12** | Plano, execução, selo QA |
+| **E′** | Portão Fortaleza (E20) | **PC12.5** | **Após** PC12, **antes** de PC13: `pytest` → stress E2E (≥1000 iter) → `last_stress_report.txt`; checklist backup D1–D4; working tree limpa + push + GHA verde (ver [Fluxo oficial](governanca/FLUXO_SUCESSO_E_FALHA.md)) |
 | **F** | Encerramento | **PC13a** → **PC13b** | `99_encerramento.md` + Painel final |
 
 **Legenda visual (também na app):** 🟢 feito · 🔵 em curso · ⚪ pendente · 🟠 correção (percurso FALHA).
@@ -115,7 +116,7 @@ flowchart LR
 | **Demanda activa** | 🔵 **E19.1** — **Escudo** Cloud Total (Fase **B**): backup com verificação de integridade, espelho para nuvem, restauro operacional a partir de cópia; trilho técnico **E17.1** ([dossier](governanca/demandas/2026-04-09_E17_1_autonomia_resiliencia_cloud/01_demanda_diretor.md)). **Próximo passo:** selo **CONFIRMO** no `04_desenho_logico` + Fase C (GHA/OIDC). |
 | **Última entrega de produto** | ✅ **E19** — Data Warehouse `dw_*`, ETL, UI Analytics (protecção operacional sob **E19.1**). |
 | **Última entrega de processo** | ✅ **E19** (2026-04-09); **E19.1** em curso (backup/restore reforçados); **E18** (2026-04-08); **E17.2** concluída; **E17** base ([`99` E17](governanca/demandas/2026-04-08_E17_backup_dr/99_encerramento.md)). |
-| **Testes** | ✅ Suite **`pytest tests/`** (CI: **FLUXO OFICIAL DE GOVERNANCA** + **Validador Maestro V2** em `develop`). Registo de encerramento E18: **69** testes + **integrity_check** ok (ver histórico JSON). |
+| **Testes** | ✅ Suite **`pytest tests/`** (CI: **FLUXO OFICIAL DE GOVERNANCA** + **Validador Maestro V2** em `develop`). **Portão E20:** stress E2E [`tests/e2e_stress_test.py`](../tests/e2e_stress_test.py) (mín. **1000** iterações no fecho de épico) + [`tests/last_stress_report.txt`](../tests/last_stress_report.txt) (gerado; pode estar no `.gitignore`). Registo histórico E18: **69** testes + **integrity_check** ok. |
 
 ---
 
@@ -147,6 +148,7 @@ Resumo **executivo** (detalhe técnico nos [anexos](#apêndice-h--e09-agendament
 | **E18** | 2026-04-08 | **Operacional-financeiro** — ledger de créditos, linhas de pagamento multi-meio, gate CONCLUIDO, `repasse_linhas`, máquina de estados de agendamento. **Entregue** ([`01`](governanca/demandas/2026-04-08_E18_operacional_financeiro/01_demanda_diretor.md) · [`02`](governanca/demandas/2026-04-08_E18_operacional_financeiro/02_desenho_funcional.md)). | — |
 | **E19** | 2026-04-09 | **Analytics DW** — `scripts/etl_analytics.py` (tabelas `dw_*`), carga horária decimal, recorrência/LTV Real no ETL (ledger E18); UI apenas `SELECT` sobre `dw_*` + botão ETL. | — |
 | **E19.1** | 2026-04-09 | **Cloud Total (Fase B) + escudo** — integridade pós-backup (`sqlite_backup_verify`), restauro operacional (`restore_operacional_de_copia.py`); alinhado a E17.1 / nuvem. | — |
+| **E20** | 2026-04-09 | **Fortaleza operacional** — stress E2E como **portão de saída** antes de PC13; [`tests/e2e_stress_test.py`](../tests/e2e_stress_test.py), [`tests/MAPA_FLUXOS.md`](../tests/MAPA_FLUXOS.md); norma em [Fluxo oficial](governanca/FLUXO_SUCESSO_E_FALHA.md) + `status_demanda.json`. | — |
 
 ---
 
@@ -191,6 +193,7 @@ Cada **push** credível em **`origin/develop`** fecha o lado **Git** do par; em 
 | **PC7** | Código + plano de testes (Analista) | Parecer + `CADERNO_TESTES_MASTER` | **PC8** |
 | **PC9** | Plano de testes alterado (se houver) | Plano actualizado | **PC10** |
 | **PC11** | Testes finais QA | Parecer QA | **PC12** |
+| **PC12.5** | Portão Fortaleza (E20 + E17.1) | Evidência no parecer QA: pytest + `e2e_stress_test.py` (≥1000) + `last_stress_report.txt`; backup/telemetria D1–D4; sem bolinhas; push + CI verde | *(transição para Fase F)* |
 | **PC13a** | Encerramento | `99_encerramento.md` | **PC13b** |
 
 *Definição completa de PC GitHub (local + commit + push):* [`FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md).
