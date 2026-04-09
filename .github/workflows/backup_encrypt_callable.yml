@@ -1,5 +1,7 @@
 # E17.2 — Workflow reutilizável: backup SQLite + encriptação + telemetria + commit (develop).
 # Chamado por backup_hourly / backup_daily / backup_weekly.
+# Token: usar sempre github.token (GITHUB_TOKEN automático). secrets.GITHUB_TOKEN é inválido
+# excepto se existir secret manual com esse nome — deixa checkout/push sem credencial.
 
 on:
   workflow_call:
@@ -16,6 +18,10 @@ on:
     secrets:
       BEABA_BACKUP_KEY:
         required: true
+
+permissions:
+  contents: write
+  actions: write
 
 jobs:
   backup:
@@ -38,7 +44,7 @@ jobs:
         with:
           ref: develop
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ github.token }}
 
       - name: Python 3.12
         uses: actions/setup-python@v5
@@ -87,6 +93,7 @@ jobs:
         if: always()
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
+          github_token: ${{ github.token }}
           branch: develop
           commit_user_name: github-actions[bot]
           commit_user_email: github-actions[bot]@users.noreply.github.com
