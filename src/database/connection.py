@@ -16,8 +16,10 @@ def get_connection():
     except Exception:
         pass
 
-    db_path = "data/beaba_gestao.db"
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    db_path = os.environ.get("BEABA_SQLITE_PATH") or "data/beaba_gestao.db"
+    db_dir = os.path.dirname(os.path.abspath(db_path))
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
 
     try:
         conn = sqlite3.connect(db_path, check_same_thread=False)

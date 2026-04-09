@@ -1,5 +1,8 @@
 __pycache__/
 
+# E20 — relatório gerado por stress E2E (reexecutável localmente)
+tests/last_stress_report.txt
+
 # SQLite — todos os .db ficam fora do Git (intencional):
 #   - data/beaba_gestao.db (operacional, vivo) nunca versionado;
 #   - backups/hourly/*.db e backups/cloud_queue/*.db (réplicas para DR) também *.db —
