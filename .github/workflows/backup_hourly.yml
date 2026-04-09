@@ -1,12 +1,16 @@
 # E17.2 — Backup horário (UTC): retenção 3 dias. Chama workflow reutilizável.
 # E-mail em falha: Secrets EMAIL_* (ver PAINEL).
+# Reindexação 2026-04-09 (E17.1): cron deslocado para o minuto :05 UTC — a documentação GitHub
+# indica que disparos no minuto :00 concentram carga e podem falhar ou atrasar; :05 reduz colisão.
 
 name: backup_hourly
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "5 * * * *"
   workflow_dispatch:
+  repository_dispatch:
+    types: [backup_hourly_keepalive]
 
 concurrency:
   group: beaba-backup-telemetry-${{ github.ref }}
