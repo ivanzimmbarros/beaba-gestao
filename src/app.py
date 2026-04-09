@@ -91,29 +91,29 @@ def _page_home() -> None:
 
     row1 = st.columns(2)
     with row1[0]:
-        if st.button("Gestão de Clientes", use_container_width=True, type="primary"):
+        if st.button("Gestão de Clientes", width="stretch", type="primary"):
             st.session_state.page = "clientes"
     with row1[1]:
-        if st.button("Gestão de Colaboradores", use_container_width=True, type="secondary"):
+        if st.button("Gestão de Colaboradores", width="stretch", type="secondary"):
             st.session_state.page = "colaboradores"
 
     st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
     row2 = st.columns(2)
     with row2[0]:
-        if st.button("Catálogo de Serviços", use_container_width=True, type="primary"):
+        if st.button("Catálogo de Serviços", width="stretch", type="primary"):
             st.session_state.page = "catalogo"
     with row2[1]:
-        if st.button("Painel de Vendas", use_container_width=True, type="secondary"):
+        if st.button("Painel de Vendas", width="stretch", type="secondary"):
             st.session_state.page = "vendas"
 
     st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
     row3 = st.columns(2)
     with row3[0]:
-        if st.button("Agendamentos", use_container_width=True, type="primary"):
+        if st.button("Agendamentos", width="stretch", type="primary"):
             st.session_state.page = "agendamentos"
     with row3[1]:
-        if st.button("Dashboards e Relatórios", use_container_width=True, type="secondary"):
+        if st.button("Dashboards e Relatórios", width="stretch", type="secondary"):
             st.session_state.page = "dashboards"
 
     st.markdown("</div>", unsafe_allow_html=True)
@@ -144,7 +144,7 @@ def _page_clientes() -> None:
                 "Nome": [r[1] for r in rows_cc],
                 "Saldo crédito": [centavos_para_texto_euros(r[2]) for r in rows_cc],
             },
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
     else:

@@ -239,7 +239,7 @@ def main() -> None:
     st.markdown("#### Últimos backups (telemetria)")
     if backups:
         df_b = _backup_runs_table(backups)
-        st.dataframe(df_b, hide_index=True, use_container_width=True)
+        st.dataframe(df_b, hide_index=True, width="stretch")
         chart_df = pd.DataFrame(
             {
                 "run": [str(x.get("started_at") or "")[:16] for x in backups],
@@ -256,14 +256,14 @@ def main() -> None:
             labels={"run": "Início (UTC truncado)", "n": ""},
         )
         fig.update_layout(showlegend=True, yaxis_visible=False, yaxis_showticklabels=False)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     else:
         st.info("Sem registos de tipo `backup` em `backup_dr_history.json`.")
 
     st.markdown("#### Teste de restore (telemetria `restore_proof`)")
     df_r = _restore_rows(restores)
     if not df_r.empty:
-        st.dataframe(df_r, hide_index=True, use_container_width=True)
+        st.dataframe(df_r, hide_index=True, width="stretch")
     else:
         st.caption("Sem execuções `restore_proof` na telemetria.")
 
@@ -290,7 +290,7 @@ def main() -> None:
         edited = st.data_editor(
             clauses_df,
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
             num_rows="fixed",
             column_config={
                 "Revisado (sessão)": st.column_config.CheckboxColumn(
