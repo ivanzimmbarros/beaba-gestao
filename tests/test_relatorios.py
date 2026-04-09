@@ -1,9 +1,8 @@
-import os
 from datetime import date, timedelta
 
 import pytest
 
-from src.database.connection import create_tables, get_connection
+from src.database.connection import get_connection
 from src.modules.catalogo import cadastrar_servico_fase1
 from src.modules.cliente import buscar_cliente_por_whatsapp, cadastrar_cliente
 from src.modules.colaborador import cadastrar_colaborador
@@ -15,13 +14,6 @@ from src.modules.relatorios import (
     top_n_dimensao,
 )
 from src.modules.venda import registrar_venda
-
-
-@pytest.fixture(autouse=True)
-def setup_db():
-    if os.path.exists("data/beaba_gestao.db"):
-        os.remove("data/beaba_gestao.db")
-    create_tables()
 
 
 def test_venda_itens_coluna_colaborador_id():

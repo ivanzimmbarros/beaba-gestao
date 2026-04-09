@@ -2,7 +2,6 @@ import os
 
 import pytest
 
-from src.database.connection import create_tables
 from datetime import date, timedelta
 
 from src.modules.catalogo import (
@@ -13,13 +12,6 @@ from src.modules.catalogo import (
     repasse_medio_ponderado_pacote,
 )
 from src.modules.colaborador import cadastrar_colaborador, listar_servicos
-
-
-@pytest.fixture(autouse=True)
-def setup_db():
-    if os.path.exists("data/beaba_gestao.db"):
-        os.remove("data/beaba_gestao.db")
-    create_tables()
 
 
 def test_cadastrar_sessao_ok():
@@ -110,7 +102,7 @@ def test_pacote_ok_e_listagem():
     )
     assert ok_p
 
-    cur = __import__("sqlite3").connect("data/beaba_gestao.db")
+    cur = __import__("sqlite3").connect(os.environ["BEABA_SQLITE_PATH"])
     sid_a = cur.execute("SELECT id FROM servicos WHERE nome = 'Sessão Pac Alpha'").fetchone()[0]
     sid_b = cur.execute("SELECT id FROM servicos WHERE nome = 'Sessão Pac Beta'").fetchone()[0]
     pid = cur.execute("SELECT id FROM servicos WHERE nome = 'Óleo Pac'").fetchone()[0]
@@ -179,7 +171,7 @@ def test_evento_ok_e_listagem():
         observacoes="",
         servicos_repasse=[(_sid_habilitacao(), 30.0, date.today().isoformat())],
     )
-    cur = __import__("sqlite3").connect("data/beaba_gestao.db")
+    cur = __import__("sqlite3").connect(os.environ["BEABA_SQLITE_PATH"])
     cid = cur.execute("SELECT id FROM colaboradores WHERE nome = 'Colab Evento'").fetchone()[0]
     cur.close()
 
@@ -238,7 +230,7 @@ def test_evento_colaborador_duplicado_falha():
         observacoes="",
         servicos_repasse=[(_sid_habilitacao(), 40.0, date.today().isoformat())],
     )
-    cur = __import__("sqlite3").connect("data/beaba_gestao.db")
+    cur = __import__("sqlite3").connect(os.environ["BEABA_SQLITE_PATH"])
     cid = cur.execute("SELECT id FROM colaboradores WHERE nome = 'Dup Ev'").fetchone()[0]
     cur.close()
     ok, _ = cadastrar_evento(
@@ -269,7 +261,7 @@ def test_pacote_sessao_duplicada_rejeita():
         sessao_duracao_horas=1.0,
         sessao_valor_euros=10.0,
     )
-    cur = __import__("sqlite3").connect("data/beaba_gestao.db")
+    cur = __import__("sqlite3").connect(os.environ["BEABA_SQLITE_PATH"])
     sid = cur.execute("SELECT id FROM servicos WHERE nome = 'Sessão Dup'").fetchone()[0]
     cur.close()
     ok, msg = cadastrar_pacote(

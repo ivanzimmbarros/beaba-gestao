@@ -1,18 +1,7 @@
-import os
-
 import pytest
 
-from src.database.connection import create_tables
 from src.modules.cliente import cadastrar_cliente
 from src.modules.validators import normalizar_codigo_postal_pt
-
-
-@pytest.fixture(autouse=True)
-def setup_db():
-    """Prepara um banco de teste limpo antes de cada validação"""
-    if os.path.exists("data/beaba_gestao.db"):
-        os.remove("data/beaba_gestao.db")
-    create_tables()
 
 
 def _cli(**kw):

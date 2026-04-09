@@ -79,7 +79,7 @@
   "pc_foco": "PC3–PC4",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "Seed validação aplicado em `data/beaba_gestao.db`: 100 clientes, 20 colaboradores, 20 serviços, 300+ vendas, 300 agendamentos; integrity_check ok; pytest 80. Próximo backup horário cobre o `.db` completo. E17.1 em B.",
+  "live_status": "Seed em `data/beaba_gestao.db` recarregado; pytest isolado (`tests/conftest.py`) para não sobrescrever a base local; suite 80 ok. E17.1 em B.",
   "etapas_pendentes": [
     "Diretor: rever `docs/governanca/demandas/2026-04-09_E17_1_autonomia_resiliencia_cloud/04_desenho_logico.md` e autorizar Fase C.",
     "Pós-autorização: implementar workflows/scripts cloud conforme dossier E17.1.",
@@ -116,6 +116,7 @@
     "E17.2 — Retenção / restore / e-mails — CONCLUÍDO 2026-04-08 (encerramento; legado operacional alinhado ao E18).",
     "E18 — Operacional-financeiro: ledger, multi-meio, gate CONCLUIDO, repasses — CONCLUÍDO 2026-04-08 (refs: `docs/governanca/demandas/2026-04-08_E18_operacional_financeiro/`).",
     "E20 — Fortaleza operacional: portão stress E2E obrigatório antes de PC13; MAPA_FLUXOS + e2e_stress_test; norma em FLUXO_SUCESSO_E_FALHA + PAINEL + protocolo_fortaleza no JSON.",
-    "Operação 2026-04-09 — Carga massiva de validação (`seed_validacao_massiva.py`) na base habitual `data/beaba_gestao.db` para testes integrados na app (destrutiva: substituiu dados anteriores)."
+    "Operação 2026-04-09 — Carga massiva de validação (`seed_validacao_massiva.py`) na base habitual `data/beaba_gestao.db` para testes integrados na app (destrutiva: substituiu dados anteriores).",
+    "Correcção 2026-04-09 — `pytest` passou a usar SQLite isolado (`BEABA_SQLITE_PATH` em `tmp_path`) para não apagar `data/beaba_gestao.db` após seed."
   ]
 }
