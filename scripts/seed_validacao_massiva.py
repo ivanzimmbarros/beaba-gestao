@@ -9,6 +9,14 @@ Recomendado: ficheiro **dedicado** (`--db`) para não sobrescrever produção.
 Para repor `data/beaba_gestao.db` em branco (destrutivo):
   python scripts/seed_validacao_massiva.py --db data/beaba_gestao.db --wipe-live-confirm
 
+Gera tipicamente: **100** clientes (NIF PT + E.164), **20** colaboradores (habilitações 1..N serviços),
+**20** serviços (Sessão, Produto, Coworking, Pacote, Evento), **~300** vendas com cenários de pagamento
+(integral, pendente, parcial, parcelado, multi-meios, cartão em 2 linhas, crédito loja, bónus, evento, pacote)
+e **300** agendamentos (275 crédito + 25 pré-venda) com estados PRE_AGENDADO…CANCELADO repartidos no tempo
+(2 meses anteriores, mês anterior, mês actual, mês seguinte).
+
+Nota: a tabela legada `venda_pagamentos` não aceita `iban`; o seed usa `mbway`/`cartao_credito`/`dinheiro`.
+
 Depois: `set BEABA_SQLITE_PATH=data/beaba_validacao.db` (Windows) ou export no Unix,
 e `streamlit run src/app.py`.
 
