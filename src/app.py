@@ -204,7 +204,10 @@ def _page_clientes() -> None:
     with r3c1:
         end_dist = st.text_input("Distrito (opcional)", key=f"{fk}_dist")
     with r3c2:
-        end_pais = st.text_input("País *", key=f"{fk}_pais", value="Portugal")
+        _cli_pais_k = f"{fk}_pais"
+        if _cli_pais_k not in st.session_state:
+            st.session_state[_cli_pais_k] = "Portugal"
+        end_pais = st.text_input("País *", key=_cli_pais_k)
 
     st.subheader("Filhos")
     tem_filhos = st.radio("Possui filhos? *", ["Não", "Sim"], horizontal=True, key=f"{fk}_temf") == "Sim"
@@ -438,7 +441,10 @@ def _page_colaboradores() -> None:
     with r3c1:
         c_dist = st.text_input("Distrito (opcional)", key=f"{fk}_dist")
     with r3c2:
-        c_pais = st.text_input("País *", key=f"{fk}_pais", value="Portugal")
+        _col_pais_k = f"{fk}_pais"
+        if _col_pais_k not in st.session_state:
+            st.session_state[_col_pais_k] = "Portugal"
+        c_pais = st.text_input("País *", key=_col_pais_k)
 
     st.subheader("Serviços habilitados e repasse")
     st.caption("Lista de serviços que o colaborador está apto a exercer")
@@ -459,14 +465,16 @@ def _page_colaboradores() -> None:
             nome_svc = st.selectbox("Serviço *", nomes_servicos, key=f"{fk}_svc_{row_id}")
             sid = id_por_nome[nome_svc]
         with sc2:
+            _pct_k = f"{fk}_pct_{row_id}"
+            if _pct_k not in st.session_state:
+                st.session_state[_pct_k] = 50.0
             pct = float(
                 st.number_input(
                     "Repasse % *",
                     min_value=0.01,
                     max_value=100.0,
-                    value=50.0,
                     step=0.01,
-                    key=f"{fk}_pct_{row_id}",
+                    key=_pct_k,
                 )
             )
         with sc3:
