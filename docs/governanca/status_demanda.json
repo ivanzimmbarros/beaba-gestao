@@ -79,14 +79,13 @@
   "pc_foco": "PC3–PC4",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "E17.1: guia PASSO_A_PASSO_GITHUB_ACTIONS_READ_WRITE.md no repo. Aguardando Diretor confirmar Read and write + Save; depois novo dispatch e SHA em Code/commits/develop.",
+  "live_status": "E17.1: dispatch validação run 24215865149 (ok). Commit em develop: e13ec9b — telemetria no Code. Diretor: executar `git pull origin develop` agora.",
   "etapas_pendentes": [
-    "Diretor: abrir guia `docs/governanca/PASSO_A_PASSO_GITHUB_ACTIONS_READ_WRITE.md` e activar Read and write (Settings → Actions → General).",
-    "Diretor: confirmar no chat; EQUIPE dispara `backup_hourly` manual e cola aqui `ultimo_run_prova` + `ultimo_commit_develop_sha`.",
-    "Diretor: `git pull origin develop` — obrigatório para levantar Grounding.",
-    "Verificação Code: `https://github.com/ivanzimmbarros/beaba-gestao/commits/develop` — commit `github-actions[bot]` com `chore(telemetry): backup`."
+    "Diretor: `git pull origin develop` (confirma `backup_dr_history.json` com gha-24215865149).",
+    "Após pull: Grounding E20/E17.1 Cloud pode ser levantado pelo Diretor se critérios internos estiverem cumpridos.",
+    "Histórico Code: https://github.com/ivanzimmbarros/beaba-gestao/commits/develop"
   ],
-  "live_actualizado_iso": "2026-04-10T12:00:00Z",
+  "live_actualizado_iso": "2026-04-10T14:30:00Z",
   "fases_resumo": [
     { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
     { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "curso" },
