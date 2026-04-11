@@ -13,6 +13,24 @@ from src.modules.validators import (
 
 FilhoInput = tuple[str, int, str] | tuple[str, int, str, str | None]
 
+_DATA_NASC_TITULAR_MIN = date(1900, 1, 1)
+
+
+def _validar_data_nascimento_titular(data_nascimento: str | None) -> tuple[bool, str, str | None]:
+    """Data de nascimento do titular: obrigatória, ISO AAAA-MM-DD, ≥ 1900-01-01, não futura."""
+    raw = (data_nascimento or "").strip()
+    if not raw:
+        return False, "❌ A data de nascimento é obrigatória (formato AAAA-MM-DD).", None
+    ds = raw[:10]
+    if not parse_data_iso(ds):
+        return False, "❌ Data de nascimento inválida.", None
+    dt = datetime.strptime(ds, "%Y-%m-%d").date()
+    if dt < _DATA_NASC_TITULAR_MIN:
+        return False, "❌ Data de nascimento não pode ser anterior a 01/01/1900.", None
+    if dt > date.today():
+        return False, "❌ Data de nascimento não pode ser futura.", None
+    return True, "", ds
+
 
 def _idade_anos_de_data_nascimento(iso_yyyy_mm_dd: str) -> int:
     d = datetime.strptime(str(iso_yyyy_mm_dd).strip()[:10], "%Y-%m-%d").date()
@@ -73,10 +91,12 @@ def cadastrar_cliente(
     *,
     nif: str,
     documento_identificacao_internacional: bool,
+    data_nascimento: str | None,
 ) -> tuple[bool, str]:
     """
     `filhos`: (nome, idade, sexo) ou (nome, idade, sexo, data_nascimento_iso opcional).
     Coluna `whatsapp`: contacto principal em E.164.
+    `data_nascimento`: data de nascimento do titular (ISO AAAA-MM-DD), obrigatória.
     """
     nome = (nome or "").strip()
     if not nome:
@@ -93,6 +113,10 @@ def cadastrar_cliente(
     )
     if not ok_n:
         return False, msg_n
+
+    ok_dn, msg_dn, dn_iso = _validar_data_nascimento_titular(data_nascimento)
+    if not ok_dn:
+        return False, msg_dn
 
     doc_intl = 1 if documento_identificacao_internacional else 0
 
@@ -189,8 +213,8 @@ def cadastrar_cliente(
                 gravida, data_parto_prevista, observacoes,
                 endereco_rua, endereco_numero, endereco_complemento,
                 codigo_postal, concelho, freguesia, distrito, pais,
-                nif_ou_documento, identificacao_internacional
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                nif_ou_documento, identificacao_internacional, data_nascimento
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 nome,
@@ -212,6 +236,7 @@ def cadastrar_cliente(
                 pais_v,
                 nif_v,
                 doc_intl,
+                dn_iso,
             ),
         )
         cid = cursor.lastrowid
@@ -258,6 +283,71 @@ def buscar_cliente_por_whatsapp(numero_contato: str) -> int | None:
         return int(row[0]) if row else None
     finally:
         conn.close()
+
+
+def buscar_clientes_por_nif_email_telefone(
+    *,
+    nif: str = "",
+    email: str = "",
+    telefone: str = "",
+    documento_internacional: bool = False,
+) -> list[tuple[int, str]]:
+    """
+    Pesquisa por OR (NIF normalizado, email trim+lower, telefone E.164).
+    Devolve lista `(id, nome)` sem duplicados, ordenada por nome (NOCASE).
+    """
+    merged: dict[int, str] = {}
+
+    conn = get_connection()
+    if not conn:
+        return []
+
+    def _add_rows(rows: list[tuple[int, str]]) -> None:
+        for cid, nome in rows:
+            merged[int(cid)] = str(nome)
+
+    try:
+        cur = conn.cursor()
+        tel = normalizar_telefone_legado_ou_e164((telefone or "").strip())
+        if tel:
+            cur.execute(
+                "SELECT id, nome FROM clientes WHERE whatsapp = ? ORDER BY nome COLLATE NOCASE",
+                (tel,),
+            )
+            _add_rows([(int(a), str(b)) for a, b in cur.fetchall()])
+
+        em = (email or "").strip().lower()
+        if em and email_valido(em):
+            cur.execute(
+                """
+                SELECT id, nome FROM clientes
+                WHERE lower(trim(email)) = ?
+                ORDER BY nome COLLATE NOCASE
+                """,
+                (em,),
+            )
+            _add_rows([(int(a), str(b)) for a, b in cur.fetchall()])
+
+        nif_raw = (nif or "").strip()
+        if nif_raw:
+            ok_n, _, nif_v = normalizar_nif_armazenamento(
+                nif_raw, documento_identificacao_internacional=documento_internacional
+            )
+            if ok_n:
+                cur.execute(
+                    """
+                    SELECT id, nome FROM clientes
+                    WHERE nif_ou_documento = ?
+                    ORDER BY nome COLLATE NOCASE
+                    """,
+                    (nif_v,),
+                )
+                _add_rows([(int(a), str(b)) for a, b in cur.fetchall()])
+    finally:
+        conn.close()
+
+    out = sorted(merged.items(), key=lambda x: (x[1].lower(), x[0]))
+    return [(i, n) for i, n in out]
 
 
 def listar_clientes_resumo() -> list[tuple[int, str]]:
@@ -316,7 +406,7 @@ def obter_cliente_completo(cliente_id: int) -> dict | None:
             SELECT id, nome, whatsapp, email, sexo, tem_filhos, gravida, data_parto_prevista,
                    observacoes, endereco_rua, endereco_numero, endereco_complemento,
                    codigo_postal, concelho, freguesia, distrito, pais,
-                   nif_ou_documento, identificacao_internacional
+                   nif_ou_documento, identificacao_internacional, data_nascimento
             FROM clientes WHERE id = ?
             """,
             (cid,),
@@ -359,6 +449,10 @@ def obter_cliente_completo(cliente_id: int) -> dict | None:
             grav_v = None
         nif_raw = row[17] if len(row) > 17 else None
         id_intl = int(row[18]) if len(row) > 18 and row[18] is not None else 0
+        dn_tit = row[19] if len(row) > 19 else None
+        dn_tit_s = str(dn_tit).strip()[:10] if dn_tit else None
+        if dn_tit_s and not parse_data_iso(dn_tit_s):
+            dn_tit_s = None
         return {
             "id": int(row[0]),
             "nome": str(row[1]),
@@ -379,6 +473,7 @@ def obter_cliente_completo(cliente_id: int) -> dict | None:
             "pais": str(row[16] or "Portugal"),
             "nif_ou_documento": str(nif_raw) if nif_raw is not None else "",
             "identificacao_internacional": bool(id_intl),
+            "data_nascimento": dn_tit_s,
             "filhos": filhos,
             "contatos_emergencia": emerg,
         }
@@ -409,6 +504,7 @@ def atualizar_cliente(
     *,
     nif: str,
     documento_identificacao_internacional: bool,
+    data_nascimento: str | None,
 ) -> tuple[bool, str]:
     """Atualiza ficha existente. Validações alinhadas a `cadastrar_cliente`."""
     cid = int(cliente_id)
@@ -430,6 +526,11 @@ def atualizar_cliente(
     )
     if not ok_n:
         return False, msg_n
+
+    ok_dn, msg_dn, dn_iso = _validar_data_nascimento_titular(data_nascimento)
+    if not ok_dn:
+        return False, msg_dn
+
     doc_intl = 1 if documento_identificacao_internacional else 0
 
     rua = (endereco_rua or "").strip()
@@ -535,7 +636,7 @@ def atualizar_cliente(
                 gravida = ?, data_parto_prevista = ?, observacoes = ?,
                 endereco_rua = ?, endereco_numero = ?, endereco_complemento = ?,
                 codigo_postal = ?, concelho = ?, freguesia = ?, distrito = ?, pais = ?,
-                nif_ou_documento = ?, identificacao_internacional = ?
+                nif_ou_documento = ?, identificacao_internacional = ?, data_nascimento = ?
             WHERE id = ?
             """,
             (
@@ -558,6 +659,7 @@ def atualizar_cliente(
                 pais_v,
                 nif_v,
                 doc_intl,
+                dn_iso,
                 cid,
             ),
         )
@@ -590,5 +692,34 @@ def atualizar_cliente(
     except Exception as e:
         conn.rollback()
         return False, f"❌ Erro ao guardar: {e}"
+    finally:
+        conn.close()
+
+
+def listar_vendas_resumo_cliente(cliente_id: int, *, limit: int = 24) -> list[tuple[int, str, int, str]]:
+    """
+    Últimas vendas do cliente para painel «Histórico de Compras».
+    Devolve (id, data_registo texto, total_final_centavos, estado_pagamento).
+    """
+    cid = int(cliente_id)
+    conn = get_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, data_registo, total_final_centavos, estado_pagamento
+            FROM vendas
+            WHERE cliente_id = ?
+            ORDER BY datetime(data_registo) DESC
+            LIMIT ?
+            """,
+            (cid, int(limit)),
+        )
+        rows: list[tuple[int, str, int, str]] = []
+        for vid, dr, tot, est in cur.fetchall():
+            rows.append((int(vid), str(dr or "")[:19], int(tot or 0), str(est or "")))
+        return rows
     finally:
         conn.close()

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Literal
 
 from src.database.connection import get_connection
@@ -1138,6 +1138,111 @@ def contar_pre_venda_futuros(data_referencia: str | None = None) -> int:
         conn.close()
 
 
+def _empty_resumo_setor2_proposta() -> dict[str, Any]:
+    return {
+        "previstos_30d_por_natureza": [],
+        "previstos_10d_por_natureza": [],
+        "pendente_pgto_por_natureza": [],
+        "pendente_pgto_valor_total_centavos": 0,
+        "cancelados_60d_total": 0,
+    }
+
+
+def obter_resumo_agendamentos_cliente_setor2_proposta(cliente_id: int) -> dict[str, Any]:
+    """
+    Setor 2 «Resumo Geral: Agendamentos» — lógica alinhada à Proposta (naturezas + estados).
+    """
+    cid = int(cliente_id)
+    if cid < 1:
+        return _empty_resumo_setor2_proposta()
+    today = date.today()
+    today_s = today.isoformat()
+    lim_30 = (today + timedelta(days=30)).isoformat()
+    lim_10 = (today + timedelta(days=10)).isoformat()
+    lim_60 = (today - timedelta(days=60)).isoformat()
+
+    conn = get_connection()
+    if not conn:
+        return _empty_resumo_setor2_proposta()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT s.natureza, COUNT(*)
+            FROM agendamentos a
+            JOIN servicos s ON s.id = a.servico_id
+            WHERE a.cliente_id = ?
+              AND a.status IN ('PRE_AGENDADO', 'AGENDADO', 'CONFIRMADO')
+              AND date(a.data_agendamento) >= date(?)
+              AND date(a.data_agendamento) <= date(?)
+            GROUP BY s.natureza
+            ORDER BY s.natureza COLLATE NOCASE
+            """,
+            (cid, today_s, lim_30),
+        )
+        c30 = [(str(r[0]), int(r[1])) for r in cur.fetchall()]
+
+        cur.execute(
+            """
+            SELECT s.natureza, COUNT(*)
+            FROM agendamentos a
+            JOIN servicos s ON s.id = a.servico_id
+            WHERE a.cliente_id = ?
+              AND a.status IN ('PRE_AGENDADO', 'AGENDADO', 'CONFIRMADO')
+              AND date(a.data_agendamento) >= date(?)
+              AND date(a.data_agendamento) <= date(?)
+            GROUP BY s.natureza
+            ORDER BY s.natureza COLLATE NOCASE
+            """,
+            (cid, today_s, lim_10),
+        )
+        c10 = [(str(r[0]), int(r[1])) for r in cur.fetchall()]
+
+        cur.execute(
+            """
+            SELECT s.natureza, COUNT(*)
+            FROM agendamentos a
+            JOIN servicos s ON s.id = a.servico_id
+            WHERE a.cliente_id = ? AND a.status = 'REALIZADO_PENDENTE_PGTO'
+            GROUP BY s.natureza
+            ORDER BY s.natureza COLLATE NOCASE
+            """,
+            (cid,),
+        )
+        pend_n = [(str(r[0]), int(r[1])) for r in cur.fetchall()]
+
+        cur.execute(
+            """
+            SELECT COALESCE(SUM(COALESCE(a.preco_referencia_centavos, 0)), 0)
+            FROM agendamentos a
+            WHERE a.cliente_id = ? AND a.status = 'REALIZADO_PENDENTE_PGTO'
+            """,
+            (cid,),
+        )
+        pend_val = int(cur.fetchone()[0] or 0)
+
+        cur.execute(
+            """
+            SELECT COUNT(*) FROM agendamentos
+            WHERE cliente_id = ?
+              AND status = 'CANCELADO'
+              AND date(substr(data_alteracao, 1, 10)) >= date(?)
+            """,
+            (cid, lim_60),
+        )
+        n_can = int(cur.fetchone()[0] or 0)
+
+        return {
+            "previstos_30d_por_natureza": c30,
+            "previstos_10d_por_natureza": c10,
+            "pendente_pgto_por_natureza": pend_n,
+            "pendente_pgto_valor_total_centavos": pend_val,
+            "cancelados_60d_total": n_can,
+        }
+    finally:
+        conn.close()
+
+
 def contar_por_status_periodo(data_de: str, data_ate: str) -> dict[str, int]:
     conn = get_connection()
     if not conn:
@@ -1170,6 +1275,7 @@ __all__ = [
     "listar_buckets_credito_cliente",
     "minutos_desde_meia_noite",
     "obter_agendamento",
+    "obter_resumo_agendamentos_cliente_setor2_proposta",
     "obter_primeiro_item_venda_por_servico",
     "rotulo_pagamento_venda",
     "saldo_bucket",
