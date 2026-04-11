@@ -71,13 +71,14 @@
       }
     ]
   },
-  "fase_consolidacao_clientes_agendamentos": "Correção Crítica Setor 2 e 4",
+  "fase_consolidacao_clientes_agendamentos": "Fase Final - Setores 3, 4 e 5",
   "consolidacao_clientes_agendamentos": {
-    "fase_operacional": "Correção Crítica Setor 2 e 4",
+    "fase_operacional": "Fase Final - Setores 3, 4 e 5",
     "sprint_codigo": "B-correcao",
     "entrega_sprint_a": "Página `page_clientes_agendamentos.py`, item na sidebar acima de Vendas, Setor 1 pesquisa + Setor 3 limpar estado; rotas antigas mantidas.",
     "entrega_sprint_b": "Setor 2 conforme Proposta: Dados Pessoais (3 campos B.1.1) + Resumo Geral: Agendamentos (5 cards, naturezas e estados); `obter_resumo_agendamentos_cliente_setor2_proposta`. Removido resumo por vendas/saldo.",
     "entrega_correcao_setor_4": "Setor 4 «4. Ficha do Cliente»: checkbox edição, campos disabled por defeito, Salvar Alterações #C43048, reversão ao desmarcar; ficha alinhada ao setor 2.Ficha de Clientes (sem histórico de compras nesta página).",
+    "entrega_fase_final_setores_3_4_5": "Setor 3 «3. Dados Pessoais» (Lora) + expander «Informações Detalhadas do Cliente» fechado por defeito com campos da ficha; Setor 4 só controlo de edição + Salvar; Setor 5 «Gestão de Agendamentos» — tabela 5 colunas, paginação 5, formulário (Natureza, busca serviço, colaboradores, estado), cancelamento com cancelar_agendamento e devolução ao buffer; pós-gravar modal SIM/NÃO novo agendamento.",
     "ultima_actualizacao_iso": "2026-04-10"
   },
   "demanda_id": "2026-04-10_E22_redesign_visual_verde_sereno",
@@ -96,7 +97,7 @@
     "E18 — Operacional-financeiro: ledger `credito_movimentos`, `venda_pagamento_linhas`, gate CONCLUIDO, `repasse_linhas`, estados agendamento — CONCLUÍDO 2026-04-08",
     "E18 — Validação: suite `pytest tests/` + integrity_check ok"
   ],
-  "pendente": "Consolidação UI — Correção Crítica Setor 2 e 4 aplicada (agendamentos + ficha); próximo: Setor 5 agenda na página consolidada. E22 Fase 2 — homologar Clientes/Colaboradores vs PDV. E17.1: fila.",
+  "pendente": "Consolidação UI — Fase Final Setores 3, 4 e 5 na página consolidada (Dados Pessoais em expander, Ficha, Gestão de Agendamentos). E22 Fase 2 — homologar Clientes/Colaboradores vs PDV. E17.1: fila.",
   "falha": "2026-04-09 — Push telemetria: `secrets.GITHUB_TOKEN` incorrecto (não é o token automático). Correcção: `github.token` no `actions/checkout`. Prova EQUIPE: run **24215460665** → commit em `develop` → `git pull` traz `gha-24215460665` no JSON. Grounding: Diretor validar pull local + schedules seguintes.",
   "ultima_actualizacao_iso": "2026-04-10",
   "notas_dashboard": "Painel v2: secções «Épicos em execução» e «Histórico de épicos concluídos» em `status_demanda.json`. Apps: `scripts/app_governance.py`, `view_governance.py`, `monitor_demanda.py`, `monitor_governanca.py` (aba Governança).",
@@ -104,7 +105,7 @@
   "pc_foco": "PC1–PC2",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "Correção Crítica Setor 2 e 4: «Clientes e Agendamentos» — Setor 2 fiel à Proposta (3 campos + 5 cards por agendamento/natureza); Setor 4 ficha com edição condicional; `obter_resumo_agendamentos_cliente_setor2_proposta`. Rotas autónomas mantidas. E22 Fase 2 em execução.",
+  "live_status": "Fase Final Setores 3, 4 e 5: «Clientes e Agendamentos» — Setor 3 Dados Pessoais (expander); Setor 4 só edição controlada + Salvar #C43048; Setor 5 agenda com tabela 5×5 (colunas Data/Início/Fim/Serviço/Estado), pré-venda MVP (Sessão/Coworking/Evento), cancelamento com buffer. E22 Fase 2 em execução.",
   "etapas_pendentes": [
     "Diretor: homologar PDV vs protótipo (semáforo visível, comanda spa). Sem OK → sem avançar módulos.",
     "E22: após OK — um único módulo seguinte (ex. Clientes em cards).",
