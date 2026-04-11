@@ -14,19 +14,27 @@ from src.modules.country_dial_codes import (
 from src.modules.telefone import normalizar_telefone_e164
 
 
-def render_grupo_telefone(st_module, *, prefix: str, label: str = "Contacto telefónico") -> None:
+def render_grupo_telefone(
+    st_module,
+    *,
+    prefix: str,
+    label: str = "Contacto telefónico",
+    disabled: bool = False,
+) -> None:
     st_module.markdown(f"**{label}**")
     st_module.radio(
         "Tipo de linha *",
         ["Telemóvel", "Fixo"],
         horizontal=True,
         key=f"{prefix}_tt",
+        disabled=disabled,
     )
     st_module.caption("Indicativo do país e número nacional (validação por país).")
     busca = st_module.text_input(
         "Filtrar país (nome, ISO2 ou indicativo)",
         key=f"{prefix}_tp_filtro",
         placeholder="Ex.: Portugal, BR, 351…",
+        disabled=disabled,
     )
     opts = encontrar_por_texto_busca(busca)
     labels = [rotulo_pais_telefone(iso, dial, nome) for iso, dial, nome in opts]
@@ -35,11 +43,13 @@ def render_grupo_telefone(st_module, *, prefix: str, label: str = "Contacto tele
         list(range(len(opts))),
         format_func=lambda i: labels[i],
         key=f"{prefix}_tp_idx",
+        disabled=disabled,
     )
     st_module.text_input(
         "Número nacional (sem +indicativo) *",
         key=f"{prefix}_tp_nac",
         placeholder="Apenas dígitos do número local",
+        disabled=disabled,
     )
 
 

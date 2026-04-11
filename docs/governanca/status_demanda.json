@@ -16,6 +16,22 @@
     "descricao": "Demandas com status «Em Aberto» ou «Pendente» (foco operacional actual).",
     "itens": [
       {
+        "demanda_id": "2026-04-10_E22_redesign_visual_verde_sereno",
+        "titulo": "Épico 22 — Redesign visual global «Verde Sereno»",
+        "status_demanda": "Em Execução",
+        "fase_actual": "2-gestao-pessoas",
+        "pc_foco": "PC1–PC4",
+        "resumo_foco": "Fase 2 — Gestão de Pessoas — Em Execução: Clientes e Colaboradores espelham Vendas (cards, grelha 3×3, busca em card, ficha em blocos); referência absoluta o PDV Fase 1."
+      },
+      {
+        "demanda_id": "2026-04-10_E21_ui_fluxos_seguranca",
+        "titulo": "Épico 21 — Reformulação UI e fluxos (Protocolo de Segurança)",
+        "status_demanda": "Em Execução",
+        "fase_actual": "3",
+        "pc_foco": "PC1–PC4",
+        "resumo_foco": "Fase 3: Painel de Vendas — busca de cliente componentizada, itens com natureza visível, distribuição de pagamentos (total / distribuído / pendente) e modo parcelado — aguarda validação do Diretor."
+      },
+      {
         "demanda_id": "2026-04-09_E17_1_autonomia_resiliencia_cloud",
         "titulo": "E17.1 — Autonomia e Resiliência Cloud Total (GHA, AES-GCM, restore semanal, telemetria)",
         "status_demanda": "Pendente",
@@ -55,11 +71,20 @@
       }
     ]
   },
-  "demanda_id": "2026-04-09_E17_1_autonomia_resiliencia_cloud",
-  "titulo": "E17.1 — Autonomia e Resiliência Cloud Total (GHA, AES-GCM, restore semanal, telemetria)",
-  "fase_actual": "B",
-  "passo_referencia": "PC3–PC4 (revisão 04_desenho_logico + autorização Fase C)",
-  "responsavel_actual": "EQUIPE — foco E17.1; E18 fechado; E17.2 encerrada (legado operacional absorvido pelo E18)",
+  "fase_consolidacao_clientes_agendamentos": "Correção Crítica Setor 2 e 4",
+  "consolidacao_clientes_agendamentos": {
+    "fase_operacional": "Correção Crítica Setor 2 e 4",
+    "sprint_codigo": "B-correcao",
+    "entrega_sprint_a": "Página `page_clientes_agendamentos.py`, item na sidebar acima de Vendas, Setor 1 pesquisa + Setor 3 limpar estado; rotas antigas mantidas.",
+    "entrega_sprint_b": "Setor 2 conforme Proposta: Dados Pessoais (3 campos B.1.1) + Resumo Geral: Agendamentos (5 cards, naturezas e estados); `obter_resumo_agendamentos_cliente_setor2_proposta`. Removido resumo por vendas/saldo.",
+    "entrega_correcao_setor_4": "Setor 4 «4. Ficha do Cliente»: checkbox edição, campos disabled por defeito, Salvar Alterações #C43048, reversão ao desmarcar; ficha alinhada ao setor 2.Ficha de Clientes (sem histórico de compras nesta página).",
+    "ultima_actualizacao_iso": "2026-04-10"
+  },
+  "demanda_id": "2026-04-10_E22_redesign_visual_verde_sereno",
+  "titulo": "Épico 22 — Redesign visual global «Verde Sereno»",
+  "fase_actual": "2-gestao-pessoas",
+  "passo_referencia": "E22 Fase 2 — Gestão de Pessoas — Em Execução: `page_clientes.py` e `page_colaboradores.py` alinhados ao PDV (grelha 3×3, cards brancos, pesquisa minimalista, expander «Item»); `listar_colaboradores_vitrine`, `listar_vendas_resumo_cliente`. Sidebar mantém destaque Sálvia / texto verde escuro.",
+  "responsavel_actual": "EQUIPE — E22 Fase 2 Clientes/Colaboradores; E17.1 na fila",
   "pontos_controlo_concluidos": [
     "E16 — PC1 a PC13a: dossier 01–09 + 99; implementação + pareceres + QA em develop",
     "E17 — PC13: encerramento operacional; `ultima_entrega_marco` evoluiu até E18",
@@ -71,24 +96,31 @@
     "E18 — Operacional-financeiro: ledger `credito_movimentos`, `venda_pagamento_linhas`, gate CONCLUIDO, `repasse_linhas`, estados agendamento — CONCLUÍDO 2026-04-08",
     "E18 — Validação: suite `pytest tests/` + integrity_check ok"
   ],
-  "pendente": "E17.1: Diretor segue `docs/governanca/PASSO_A_PASSO_GITHUB_ACTIONS_READ_WRITE.md` → Workflow permissions = Read and write → Save. Avisar no chat; EQUIPE dispara run manual e indica run_id + SHA. Grounding: só levanta com git pull do Diretor a trazer ficheiros novos.",
+  "pendente": "Consolidação UI — Correção Crítica Setor 2 e 4 aplicada (agendamentos + ficha); próximo: Setor 5 agenda na página consolidada. E22 Fase 2 — homologar Clientes/Colaboradores vs PDV. E17.1: fila.",
   "falha": "2026-04-09 — Push telemetria: `secrets.GITHUB_TOKEN` incorrecto (não é o token automático). Correcção: `github.token` no `actions/checkout`. Prova EQUIPE: run **24215460665** → commit em `develop` → `git pull` traz `gha-24215460665` no JSON. Grounding: Diretor validar pull local + schedules seguintes.",
-  "ultima_actualizacao_iso": "2026-04-09",
+  "ultima_actualizacao_iso": "2026-04-10",
   "notas_dashboard": "Painel v2: secções «Épicos em execução» e «Histórico de épicos concluídos» em `status_demanda.json`. Apps: `scripts/app_governance.py`, `view_governance.py`, `monitor_demanda.py`, `monitor_governanca.py` (aba Governança).",
-  "fase_governanca": "B",
-  "pc_foco": "PC3–PC4",
+  "fase_governanca": "A",
+  "pc_foco": "PC1–PC2",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "E17.1: PR #2 fundido em develop; run 24216347319 → commit 1799a18 na develop (telemetria). Diretor: `git pull origin develop` agora (estrada pavimentada). Bypass bot: GITHUB_BRANCH_PROTECTION_BACKUP_BOT.md.",
+  "live_status": "Correção Crítica Setor 2 e 4: «Clientes e Agendamentos» — Setor 2 fiel à Proposta (3 campos + 5 cards por agendamento/natureza); Setor 4 ficha com edição condicional; `obter_resumo_agendamentos_cliente_setor2_proposta`. Rotas autónomas mantidas. E22 Fase 2 em execução.",
   "etapas_pendentes": [
-    "Diretor: `git pull origin develop` — deve trazer merge + telemetria sem <<<<<<.",
-    "Se push do bot falhar no futuro: Settings → branches → bypass para GitHub Actions / bot (ver doc).",
-    "E20 / E17.1: Grounding levantável após pull limpo confirmado pelo Diretor."
+    "Diretor: homologar PDV vs protótipo (semáforo visível, comanda spa). Sem OK → sem avançar módulos.",
+    "E22: após OK — um único módulo seguinte (ex. Clientes em cards).",
+    "Encerramento futuro E22: pytest completo + `python tests/e2e_stress_test.py` (≥1000) + evidência em `tests/last_stress_report.txt` sem bloqueios.",
+    "E17.1: na fila — pull develop + permissões GHA quando priorizado."
   ],
-  "live_actualizado_iso": "2026-04-10T16:45:00Z",
+  "live_actualizado_iso": "2026-04-10T23:30:00Z",
+  "epico_22_redesign_visual": {
+    "fase_actual": "2-gestao-pessoas",
+    "nome": "BeaBa Sereno — Fase 2 Gestão de Pessoas (Clientes + Colaboradores = PDV)",
+    "plano_md": "docs/governanca/demandas/2026-04-10_E22_redesign_visual_verde_sereno/01_plano_faseado_e_fase0.md",
+    "proxima_fase_codigo_apos_ok": "Bloqueio até homologação PDV. Depois: um módulo único (Clientes / Colaboradores / Catálogo / Agendamentos); `render_cliente_search_widget` sem duplicar UI."
+  },
   "fases_resumo": [
-    { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "feito" },
-    { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "curso" },
+    { "id": "A", "label": "Desenho", "pcs": "PC1→2", "estado": "curso" },
+    { "id": "B", "label": "Lógico", "pcs": "PC3→4", "estado": "pendente" },
     { "id": "C", "label": "Código 1", "pcs": "PC5→6", "estado": "pendente" },
     { "id": "D", "label": "Código 2", "pcs": "PC7→8", "estado": "pendente" },
     { "id": "E", "label": "QA", "pcs": "PC9–12", "estado": "pendente" },
@@ -122,6 +154,14 @@
     "2026-04-09 — Governança E17.1: cron inactivo — `main` stub; GitHub `schedule` só na branch por defeito. Prova `gh workflow run` 24200710587; push `main` `6f2ab27` com `backup_hourly` + `backup_encrypt_callable` alinhados a `develop`.",
     "2026-04-09 — E17.1: primeiro `schedule` GHA 24210920681; Monitor estático sem pull; mitigação cron `5 * * * *` + `repository_dispatch` keepalive (carga :00 GitHub).",
     "2026-04-10 — E17.1: `secrets.GITHUB_TOKEN` → `github.token` nos workflows (checkout/push telemetria); permissões explícitas no callable.",
-    "2026-04-10 — E17.1: guia `docs/governanca/PASSO_A_PASSO_GITHUB_ACTIONS_READ_WRITE.md` para Diretor (Workflow permissions Read and write + Save); dispatch manual após confirmação no chat."
+    "2026-04-10 — E17.1: guia `docs/governanca/PASSO_A_PASSO_GITHUB_ACTIONS_READ_WRITE.md` para Diretor (Workflow permissions Read and write + Save); dispatch manual após confirmação no chat.",
+    "2026-04-10 — E21: OK FORMAL Fase 1 — reformulação menu + página Clientes (busca consolidada, saldo interno, data nascimento titular, emergência condicional, edição); backup preventivo pré-schema.",
+    "2026-04-10 — E22: Épico Redesign «Verde Sereno» aberto — Fase 0: `styles_theme.py`, integração `app.py`, `status_demanda.json` + bloco no Monitor; plano faseado 1 módulo/vez; E2E massivo obrigatório no fecho do épico.",
+    "2026-04-10 — E22 Fase 1 (PDV Vendas): cards de itens, semáforo superior, botões Sálvia/Cereja; `status_demanda.json` actualizado para fase 1.",
+    "2026-04-10 — E22 Fase 1 Correção e Simplificação — Em Execução: sidebar seleccionada legível; PDV grelha 3×3; pagamento simplificado; `status_demanda` `1-correcao-simplificacao`.",
+    "2026-04-10 — E22 Fase 2 Gestão de Pessoas — Em Execução: `page_colaboradores` vitrine 3×3; `page_clientes` pesquisa + grelha + cards ficha + histórico vendas; `2-gestao-pessoas`.",
+    "2026-04-10 — E22 reconstrução app: `shell_sidebar.py`, `initial_sidebar_state=expanded`, coluna central; comanda HTML só concatenação; cliente card + expanders; moldura principal removida.",
+    "2026-04-10 — Consolidação Clientes+Agendamentos Sprint B homologada: Setor 2 raio‑X (`obter_resumo_cliente_raio_x`, cards visita/gasto/pendente/crédito).",
+    "2026-04-10 — Correção Crítica Setor 2 e 4: alinhamento total à Proposta (agendamentos + naturezas); ficha Setor 4 com edição controlada; removido `obter_resumo_cliente_raio_x`."
   ]
 }
