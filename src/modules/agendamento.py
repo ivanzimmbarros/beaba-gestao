@@ -1226,7 +1226,12 @@ def obter_resumo_agendamentos_cliente_setor2_proposta(cliente_id: int) -> dict[s
             SELECT COUNT(*) FROM agendamentos
             WHERE cliente_id = ?
               AND status = 'CANCELADO'
-              AND date(substr(data_alteracao, 1, 10)) >= date(?)
+              AND date(
+                COALESCE(
+                  nullif(substr(data_alteracao, 1, 10), ''),
+                  data_agendamento
+                )
+              ) >= date(?)
             """,
             (cid, lim_60),
         )
