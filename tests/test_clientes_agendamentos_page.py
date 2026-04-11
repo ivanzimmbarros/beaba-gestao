@@ -8,6 +8,8 @@ def test_page_clientes_agendamentos_importa_e_expoe_render():
 
     assert hasattr(mod, "render_page_clientes_agendamentos")
     assert callable(mod.render_page_clientes_agendamentos)
+    assert hasattr(mod, "_render_cag_setores_345_sem_cliente_carregado")
+    assert callable(mod._render_cag_setores_345_sem_cliente_carregado)
 
 
 def test_reset_cag_page_state_remove_apenas_prefixo_cag(monkeypatch):

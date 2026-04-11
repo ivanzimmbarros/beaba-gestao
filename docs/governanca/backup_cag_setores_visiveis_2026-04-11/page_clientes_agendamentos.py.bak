@@ -933,49 +933,6 @@ def _render_cag_setor5_gestao_agendamentos(*, cliente_id: int, fv: int) -> None:
         st.rerun()
 
 
-def _render_cag_setores_345_sem_cliente_carregado() -> None:
-    """Garante hierarquia 3–4–5 visível antes da pesquisa carregar ficha (evita página «vazia»)."""
-    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-    st.markdown(
-        f'<div class="bea-proto-scope"><p style="font-size:1.2rem;letter-spacing:0.01em;{_SUB_LORA}">'
-        "3. Dados Pessoais</p></div>",
-        unsafe_allow_html=True,
-    )
-    with st.expander("Informações Detalhadas do Cliente", expanded=False):
-        st.info(
-            "Carregue um cliente na **1. Pesquisa de Clientes** e use **Procurar**, ou **Carregar ficha** "
-            "quando existirem vários resultados. Os campos detalhados ficam disponíveis após a selecção."
-        )
-
-    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-    st.markdown(_CAG_CHERRY_BTN_CSS, unsafe_allow_html=True)
-    st.markdown(
-        f'<div class="bea-proto-scope"><p style="font-size:1.2rem;letter-spacing:0.01em;{_SUB_LORA}">'
-        "4. Ficha do Cliente</p></div>",
-        unsafe_allow_html=True,
-    )
-    st.checkbox(
-        "Liberar edição do Cadastro do Cliente Selecionado",
-        value=False,
-        disabled=True,
-        key="cag_lib_edit_placeholder",
-    )
-    st.caption("Controlo de edição e gravação activos após carregar um cliente.")
-    st.button("Salvar Alterações", type="primary", disabled=True, key="cag_salvar_alt_placeholder")
-
-    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-    st.markdown(
-        f'<div class="bea-proto-scope"><p style="font-size:1.2rem;letter-spacing:0.01em;{_SUB_LORA}">'
-        "5. Gestão de Agendamentos</p></div>",
-        unsafe_allow_html=True,
-    )
-    st.info(
-        "Após carregar o cliente: tabela de agendamentos (5 por página), formulário com natureza e busca de "
-        "serviço (pré-venda Sessão / Coworking / Evento), colaboradores e estados — incluindo cancelamento com "
-        "devolução ao buffer quando aplicável."
-    )
-
-
 def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
     render_back_and_breadcrumb(
         ["Home", "Clientes e Agendamentos", "Cadastro"],
@@ -1163,5 +1120,3 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
 
         st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
         _render_cag_setor5_gestao_agendamentos(cliente_id=int(eid), fv=int(fv))
-    else:
-        _render_cag_setores_345_sem_cliente_carregado()
