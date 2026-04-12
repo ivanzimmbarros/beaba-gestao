@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import html
-from datetime import date, datetime
+import re
+from calendar import monthcalendar, monthrange
+from datetime import date, datetime, timedelta
 from typing import Any, Literal, cast
 
 import streamlit as st
@@ -32,6 +34,7 @@ from src.modules.nif import normalizar_nif_armazenamento
 from src.modules.telefone import normalizar_telefone_legado_ou_e164
 from src.modules.validators import email_valido, parse_data_iso
 from src.ui.telefone_widgets import ler_e164_de_widgets, preencher_session_telefone_de_e164, render_grupo_telefone
+from src.ui.theme import agenda_pagamento_dot, agenda_status_style, agenda_tipo_icon
 from src.ui.widgets.cliente_search import CLIENTE_SEARCH_DATE_MIN, render_cliente_search_widget
 
 _CAG_PREFIX = "cag_"
@@ -41,16 +44,14 @@ _SUB_LORA = (
     "color: var(--bea-vs-bordeaux, #3b1c2f); font-weight: 700; margin: 0 0 0.4rem 0;"
 )
 
-_CAG_CHERRY_BTN_CSS = """
-<style>
-/* Setor 3 (ficha) e Setor 4 (agenda) — botões primários: Salvar cliente / Salvar Agendamento */
-div[data-testid="stAppViewContainer"] button[kind="primary"] {
-    background-color: #C43048 !important;
-    color: #ffffff !important;
-    border: 1px solid #9b2438 !important;
-}
-</style>
-"""
+
+def _cag_section_title_html(title: str) -> str:
+    """Mesmo bloco visual de «1. Pesquisa de Clientes» (bea-pdv-titulo)."""
+    t = html.escape(title)
+    return (
+        f'<div class="bea-proto-scope"><p class="bea-pdv-titulo" '
+        f'style="font-size:1.2rem;margin:0 0 0.5rem 0;letter-spacing:0.01em;">{t}</p></div>'
+    )
 
 _CAG_STATUS_DB_TO_LBL: dict[str, str] = {
     "PRE_AGENDADO": "Pré-agendado",
@@ -60,8 +61,6 @@ _CAG_STATUS_DB_TO_LBL: dict[str, str] = {
     "CONCLUIDO": "Concluído",
     "CANCELADO": "Cancelado",
 }
-
-_CAG_PRE_VENDA_NATUREZAS = ("Sessão", "Coworking", "Evento")
 
 StatusAg = Literal[
     "PRE_AGENDADO",
@@ -87,6 +86,222 @@ def _cag_format_data_pt(iso_d: str) -> str:
         return s
 
 
+def _cag_ag_html_escape(s: str) -> str:
+    return (
+        (s or "")
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
+
+
+def _cag_week_range(anchor: date) -> tuple[date, date]:
+    mon = anchor - timedelta(days=anchor.weekday())
+    sun = mon + timedelta(days=6)
+    return mon, sun
+
+
+def _cag_month_bounds(d: date) -> tuple[date, date]:
+    first = d.replace(day=1)
+    _, last_day = monthrange(first.year, first.month)
+    last = first.replace(day=last_day)
+    return first, last
+
+
+def _cag_pagamento_pago_ou_parcial(rotulo: str) -> bool:
+    r = (rotulo or "").strip()
+    return r.startswith("Pago") or "Parcialmente" in r
+
+
+def _cag_sort_ag_rows(
+    rows: list[dict[str, Any]], *, col: str, asc: bool
+) -> list[dict[str, Any]]:
+    key_map = {
+        "Data": lambda x: str(x.get("data_agendamento") or ""),
+        "Início": lambda x: str(x.get("hora_inicio") or ""),
+        "Fim": lambda x: str(x.get("hora_fim") or ""),
+        "Serviço": lambda x: str(x.get("servico_nome") or "").lower(),
+        "Estado": lambda x: str(x.get("status") or ""),
+    }
+    fn = key_map.get(col, key_map["Data"])
+    out = sorted(rows, key=fn, reverse=not asc)
+    return out
+
+
+def _cag_week_cal_table_html(*, mon: date, week_rows: list[dict[str, Any]]) -> str:
+    by_day: dict[str, list[dict[str, Any]]] = {}
+    for ev in week_rows:
+        by_day.setdefault(str(ev["data_agendamento"])[:10], []).append(ev)
+    for k in by_day:
+        by_day[k].sort(key=lambda x: (str(x["hora_inicio"]), int(x["id"])))
+    dias_pt = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
+    cells: list[str] = []
+    for i in range(7):
+        d = mon + timedelta(days=i)
+        ds = d.isoformat()
+        label = f"{dias_pt[i]}<br><small>{d.strftime('%d/%m')}</small>"
+        inner_parts: list[str] = []
+        for ev in by_day.get(ds, []):
+            stl = agenda_status_style(ev["status"])
+            ic = agenda_tipo_icon(ev["tipo_origem"])
+            pg_sym, pg_col = agenda_pagamento_dot(str(ev.get("pagamento") or ""))
+            pre_badge = "🔖 " if ev.get("modo_origem") == "pre_venda" else ""
+            tit = (
+                f"{pre_badge}{ic} {_cag_ag_html_escape(str(ev['servico_nome']))} · "
+                f"{_cag_ag_html_escape(str(ev['cliente_nome']))}"
+            )
+            sub = (
+                f"{_cag_ag_html_escape(str(ev['hora_inicio']))}–{_cag_ag_html_escape(str(ev['hora_fim']))} · "
+                f"{_cag_ag_html_escape(str(ev['status']))} · "
+                f"<span style='color:{pg_col};font-weight:700' title='Pagamento'>{pg_sym}</span>"
+            )
+            inner_parts.append(
+                f"<div style='margin:4px 0;padding:6px 8px;border-radius:10px;"
+                f"background:{stl['bg']};border:1px solid {stl['border']};font-size:0.8rem;'>"
+                f"<strong>#{ev['id']}</strong> {tit}<br><span style='opacity:0.9'>{sub}</span></div>"
+            )
+        inner = "".join(inner_parts) if inner_parts else "<span style='opacity:0.5'>—</span>"
+        cells.append(
+            "<td style='vertical-align:top;width:14%;padding:6px;border:1px solid rgba(0,0,0,0.08);'>"
+            f"{label}{inner}</td>"
+        )
+    return (
+        "<table style='width:100%;border-collapse:collapse;font-family:Montserrat,sans-serif;'>"
+        f"<tr>{''.join(cells)}</tr></table>"
+    )
+
+
+def _cag_month_cal_table_html(*, ref: date, month_rows: list[dict[str, Any]]) -> str:
+    y, m = ref.year, ref.month
+    first, last = _cag_month_bounds(ref)
+    by_day: dict[str, list[dict[str, Any]]] = {}
+    for ev in month_rows:
+        ds = str(ev["data_agendamento"])[:10]
+        if first.isoformat() <= ds <= last.isoformat():
+            by_day.setdefault(ds, []).append(ev)
+    for k in by_day:
+        by_day[k].sort(key=lambda x: (str(x["hora_inicio"]), int(x["id"])))
+    weeks = monthcalendar(y, m)
+    dias_cab = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
+    head = "".join(
+        f"<th style='padding:4px;font-size:0.75rem;color:#64748B;border-bottom:1px solid #e2e8f0;'>{c}</th>"
+        for c in dias_cab
+    )
+    body_rows: list[str] = []
+    for wk in weeks:
+        tds: list[str] = []
+        for day in wk:
+            if day == 0:
+                tds.append("<td style='vertical-align:top;padding:4px;background:#f8fafc;'></td>")
+                continue
+            d = date(y, m, day)
+            ds = d.isoformat()
+            inner_parts: list[str] = []
+            for ev in by_day.get(ds, []):
+                _, pg_col = agenda_pagamento_dot(str(ev.get("pagamento") or ""))
+                sn = _cag_ag_html_escape(str(ev.get("servico_nome") or ""))[:42]
+                hi = _cag_ag_html_escape(str(ev.get("hora_inicio") or ""))
+                inner_parts.append(
+                    f"<div style='margin:2px 0;padding:3px 4px;border-radius:6px;font-size:0.72rem;"
+                    f"border-left:3px solid {pg_col};background:#fff;line-height:1.2;'>"
+                    f"<span style='color:{pg_col};font-weight:700'>●</span> {sn}<br/><span style='opacity:0.85'>{hi}</span></div>"
+                )
+            inner = "".join(inner_parts) if inner_parts else "<span style='opacity:0.35;font-size:0.7rem'>—</span>"
+            tds.append(
+                "<td style='vertical-align:top;padding:4px;border:1px solid rgba(0,0,0,0.06);"
+                f"min-height:4.5rem;width:14%;'><div style='font-weight:600;font-size:0.78rem;margin-bottom:4px;'>"
+                f"{day}</div>{inner}</td>"
+            )
+        body_rows.append(f"<tr>{''.join(tds)}</tr>")
+    meses_pt = (
+        "Janeiro",
+        "Fevereiro",
+        "Março",
+        "Abril",
+        "Maio",
+        "Junho",
+        "Julho",
+        "Agosto",
+        "Setembro",
+        "Outubro",
+        "Novembro",
+        "Dezembro",
+    )
+    tit = f"{meses_pt[m - 1]} {y}"
+    return (
+        f"<p style='text-align:center;font-weight:600;margin:0 0 6px 0;font-family:Montserrat,sans-serif;'>"
+        f"{_cag_ag_html_escape(tit)}</p>"
+        "<table style='width:100%;border-collapse:collapse;font-family:Montserrat,sans-serif;font-size:0.8rem;'>"
+        f"<thead><tr>{head}</tr></thead><tbody>{''.join(body_rows)}</tbody></table>"
+    )
+
+
+def _cag_ag_parse_novo_id(msg: str) -> int | None:
+    m = re.search(r"#(\d+)", str(msg or ""))
+    if not m:
+        return None
+    try:
+        return int(m.group(1))
+    except ValueError:
+        return None
+
+
+def _cag_ag_commit_wizard_payload(payload: dict[str, Any]) -> tuple[bool, str, str]:
+    """Returns (ok, user_message, flash_extra). flash_extra may augment success toast."""
+    aid_sel = payload.get("aid_sel")
+    if aid_sel is None:
+        return False, "Agendamento inválido.", ""
+    ag0 = obter_agendamento(int(aid_sel))
+    if not ag0:
+        return False, "Agendamento não encontrado.", ""
+
+    d_iso = str(payload.get("d_iso") or "")
+    hi = str(payload.get("hi") or "").strip()
+    hf = str(payload.get("hf") or "").strip()
+    obs = str(payload.get("obs") or "").strip()
+    colab_ids = [int(x) for x in (payload.get("colab_ids") or [])]
+    status_new = str(payload.get("status_new") or "AGENDADO")
+
+    cancel_trans = status_new == "CANCELADO" and str(ag0["status"]) != "CANCELADO"
+    if cancel_trans:
+        dev_buf = bool(payload.get("dev_buf", True))
+        if str(ag0.get("modo_origem") or "") == "pre_venda":
+            dev_buf = False
+        conv = bool(payload.get("converter_credito", False))
+        ok_c, msg_c = cancelar_agendamento(
+            int(aid_sel),
+            devolver_ao_buffer=dev_buf,
+            converter_valor_pago_em_credito_loja=conv,
+        )
+        extra = ""
+        sc = payload.get("saldo_choice")
+        if sc == "nao":
+            extra = "Cancelamento realizado sem contabilização do saldo."
+        elif sc == "sim" and conv:
+            extra = "Saldo do cliente atualizado com sucesso."
+        return ok_c, msg_c, extra
+
+    ok_u, msg_u = atualizar_agendamento(
+        int(aid_sel),
+        data_agendamento=d_iso,
+        hora_inicio=hi,
+        hora_fim=hf,
+        colaborador_ids=colab_ids,
+        observacoes=obs,
+    )
+    if not ok_u:
+        return False, msg_u, ""
+
+    if status_new != str(ag0["status"]) and status_new != "CANCELADO":
+        ok_s, msg_s = alterar_status(int(aid_sel), cast(StatusAg, status_new))
+        if not ok_s:
+            return False, msg_s, ""
+        if "⚠️" in msg_s or "REALIZADO" in msg_s:
+            return True, msg_u, msg_s
+    return True, msg_u, ""
+
+
 def _html_cli_result_card(*, nome_e: str, sub_e: str) -> str:
     return (
         '<div class="bea-proto-scope">'
@@ -102,15 +317,21 @@ def _html_cli_result_card(*, nome_e: str, sub_e: str) -> str:
     )
 
 
-def cag_valores_setor2_identificacao_basica(cli: dict | None) -> tuple[str, str, str]:
-    """Nome completo, NIF/documento, telefone (E.164) — alinhado a B.1.1; para testes."""
+def cag_valores_setor2_identificacao_basica(cli: dict | None) -> tuple[str, str, str, str]:
+    """Nome, NIF/documento, telefone (E.164), email — resumo setor 2; para testes."""
     if cli is None:
-        return ("-", "-", "-")
+        return ("-", "-", "-", "-")
     return (
         str(cli.get("nome") or "-"),
         str(cli.get("nif_ou_documento") or "-"),
         str(cli.get("whatsapp") or "-"),
+        str(cli.get("email") or "-"),
     )
+
+
+def _cag_lib_ag_edit_valor_apos_bloqueio() -> bool:
+    """Checkbox agenda: desmarcada após bloquear só se o cliente foi carregado pela pesquisa."""
+    return not bool(st.session_state.get("cag_cli_carregado_pesquisa"))
 
 
 def _cag_valor_moeda_centavos(c: int) -> str:
@@ -247,12 +468,17 @@ def _render_cag_setor2_dados_pessoais(*, cli: dict | None) -> None:
         f'<div class="bea-proto-scope"><p style="{_SUB_LORA} font-size:1.05rem;">Dados Pessoais</p></div>',
         unsafe_allow_html=True,
     )
-    nome, doc, tel = cag_valores_setor2_identificacao_basica(cli)
+    nome, doc, tel, em = cag_valores_setor2_identificacao_basica(cli)
     key_suf = str(cli.get("id")) if cli else "none"
-    lbl = ("Nome Completo", "NIF ou Documento de Identificação", "Telefone")
-    vals = (nome, doc, tel)
-    keys_k = ("nome", "ndoc", "tel")
-    cols = st.columns(3)
+    lbl = (
+        "Nome Completo",
+        "NIF ou Documento de Identificação",
+        "Telefone",
+        "Email",
+    )
+    vals = (nome, doc, tel, em)
+    keys_k = ("nome", "ndoc", "tel", "email")
+    cols = st.columns(4)
     for c, label, val, kpart in zip(cols, lbl, vals, keys_k):
         with c:
             st.caption(label)
@@ -378,8 +604,12 @@ def _cag_executar_gravacao_ficha(*, eid: int | None, fk: str, tem_cliente: bool)
         )
         if ok:
             st.session_state.cag_skip_uncheck_reload = True
-            st.session_state.cag_lib_edit = False
-            st.session_state._cag_lib_edit_prev = False
+            if st.session_state.get("cag_cli_carregado_pesquisa"):
+                st.session_state.cag_lib_edit = False
+                st.session_state._cag_lib_edit_prev = False
+            else:
+                st.session_state.cag_lib_edit = True
+                st.session_state._cag_lib_edit_prev = True
             d2 = obter_cliente_completo(int(eid))
             if d2:
                 _cag_carregar_ficha(fk, d2)
@@ -421,18 +651,14 @@ def _cag_executar_gravacao_ficha(*, eid: int | None, fk: str, tem_cliente: bool)
         st.session_state.cag_form_v += 1
         st.session_state.cag_ficha_loaded_sig = None
         st.session_state.cag_ag_hidr_pick = None
+        st.session_state.cag_cli_carregado_pesquisa = False
         st.success(msg + f" Cliente #{cid_new} seleccionado.")
         st.rerun()
     st.success(msg)
 
 
 def _render_cag_setor3_dados_pessoais_completo(*, fk: str, tem_cliente: bool, eid: int | None) -> None:
-    st.markdown(_CAG_CHERRY_BTN_CSS, unsafe_allow_html=True)
-    st.markdown(
-        f'<div class="bea-proto-scope"><p style="font-size:1.2rem;letter-spacing:0.01em;{_SUB_LORA}">'
-        "Setor 3. Dados Pessoais</p></div>",
-        unsafe_allow_html=True,
-    )
+    st.markdown(_cag_section_title_html("3. Dados Pessoais"), unsafe_allow_html=True)
     with st.expander("Informações Detalhadas do Cliente", expanded=False):
         if tem_cliente and eid is not None:
             lib = st.checkbox(
@@ -617,7 +843,7 @@ def _render_cag_setor3_dados_pessoais_completo(*, fk: str, tem_cliente: bool, ei
 
         if st.button(
             "Salvar dados do cliente",
-            type="primary",
+            type="secondary",
             key="cag_salvar_ficha",
             disabled=tem_cliente and dis,
         ):
@@ -668,7 +894,6 @@ def _cag_limpar_form_ag_novo() -> None:
     st.session_state.cag_ag_hf = "10:00"
     st.session_state.cag_ag_obs = ""
     st.session_state.cag_ag_natureza = "Sessão"
-    st.session_state.cag_ag_svc_q = ""
     colabs = listar_colaboradores_resumo()
     st.session_state.cag_ag_colabs = _cag_ag_default_colab_options(colabs)
 
@@ -686,358 +911,544 @@ def _cag_opcoes_status_edicao(status_db: str) -> list[str]:
     return out
 
 
-def _render_cag_setor4_gestao_agendamentos(*, cliente_id: int, fv: int, tem_cliente: bool) -> None:
-    st.markdown(
-        f'<div class="bea-proto-scope"><p style="font-size:1.2rem;letter-spacing:0.01em;{_SUB_LORA}">'
-        "Setor 4. Gestão de Agendamentos</p></div>",
-        unsafe_allow_html=True,
-    )
+def _cag_shift_month(d: date, delta: int) -> date:
+    m0 = d.month - 1 + delta
+    y = d.year + m0 // 12
+    mo = m0 % 12 + 1
+    ld = monthrange(y, mo)[1]
+    return date(y, mo, min(d.day, ld))
 
-    if not tem_cliente:
-        st.info(
-            "Seleccione ou **registe** um cliente na secção **3. Dados Pessoais** para criar ou alterar agendamentos."
-        )
-        if not st.session_state.get("cag_ag_sem_cli_ready"):
-            _cag_limpar_form_ag_novo()
-            st.session_state.cag_ag_sem_cli_ready = True
-    else:
-        st.session_state.cag_ag_sem_cli_ready = False
+
+def _render_cag_setor4_gestao_agendamentos(*, cliente_id: int, fv: int, tem_cliente: bool) -> None:
+    st.markdown(_cag_section_title_html("4. Agendamentos"), unsafe_allow_html=True)
+
+    flash = st.session_state.pop("cag_ag_flash", None)
+    if flash:
+        st.success(str(flash))
 
     pick_key = f"cag_ag_pick_{cliente_id}_{fv}"
     offset_key = f"cag_agenda_offset_{cliente_id}_{fv}"
+    mode_k = f"cag_cal_mode_{cliente_id}_{fv}"
+    anc_k = f"cag_cal_anchor_{cliente_id}_{fv}"
+    sort_col_k = f"cag_ag_sort_col_{cliente_id}_{fv}"
+    sort_dir_k = f"cag_ag_sort_dir_{cliente_id}_{fv}"
+    sort_sig_k = f"cag_ag_sort_sig_{cliente_id}_{fv}"
 
-    todos = listar_agendamentos(cliente_ids=[int(cliente_id)]) if tem_cliente else []
-    n = len(todos)
-    page_size = 5
-    n_pages = max(1, (n + page_size - 1) // page_size)
-    if offset_key not in st.session_state:
-        st.session_state[offset_key] = 0
-    off = int(st.session_state[offset_key])
-    if off >= n and n > 0:
-        off = max(0, ((n - 1) // page_size) * page_size)
-        st.session_state[offset_key] = off
-    chunk = todos[off : off + page_size]
+    wz = st.session_state.get("cag_ag_wizard")
+    if isinstance(wz, dict):
+        pl0 = wz.get("payload") or {}
+        if int(pl0.get("cliente_id") or -1) != int(cliente_id) or int(pl0.get("fv") or -1) != int(fv):
+            st.session_state.pop("cag_ag_wizard", None)
+            wz = None
 
-    cnav1, cnav2, cnav3 = st.columns([1, 2, 1])
-    with cnav1:
-        if st.button(
-            "◀ Anterior",
-            key=f"cag_ag_prev_{fv}",
-            disabled=(not tem_cliente) or off <= 0,
-        ):
-            st.session_state[offset_key] = max(0, off - page_size)
-            st.rerun()
-    with cnav2:
-        st.caption(f"Página {off // page_size + 1} de {n_pages} · {n} registo(s)")
-    with cnav3:
-        if st.button(
-            "Seguinte ▶",
-            key=f"cag_ag_next_{fv}",
-            disabled=(not tem_cliente) or off + page_size >= n,
-        ):
-            st.session_state[offset_key] = min(max(0, n - page_size), off + page_size)
+    if isinstance(wz, dict) and tem_cliente:
+        step = str(wz.get("step") or "")
+        pl = dict(wz.get("payload") or {})
+        pk_w = str(pl.get("pick_key") or pick_key)
+
+        def _discard_wizard() -> None:
+            st.session_state.pop("cag_ag_wizard", None)
+            aid_d = pl.get("aid_sel")
+            if aid_d is not None:
+                ag_d = obter_agendamento(int(aid_d))
+                if ag_d:
+                    _cag_hidratar_form_ag(ag_d)
+            st.session_state.cag_lib_ag_edit = False
+            st.session_state.cag_ag_flash = "Todas as alterações foram descartadas."
+            st.session_state.cag_ag_hidr_pick = (pk_w, str(st.session_state.get(pk_w) or ""))
             st.rerun()
 
-    if chunk:
-        rows_html = [
-            "<tr>"
-            f"<td>{html.escape(_cag_format_data_pt(str(a['data_agendamento'])))}</td>"
-            f"<td>{html.escape(str(a['hora_inicio']))}</td>"
-            f"<td>{html.escape(str(a['hora_fim']))}</td>"
-            f"<td>{html.escape(str(a['servico_nome']))}</td>"
-            f"<td>{html.escape(_CAG_STATUS_DB_TO_LBL.get(str(a['status']), str(a['status'])))}</td>"
-            "</tr>"
-            for a in chunk
-        ]
-    else:
-        msg_empty = (
-            "Sem agendamentos para este cliente."
-            if tem_cliente
-            else "Indisponível sem cliente seleccionado — a tabela mostra a estrutura de colunas (Data, Início, Fim, Serviço, Estado)."
-        )
-        rows_html = [
-            "<tr><td colspan='5' style='padding:10px;color:#64748B;font-size:0.9rem;'>"
-            f"{html.escape(msg_empty)}</td></tr>"
-        ]
-    table = (
-        "<table style='width:100%;border-collapse:collapse;font-size:0.9rem;'>"
-        "<thead><tr>"
-        "<th style='text-align:left;padding:6px;border-bottom:1px solid #e2e8f0;'>Data</th>"
-        "<th style='text-align:left;padding:6px;border-bottom:1px solid #e2e8f0;'>Início</th>"
-        "<th style='text-align:left;padding:6px;border-bottom:1px solid #e2e8f0;'>Fim</th>"
-        "<th style='text-align:left;padding:6px;border-bottom:1px solid #e2e8f0;'>Serviço</th>"
-        "<th style='text-align:left;padding:6px;border-bottom:1px solid #e2e8f0;'>Estado</th>"
-        "</tr></thead><tbody>"
-        + "".join(rows_html)
-        + "</tbody></table>"
-    )
-    st.markdown(f'<div class="bea-proto-scope">{table}</div>', unsafe_allow_html=True)
+        if step == "saldo":
+            st.warning(
+                "**Saldo de Pagamento Encontrado**\n\n"
+                "Deseja transferir o valor pago anteriormente pelo cliente para uma reserva disponível para uso futuro?"
+            )
+            b1, b2 = st.columns(2)
+            with b1:
+                if st.button("Sim", key=f"cag_wz_saldo_y_{fv}"):
+                    st.session_state.cag_ag_wizard = {
+                        "step": "edit_alert",
+                        "payload": {**pl, "converter_credito": True, "saldo_choice": "sim"},
+                    }
+                    st.rerun()
+            with b2:
+                if st.button("Não", key=f"cag_wz_saldo_n_{fv}"):
+                    st.session_state.cag_ag_wizard = {
+                        "step": "edit_alert",
+                        "payload": {**pl, "converter_credito": False, "saldo_choice": "nao"},
+                    }
+                    st.rerun()
+        elif step == "edit_alert":
+            st.warning(
+                "**Alerta de Edição de Informação Cadastrada**\n\n"
+                "Tem certeza que quer seguir com a alteração dos dados do agendamento do cliente?"
+            )
+            b1, b2 = st.columns(2)
+            with b1:
+                if st.button("Sim", key=f"cag_wz_ed_y_{fv}"):
+                    ok_c, msg_c, xtra = _cag_ag_commit_wizard_payload(pl)
+                    if not ok_c:
+                        st.error(msg_c)
+                    else:
+                        st.session_state.pop("cag_ag_wizard", None)
+                        st.session_state.cag_lib_ag_edit = _cag_lib_ag_edit_valor_apos_bloqueio()
+                        aid_r = pl.get("aid_sel")
+                        if aid_r is not None:
+                            ag2 = obter_agendamento(int(aid_r))
+                            if ag2:
+                                _cag_hidratar_form_ag(ag2)
+                        base_ok = "Informações salvas com sucesso."
+                        st.session_state.cag_ag_flash = (
+                            f"{xtra} {base_ok}".strip() if xtra else base_ok
+                        )
+                        st.session_state[offset_key] = 0
+                        st.session_state.cag_ag_hidr_pick = (
+                            pk_w,
+                            str(st.session_state.get(pk_w) or ""),
+                        )
+                        st.rerun()
+            with b2:
+                if st.button("Não", key=f"cag_wz_ed_n_{fv}"):
+                    _discard_wizard()
 
-    opt_vals: list[str] = ["__novo__"]
-    opt_labels: list[str] = ["— Novo agendamento —"]
-    for a in chunk:
-        opt_vals.append(f"id:{int(a['id'])}")
-        opt_labels.append(
-            f"#{a['id']} · {_cag_format_data_pt(str(a['data_agendamento']))} · "
-            f"{a['hora_inicio']}–{a['hora_fim']} · {str(a['servico_nome'])[:40]}"
-        )
-
-    def _label_for_val(v: str) -> str:
-        try:
-            i = opt_vals.index(v)
-            return opt_labels[i]
-        except ValueError:
-            return opt_labels[0]
-
-    if pick_key not in st.session_state or st.session_state[pick_key] not in opt_vals:
-        st.session_state[pick_key] = "__novo__"
-
-    st.selectbox(
-        "Seleccionar agendamento (página actual)",
-        options=opt_vals,
-        key=pick_key,
-        format_func=_label_for_val,
-    )
-
-    raw_pick = str(st.session_state.get(pick_key) or "__novo__")
-    aid_sel: int | None = None
-    if raw_pick.startswith("id:"):
-        try:
-            aid_sel = int(raw_pick.split(":", 1)[1])
-        except ValueError:
-            aid_sel = None
-
-    if tem_cliente:
-        hidr_sig = st.session_state.get("cag_ag_hidr_pick")
-        if hidr_sig != (pick_key, raw_pick):
-            if aid_sel is not None:
-                ag0 = obter_agendamento(int(aid_sel))
-                if ag0:
-                    _cag_hidratar_form_ag(ag0)
-                    st.session_state.cag_lib_ag_edit = False
-            else:
-                _cag_limpar_form_ag_novo()
-                st.session_state.cag_lib_ag_edit = True
-            st.session_state.cag_ag_hidr_pick = (pick_key, raw_pick)
-
-    modo_novo = aid_sel is None
     pend = st.session_state.get("cag_ag_pending_novo_dialog")
     if pend == "ask" and tem_cliente:
-        st.warning("**Novo agendamento** — Deseja registar outro agendamento para este cliente?")
+        st.warning(
+            "**Novo agendamento**\n\n"
+            "Deseja realizar um novo agendamento para o mesmo cliente?"
+        )
         b1, b2 = st.columns(2)
         with b1:
-            if st.button("SIM", key=f"cag_novo_ag_sim_{fv}", type="primary"):
+            if st.button("Sim", key=f"cag_novo_ag_sim_{fv}", type="primary"):
                 st.session_state.pop("cag_ag_pending_novo_dialog", None)
+                st.session_state.pop("cag_ag_last_created_id", None)
                 st.session_state[pick_key] = "__novo__"
                 st.session_state.cag_ag_hidr_pick = None
                 _cag_limpar_form_ag_novo()
                 st.session_state.cag_lib_ag_edit = True
                 st.rerun()
         with b2:
-            if st.button("NÃO", key=f"cag_novo_ag_nao_{fv}"):
+            if st.button("Não", key=f"cag_novo_ag_nao_{fv}"):
                 st.session_state.pop("cag_ag_pending_novo_dialog", None)
+                last_id = st.session_state.pop("cag_ag_last_created_id", None)
+                if last_id is not None:
+                    st.session_state[pick_key] = f"id:{int(last_id)}"
+                    st.session_state.cag_ag_hidr_pick = None
                 st.session_state.cag_lib_ag_edit = False
-                st.session_state.cag_lib_edit = False
-                st.session_state._cag_lib_edit_prev = False
                 st.rerun()
 
-    if not tem_cliente:
-        dis_ag = True
-    elif modo_novo:
-        st.caption("Novo agendamento — edição activa. Use a paginação para escolher um registo existente.")
-        dis_ag = False
-    else:
-        st.checkbox(
-            "Liberar edição do Agendamento Selecionado",
-            key="cag_lib_ag_edit",
-        )
-        dis_ag = not bool(st.session_state.get("cag_lib_ag_edit"))
-    colabs_all = listar_colaboradores_resumo()
-    col_opts = [c[0] for c in colabs_all]
-    col_lbl = {c[0]: c[1] for c in colabs_all}
+    with st.expander("Informações Detalhadas dos Agendamentos do Cliente", expanded=False):
+        st.markdown("##### Agendamentos do Cliente")
 
-    with st.container(border=True):
-        st.markdown("##### Calendário — data do agendamento")
-        st.date_input(
-            "Data",
-            key="cag_ag_data",
-            format="DD/MM/YYYY",
-            disabled=dis_ag,
-        )
-    c1, c2 = st.columns(2)
-    with c1:
-        st.text_input("Início (HH:MM)", key="cag_ag_hi", disabled=dis_ag, placeholder="09:00")
-    with c2:
-        st.text_input("Fim (HH:MM)", key="cag_ag_hf", disabled=dis_ag, placeholder="10:00")
-
-    all_srv = listar_servicos_para_venda()
-
-    if modo_novo:
-        naturezas_opts = [n for n in NATUREZAS_CATALOGO_FASE3 if n in _CAG_PRE_VENDA_NATUREZAS]
-        st.selectbox("Natureza", naturezas_opts, key="cag_ag_natureza", disabled=dis_ag)
-        nat = str(st.session_state.get("cag_ag_natureza") or "Sessão")
-        q = str(st.session_state.get("cag_ag_svc_q") or "").strip().lower()
-        st.text_input(
-            "Filtrar nome do serviço",
-            key="cag_ag_svc_q",
-            disabled=dis_ag,
-            placeholder="Comece a escrever para filtrar…",
-        )
-        filtrados = [
-            s
-            for s in all_srv
-            if str(s.get("natureza")) == nat and (not q or q in str(s.get("nome") or "").lower())
-        ]
-        choices = [f"{int(s['id'])}|{s['nome']}" for s in filtrados]
-        if not choices:
-            st.caption("Nenhum serviço corresponde ao filtro.")
-            st.session_state.cag_ag_servico_esc = ""
-        else:
-            if "cag_ag_servico_esc" not in st.session_state or (
-                st.session_state.cag_ag_servico_esc not in choices
-            ):
-                st.session_state.cag_ag_servico_esc = choices[0]
-            st.selectbox(
-                "Nome do serviço",
-                options=choices,
-                key="cag_ag_servico_esc",
-                disabled=dis_ag,
-            )
-    else:
-        ag_cur = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
-        if ag_cur:
-            st.text_input(
-                "Natureza",
-                value=str(ag_cur.get("servico_natureza") or ""),
-                disabled=True,
-                key=f"cag_ag_nat_ro_{aid_sel}_{fv}",
-            )
-            st.text_input(
-                "Serviço",
-                value=str(ag_cur.get("servico_nome") or ""),
-                disabled=True,
-                key=f"cag_ag_srv_ro_{aid_sel}_{fv}",
-            )
-        opts_st = _cag_opcoes_status_edicao(str(ag_cur["status"]) if ag_cur else "AGENDADO")
-        cur_lbl = str(st.session_state.get("cag_ag_status_lbl") or "Agendado")
-        if cur_lbl not in opts_st:
-            opts_st.insert(0, cur_lbl)
-        st.selectbox("Estado", opts_st, key="cag_ag_status_lbl", disabled=dis_ag)
-        modo_cred = ag_cur and str(ag_cur.get("modo_origem") or "") != "pre_venda"
-        if modo_cred and str(st.session_state.get("cag_ag_status_lbl")) == "Cancelado":
-            st.checkbox(
-                "Devolver crédito ao buffer (saldo da linha de venda)",
-                key="cag_ag_devolver_buffer",
-                value=True,
-                disabled=dis_ag,
-            )
-
-    st.multiselect(
-        "Colaborador(es)",
-        options=col_opts,
-        format_func=lambda i: col_lbl.get(int(i), str(i)),
-        key="cag_ag_colabs",
-        disabled=dis_ag,
-    )
-
-    st.text_area("Observações", key="cag_ag_obs", height=72, disabled=dis_ag)
-
-    if st.button("Salvar Agendamento", type="primary", key=f"cag_salvar_ag_{fv}", disabled=dis_ag):
         if not tem_cliente:
-            st.warning("Carregue ou registe um cliente antes de gravar agendamentos.")
+            st.info(
+                "Seleccione ou **registe** um cliente na secção **3. Dados Pessoais** para criar ou alterar agendamentos."
+            )
+            if not st.session_state.get("cag_ag_sem_cli_ready"):
+                _cag_limpar_form_ag_novo()
+                st.session_state.cag_ag_sem_cli_ready = True
             return
-        d_ag = st.session_state.get("cag_ag_data")
-        hi = str(st.session_state.get("cag_ag_hi") or "").strip()
-        hf = str(st.session_state.get("cag_ag_hf") or "").strip()
-        obs = str(st.session_state.get("cag_ag_obs") or "").strip()
-        colab_ids = [int(x) for x in (st.session_state.get("cag_ag_colabs") or [])]
 
-        if d_ag is None or not hasattr(d_ag, "isoformat"):
-            st.error("Indique a data.")
-            return
-        d_iso = d_ag.isoformat()
+        st.session_state.cag_ag_sem_cli_ready = False
 
-        if not colab_ids:
-            st.error("Seleccione pelo menos um colaborador.")
-            return
+        todos_all = listar_agendamentos(cliente_ids=[int(cliente_id)])
+        ids_all = {int(a["id"]) for a in todos_all}
+        raw_pick_top = str(st.session_state.get(pick_key) or "__novo__")
+        if raw_pick_top.startswith("id:"):
+            try:
+                _tid = int(raw_pick_top.split(":", 1)[1])
+                if _tid not in ids_all:
+                    st.session_state[pick_key] = "__novo__"
+                    st.session_state.cag_ag_hidr_pick = None
+                    raw_pick_top = "__novo__"
+            except ValueError:
+                st.session_state[pick_key] = "__novo__"
+                st.session_state.cag_ag_hidr_pick = None
+                raw_pick_top = "__novo__"
+
+        _force_hydrate = bool(st.session_state.pop("cag_ag_need_hydrate", False))
+        hidr_sig_top = st.session_state.get("cag_ag_hidr_pick")
+        if _force_hydrate or hidr_sig_top != (pick_key, raw_pick_top):
+            if raw_pick_top.startswith("id:"):
+                try:
+                    _aid_h = int(raw_pick_top.split(":", 1)[1])
+                    ag0h = obter_agendamento(_aid_h)
+                    if ag0h:
+                        _cag_hidratar_form_ag(ag0h)
+                        st.session_state.cag_lib_ag_edit = _cag_lib_ag_edit_valor_apos_bloqueio()
+                except ValueError:
+                    pass
+            else:
+                _cag_limpar_form_ag_novo()
+                st.session_state.cag_lib_ag_edit = True
+            st.session_state.cag_ag_hidr_pick = (pick_key, raw_pick_top)
+
+        aid_sel: int | None = None
+        if raw_pick_top.startswith("id:"):
+            try:
+                aid_sel = int(raw_pick_top.split(":", 1)[1])
+            except ValueError:
+                aid_sel = None
+        modo_novo = aid_sel is None
 
         if modo_novo:
-            esc = str(st.session_state.get("cag_ag_servico_esc") or "")
-            if "|" not in esc:
-                st.error("Seleccione um serviço válido.")
-                return
-            sid = int(esc.split("|", 1)[0])
-            nat_sel = str(st.session_state.get("cag_ag_natureza") or "")
-            if nat_sel not in _CAG_PRE_VENDA_NATUREZAS:
-                st.error("Para novo agendamento sem linha de venda, use Sessão, Coworking ou Evento.")
-                return
-            ok, msg = criar_agendamento_pre_venda(
-                int(cliente_id),
-                sid,
-                d_iso,
-                hi,
-                hf,
-                colab_ids,
-                obs,
-                None,
+            st.checkbox(
+                "Liberar edição do Agendamento Selecionado",
+                value=True,
+                disabled=True,
+                key=f"cag_lib_ag_edit_novo_ph_{fv}",
             )
-            if ok:
-                st.success(msg)
-                st.session_state.cag_ag_pending_novo_dialog = "ask"
-                st.session_state[offset_key] = 0
-                st.rerun()
-            else:
-                st.error(msg)
-            return
+            dis_ag = False
+        else:
+            st.checkbox(
+                "Liberar edição do Agendamento Selecionado",
+                key="cag_lib_ag_edit",
+            )
+            dis_ag = not bool(st.session_state.get("cag_lib_ag_edit"))
 
-        assert aid_sel is not None
-        ag0 = obter_agendamento(int(aid_sel))
-        if not ag0:
-            st.error("Agendamento não encontrado.")
-            return
+        st.session_state.setdefault(mode_k, "Semanal")
+        st.session_state.setdefault(anc_k, date.today())
+        modo = str(st.session_state.get(mode_k) or "Semanal")
+        anchor: date = st.session_state[anc_k]
+        if modo not in ("Semanal", "Mensal"):
+            modo = "Semanal"
+            st.session_state[mode_k] = modo
 
-        status_lbl = str(st.session_state.get("cag_ag_status_lbl") or "")
-        status_new = _cag_status_lbl_para_db(status_lbl)
-
-        if status_new == "CANCELADO" and str(ag0["status"]) != "CANCELADO":
-            dev_buf = bool(st.session_state.get("cag_ag_devolver_buffer", True))
-            if str(ag0.get("modo_origem") or "") == "pre_venda":
-                dev_buf = False
-            ok_c, msg_c = cancelar_agendamento(int(aid_sel), devolver_ao_buffer=dev_buf)
-            if ok_c:
-                st.success(msg_c)
-                st.session_state.cag_ag_pending_novo_dialog = "ask"
-                st.rerun()
-            else:
-                st.error(msg_c)
-            return
-
-        ok_u, msg_u = atualizar_agendamento(
-            int(aid_sel),
-            data_agendamento=d_iso,
-            hora_inicio=hi,
-            hora_fim=hf,
-            colaborador_ids=colab_ids,
-            observacoes=obs,
+        st.radio(
+            "Período de visualização do calendário",
+            ["Semanal", "Mensal"],
+            horizontal=True,
+            key=mode_k,
         )
-        if not ok_u:
-            st.error(msg_u)
-            return
+        modo = str(st.session_state.get(mode_k) or "Semanal")
+        vis_lbl = "Visão Semanal" if modo == "Semanal" else "Visão Mensal"
+        st.markdown(f"##### Calendário ({vis_lbl})")
 
-        if status_new != str(ag0["status"]) and status_new != "CANCELADO":
-            ok_s, msg_s = alterar_status(int(aid_sel), cast(StatusAg, status_new))
-            if ok_s:
-                if "⚠️" in msg_s or "REALIZADO" in msg_s:
-                    st.warning(msg_s)
+        if modo == "Semanal":
+            mon, sun = _cag_week_range(anchor)
+            period_lbl = f"{mon.strftime('%d/%m')} — {sun.strftime('%d/%m/%Y')}"
+            prev_lab, next_lab = "Semana Anterior", "Semana Seguinte"
+            d_de, d_ate = mon.isoformat(), sun.isoformat()
+        else:
+            mon, sun = _cag_month_bounds(anchor)
+            period_lbl = f"{mon.strftime('%d/%m/%Y')} — {sun.strftime('%d/%m/%Y')}"
+            prev_lab, next_lab = "Mês Anterior", "Mês Seguinte"
+            d_de, d_ate = mon.isoformat(), sun.isoformat()
+
+        cnav1, cnav2, cnav3 = st.columns([1, 2, 1])
+        with cnav1:
+            if st.button(prev_lab, key=f"cag_cal_prev_{cliente_id}_{fv}"):
+                if modo == "Semanal":
+                    st.session_state[anc_k] = anchor - timedelta(days=7)
                 else:
-                    st.success(msg_s)
-            else:
-                st.error(msg_s)
-                return
+                    st.session_state[anc_k] = _cag_shift_month(anchor, -1)
+                st.rerun()
+        with cnav2:
+            st.markdown(
+                f"<div style='text-align:center;font-weight:600;'>{html.escape(period_lbl)}</div>",
+                unsafe_allow_html=True,
+            )
+        with cnav3:
+            if st.button(next_lab, key=f"cag_cal_next_{cliente_id}_{fv}"):
+                if modo == "Semanal":
+                    st.session_state[anc_k] = anchor + timedelta(days=7)
+                else:
+                    st.session_state[anc_k] = _cag_shift_month(anchor, 1)
+                st.rerun()
 
-        st.success(msg_u)
-        st.session_state.cag_ag_pending_novo_dialog = "ask"
-        st.rerun()
+        cal_rows = listar_agendamentos(
+            data_de=d_de,
+            data_ate=d_ate,
+            cliente_ids=[int(cliente_id)],
+        )
+        if modo == "Semanal":
+            cal_html = _cag_week_cal_table_html(mon=mon, week_rows=cal_rows)
+        else:
+            cal_html = _cag_month_cal_table_html(ref=mon, month_rows=cal_rows)
+        st.markdown(f'<div class="bea-proto-scope">{cal_html}</div>', unsafe_allow_html=True)
+
+        st.markdown("##### Lista de Agendamentos do Cliente")
+        st.caption("Para realizar qualquer alteração, selecione a linha do agendamento desejado.")
+
+        st.session_state.setdefault(sort_col_k, "Data")
+        st.session_state.setdefault(sort_dir_k, "Ascendente")
+        sort_col = st.selectbox(
+            "Ordenar por coluna",
+            ["Data", "Início", "Fim", "Serviço", "Estado"],
+            key=sort_col_k,
+        )
+        sort_dir = st.radio(
+            "Ordem",
+            ["Ascendente", "Descendente"],
+            horizontal=True,
+            key=sort_dir_k,
+        )
+        sort_asc = sort_dir == "Ascendente"
+        sig_now = (sort_col, sort_dir)
+        if st.session_state.get(sort_sig_k) != sig_now:
+            st.session_state[offset_key] = 0
+            st.session_state[sort_sig_k] = sig_now
+
+        todos = listar_agendamentos(cliente_ids=[int(cliente_id)])
+        todos_sorted = _cag_sort_ag_rows(todos, col=sort_col, asc=sort_asc)
+        n = len(todos_sorted)
+        page_size = 5
+        n_pages = max(1, (n + page_size - 1) // page_size)
+        if offset_key not in st.session_state:
+            st.session_state[offset_key] = 0
+        off = int(st.session_state[offset_key])
+        if off >= n and n > 0:
+            off = max(0, ((n - 1) // page_size) * page_size)
+            st.session_state[offset_key] = off
+        chunk = todos_sorted[off : off + page_size]
+
+        lp1, lp2, lp3 = st.columns([1, 2, 1])
+        with lp1:
+            if st.button(
+                "◀ Anterior (lista)",
+                key=f"cag_ag_prev_{fv}",
+                disabled=off <= 0,
+            ):
+                st.session_state[offset_key] = max(0, off - page_size)
+                st.rerun()
+        with lp2:
+            st.caption(f"Página {off // page_size + 1} de {n_pages} · {n} registo(s)")
+        with lp3:
+            if st.button(
+                "Seguinte (lista) ▶",
+                key=f"cag_ag_next_{fv}",
+                disabled=off + page_size >= n,
+            ):
+                st.session_state[offset_key] = min(max(0, n - page_size), off + page_size)
+                st.rerun()
+
+        if chunk:
+            rows_html = [
+                "<tr>"
+                f"<td>{html.escape(_cag_format_data_pt(str(a['data_agendamento'])))}</td>"
+                f"<td>{html.escape(str(a['hora_inicio']))}</td>"
+                f"<td>{html.escape(str(a['hora_fim']))}</td>"
+                f"<td>{html.escape(str(a['servico_nome']))}</td>"
+                f"<td>{html.escape(_CAG_STATUS_DB_TO_LBL.get(str(a['status']), str(a['status'])))}</td>"
+                "</tr>"
+                for a in chunk
+            ]
+        else:
+            rows_html = [
+                "<tr><td colspan='5' style='padding:10px;color:#64748B;font-size:0.9rem;'>"
+                f"{html.escape('Sem agendamentos para este cliente.')}</td></tr>"
+            ]
+        table = (
+            "<table style='width:100%;border-collapse:collapse;font-size:0.9rem;'>"
+            "<thead><tr>"
+            "<th style='text-align:left;padding:6px;border-bottom:1px solid #e2e8f0;'>Data</th>"
+            "<th style='text-align:left;padding:6px;border-bottom:1px solid #e2e8f0;'>Início</th>"
+            "<th style='text-align:left;padding:6px;border-bottom:1px solid #e2e8f0;'>Fim</th>"
+            "<th style='text-align:left;padding:6px;border-bottom:1px solid #e2e8f0;'>Serviço</th>"
+            "<th style='text-align:left;padding:6px;border-bottom:1px solid #e2e8f0;'>Estado</th>"
+            "</tr></thead><tbody>"
+            + "".join(rows_html)
+            + "</tbody></table>"
+        )
+        st.markdown(f'<div class="bea-proto-scope">{table}</div>', unsafe_allow_html=True)
+
+        opt_vals: list[str] = ["__novo__"]
+        opt_labels: list[str] = ["— Novo agendamento —"]
+        for a in chunk:
+            opt_vals.append(f"id:{int(a['id'])}")
+            opt_labels.append(
+                f"#{a['id']} · {_cag_format_data_pt(str(a['data_agendamento']))} · "
+                f"{a['hora_inicio']}–{a['hora_fim']} · {str(a['servico_nome'])[:40]}"
+            )
+
+        def _label_for_val(v: str) -> str:
+            try:
+                i = opt_vals.index(v)
+                return opt_labels[i]
+            except ValueError:
+                return opt_labels[0]
+
+        if pick_key not in st.session_state or st.session_state[pick_key] not in opt_vals:
+            st.session_state[pick_key] = "__novo__"
+            st.session_state.cag_ag_need_hydrate = True
+            st.rerun()
+
+        def _cag_ag_pick_changed() -> None:
+            st.session_state.cag_ag_need_hydrate = True
+
+        st.selectbox(
+            "Seleccionar agendamento (página actual)",
+            options=opt_vals,
+            key=pick_key,
+            format_func=_label_for_val,
+            on_change=_cag_ag_pick_changed,
+        )
+
+        st.markdown("##### Dados do Agendamento")
+
+        colabs_all = listar_colaboradores_resumo()
+        col_opts = [c[0] for c in colabs_all]
+        col_lbl = {c[0]: c[1] for c in colabs_all}
+
+        r1c1, r1c2, r1c3 = st.columns(3)
+        with r1c1:
+            st.date_input(
+                "Data (dd/mm/aaaa)",
+                key="cag_ag_data",
+                format="DD/MM/YYYY",
+                disabled=dis_ag,
+            )
+        with r1c2:
+            st.text_input("Hora início (HH:MM)", key="cag_ag_hi", disabled=dis_ag, placeholder="09:00")
+        with r1c3:
+            st.text_input("Hora fim (HH:MM)", key="cag_ag_hf", disabled=dis_ag, placeholder="10:00")
+
+        all_srv = listar_servicos_para_venda()
+
+        r2c1, r2c2, r2c3, r2c4 = st.columns([1.05, 1.25, 1.45, 1.1], gap="small")
+        with r2c1:
+            if modo_novo:
+                naturezas_opts = list(NATUREZAS_CATALOGO_FASE3)
+                st.selectbox("Natureza", naturezas_opts, key="cag_ag_natureza", disabled=dis_ag)
+            else:
+                ag_cur = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
+                nat_cur = str(ag_cur.get("servico_natureza") or "") if ag_cur else ""
+                st.selectbox(
+                    "Natureza",
+                    [nat_cur] if nat_cur else ["—"],
+                    disabled=True,
+                    key=f"cag_ag_nat_combo_{aid_sel}_{fv}",
+                )
+        with r2c2:
+            if modo_novo:
+                nat = str(st.session_state.get("cag_ag_natureza") or "Sessão")
+                filtrados = [s for s in all_srv if str(s.get("natureza")) == nat]
+                choices = [f"{int(s['id'])}|{s['nome']}" for s in filtrados]
+                if not choices:
+                    st.caption("—")
+                    st.session_state.cag_ag_servico_esc = ""
+                else:
+                    if "cag_ag_servico_esc" not in st.session_state or (
+                        st.session_state.cag_ag_servico_esc not in choices
+                    ):
+                        st.session_state.cag_ag_servico_esc = choices[0]
+                    st.selectbox("Serviço", options=choices, key="cag_ag_servico_esc", disabled=dis_ag)
+            else:
+                ag_cur2 = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
+                srv_cur = str(ag_cur2.get("servico_nome") or "") if ag_cur2 else ""
+                st.selectbox(
+                    "Serviço",
+                    [srv_cur] if srv_cur else ["—"],
+                    disabled=True,
+                    key=f"cag_ag_srv_combo_{aid_sel}_{fv}",
+                )
+        with r2c3:
+            st.multiselect(
+                "Colaborador(es)",
+                options=col_opts,
+                format_func=lambda i: col_lbl.get(int(i), str(i)),
+                key="cag_ag_colabs",
+                disabled=dis_ag,
+            )
+        with r2c4:
+            ag_cur3 = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
+            opts_st = _cag_opcoes_status_edicao(str(ag_cur3["status"]) if ag_cur3 else "AGENDADO")
+            cur_lbl = str(st.session_state.get("cag_ag_status_lbl") or "Agendado")
+            if cur_lbl not in opts_st:
+                opts_st.insert(0, cur_lbl)
+            st.selectbox("Estado", opts_st, key="cag_ag_status_lbl", disabled=dis_ag)
+
+        if not modo_novo:
+            ag_cur4 = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
+            modo_cred = ag_cur4 and str(ag_cur4.get("modo_origem") or "") != "pre_venda"
+            if modo_cred and str(st.session_state.get("cag_ag_status_lbl")) == "Cancelado":
+                st.checkbox(
+                    "Devolver crédito ao buffer (saldo da linha de venda)",
+                    key="cag_ag_devolver_buffer",
+                    value=True,
+                    disabled=dis_ag,
+                )
+
+        st.text_area("Observações", key="cag_ag_obs", height=72, disabled=dis_ag)
+
+        if st.button("Salvar Agendamento", type="secondary", key=f"cag_salvar_ag_{fv}", disabled=dis_ag):
+            if not tem_cliente:
+                st.warning("Carregue ou registe um cliente antes de gravar agendamentos.")
+            else:
+                d_ag = st.session_state.get("cag_ag_data")
+                hi = str(st.session_state.get("cag_ag_hi") or "").strip()
+                hf = str(st.session_state.get("cag_ag_hf") or "").strip()
+                obs = str(st.session_state.get("cag_ag_obs") or "").strip()
+                colab_ids = [int(x) for x in (st.session_state.get("cag_ag_colabs") or [])]
+
+                if d_ag is None or not hasattr(d_ag, "isoformat"):
+                    st.error("Indique a data.")
+                elif not colab_ids:
+                    st.error("Seleccione pelo menos um colaborador.")
+                elif modo_novo:
+                    esc = str(st.session_state.get("cag_ag_servico_esc") or "")
+                    if "|" not in esc:
+                        st.error("Seleccione um serviço válido.")
+                    else:
+                        sid = int(esc.split("|", 1)[0])
+                        d_iso = d_ag.isoformat()
+                        ok, msg = criar_agendamento_pre_venda(
+                            int(cliente_id),
+                            sid,
+                            d_iso,
+                            hi,
+                            hf,
+                            colab_ids,
+                            obs,
+                            None,
+                        )
+                        if ok:
+                            new_id = _cag_ag_parse_novo_id(msg)
+                            if new_id is not None:
+                                st.session_state.cag_ag_last_created_id = new_id
+                            st.session_state.cag_ag_flash = "Informações salvas com sucesso."
+                            st.session_state.cag_ag_pending_novo_dialog = "ask"
+                            st.session_state[offset_key] = 0
+                            st.rerun()
+                        else:
+                            st.error(msg)
+                else:
+                    assert aid_sel is not None
+                    ag0 = obter_agendamento(int(aid_sel))
+                    if not ag0:
+                        st.error("Agendamento não encontrado.")
+                    else:
+                        status_lbl = str(st.session_state.get("cag_ag_status_lbl") or "")
+                        status_new = _cag_status_lbl_para_db(status_lbl)
+                        d_iso = d_ag.isoformat()
+                        dev_buf = bool(st.session_state.get("cag_ag_devolver_buffer", True))
+                        if str(ag0.get("modo_origem") or "") == "pre_venda":
+                            dev_buf = False
+                        cancel_trans = status_new == "CANCELADO" and str(ag0["status"]) != "CANCELADO"
+                        is_b = cancel_trans and _cag_pagamento_pago_ou_parcial(
+                            str(ag0.get("pagamento") or "")
+                        )
+                        base_pl: dict[str, Any] = {
+                            "cliente_id": int(cliente_id),
+                            "fv": int(fv),
+                            "pick_key": pick_key,
+                            "aid_sel": int(aid_sel),
+                            "d_iso": d_iso,
+                            "hi": hi,
+                            "hf": hf,
+                            "obs": obs,
+                            "colab_ids": colab_ids,
+                            "status_lbl": status_lbl,
+                            "status_new": status_new,
+                            "dev_buf": dev_buf,
+                            "converter_credito": False,
+                            "saldo_choice": None,
+                        }
+                        if is_b:
+                            st.session_state.cag_ag_wizard = {"step": "saldo", "payload": base_pl}
+                        else:
+                            st.session_state.cag_ag_wizard = {"step": "edit_alert", "payload": base_pl}
+                        st.rerun()
 
 
 def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
@@ -1062,14 +1473,15 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
     if "cag_edit_id" not in st.session_state:
         st.session_state.cag_edit_id = None
     st.session_state.setdefault("cag_n_emergency", 1)
-    st.session_state.setdefault("cag_lib_edit", False)
+    st.session_state.setdefault("cag_lib_edit", True)
 
-    st.markdown(
-        '<div class="bea-proto-scope"><p class="bea-pdv-titulo" '
-        'style="font-size:1.2rem;margin:0 0 0.5rem 0;letter-spacing:0.01em;">'
-        "1. Pesquisa de Clientes</p></div>",
-        unsafe_allow_html=True,
-    )
+    if st.session_state.pop("cag_busca_clear_pending", False):
+        st.session_state["cag_busca_nif"] = ""
+        st.session_state["cag_busca_email"] = ""
+        st.session_state["cag_busca_tel_txt"] = ""
+        st.session_state["cag_busca_docintl"] = False
+
+    st.markdown(_cag_section_title_html("1. Pesquisa de Clientes"), unsafe_allow_html=True)
 
     with st.container(border=True):
         cag_busca_clicked = render_cliente_search_widget(
@@ -1119,10 +1531,8 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
                     st.session_state.cag_edit_id = cid
                     st.session_state.cag_form_v += 1
                     st.session_state.pop("cag_busca_cands", None)
-                    st.session_state.cag_busca_nif = ""
-                    st.session_state.cag_busca_email = ""
-                    st.session_state.cag_busca_tel_txt = ""
-                    st.session_state.cag_busca_docintl = False
+                    st.session_state.cag_busca_clear_pending = True
+                    st.session_state.cag_cli_carregado_pesquisa = True
                     st.success(f"Cliente encontrado (#{cid}). Pesquisa limpa para nova consulta.")
                     st.rerun()
             else:
@@ -1160,19 +1570,13 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
                                 st.session_state.cag_edit_id = cid
                                 st.session_state.cag_form_v += 1
                                 st.session_state.pop("cag_busca_cands", None)
-                                st.session_state.cag_busca_nif = ""
-                                st.session_state.cag_busca_email = ""
-                                st.session_state.cag_busca_tel_txt = ""
-                                st.session_state.cag_busca_docintl = False
+                                st.session_state.cag_busca_clear_pending = True
+                                st.session_state.cag_cli_carregado_pesquisa = True
                                 st.success(f"Cliente #{cid} selecionado. Pesquisa limpa.")
                                 st.rerun()
 
     st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-    st.markdown(
-        f'<div class="bea-proto-scope"><p style="font-size:1.2rem;letter-spacing:0.01em;{_SUB_LORA}">'
-        "2. Resumo do Cliente</p></div>",
-        unsafe_allow_html=True,
-    )
+    st.markdown(_cag_section_title_html("2. Resumo do Cliente"), unsafe_allow_html=True)
 
     eid = st.session_state.cag_edit_id
     cli_data: dict | None = None
@@ -1204,9 +1608,13 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
         if st.session_state.get("cag_ficha_loaded_sig") != sig and cli_data is not None:
             _cag_carregar_ficha(fk, cli_data)
             st.session_state.cag_ficha_loaded_sig = sig
-            st.session_state.cag_lib_edit = False
-            st.session_state._cag_lib_edit_prev = False
             st.session_state.cag_ag_hidr_pick = None
+            if st.session_state.get("cag_cli_carregado_pesquisa"):
+                st.session_state.cag_lib_edit = False
+                st.session_state._cag_lib_edit_prev = False
+            else:
+                st.session_state.cag_lib_edit = True
+                st.session_state._cag_lib_edit_prev = True
     else:
         _cag_garantir_defaults_formulario_vazio(fk)
         st.session_state.pop("cag_ficha_loaded_sig", None)

@@ -73,16 +73,18 @@ def test_reset_cag_page_state_remove_apenas_prefixo_cag(monkeypatch):
 def test_cag_valores_setor2_identificacao_basica():
     from src.ui import page_clientes_agendamentos as mod
 
-    assert mod.cag_valores_setor2_identificacao_basica(None) == ("-", "-", "-")
+    assert mod.cag_valores_setor2_identificacao_basica(None) == ("-", "-", "-", "-")
     cli = {
         "nome": "Ana",
         "nif_ou_documento": "123456789",
         "whatsapp": "+351912000000",
+        "email": "ana@exemplo.pt",
     }
     assert mod.cag_valores_setor2_identificacao_basica(cli) == (
         "Ana",
         "123456789",
         "+351912000000",
+        "ana@exemplo.pt",
     )
 
 

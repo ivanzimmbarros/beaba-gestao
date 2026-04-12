@@ -144,6 +144,7 @@ def _run_single_hero(iteration: int, servico_id: int, colaborador_id: int) -> st
         contatos_emergencia=[],
         nif=doc,
         documento_identificacao_internacional=True,
+        data_nascimento="1992-01-15",
     )
     if not ok:
         return f"cadastro[{iteration}]: {msg}"
@@ -311,6 +312,7 @@ def _run_boundary_tests(db_path: Path) -> list[str]:
             contatos_emergencia=[],
             nif="DOC-CP-ERR",
             documento_identificacao_internacional=True,
+            data_nascimento="1990-01-01",
         )
         if ok:
             out.append("fronteira: cadastro com CP inválido deveria falhar")

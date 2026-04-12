@@ -443,6 +443,46 @@ def _migrate_e18_if_needed(cursor) -> None:
     )
 
 
+def _migrate_venda_pagamentos_meio_iban_if_needed(cursor) -> None:
+    """E21: inclui `iban` no CHECK de `venda_pagamentos` (SQLite não altera CHECK in-place)."""
+    cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='venda_pagamentos'"
+    )
+    if cursor.fetchone() is None:
+        return
+    cursor.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='venda_pagamentos'"
+    )
+    row = cursor.fetchone()
+    sql = (row[0] or "") if row else ""
+    if "iban" in sql:
+        return
+    cursor.execute("PRAGMA foreign_keys=OFF")
+    cursor.execute(
+        """
+        CREATE TABLE venda_pagamentos_e21_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            venda_id INTEGER NOT NULL,
+            ordem INTEGER NOT NULL,
+            meio TEXT NOT NULL CHECK (
+                meio IN ('dinheiro', 'cartao_credito', 'mbway', 'iban')
+            ),
+            valor_centavos INTEGER NOT NULL CHECK (valor_centavos >= 0),
+            FOREIGN KEY (venda_id) REFERENCES vendas(id) ON DELETE CASCADE
+        )
+        """
+    )
+    cursor.execute(
+        """
+        INSERT INTO venda_pagamentos_e21_new (id, venda_id, ordem, meio, valor_centavos)
+        SELECT id, venda_id, ordem, meio, valor_centavos FROM venda_pagamentos
+        """
+    )
+    cursor.execute("DROP TABLE venda_pagamentos")
+    cursor.execute("ALTER TABLE venda_pagamentos_e21_new RENAME TO venda_pagamentos")
+    cursor.execute("PRAGMA foreign_keys=ON")
+
+
 def _migrate_cliente_contatos_emergencia_e16_if_needed(cursor) -> None:
     """E16: remove CHECK length(telefone)=11 para permitir E.164."""
     cursor.execute(
@@ -510,6 +550,7 @@ def create_tables():
         ("pais", "TEXT DEFAULT 'Portugal'"),
         ("nif_ou_documento", "TEXT"),
         ("identificacao_internacional", "INTEGER NOT NULL DEFAULT 0"),
+        ("data_nascimento", "TEXT"),
     ):
         _ensure_column(cursor, "clientes", col, definition)
 
@@ -609,6 +650,8 @@ def create_tables():
         )
         """
     )
+    _ensure_column(cursor, "colaboradores", "nif_ou_documento", "TEXT")
+    _ensure_column(cursor, "colaboradores", "identificacao_internacional", "INTEGER NOT NULL DEFAULT 0")
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS colaborador_servicos (
@@ -725,13 +768,14 @@ def create_tables():
             venda_id INTEGER NOT NULL,
             ordem INTEGER NOT NULL,
             meio TEXT NOT NULL CHECK (
-                meio IN ('dinheiro', 'cartao_credito', 'mbway')
+                meio IN ('dinheiro', 'cartao_credito', 'mbway', 'iban')
             ),
             valor_centavos INTEGER NOT NULL CHECK (valor_centavos >= 0),
             FOREIGN KEY (venda_id) REFERENCES vendas(id) ON DELETE CASCADE
         )
         """
     )
+    _migrate_venda_pagamentos_meio_iban_if_needed(cursor)
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS venda_recebimentos_previstos (

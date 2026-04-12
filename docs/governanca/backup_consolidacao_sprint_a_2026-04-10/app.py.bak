@@ -11,7 +11,6 @@ from src.database.connection import create_tables
 from src.ui.page_agendamentos import render_page_agendamentos
 from src.ui.page_catalogo import render_page_catalogo
 from src.ui.page_clientes import render_page_clientes
-from src.ui.page_clientes_agendamentos import render_page_clientes_agendamentos
 from src.ui.page_colaboradores import render_page_colaboradores
 from src.ui.page_dashboards import render_page_dashboards
 from src.ui.page_vendas import render_page_vendas
@@ -133,10 +132,6 @@ def main() -> None:
         with col_main:
             if page == "home":
                 _page_home()
-            elif page == "clientes_agendamentos":
-                render_page_clientes_agendamentos(
-                    render_back_and_breadcrumb=_shell_no_breadcrumb,
-                )
             elif page == "clientes":
                 _page_clientes()
             elif page in ("colaboradores", "colaboradoras"):

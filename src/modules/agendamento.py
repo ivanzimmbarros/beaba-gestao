@@ -987,6 +987,12 @@ def criar_agendamento_pre_venda(
             return False, "❌ Serviço não encontrado."
         natureza = str(rnat[0])
         if natureza not in ("Sessão", "Coworking", "Evento"):
+            if natureza in ("Produto", "Pacote"):
+                return (
+                    False,
+                    "❌ Neste ecrã a pré-venda só é suportada para Sessão, Coworking e Evento. "
+                    "Para Produto ou Pacote, utilize o Painel de Vendas.",
+                )
             return False, "❌ Pré-venda (MVP) só para Sessão, Coworking ou Evento."
         ok_o, msg_o, tipo = _tipo_origem_para_natureza(natureza, None)
         if not ok_o or tipo is None:

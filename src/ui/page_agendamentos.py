@@ -6,6 +6,7 @@ from datetime import date, timedelta
 
 import streamlit as st
 
+from src.pages.theme import get_beaba_css  # noqa: F401 — BeaBa Sereno (CSS em app.main)
 from src.modules.agendamento import (
     alterar_status,
     atualizar_agendamento,
@@ -64,6 +65,10 @@ def render_page_agendamentos(
 
     if "agenda_week_anchor" not in st.session_state:
         st.session_state.agenda_week_anchor = date.today()
+    st.session_state.setdefault("ag_pv_usep", False)
+    st.session_state.setdefault("ag_pv_pref", 40.0)
+    st.session_state.setdefault("ag_can_dev", True)
+    st.session_state.setdefault("ag_can_cred", False)
     anchor: date = st.session_state.agenda_week_anchor
     mon, sun = _week_range(anchor)
 
@@ -323,11 +328,11 @@ def render_page_agendamentos(
             format_func=lambda i: next((n for cid, n in colabs if cid == i), str(i)),
             key="ag_pv_colabs",
         )
-        use_pref = st.checkbox("Congelar preço de referência (€)", value=False, key="ag_pv_usep")
+        use_pref = st.checkbox("Congelar preço de referência (€)", key="ag_pv_usep")
         pref_eur = 0.0
         if use_pref:
             pref_eur = float(
-                st.number_input("Preço referência (€)", min_value=0.0, value=40.0, step=1.0, key="ag_pv_pref")
+                st.number_input("Preço referência (€)", min_value=0.0, step=1.0, key="ag_pv_pref")
             )
         obs_pv = st.text_area("Observações", key="ag_pv_obs")
         if st.form_submit_button("Criar pré-venda"):
@@ -553,13 +558,11 @@ def render_page_agendamentos(
             with ac4:
                 dev = st.checkbox(
                     "Devolver crédito ao buffer ao cancelar",
-                    value=True,
                     key="ag_can_dev",
                     disabled=ag.get("modo_origem") == "pre_venda",
                 )
                 cred_loja = st.checkbox(
                     "Converter valor sugerido em saldo de loja",
-                    value=False,
                     key="ag_can_cred",
                 )
                 if ag.get("modo_origem") == "pre_venda":

@@ -26,6 +26,7 @@ def _cli(**kw):
         contatos_emergencia=[],
         nif="123456789",
         documento_identificacao_internacional=False,
+        data_nascimento="1990-05-15",
     )
     base.update(kw)
     return cadastrar_cliente(**base)
