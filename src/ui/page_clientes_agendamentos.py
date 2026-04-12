@@ -339,7 +339,7 @@ def _cag_valor_moeda_centavos(c: int) -> str:
 
 
 def _cag_carregar_ficha(fk: str, d: dict) -> None:
-    """Igual a `page_clientes._carregar_ficha_em_formulario`, com `cag_n_emergency`."""
+    """Carrega a ficha do cliente no `session_state` (fluxo consolidado CAG), com `cag_n_emergency`."""
     st.session_state[f"{fk}_nome"] = d["nome"]
     st.session_state[f"{fk}_docintl"] = bool(d.get("identificacao_internacional"))
     st.session_state[f"{fk}_nif"] = str(d.get("nif_ou_documento") or "")

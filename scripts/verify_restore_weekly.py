@@ -4,6 +4,9 @@ e foreign_key_check, remove staging. Não altera data/beaba_gestao.db.
 
 Variáveis de ambiente (opcionais):
   BEABA_REPO_ROOT — raiz do repositório (defeito: pai de scripts/)
+
+Arquitectura UI (2026-04-12): decomissionamento de `page_clientes.py` e `page_agendamentos.py`;
+UI consolidada em `page_clientes_agendamentos.py` (PAINEL / JSON).
 """
 
 from __future__ import annotations

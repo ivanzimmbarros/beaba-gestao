@@ -1,6 +1,7 @@
 # Painel operacional — BeaBa Gestão
 
-**Última actualização:** 2026-04-12 — **Auditoria 360º:** sincronização `develop`→`origin/develop` (código, workflows backup, testes, governança); **`python -m pytest tests/ -v` → 89 passed**; `docs/CADERNO_TESTES_MASTER.md` com mapa completo da suite; certificação **backup/restore:** testes `test_e17_backup_dr`, `test_restore_sqlite`, `test_sqlite_backup_verify` + simulação `verify_restore_weekly` em `BEABA_REPO_ROOT` temporário (sem tocar em `data/beaba_gestao.db`); `status_demanda.json` → bloco `auditoria_360`. **Nota D1:** `*.db` permanece fora do Git por norma — nuvem de dados = `backups/` + GHA, não commit de bases vivas.  
+**Última actualização:** 2026-04-12 — **Decomissionamento UI legado (E20/E21):** remoção física de `src/ui/page_clientes.py` e `src/ui/page_agendamentos.py`; navegação e hub usam apenas [`page_clientes_agendamentos.py`](../src/ui/page_clientes_agendamentos.py); `app.py` e `shell_sidebar.py` sem rotas duplicadas; sessões antigas com `page` `clientes` ou `agendamentos` redireccionadas para `clientes_agendamentos`. Scripts backup/restore e `status_demanda.json` actualizados. **`python -m pytest tests/ -v` → 89 passed** após a remoção (teste de fogo).  
+**Registo anterior (2026-04-12 manhã) — Auditoria 360º:** sincronização `develop`→`origin/develop` (código, workflows backup, testes, governança); **`python -m pytest tests/ -v` → 89 passed**; `docs/CADERNO_TESTES_MASTER.md` com mapa completo da suite; certificação **backup/restore:** testes `test_e17_backup_dr`, `test_restore_sqlite`, `test_sqlite_backup_verify` + simulação `verify_restore_weekly` em `BEABA_REPO_ROOT` temporário (sem tocar em `data/beaba_gestao.db`); `status_demanda.json` → bloco `auditoria_360`. **Nota D1:** `*.db` permanece fora do Git por norma — nuvem de dados = `backups/` + GHA, não commit de bases vivas.  
 **Registo anterior (2026-04-08):** **App:** correcção de avisos Streamlit em `src/app.py` (campos País e Repasse % em Colaboradores/Clientes: defaults via `session_state` sem `value=` em conflito com `_col_prime`). **Carga operacional** (2026-04-09) em `data/beaba_gestao.db` via [`scripts/seed_validacao_massiva.py`](../scripts/seed_validacao_massiva.py) (100 clientes, 20 colaboradores, 20 serviços, ~300 vendas, 300 agendamentos); `PRAGMA integrity_check` ok após carga. **`pytest`** usa [`tests/conftest.py`](../tests/conftest.py) (`BEABA_SQLITE_PATH` isolado) para **não** apagar a base local ao correr a suite. **Protocolo Fortaleza (E20 + E17.1)** integrado no [Fluxo oficial](governanca/FLUXO_SUCESSO_E_FALHA.md): **portão de stress E2E** (`tests/e2e_stress_test.py`, ≥1000 iterações, relatório `tests/last_stress_report.txt`) **obrigatório antes de PC13**; validação **backup D1–D4** e **bolinha zero + GHA verde** no fecho. **E19.1** **activa** (Cloud Total — **Fase B**): blindagem de backup/integridade e **restauro operacional** a partir de cópias espelhadas (`backups/hourly`, `cloud_queue`, GHA). **E19** DW concluído; **E18** concluído; **E17.2** concluída; **E17** backup/DR base; **E16**–**E12** estáveis. **Painel v2** mantido.  
 **Norma:** [`FLUXO_SUCESSO_E_FALHA.md`](governanca/FLUXO_SUCESSO_E_FALHA.md) (**Fluxo oficial de governança**).  
 **Quem actualiza:** a **EQUIPE**; o Diretor **não** edita este ficheiro.
@@ -284,6 +285,7 @@ Se uma regra de ramo exigir o nome antigo *Fabrica Zimmermann…*, actualize no 
 
 ## Apêndice H — Histórico de entregas (detalhe)
 
+- **2026-04-12 — Decomissionamento UI Clientes/Agendamentos:** removidos `page_clientes.py` e `page_agendamentos.py`; única superfície [`page_clientes_agendamentos.py`](../src/ui/page_clientes_agendamentos.py); hub, sidebar e governança alinhados; pytest 89/89 pós-corte.
 - **2026-04-09 — E19.1 (em curso):** `sqlite_backup_verify.py`; reforço `backup_sqlite_hourly.py`; `restore_operacional_de_copia.py`; `.gitignore` documentado para `.db`.
 - **2026-04-09 — E19:** `scripts/etl_analytics.py`; tabelas `dw_fact_agendamento`, `dw_fact_venda`, `dw_cliente_kpi`, `dw_etl_run`; secção Analytics em `page_dashboards.py`.
 - **2026-04-08 — E18:** modelo híbrido operacional-financeiro; dossier [`2026-04-08_E18_operacional_financeiro`](governanca/demandas/2026-04-08_E18_operacional_financeiro/01_demanda_diretor.md); painel v2 no JSON + Monitor.
@@ -309,7 +311,7 @@ Se uma regra de ramo exigir o nome antigo *Fabrica Zimmermann…*, actualize no 
 | 01–03 | Config, Clientes, Colaboradores | ✅ | Filtros e equipa |
 | 04 | Escopo | ✅ | Alinhado Diretor |
 | 05 | Dados | ✅ | `agendamentos`, `agendamento_colaboradores` — [`MODELO`](MODELO_ARQUITETURA.md) |
-| 06 | UI | ✅ | [`page_agendamentos.py`](../src/ui/page_agendamentos.py) |
+| 06 | UI | ✅ | [`page_clientes_agendamentos.py`](../src/ui/page_clientes_agendamentos.py) (consolidação 2026-04-12; legado `page_agendamentos` removido) |
 | 07 | BD | ✅ | [`connection.py`](../src/database/connection.py) |
 | 08 | Regras | ✅ | [`agendamento.py`](../src/modules/agendamento.py) |
 | 09 | Testes | ✅ | [`test_agendamento.py`](../tests/test_agendamento.py) incl. E11 |

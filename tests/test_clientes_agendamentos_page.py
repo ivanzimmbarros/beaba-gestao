@@ -1,4 +1,8 @@
-"""Página consolidada Clientes + Agendamentos — reset, Setor 2 (Proposta), smoke."""
+"""Página consolidada Clientes + Agendamentos — reset, Setor 2 (Proposta), smoke.
+
+Pós-decomissionamento 2026-04-12: `page_clientes.py` e `page_agendamentos.py` foram removidos;
+esta suite cobre apenas `page_clientes_agendamentos.py`.
+"""
 
 from src.modules.agendamento import obter_resumo_agendamentos_cliente_setor2_proposta
 

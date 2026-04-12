@@ -10,6 +10,9 @@ Não substitui `restore_sqlite.py` (artefacto encriptado GHA). Complementa o per
 
 Segurança: exige `--confirmar` ou `BEABA_RESTORE_OPERACIONAL=1`. Pare a app Streamlit
 antes de restaurar para evitar bloqueio de ficheiro no Windows.
+
+Arquitectura UI (2026-04-12): páginas legadas Clientes/Agendamentos substituídas por
+`page_clientes_agendamentos.py` (registo em governança).
 """
 
 from __future__ import annotations

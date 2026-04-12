@@ -8,9 +8,7 @@ from __future__ import annotations
 import streamlit as st
 
 from src.database.connection import create_tables
-from src.ui.page_agendamentos import render_page_agendamentos
 from src.ui.page_catalogo import render_page_catalogo
-from src.ui.page_clientes import render_page_clientes
 from src.ui.page_clientes_agendamentos import render_page_clientes_agendamentos
 from src.ui.page_colaboradores import render_page_colaboradores
 from src.ui.page_dashboards import render_page_dashboards
@@ -32,22 +30,6 @@ inject_beaba_verde_sereno()
 
 if "page" not in st.session_state:
     st.session_state.page = "home"
-
-
-def _nav_home() -> None:
-    st.session_state.page = "home"
-
-
-def _render_back_and_breadcrumb(trail: list[str], *, back_key: str) -> None:
-    """100% das vistas internas: retorno + breadcrumbs (CADERNO V11.0)."""
-    c_back, _ = st.columns([1, 4])
-    with c_back:
-        if st.button("← Voltar ao Início", key=back_key):
-            _nav_home()
-    st.markdown(
-        '<p class="bea-breadcrumb">' + " › ".join(trail) + "</p>",
-        unsafe_allow_html=True,
-    )
 
 
 def _shell_no_breadcrumb(*_a, **_k) -> None:
@@ -82,18 +64,17 @@ def _page_home() -> None:
         if st.button("Painel de Vendas", width="stretch", type="primary"):
             st.session_state.page = "vendas"
     with row1[1]:
-        if st.button("Agendamentos", width="stretch", type="secondary"):
-            st.session_state.page = "agendamentos"
+        if st.button("Clientes e Agendamentos", width="stretch", type="secondary"):
+            st.session_state.page = "clientes_agendamentos"
 
     st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
     row2 = st.columns(2)
     with row2[0]:
-        if st.button("Gestão de Clientes", width="stretch", type="primary"):
-            st.session_state.page = "clientes"
-    with row2[1]:
-        if st.button("Gestão de Colaboradores", width="stretch", type="secondary"):
+        if st.button("Gestão de Colaboradores", width="stretch", type="primary"):
             st.session_state.page = "colaboradores"
+    with row2[1]:
+        st.write("")
 
     st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
     row3 = st.columns(2)
@@ -115,16 +96,6 @@ def _page_home() -> None:
     st.markdown("</div>", unsafe_allow_html=True)
 
 
-def _page_clientes() -> None:
-    render_page_clientes(render_back_and_breadcrumb=_shell_no_breadcrumb)
-
-
-def _page_placeholder(title: str, trail: list[str], blurb: str, *, back_key: str) -> None:
-    _render_back_and_breadcrumb(trail, back_key=back_key)
-    st.markdown(f"### {title}")
-    st.info(blurb)
-
-
 def main() -> None:
     page = st.session_state.page
     render_shell_sidebar(current_page=page)
@@ -137,8 +108,6 @@ def main() -> None:
                 render_page_clientes_agendamentos(
                     render_back_and_breadcrumb=_shell_no_breadcrumb,
                 )
-            elif page == "clientes":
-                _page_clientes()
             elif page in ("colaboradores", "colaboradoras"):
                 if page == "colaboradoras":
                     st.session_state.page = "colaboradores"
@@ -159,8 +128,11 @@ def main() -> None:
                     render_back_and_breadcrumb=_shell_no_breadcrumb,
                     modo="relatorios",
                 )
-            elif page == "agendamentos":
-                render_page_agendamentos(render_back_and_breadcrumb=_shell_no_breadcrumb)
+            elif page in ("clientes", "agendamentos"):
+                st.session_state.page = "clientes_agendamentos"
+                render_page_clientes_agendamentos(
+                    render_back_and_breadcrumb=_shell_no_breadcrumb,
+                )
             else:
                 st.session_state.page = "home"
                 _page_home()

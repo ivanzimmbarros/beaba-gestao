@@ -11,6 +11,9 @@ E20 — Fortaleza Operacional: stress & E2E (Jornada do Herói + fronteiras + co
 Relatório: `tests/last_stress_report.txt` (sempre reescrito após cada corrida do módulo
 ou do `main`).
 
+2026-04-12 — Decomissionamento UI: módulos legados `page_clientes` / `page_agendamentos`
+removidos; slice CAG permanece em `page_clientes_agendamentos`.
+
 Requer `BEABA_SQLITE_PATH` apontando para um ficheiro isolado (o teste pytest define;
 o `__main__` usa diretório temporário).
 """

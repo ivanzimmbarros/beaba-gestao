@@ -1,5 +1,7 @@
 """
 E17.1 — Restore de prova em GHA: descarregar .beaba.enc (pasta dl/), decriptar, evidências, verify_restore_weekly.
+
+Nota 2026-04-12: decomissionamento UI legado Clientes/Agendamentos; ver `page_clientes_agendamentos.py`.
 """
 
 from __future__ import annotations

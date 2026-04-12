@@ -3,6 +3,9 @@ E17.2 — Restore local do backup encriptado (BEA1 / .beaba.enc) para data/beaba
 
 Trava: apenas na branch backup-and-restore (ou BEABA_ALLOW_RESTORE_OFF_BRANCH=1 para testes).
 Compara contagens com o último registo de backup em backup_dr_history.json (snapshot_table_counts).
+
+Arquitectura UI (2026-04-12): legado `page_clientes.py` / `page_agendamentos.py` descontinuado;
+consolidação em `page_clientes_agendamentos.py` (ver PAINEL / status_demanda.json).
 """
 
 from __future__ import annotations

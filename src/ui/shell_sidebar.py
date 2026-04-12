@@ -11,9 +11,7 @@ import streamlit as st
 NAV_ITEMS: list[tuple[str, str, str]] = [
     ("clientes_agendamentos", "Clientes e Agendamentos", "👤📅"),
     ("vendas", "Painel de Vendas", "🛒"),
-    ("clientes", "Clientes", "👤"),
     ("colaboradores", "Colaboradores", "👥"),
-    ("agendamentos", "Agendamentos", "📅"),
     ("catalogo", "Catálogo", "📦"),
 ]
 

@@ -29,7 +29,8 @@
       "*.db (operacional e réplicas) — política D1 em .cursorrules / .gitignore",
       "__pycache__/ — bytecode"
     ],
-    "diferencas_locais_vs_origin_corrigidas": "Ficheiros modificados não enviados: workflows backup_*.yml, monitor_governanca.py, seed_validacao_massiva.py, src (app, connection, catalogo, cliente, colaborador, UI vendas/agendamentos/dashboards), tests (e2e_stress, agendamento, catalogo, qa_auto, relatorios, venda) — resolvidos por commit+push develop."
+    "diferencas_locais_vs_origin_corrigidas": "Ficheiros modificados não enviados: workflows backup_*.yml, monitor_governanca.py, seed_validacao_massiva.py, src (app, connection, catalogo, cliente, colaborador, UI vendas/agendamentos/dashboards), tests (e2e_stress, agendamento, catalogo, qa_auto, relatorios, venda) — resolvidos por commit+push develop.",
+    "decomissionamento_ui_2026_04_12": "Removidos `src/ui/page_clientes.py` e `page_agendamentos.py`; navegação única via `page_clientes_agendamentos.py`; `app.py` / `shell_sidebar.py` sem entradas legadas; redirecção de `page` antigo clientes|agendamentos; pytest 89/89 após remoção."
   },
   "painel_layout_version": 2,
   "secao_epicos_em_execucao": {
@@ -96,16 +97,17 @@
   "consolidacao_clientes_agendamentos": {
     "fase_operacional": "Fase Final - Setores 3, 4 e 5",
     "sprint_codigo": "B-correcao",
-    "entrega_sprint_a": "Página `page_clientes_agendamentos.py`, item na sidebar acima de Vendas, Setor 1 pesquisa + Setor 3 limpar estado; rotas antigas mantidas.",
+    "entrega_sprint_a": "Página `page_clientes_agendamentos.py`, item na sidebar acima de Vendas, Setor 1 pesquisa + Setor 3 limpar estado; rotas legadas `clientes` / `agendamentos` descontinuadas (ficheiros removidos 2026-04-12; redirecção em `app.py` para sessões antigas).",
     "entrega_sprint_b": "Setor 2 conforme Proposta: Dados Pessoais (3 campos B.1.1) + Resumo Geral: Agendamentos (5 cards, naturezas e estados); `obter_resumo_agendamentos_cliente_setor2_proposta`. Removido resumo por vendas/saldo.",
     "entrega_correcao_setor_4": "Setor 4 «4. Ficha do Cliente»: checkbox edição, campos disabled por defeito, Salvar Alterações #C43048, reversão ao desmarcar; ficha alinhada ao setor 2.Ficha de Clientes (sem histórico de compras nesta página).",
     "entrega_fase_final_setores_3_4_5": "Setor 3 «3. Dados Pessoais» (Lora) + expander «Informações Detalhadas do Cliente» fechado por defeito com campos da ficha; Setor 4 só controlo de edição + Salvar; Setor 5 «Gestão de Agendamentos» — tabela 5 colunas, paginação 5, formulário (Natureza, busca serviço, colaboradores, estado), cancelamento com cancelar_agendamento e devolução ao buffer; pós-gravar modal SIM/NÃO novo agendamento.",
-    "ultima_actualizacao_iso": "2026-04-12"
+    "ultima_actualizacao_iso": "2026-04-12",
+    "decomissionamento_total_2026_04_12": "E20/E21: ficheiros legado excluídos; sidebar e hub só área consolidada; scripts backup/restore, PAINEL, testes e e2e documentam o corte."
   },
   "demanda_id": "2026-04-10_E22_redesign_visual_verde_sereno",
   "titulo": "Épico 22 — Redesign visual global «Verde Sereno»",
   "fase_actual": "2-gestao-pessoas",
-  "passo_referencia": "E22 Fase 2 — Gestão de Pessoas — Em Execução: `page_clientes.py` e `page_colaboradores.py` alinhados ao PDV (grelha 3×3, cards brancos, pesquisa minimalista, expander «Item»); `listar_colaboradores_vitrine`, `listar_vendas_resumo_cliente`. Sidebar mantém destaque Sálvia / texto verde escuro.",
+  "passo_referencia": "E22 Fase 2 — Gestão de Pessoas — Em Execução: `page_clientes_agendamentos.py` (clientes + agenda consolidados) e `page_colaboradores.py` alinhados ao PDV (grelha 3×3, cards brancos, pesquisa minimalista, expander «Item»); `listar_colaboradores_vitrine`, `listar_vendas_resumo_cliente`. Sidebar sem entradas duplicadas Clientes/Agendamentos; destaque Sálvia / texto verde escuro.",
   "responsavel_actual": "EQUIPE — E22 Fase 2 Clientes/Colaboradores; E17.1 na fila",
   "pontos_controlo_concluidos": [
     "E16 — PC1 a PC13a: dossier 01–09 + 99; implementação + pareceres + QA em develop",
@@ -126,7 +128,7 @@
   "pc_foco": "PC1–PC2",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "Auditoria 360º 2026-04-12: código e CI alinhados com push develop; pytest 89/89; backup/restore certificado (testes + simulação verify semanal em tmp).",
+  "live_status": "2026-04-12: decomissionamento total UI legado Clientes/Agendamentos (ficheiros removidos, consolidação em page_clientes_agendamentos); pytest 89/89 pós-corte; backup/restore e PAINEL actualizados. Auditoria 360º pré-corte: código e CI alinhados develop.",
   "etapas_pendentes": [
     "Diretor: homologar PDV vs protótipo (semáforo visível, comanda spa). Sem OK → sem avançar módulos.",
     "E22: após OK — um único módulo seguinte (ex. Catálogo / Agendamentos).",
@@ -185,6 +187,7 @@
     "2026-04-10 — E22 reconstrução app: `shell_sidebar.py`, `initial_sidebar_state=expanded`, coluna central; comanda HTML só concatenação; cliente card + expanders; moldura principal removida.",
     "2026-04-10 — Consolidação Clientes+Agendamentos Sprint B homologada: Setor 2 raio‑X (`obter_resumo_cliente_raio_x`, cards visita/gasto/pendente/crédito).",
     "2026-04-10 — Correção Crítica Setor 2 e 4: alinhamento total à Proposta (agendamentos + naturezas); ficha Setor 4 com edição controlada; removido `obter_resumo_cliente_raio_x`.",
-    "2026-04-12 — Auditoria 360º: diff local→origin fechado (commit+push develop); `CADERNO_TESTES_MASTER` com mapa completo 21 ficheiros / 89 testes; `verify_restore_weekly` simulado em sandbox; `status_demanda.auditoria_360` e PAINEL/CONTROLE actualizados; conformidade .cursorrules (sem código só em disco sem push)."
+    "2026-04-12 — Auditoria 360º: diff local→origin fechado (commit+push develop); `CADERNO_TESTES_MASTER` com mapa completo 21 ficheiros / 89 testes; `verify_restore_weekly` simulado em sandbox; `status_demanda.auditoria_360` e PAINEL/CONTROLE actualizados; conformidade .cursorrules (sem código só em disco sem push).",
+    "2026-04-12 — Decomissionamento total UI: removidos `page_clientes.py` e `page_agendamentos.py`; `page_clientes_agendamentos.py` única superfície clientes+agenda; hub/sidebar/scripts/PAINEL; pytest 89/89 pós-remoção."
   ]
 }

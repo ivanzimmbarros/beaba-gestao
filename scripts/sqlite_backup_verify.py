@@ -3,6 +3,9 @@ Verificações comuns para ficheiros SQLite após cópia/backup (E17 / E19.1).
 
 - Cabeçalho mágico «SQLite format 3» (16 bytes) — detecta truncagem/corrupção grosseira.
 - PRAGMA quick_check (rápido) ou integrity_check (completo, mais lento).
+
+Governação 2026-04-12: remoção física do legado UI Clientes/Agendamentos em ficheiros separados;
+perímetro de dados da app inalterado para este módulo.
 """
 
 from __future__ import annotations

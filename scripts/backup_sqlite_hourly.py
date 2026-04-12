@@ -8,6 +8,9 @@ Variáveis de ambiente (opcionais):
   BEABA_BACKUP_KEEP    — máximo de ficheiros em backups/hourly (defeito: 168)
   BEABA_BACKUP_CLOUD_QUEUE — "0" / "false" desliga cópia para backups/cloud_queue/
   BEABA_BACKUP_INTEGRITY_FULL — "1" / "true" para PRAGMA integrity_check no destino (mais lento)
+
+Arquitectura UI (2026-04-12): removidos `src/ui/page_clientes.py` e `page_agendamentos.py`;
+a área operacional única é `page_clientes_agendamentos.py` (registo de governação / PAINEL).
 """
 
 from __future__ import annotations
