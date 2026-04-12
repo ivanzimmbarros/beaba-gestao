@@ -1,5 +1,52 @@
 # CURSOR RULES — BEABÁ GESTÃO
 
+---
+
+## 🎨 CONSTITUIÇÃO VISUAL — BEABÁ SERENO (Template Master)
+
+**Guardião normativo:** este bloco materializa no repositório as regras do documento **Template Master - Design Grafico** (caminho canónico no ambiente do Diretor: pasta irmã `Controle Geral BeaBa/Template Master - Design Grafico.txt`). **Toda sugestão ou alteração de UI** (Streamlit, HTML injetado, CSS, tema) **deve** obedecer estritamente ao que segue. **Proibido:** cores, margens, sombras, raios, tipografia ou espaçamentos não especificados aqui; estilos «de biblioteca», «de treino» ou estética genérica.
+
+### 1. Horizonte (background bipartido)
+- **Faixa superior (Header Hero):** **300px** de altura fixa no topo da área principal. Cor: **`rgba(118, 148, 125, 0.1)`** (Sálvia `#76947D` a 10% de opacidade).
+- **Corpo inferior:** todo o espaço abaixo dessa faixa. Cor: **creme** **`#FAF8F5`**.
+- **Corte:** transição **nítida** entre as duas camadas — **sem** gradiente suave (linha de horizonte visual).
+- **Mobile / tablet:** reduzir a faixa superior de **300px** para **150px**.
+
+### 2. Ilhas flutuantes (cards e containers de conteúdo)
+- Fundo: **branco** **`#FFFFFF`**.
+- Bordas: raio **20px** em todos os cantos.
+- **Sombra composta** (obrigatória, duas camadas):
+  - `0 12px 40px rgba(118, 148, 125, 0.12)`
+  - `0 2px 10px rgba(0, 0, 0, 0.05)`
+- Padding interno: **24px a 32px** (conteúdo não toca a borda do card).
+- **Entre ilhas:** mínimo **20px** de separação. **Safe zone** interna alinhada a **24px** mínimo.
+
+### 3. Tipografia e Euro
+- **Títulos principais (H1 / equivalente):** fonte **serif** (ex.: **Playfair Display** ou **Lora**), peso **500**, cor **`#2D332F`**.
+- **Rótulos e dados gerais:** **sans-serif** (ex.: **Inter** ou **Montserrat**).
+- **Dados financeiros:** peso **600**, sempre com símbolo **€**; formato **`€ 1.250,00`** (símbolo à esquerda, milhar por ponto, decimais por vírgula).
+
+### 4. Sidebar (navegação)
+- Fundo: **Sálvia sólido** **`#76947D`**.
+- Ícones: **lineares brancos**, stroke **1,5px**.
+- Borda da sidebar: reta à esquerda; item **selecionado** com cantos arredondados **12px** no conteúdo do botão/área ativa.
+- **Ativo:** fundo branco com ~**15%** opacidade **ou** indicador lateral **4px**.
+- **Hover:** leve clareamento em itens não selecionados.
+
+### 5. Badges e ícones dentro de cards
+- Ícone em círculo: fundo com **15%** de opacidade da cor principal do contexto.
+- **Verde (confirmado / sucesso):** fundo **`#E8F0EA`**, texto **`#76947D`**.
+- **Terracota (alerta / pendente):** fundo **`#FFF4E5`**, texto **`#D4A373`**.
+
+### 6. Método e verificação (EQUIPE / IA)
+1. **De-para:** antes de refatorar uma página, identificar o layout legado e aplicar **Horizonte** + **Ilhas** conforme acima.
+2. **Tokens:** preferir variáveis CSS / tema central (`theme.py`, `inject_*`, ficheiros de tema do projeto); **não** duplicar valores divergentes em ficheiros dispersos.
+3. **Check de conformidade** ao concluir: faixa **300px** (ou **150px** em viewport reduzido); creme **`#FAF8F5`** visível no corpo; cards com **20px** e **sombras exatas**; serif nos títulos; padrão **€** nos valores monetários.
+
+**Integridade:** qualquer código UI que infrinja estes pontos deve ser tratado como **incumprimento** até correção.
+
+---
+
 ## 🛡️ Protocolo de Governança e Backup (E17.2)
 
 Toda e qualquer alteração no projeto deve respeitar a estrutura de backup definida. Nenhuma feature é considerada "concluída" se não estiver coberta pela telemetria.
@@ -104,6 +151,6 @@ O *Fluxo de 15 Etapas* em `docs/PAINEL_OPERACIONAL.md` **continua válido** como
 ## REGRAS GERAIS DO DIRETOR
 
 1. Nunca trabalhar na `main` para evolução corrente; usar `develop`.
-2. **Fontes de verdade:** `CONTROLE_DE_VOO.md`, `PAINEL_OPERACIONAL.md`, `docs/governanca/FLUXO_SUCESSO_E_FALHA.md` e `origin/develop`, **mantidos pela EQUIPE**.
+2. **Fontes de verdade:** `CONTROLE_DE_VOO.md`, `PAINEL_OPERACIONAL.md`, `docs/governanca/FLUXO_SUCESSO_E_FALHA.md` e `origin/develop`, **mantidos pela EQUIPE**. **Identidade visual:** **Template Master - Design Grafico** (Constituição BeaBá Sereno) + secção **CONSTITUIÇÃO VISUAL** neste `.cursorrules` — guardião obrigatório para UI (Horizonte 300px/150px, Ilhas, paleta Sálvia/Creme).
 3. Se GitHub Actions falhar, **QA (EQUIPE)** coordena a correcção até verde.
 4. Alterações de código: **EQUIPE** actualiza intenção e fecho no `PAINEL` e o `status_demanda.json` nos PCs aplicáveis.
