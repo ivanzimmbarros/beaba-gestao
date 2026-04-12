@@ -15,9 +15,10 @@ def test_monitor_demanda_runs_zero():
     r = subprocess.run(
         [sys.executable, str(REPO / "scripts" / "monitor_demanda.py")],
         cwd=str(REPO),
-        env={**os.environ, "BEABA_REPO_ROOT": str(REPO)},
+        env={**os.environ, "BEABA_REPO_ROOT": str(REPO), "PYTHONUTF8": "1"},
         capture_output=True,
-        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     assert r.returncode == 0, r.stderr
     assert "Live Status" in r.stdout

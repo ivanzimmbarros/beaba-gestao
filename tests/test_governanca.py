@@ -58,6 +58,17 @@ def test_monitor_governanca_script_existe_e_compila():
     compile(p.read_text(encoding="utf-8"), str(p), "exec")
 
 
+def test_e17_restore_certificate_existe():
+    """E17 — certificado de restore versionado (emitido por scripts/generate_e17_restore_certificate.py)."""
+    root = Path(__file__).resolve().parents[1]
+    p = root / "tests" / "E17_RESTORE_CERTIFICATE.txt"
+    assert p.is_file()
+    text = p.read_text(encoding="utf-8")
+    assert "E17 — CERTIFICADO" in text
+    assert "exit_code=0" in text
+    assert "CONCLUSÃO:" in text
+
+
 def test_backup_dr_history_json_existe_e_schema_minimo():
     """E17.1 — telemetria canónica (schema v1; runs lista, entradas com type + groups)."""
     root = Path(__file__).resolve().parents[1]

@@ -1,0 +1,58 @@
+# E17 — Prova em pipeline: pytest restore + verify + regeneração do certificado (Linux).
+# O ficheiro versionado tests/E17_RESTORE_CERTIFICATE.txt deve ser actualizado localmente após mudanças nos scripts.
+
+name: E17 certificação restore
+
+on:
+  push:
+    branches: [develop, main]
+    paths:
+      - "scripts/restore_sqlite.py"
+      - "scripts/generate_e17_restore_certificate.py"
+      - "scripts/e17_1_crypto.py"
+      - "scripts/sqlite_backup_verify.py"
+      - "scripts/backup_sqlite_hourly.py"
+      - "tests/test_restore_sqlite.py"
+      - "tests/test_sqlite_backup_verify.py"
+      - ".github/workflows/e17_restore_certify.yml"
+      - ".github/workflows/backup_encrypt_callable.yml"
+      - ".github/workflows/restore_weekly.yml"
+      - ".github/workflows/test_restore_weekly.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Dependências
+        run: |
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Pytest — test_restore_sqlite + test_sqlite_backup_verify
+        run: python -m pytest tests/test_restore_sqlite.py tests/test_sqlite_backup_verify.py -v --tb=short
+
+      - name: Regenerar certificado no runner
+        run: python scripts/generate_e17_restore_certificate.py
+
+      - name: Upload certificado (evidência do run)
+        uses: actions/upload-artifact@v4
+        with:
+          name: E17_RESTORE_CERTIFICATE
+          path: tests/E17_RESTORE_CERTIFICATE.txt
+          retention-days: 90
+          if-no-files-found: error

@@ -15,9 +15,9 @@
     "projeto": "BeaBa Gestão / BeaBa Materno",
     "escopo": "Sincronização código+CI com origin/develop; mapa completo de testes; certificação backup/restore (pytest + simulação verify semanal em sandbox).",
     "pytest": {
-      "total": 89,
+      "total": 90,
       "comando": "python -m pytest tests/ -v",
-      "resultado_2026_04_12": "89 passed",
+      "resultado_2026_04_12": "90 passed (pós-certificado E17)",
       "e2e_incluido": "tests/e2e_stress_test.py (hero + boundary quick na suite pytest)"
     },
     "backup_restore": {
@@ -30,7 +30,18 @@
       "__pycache__/ — bytecode"
     ],
     "diferencas_locais_vs_origin_corrigidas": "Ficheiros modificados não enviados: workflows backup_*.yml, monitor_governanca.py, seed_validacao_massiva.py, src (app, connection, catalogo, cliente, colaborador, UI vendas/agendamentos/dashboards), tests (e2e_stress, agendamento, catalogo, qa_auto, relatorios, venda) — resolvidos por commit+push develop.",
-    "decomissionamento_ui_2026_04_12": "Removidos `src/ui/page_clientes.py` e `page_agendamentos.py`; navegação única via `page_clientes_agendamentos.py`; `app.py` / `shell_sidebar.py` sem entradas legadas; redirecção de `page` antigo clientes|agendamentos; pytest 89/89 após remoção."
+    "decomissionamento_ui_2026_04_12": "Removidos `src/ui/page_clientes.py` e `page_agendamentos.py`; navegação única via `page_clientes_agendamentos.py`; `app.py` / `shell_sidebar.py` sem entradas legadas; redirecção de `page` antigo clientes|agendamentos; pytest 89/89 após remoção.",
+    "e17_gha_correccao_2026_04_12": "restore_weekly + test_restore_weekly: download de artefactos na branch main (crons na default); backup_encrypt_callable: gate obrigatório pipeline+BEA1+upload; upload if-no-files-found=error; workflow e17_restore_certify.yml."
+  },
+  "e17_backup_dr_operacional": {
+    "status": "CONCLUÍDO",
+    "data_iso": "2026-04-12",
+    "escopo": "Trilho técnico E17 — backup SQLite integral, encriptação BEA1 (AES-256-GCM), restore_sqlite.py, verify semanal, telemetria.",
+    "certificado_restore": "tests/E17_RESTORE_CERTIFICATE.txt",
+    "gerador_certificado": "scripts/generate_e17_restore_certificate.py",
+    "workflow_ci_prova": ".github/workflows/e17_restore_certify.yml",
+    "secrets_repositorio": "BEABA_BACKUP_KEY (base64 32 bytes ou hex 64) — não é GPG; configurar em Settings → Secrets and variables → Actions.",
+    "nota_e17_1_cloud": "E17.1 dossier Cloud (Fase B/C selo Diretor) permanece fila operacional separada; trilho backup/restore local+GHA considerado fechado tecnicamente."
   },
   "painel_layout_version": 2,
   "secao_epicos_em_execucao": {
@@ -73,7 +84,7 @@
         "status_demanda": "CONCLUÍDO",
         "data_conclusao": "2026-04-08",
         "entrega": "Máquina de estados dual, Ledger de Créditos, Gate de Integridade Financeira e Repasses.",
-        "validacao": "Suite pytest completa (89 testes em 2026-04-12); integrity_check operacional documentado no PAINEL.",
+        "validacao": "Suite pytest completa (90 testes em 2026-04-12); integrity_check operacional documentado no PAINEL.",
         "refs_docs": [
           "docs/governanca/demandas/2026-04-08_E18_operacional_financeiro/01_demanda_diretor.md",
           "docs/governanca/demandas/2026-04-08_E18_operacional_financeiro/02_desenho_funcional.md"
@@ -114,6 +125,7 @@
     "E17 — PC13: encerramento operacional; `ultima_entrega_marco` evoluiu até E18",
     "E17.1 — Fase B: 01+02+04 desenho lógico Cloud",
     "E17.1 — Auditor: `backup_dr_history.json` inicial + Monitor resiliente",
+    "E17 — Trilho backup/DR técnico CONCLUÍDO 2026-04-12: certificado `tests/E17_RESTORE_CERTIFICATE.txt`; gate `backup_encrypt_callable`; restore/test_restore artefactos em `main`",
     "E17.1 — Fase C: `.github/workflows/backup_hourly.yml` + `restore_weekly.yml`; `e17_1_crypto`, `e17_1_telemetry`, jobs GHA; append + git-auto-commit; aba Backup com matriz; run manual local com primeiro registo ✅",
     "E17.2 — Retenção hourly/daily/weekly + `restore_sqlite.py` + `test_restore_weekly.yml` + e-mails + `.cursorrules` + telemetria `snapshot_table_counts` ✅",
     "E17.2 — Fases C–E + fecho PC13: CONCLUÍDO 2026-04-08 — requisitos operacionais integrados / superados pelo E18",
@@ -121,14 +133,14 @@
     "E18 — Validação: suite `pytest tests/` + integrity_check ok"
   ],
   "pendente": "Consolidação UI — Fase Final Setores 3, 4 e 5 na página consolidada (Dados Pessoais em expander, Ficha, Gestão de Agendamentos). E22 Fase 2 — homologar Clientes/Colaboradores vs PDV. E17.1: fila.",
-  "falha": "2026-04-09 — Push telemetria: `secrets.GITHUB_TOKEN` incorrecto (não é o token automático). Correcção: `github.token` no `actions/checkout`. Prova EQUIPE: run **24215460665** → commit em `develop` → `git pull` traz `gha-24215460665` no JSON. Grounding: Diretor validar pull local + schedules seguintes.",
+  "falha": "",
   "ultima_actualizacao_iso": "2026-04-12",
   "notas_dashboard": "Painel v2: secções «Épicos em execução» e «Histórico de épicos concluídos» em `status_demanda.json`. Apps: `scripts/app_governance.py`, `view_governance.py`, `monitor_demanda.py`, `monitor_governanca.py` (aba Governança).",
   "fase_governanca": "A",
   "pc_foco": "PC1–PC2",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "2026-04-12: decomissionamento total UI legado Clientes/Agendamentos (ficheiros removidos, consolidação em page_clientes_agendamentos); pytest 89/89 pós-corte; backup/restore e PAINEL actualizados. Auditoria 360º pré-corte: código e CI alinhados develop.",
+  "live_status": "2026-04-12 (tarde): E17 trilho backup/restore CONCLUÍDO tecnicamente — certificado tests/E17_RESTORE_CERTIFICATE.txt; GHA corrigido (artefactos main + gate backup); workflow e17_restore_certify; pytest 90. E17.1 Cloud: aguarda selo Diretor. UI legado: consolidado page_clientes_agendamentos.",
   "etapas_pendentes": [
     "Diretor: homologar PDV vs protótipo (semáforo visível, comanda spa). Sem OK → sem avançar módulos.",
     "E22: após OK — um único módulo seguinte (ex. Catálogo / Agendamentos).",
@@ -188,6 +200,7 @@
     "2026-04-10 — Consolidação Clientes+Agendamentos Sprint B homologada: Setor 2 raio‑X (`obter_resumo_cliente_raio_x`, cards visita/gasto/pendente/crédito).",
     "2026-04-10 — Correção Crítica Setor 2 e 4: alinhamento total à Proposta (agendamentos + naturezas); ficha Setor 4 com edição controlada; removido `obter_resumo_cliente_raio_x`.",
     "2026-04-12 — Auditoria 360º: diff local→origin fechado (commit+push develop); `CADERNO_TESTES_MASTER` com mapa completo 21 ficheiros / 89 testes; `verify_restore_weekly` simulado em sandbox; `status_demanda.auditoria_360` e PAINEL/CONTROLE actualizados; conformidade .cursorrules (sem código só em disco sem push).",
-    "2026-04-12 — Decomissionamento total UI: removidos `page_clientes.py` e `page_agendamentos.py`; `page_clientes_agendamentos.py` única superfície clientes+agenda; hub/sidebar/scripts/PAINEL; pytest 89/89 pós-remoção."
+    "2026-04-12 — Decomissionamento total UI: removidos `page_clientes.py` e `page_agendamentos.py`; `page_clientes_agendamentos.py` única superfície clientes+agenda; hub/sidebar/scripts/PAINEL; pytest 89/89 pós-remoção.",
+    "2026-04-12 — E17 infra: certificado restore `tests/E17_RESTORE_CERTIFICATE.txt`; workflows restore/test_restore branch main; gate backup+upload; `e17_restore_certify.yml`; campo `falha` limpo no JSON."
   ]
 }

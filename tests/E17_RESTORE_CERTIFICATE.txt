@@ -1,0 +1,40 @@
+========================================================================
+E17 — CERTIFICADO DE RESTORE / BACKUP ENCRIPTADO (BeaBa Gestão)
+Emitido em (UTC): 2026-04-12T15:12:54Z
+Repositório: C:\Users\ivanz\OneDrive\Documentos\Projetos - AI\2. Controle Geral BeaBa\beaba-gestao
+
+1) Pytest: tests/test_restore_sqlite.py + tests/test_sqlite_backup_verify.py
+------------------------------------------------------------------------
+exit_code=0
+--- stdout ---
+============================= test session starts =============================
+platform win32 -- Python 3.14.3, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\ivanz\AppData\Local\Python\pythoncore-3.14-64\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\ivanz\OneDrive\Documentos\Projetos - AI\2. Controle Geral BeaBa\beaba-gestao
+collecting ... collected 4 items
+
+tests/test_restore_sqlite.py::test_restore_blocks_without_allowed_branch PASSED [ 25%]
+tests/test_restore_sqlite.py::test_restore_ok_with_allow_flag_and_encrypted_file PASSED [ 50%]
+tests/test_sqlite_backup_verify.py::test_header_rejects_garbage PASSED   [ 75%]
+tests/test_sqlite_backup_verify.py::test_verify_backup_destination_on_minimal_db PASSED [100%]
+
+============================== 4 passed in 2.14s ==============================
+
+--- stderr ---
+
+
+
+2) Roundtrip local (CI mirror): prepare DB → backup → encrypt → decrypt → integridade
+------------------------------------------------------------------------
+(A) run_backup (cópia integral API) rc=0
+(B) verify_backup_destination (header + quick_check) ok=True msg='ok'
+(C) encrypt_file AES-256-GCM → magic==BEA1: True (b'BEA1')
+(D) decrypt_file → restaurado.db escrito
+(E) PRAGMA integrity_check='ok' foreign_key_violations=0
+CONCLUSÃO: backup gerado, ficheiro encriptado BEA1, decrypt OK, integridade SQLite ok.
+
+3) Secret em GitHub Actions (repositório)
+------------------------------------------------------------------------
+BEABA_BACKUP_KEY — base64(32 bytes) ou hex(64 chars). Não usar GPG neste trilho.
+Ver: .github/workflows/backup_encrypt_callable.yml (comentário no topo).
+========================================================================

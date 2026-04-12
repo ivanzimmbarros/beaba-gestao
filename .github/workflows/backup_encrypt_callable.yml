@@ -5,6 +5,9 @@
 #
 # O run do GitHub pode listar `main` (workflow na branch por defeito); checkout + push da telemetria
 # usam sempre `inputs.telemetry_git_branch` (defeito: develop).
+#
+# Secret obrigatório (nível repositório): BEABA_BACKUP_KEY — base64 de 32 bytes ou hex 64 chars.
+# Não é GPG; é AES-256-GCM (scripts/e17_1_crypto.py). Sem este secret, encrypted_path fica vazio e o gate falha.
 
 on:
   workflow_call:
@@ -78,7 +81,7 @@ jobs:
           name: ${{ inputs.artifact_name }}
           path: ${{ github.workspace }}/${{ steps.pipe.outputs.encrypted_path }}
           retention-days: ${{ inputs.retention_days }}
-          if-no-files-found: warn
+          if-no-files-found: error
 
       - name: Telemetria + persistência JSON
         if: always()
@@ -106,6 +109,31 @@ jobs:
           commit_user_email: github-actions[bot]@users.noreply.github.com
           commit_message: "chore(telemetry): backup ${{ inputs.artifact_name }} run ${{ github.run_id }}"
           file_pattern: docs/governanca/telemetry/backup_dr_history.json
+
+      - name: Gate — pipeline, ficheiro BEA1 e upload obrigatórios
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.pipe.outcome }}" != "success" ]; then
+            echo "::error::Pipeline backup + encriptação falhou (ver passo «Pipeline backup + encriptação» e gha_backup_state.json)."
+            exit 1
+          fi
+          ENC="${{ steps.pipe.outputs.encrypted_path }}"
+          if [ -z "$ENC" ]; then
+            echo "::error::encrypted_path vazio — configure o secret BEABA_BACKUP_KEY no repositório ou corrija o job de backup."
+            exit 1
+          fi
+          F="$GITHUB_WORKSPACE/$ENC"
+          if [ ! -f "$F" ]; then
+            echo "::error::Ficheiro encriptado ausente: $F"
+            exit 1
+          fi
+          python3 -c "import pathlib,sys; b=pathlib.Path(sys.argv[1]).read_bytes()[:4]; assert b==b'BEA1', b" "$F" || { echo "::error::Header mágico BEA1 ausente"; exit 1; }
+          if [ "${{ steps.up.outcome }}" != "success" ]; then
+            echo "::error::Upload do artefacto falhou (actions/upload-artifact)."
+            exit 1
+          fi
+          echo "OK — pipeline, BEA1 no disco e artefacto publicado."
 
       - name: Prova — HEAD em origin/${{ inputs.telemetry_git_branch }}
         if: success()
