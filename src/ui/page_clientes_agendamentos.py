@@ -20,7 +20,7 @@ from src.modules.agendamento import (
     obter_agendamento,
     obter_resumo_agendamentos_cliente_setor2_proposta,
 )
-from src.modules.catalogo import centavos_para_texto_euros, listar_servicos_para_venda
+from src.modules.catalogo import listar_servicos_para_venda
 from src.modules.cliente import (
     atualizar_cliente,
     buscar_cliente_por_whatsapp,
@@ -35,23 +35,17 @@ from src.modules.telefone import normalizar_telefone_legado_ou_e164
 from src.modules.validators import email_valido, parse_data_iso
 from src.ui.telefone_widgets import ler_e164_de_widgets, preencher_session_telefone_de_e164, render_grupo_telefone
 from src.ui.theme import agenda_pagamento_dot, agenda_status_style, agenda_tipo_icon
+from src.ui.constituicao_visual_shell import inject_constituicao_cag_page
+from src.ui.fmt_euro_constituicao import fmt_euro_centavos
 from src.ui.widgets.cliente_search import CLIENTE_SEARCH_DATE_MIN, render_cliente_search_widget
 
 _CAG_PREFIX = "cag_"
 
-_SUB_LORA = (
-    "font-family: var(--bea-vs-serif-t), Lora, Georgia, serif; "
-    "color: var(--bea-vs-bordeaux, #3b1c2f); font-weight: 700; margin: 0 0 0.4rem 0;"
-)
-
 
 def _cag_section_title_html(title: str) -> str:
-    """Mesmo bloco visual de «1. Pesquisa de Clientes» (bea-pdv-titulo)."""
+    """Título de secção — serifado Master (#2D332F)."""
     t = html.escape(title)
-    return (
-        f'<div class="bea-proto-scope"><p class="bea-pdv-titulo" '
-        f'style="font-size:1.2rem;margin:0 0 0.5rem 0;letter-spacing:0.01em;">{t}</p></div>'
-    )
+    return f'<div class="bea-cv-cag-h2">{t}</div>'
 
 _CAG_STATUS_DB_TO_LBL: dict[str, str] = {
     "PRE_AGENDADO": "Pré-agendado",
@@ -335,7 +329,18 @@ def _cag_lib_ag_edit_valor_apos_bloqueio() -> bool:
 
 
 def _cag_valor_moeda_centavos(c: int) -> str:
-    return centavos_para_texto_euros(int(c)).replace(".", ",")
+    return fmt_euro_centavos(int(c))
+
+
+def _cag_status_badge_html(status_db: str, lbl: str) -> str:
+    s = str(status_db)
+    if s == "CONFIRMADO":
+        cls = "bea-cv-badge-verde"
+    elif s in ("PRE_AGENDADO", "AGENDADO", "REALIZADO_PENDENTE_PGTO"):
+        cls = "bea-cv-badge-terracota"
+    else:
+        cls = "bea-cv-badge-neutro"
+    return f'<span class="{cls}">{html.escape(lbl)}</span>'
 
 
 def _cag_carregar_ficha(fk: str, d: dict) -> None:
@@ -442,10 +447,11 @@ def _reset_cag_page_state() -> None:
 def _card_shell(*, label: str, body_html: str) -> str:
     lab_e = html.escape(label)
     return (
-        '<div style="background:linear-gradient(165deg,#F0FDF4 0%,#ECFDF5 50%,#D1FAE5 100%);'
-        "border:1px solid rgba(22,101,52,0.12);border-radius:18px;padding:0.65rem 0.8rem;"
-        'min-height:5.5rem;box-shadow:0 1px 3px rgba(15,118,110,0.06);">'
-        f'<p style="margin:0 0 8px 0;font-size:0.72rem;color:#64748B;font-family:Montserrat,sans-serif;line-height:1.25;">{lab_e}</p>'
+        "<div style=\"background:#FFFFFF;border-radius:20px;padding:0.75rem 0.95rem;min-height:5.5rem;"
+        "box-shadow:0 12px 40px rgba(118,148,125,0.12),0 2px 10px rgba(0,0,0,0.05);"
+        "border:1px solid rgba(118,148,125,0.12);\">"
+        f'<p style="margin:0 0 8px 0;font-size:0.72rem;color:#2D332F;font-family:var(--cv-sans,Montserrat),sans-serif;'
+        f"line-height:1.25;opacity:0.65;font-weight:600;\">{lab_e}</p>"
         f"{body_html}</div>"
     )
 
@@ -457,7 +463,7 @@ def _html_linhas_natureza(rows: list[tuple[str, int]]) -> str:
     for nat, q in rows:
         parts.append(
             "<p style='margin:3px 0;font-size:0.9rem;'>"
-            f"<span style='font-weight:600;color:var(--bea-vs-bordeaux,#3b1c2f);'>"
+            f"<span style='font-weight:600;color:#2D332F;'>"
             f"{html.escape(nat)}</span>: {int(q)}</p>"
         )
     return "".join(parts)
@@ -465,7 +471,7 @@ def _html_linhas_natureza(rows: list[tuple[str, int]]) -> str:
 
 def _render_cag_setor2_dados_pessoais(*, cli: dict | None) -> None:
     st.markdown(
-        f'<div class="bea-proto-scope"><p style="{_SUB_LORA} font-size:1.05rem;">Dados Pessoais</p></div>',
+        '<div class="bea-cv-cag-h2" style="font-size:1.05rem;margin-bottom:0.35rem;">Dados Pessoais</div>',
         unsafe_allow_html=True,
     )
     nome, doc, tel, em = cag_valores_setor2_identificacao_basica(cli)
@@ -494,8 +500,8 @@ def _render_cag_setor2_dados_pessoais(*, cli: dict | None) -> None:
 
 def _render_cag_setor2_resumo_agendamentos(*, resumo: dict) -> None:
     st.markdown(
-        f'<div class="bea-proto-scope"><p style="{_SUB_LORA} font-size:1.05rem;">'
-        "Resumo Geral: Agendamentos</p></div>",
+        '<div class="bea-cv-cag-h2" style="font-size:1.05rem;margin-bottom:0.35rem;">'
+        "Resumo Geral: Agendamentos</div>",
         unsafe_allow_html=True,
     )
     c30 = resumo.get("previstos_30d_por_natureza") or []
@@ -516,9 +522,9 @@ def _render_cag_setor2_resumo_agendamentos(*, resumo: dict) -> None:
         _html_linhas_natureza(list(c30)),
         _html_linhas_natureza(list(c10)),
         _html_linhas_natureza(list(pend_n)),
-        f'<p style="margin:0;font-size:1.15rem;font-weight:700;color:var(--bea-vs-bordeaux,#3b1c2f);">'
+        f'<p style="margin:0;font-size:1.15rem;font-weight:700;color:#2D332F;">'
         f"{html.escape(_cag_valor_moeda_centavos(pend_v))}</p>",
-        f'<p style="margin:0;font-size:1.15rem;font-weight:700;color:var(--bea-vs-bordeaux,#3b1c2f);">'
+        f'<p style="margin:0;font-size:1.15rem;font-weight:700;color:#2D332F;">'
         f"{html.escape(str(n_can))}</p>",
     )
     for col, lab, body in zip(r1, labels, bodies):
@@ -681,165 +687,163 @@ def _render_cag_setor3_dados_pessoais_completo(*, fk: str, tem_cliente: bool, ei
             )
             dis = False
 
-        with st.container(border=True):
-            st.markdown("##### Dados pessoais")
-            st.text_input("Nome completo *", key=f"{fk}_nome", disabled=dis)
-            st.checkbox(
-                "Documento de identificação **não** é NIF português",
-                key=f"{fk}_docintl",
-                disabled=dis,
-            )
-            ph_doc = (
-                "Documento internacional (3–40 caracteres)"
-                if bool(st.session_state.get(f"{fk}_docintl"))
-                else "9 dígitos (NIF PT)"
-            )
-            st.text_input(
-                "NIF ou documento de identificação *",
-                key=f"{fk}_nif",
-                placeholder=ph_doc,
-                disabled=dis,
-            )
-            st.date_input(
-                "Data de nascimento *",
-                min_value=CLIENTE_SEARCH_DATE_MIN,
-                max_value=date.today(),
-                format="DD/MM/YYYY",
-                key=f"{fk}_dnasc",
-                disabled=dis,
-            )
-            render_grupo_telefone(st, prefix=f"{fk}_tel_pri", label="Contacto principal *", disabled=dis)
-            st.text_input("Email *", key=f"{fk}_email", disabled=dis)
-            sexo = st.selectbox("Sexo *", SEXOS, key=f"{fk}_sexo", disabled=dis)
+        st.markdown("##### Dados pessoais")
+        st.text_input("Nome completo *", key=f"{fk}_nome", disabled=dis)
+        st.checkbox(
+            "Documento de identificação **não** é NIF português",
+            key=f"{fk}_docintl",
+            disabled=dis,
+        )
+        ph_doc = (
+            "Documento internacional (3–40 caracteres)"
+            if bool(st.session_state.get(f"{fk}_docintl"))
+            else "9 dígitos (NIF PT)"
+        )
+        st.text_input(
+            "NIF ou documento de identificação *",
+            key=f"{fk}_nif",
+            placeholder=ph_doc,
+            disabled=dis,
+        )
+        st.date_input(
+            "Data de nascimento *",
+            min_value=CLIENTE_SEARCH_DATE_MIN,
+            max_value=date.today(),
+            format="DD/MM/YYYY",
+            key=f"{fk}_dnasc",
+            disabled=dis,
+        )
+        render_grupo_telefone(st, prefix=f"{fk}_tel_pri", label="Contacto principal *", disabled=dis)
+        st.text_input("Email *", key=f"{fk}_email", disabled=dis)
+        sexo = st.selectbox("Sexo *", SEXOS, key=f"{fk}_sexo", disabled=dis)
 
-            if sexo == "Feminino":
-                g_label = st.radio(
-                    "Está grávida? *",
-                    ["Não", "Sim"],
-                    horizontal=True,
-                    key=f"{fk}_gravida",
+        if sexo == "Feminino":
+            g_label = st.radio(
+                "Está grávida? *",
+                ["Não", "Sim"],
+                horizontal=True,
+                key=f"{fk}_gravida",
+                disabled=dis,
+            )
+            if g_label == "Sim":
+                st.date_input(
+                    "Estimativa de data de parto *",
+                    key=f"{fk}_parto",
+                    format="DD/MM/YYYY",
+                    min_value=CLIENTE_SEARCH_DATE_MIN,
                     disabled=dis,
                 )
-                if g_label == "Sim":
+
+        st.markdown("##### Morada")
+        r1c1, r1c2 = st.columns(2)
+        with r1c1:
+            st.text_input("Rua / logradouro *", key=f"{fk}_rua", disabled=dis)
+        with r1c2:
+            st.text_input("Número *", key=f"{fk}_numero", disabled=dis)
+        st.text_input(
+            "Complemento (opcional)",
+            key=f"{fk}_comp",
+            placeholder="Andar, fração, etc.",
+            disabled=dis,
+        )
+        r2c1, r2c2, r2c3 = st.columns(3)
+        with r2c1:
+            st.text_input("Código postal *", key=f"{fk}_cp", placeholder="4800-123", disabled=dis)
+        with r2c2:
+            st.text_input("Concelho *", key=f"{fk}_conc", disabled=dis)
+        with r2c3:
+            st.text_input("Freguesia *", key=f"{fk}_freg", disabled=dis)
+        r3c1, r3c2 = st.columns(2)
+        with r3c1:
+            st.text_input("Distrito (opcional)", key=f"{fk}_dist", disabled=dis)
+        with r3c2:
+            _pais_k = f"{fk}_pais"
+            if _pais_k not in st.session_state:
+                st.session_state[_pais_k] = "Portugal"
+            st.text_input("País *", key=_pais_k, disabled=dis)
+
+        st.markdown("##### Filhos")
+        tem_filhos = (
+            st.radio("Possui filhos? *", ["Não", "Sim"], horizontal=True, key=f"{fk}_temf", disabled=dis)
+            == "Sim"
+        )
+        if tem_filhos:
+            qtd = int(
+                st.number_input(
+                    "Quantos filhos? *",
+                    min_value=1,
+                    max_value=20,
+                    value=1,
+                    step=1,
+                    key=f"{fk}_qtd",
+                    disabled=dis,
+                )
+            )
+            for j in range(qtd):
+                st.markdown(f"**Filho {j + 1}**")
+                cf1, cf2, cf3 = st.columns(3)
+                with cf1:
+                    st.text_input("Nome *", key=f"{fk}_f_nom_{j}", disabled=dis)
+                with cf2:
+                    st.number_input(
+                        "Idade (anos) *",
+                        min_value=0,
+                        max_value=120,
+                        value=0,
+                        key=f"{fk}_f_id_{j}",
+                        disabled=dis,
+                    )
+                with cf3:
+                    st.selectbox("Sexo *", SEXOS, key=f"{fk}_f_sx_{j}", disabled=dis)
+                has_dn = st.checkbox(
+                    "Indicar data de nascimento (opcional)",
+                    key=f"{fk}_f_hasdn_{j}",
+                    disabled=dis,
+                )
+                if has_dn:
                     st.date_input(
-                        "Estimativa de data de parto *",
-                        key=f"{fk}_parto",
+                        "Data de nascimento",
+                        max_value=date.today(),
                         format="DD/MM/YYYY",
                         min_value=CLIENTE_SEARCH_DATE_MIN,
+                        key=f"{fk}_f_dn_{j}",
                         disabled=dis,
                     )
-
-            st.markdown("##### Morada")
-            r1c1, r1c2 = st.columns(2)
-            with r1c1:
-                st.text_input("Rua / logradouro *", key=f"{fk}_rua", disabled=dis)
-            with r1c2:
-                st.text_input("Número *", key=f"{fk}_numero", disabled=dis)
-            st.text_input(
-                "Complemento (opcional)",
-                key=f"{fk}_comp",
-                placeholder="Andar, fração, etc.",
+        tem_emerg = (
+            st.radio(
+                "Possui contacto de emergência? *",
+                ["Não", "Sim"],
+                horizontal=True,
+                key=f"{fk}_tem_emerg",
                 disabled=dis,
             )
-            r2c1, r2c2, r2c3 = st.columns(3)
-            with r2c1:
-                st.text_input("Código postal *", key=f"{fk}_cp", placeholder="4800-123", disabled=dis)
-            with r2c2:
-                st.text_input("Concelho *", key=f"{fk}_conc", disabled=dis)
-            with r2c3:
-                st.text_input("Freguesia *", key=f"{fk}_freg", disabled=dis)
-            r3c1, r3c2 = st.columns(2)
-            with r3c1:
-                st.text_input("Distrito (opcional)", key=f"{fk}_dist", disabled=dis)
-            with r3c2:
-                _pais_k = f"{fk}_pais"
-                if _pais_k not in st.session_state:
-                    st.session_state[_pais_k] = "Portugal"
-                st.text_input("País *", key=_pais_k, disabled=dis)
+            == "Sim"
+        )
+        if tem_emerg:
+            st.markdown("##### Contactos de emergência")
+            c_add, _ = st.columns([2, 3])
+            with c_add:
+                if st.button("➕ Adicionar contacto de emergência", key=f"{fk}_add_em", disabled=dis):
+                    st.session_state.cag_n_emergency = min(st.session_state.cag_n_emergency + 1, 10)
+                    st.rerun()
 
-            st.markdown("##### Filhos")
-            tem_filhos = (
-                st.radio("Possui filhos? *", ["Não", "Sim"], horizontal=True, key=f"{fk}_temf", disabled=dis)
-                == "Sim"
-            )
-            if tem_filhos:
-                qtd = int(
-                    st.number_input(
-                        "Quantos filhos? *",
-                        min_value=1,
-                        max_value=20,
-                        value=1,
-                        step=1,
-                        key=f"{fk}_qtd",
-                        disabled=dis,
-                    )
-                )
-                for j in range(qtd):
-                    st.markdown(f"**Filho {j + 1}**")
-                    cf1, cf2, cf3 = st.columns(3)
-                    with cf1:
-                        st.text_input("Nome *", key=f"{fk}_f_nom_{j}", disabled=dis)
-                    with cf2:
-                        st.number_input(
-                            "Idade (anos) *",
-                            min_value=0,
-                            max_value=120,
-                            value=0,
-                            key=f"{fk}_f_id_{j}",
-                            disabled=dis,
-                        )
-                    with cf3:
-                        st.selectbox("Sexo *", SEXOS, key=f"{fk}_f_sx_{j}", disabled=dis)
-                    has_dn = st.checkbox(
-                        "Indicar data de nascimento (opcional)",
-                        key=f"{fk}_f_hasdn_{j}",
-                        disabled=dis,
-                    )
-                    if has_dn:
-                        st.date_input(
-                            "Data de nascimento",
-                            max_value=date.today(),
-                            format="DD/MM/YYYY",
-                            min_value=CLIENTE_SEARCH_DATE_MIN,
-                            key=f"{fk}_f_dn_{j}",
-                            disabled=dis,
-                        )
-            tem_emerg = (
-                st.radio(
-                    "Possui contacto de emergência? *",
-                    ["Não", "Sim"],
-                    horizontal=True,
-                    key=f"{fk}_tem_emerg",
+            for i in range(st.session_state.cag_n_emergency):
+                st.text_input(f"Nome (emergência {i + 1})", key=f"{fk}_em_n_{i}", disabled=dis)
+                render_grupo_telefone(
+                    st,
+                    prefix=f"{fk}_emerg_{i}",
+                    label=f"Telefone (emergência {i + 1})",
                     disabled=dis,
                 )
-                == "Sim"
-            )
-            if tem_emerg:
-                st.markdown("##### Contactos de emergência")
-                c_add, _ = st.columns([2, 3])
-                with c_add:
-                    if st.button("➕ Adicionar contacto de emergência", key=f"{fk}_add_em", disabled=dis):
-                        st.session_state.cag_n_emergency = min(st.session_state.cag_n_emergency + 1, 10)
-                        st.rerun()
 
-                for i in range(st.session_state.cag_n_emergency):
-                    st.text_input(f"Nome (emergência {i + 1})", key=f"{fk}_em_n_{i}", disabled=dis)
-                    render_grupo_telefone(
-                        st,
-                        prefix=f"{fk}_emerg_{i}",
-                        label=f"Telefone (emergência {i + 1})",
-                        disabled=dis,
-                    )
-
-        with st.container(border=True):
-            st.markdown("##### Observações")
-            st.text_area(
-                "Observações",
-                key=f"{fk}_obs",
-                height=100,
-                placeholder="Detalhes especiais sobre a pessoa (opcional).",
-                disabled=dis,
-            )
+        st.markdown("##### Observações")
+        st.text_area(
+            "Observações",
+            key=f"{fk}_obs",
+            height=100,
+            placeholder="Detalhes especiais sobre a pessoa (opcional).",
+            disabled=dis,
+        )
 
         if st.button(
             "Salvar dados do cliente",
@@ -919,20 +923,27 @@ def _cag_shift_month(d: date, delta: int) -> date:
     return date(y, mo, min(d.day, ld))
 
 
-def _render_cag_setor4_gestao_agendamentos(*, cliente_id: int, fv: int, tem_cliente: bool) -> None:
-    st.markdown(_cag_section_title_html("4. Agendamentos"), unsafe_allow_html=True)
+def _cag_setor4_agenda_keys(*, cliente_id: int, fv: int) -> dict[str, str]:
+    return {
+        "pick_key": f"cag_ag_pick_{cliente_id}_{fv}",
+        "offset_key": f"cag_agenda_offset_{cliente_id}_{fv}",
+        "mode_k": f"cag_cal_mode_{cliente_id}_{fv}",
+        "anc_k": f"cag_cal_anchor_{cliente_id}_{fv}",
+        "sort_col_k": f"cag_ag_sort_col_{cliente_id}_{fv}",
+        "sort_dir_k": f"cag_ag_sort_dir_{cliente_id}_{fv}",
+        "sort_sig_k": f"cag_ag_sort_sig_{cliente_id}_{fv}",
+    }
 
+
+def _cag_setor4_run_flash_wizards_pend(
+    *, cliente_id: int, fv: int, tem_cliente: bool, keys: dict[str, str]
+) -> None:
     flash = st.session_state.pop("cag_ag_flash", None)
     if flash:
         st.success(str(flash))
 
-    pick_key = f"cag_ag_pick_{cliente_id}_{fv}"
-    offset_key = f"cag_agenda_offset_{cliente_id}_{fv}"
-    mode_k = f"cag_cal_mode_{cliente_id}_{fv}"
-    anc_k = f"cag_cal_anchor_{cliente_id}_{fv}"
-    sort_col_k = f"cag_ag_sort_col_{cliente_id}_{fv}"
-    sort_dir_k = f"cag_ag_sort_dir_{cliente_id}_{fv}"
-    sort_sig_k = f"cag_ag_sort_sig_{cliente_id}_{fv}"
+    pick_key = keys["pick_key"]
+    offset_key = keys["offset_key"]
 
     wz = st.session_state.get("cag_ag_wizard")
     if isinstance(wz, dict):
@@ -1037,434 +1048,491 @@ def _render_cag_setor4_gestao_agendamentos(*, cliente_id: int, fv: int, tem_clie
                 st.session_state.cag_lib_ag_edit = False
                 st.rerun()
 
-    with st.expander("Informações Detalhadas dos Agendamentos do Cliente", expanded=False):
-        st.markdown("##### Agendamentos do Cliente")
 
-        if not tem_cliente:
-            st.info(
-                "Seleccione ou **registe** um cliente na secção **3. Dados Pessoais** para criar ou alterar agendamentos."
-            )
-            if not st.session_state.get("cag_ag_sem_cli_ready"):
-                _cag_limpar_form_ag_novo()
-                st.session_state.cag_ag_sem_cli_ready = True
-            return
+def _cag_setor4_try_prepare_context(
+    *, cliente_id: int, fv: int, tem_cliente: bool, keys: dict[str, str]
+) -> dict[str, Any] | None:
+    pick_key = keys["pick_key"]
+    mode_k = keys["mode_k"]
+    anc_k = keys["anc_k"]
 
-        st.session_state.cag_ag_sem_cli_ready = False
+    if not tem_cliente:
+        if not st.session_state.get("cag_ag_sem_cli_ready"):
+            _cag_limpar_form_ag_novo()
+            st.session_state.cag_ag_sem_cli_ready = True
+        return None
 
-        todos_all = listar_agendamentos(cliente_ids=[int(cliente_id)])
-        ids_all = {int(a["id"]) for a in todos_all}
-        raw_pick_top = str(st.session_state.get(pick_key) or "__novo__")
-        if raw_pick_top.startswith("id:"):
-            try:
-                _tid = int(raw_pick_top.split(":", 1)[1])
-                if _tid not in ids_all:
-                    st.session_state[pick_key] = "__novo__"
-                    st.session_state.cag_ag_hidr_pick = None
-                    raw_pick_top = "__novo__"
-            except ValueError:
+    st.session_state.cag_ag_sem_cli_ready = False
+
+    todos_all = listar_agendamentos(cliente_ids=[int(cliente_id)])
+    ids_all = {int(a["id"]) for a in todos_all}
+    raw_pick_top = str(st.session_state.get(pick_key) or "__novo__")
+    if raw_pick_top.startswith("id:"):
+        try:
+            _tid = int(raw_pick_top.split(":", 1)[1])
+            if _tid not in ids_all:
                 st.session_state[pick_key] = "__novo__"
                 st.session_state.cag_ag_hidr_pick = None
                 raw_pick_top = "__novo__"
+        except ValueError:
+            st.session_state[pick_key] = "__novo__"
+            st.session_state.cag_ag_hidr_pick = None
+            raw_pick_top = "__novo__"
 
-        _force_hydrate = bool(st.session_state.pop("cag_ag_need_hydrate", False))
-        hidr_sig_top = st.session_state.get("cag_ag_hidr_pick")
-        if _force_hydrate or hidr_sig_top != (pick_key, raw_pick_top):
-            if raw_pick_top.startswith("id:"):
-                try:
-                    _aid_h = int(raw_pick_top.split(":", 1)[1])
-                    ag0h = obter_agendamento(_aid_h)
-                    if ag0h:
-                        _cag_hidratar_form_ag(ag0h)
-                        st.session_state.cag_lib_ag_edit = _cag_lib_ag_edit_valor_apos_bloqueio()
-                except ValueError:
-                    pass
-            else:
-                _cag_limpar_form_ag_novo()
-                st.session_state.cag_lib_ag_edit = True
-            st.session_state.cag_ag_hidr_pick = (pick_key, raw_pick_top)
-
-        aid_sel: int | None = None
+    _force_hydrate = bool(st.session_state.pop("cag_ag_need_hydrate", False))
+    hidr_sig_top = st.session_state.get("cag_ag_hidr_pick")
+    if _force_hydrate or hidr_sig_top != (pick_key, raw_pick_top):
         if raw_pick_top.startswith("id:"):
             try:
-                aid_sel = int(raw_pick_top.split(":", 1)[1])
+                _aid_h = int(raw_pick_top.split(":", 1)[1])
+                ag0h = obter_agendamento(_aid_h)
+                if ag0h:
+                    _cag_hidratar_form_ag(ag0h)
+                    st.session_state.cag_lib_ag_edit = _cag_lib_ag_edit_valor_apos_bloqueio()
             except ValueError:
-                aid_sel = None
-        modo_novo = aid_sel is None
-
-        if modo_novo:
-            st.checkbox(
-                "Liberar edição do Agendamento Selecionado",
-                value=True,
-                disabled=True,
-                key=f"cag_lib_ag_edit_novo_ph_{fv}",
-            )
-            dis_ag = False
+                pass
         else:
-            st.checkbox(
-                "Liberar edição do Agendamento Selecionado",
-                key="cag_lib_ag_edit",
-            )
-            dis_ag = not bool(st.session_state.get("cag_lib_ag_edit"))
+            _cag_limpar_form_ag_novo()
+            st.session_state.cag_lib_ag_edit = True
+        st.session_state.cag_ag_hidr_pick = (pick_key, raw_pick_top)
 
-        st.session_state.setdefault(mode_k, "Semanal")
-        st.session_state.setdefault(anc_k, date.today())
-        modo = str(st.session_state.get(mode_k) or "Semanal")
-        anchor: date = st.session_state[anc_k]
-        if modo not in ("Semanal", "Mensal"):
-            modo = "Semanal"
-            st.session_state[mode_k] = modo
+    aid_sel: int | None = None
+    if raw_pick_top.startswith("id:"):
+        try:
+            aid_sel = int(raw_pick_top.split(":", 1)[1])
+        except ValueError:
+            aid_sel = None
+    modo_novo = aid_sel is None
 
-        st.radio(
-            "Período de visualização do calendário",
-            ["Semanal", "Mensal"],
-            horizontal=True,
-            key=mode_k,
+    if modo_novo:
+        dis_ag = False
+    else:
+        dis_ag = not bool(st.session_state.get("cag_lib_ag_edit"))
+
+    st.session_state.setdefault(mode_k, "Semanal")
+    st.session_state.setdefault(anc_k, date.today())
+
+    return {
+        **keys,
+        "raw_pick_top": raw_pick_top,
+        "aid_sel": aid_sel,
+        "modo_novo": modo_novo,
+        "dis_ag": dis_ag,
+    }
+
+
+def _cag_setor4_render_form_island(
+    *, cliente_id: int, fv: int, tem_cliente: bool, ctx: dict[str, Any]
+) -> None:
+    pick_key = ctx["pick_key"]
+    offset_key = ctx["offset_key"]
+    mode_k = ctx["mode_k"]
+    anc_k = ctx["anc_k"]
+    aid_sel = ctx["aid_sel"]
+    modo_novo = ctx["modo_novo"]
+    dis_ag = ctx["dis_ag"]
+
+    st.markdown("##### Agendamentos do Cliente")
+
+    if modo_novo:
+        st.checkbox(
+            "Liberar edição do Agendamento Selecionado",
+            value=True,
+            disabled=True,
+            key=f"cag_lib_ag_edit_novo_ph_{fv}",
         )
-        modo = str(st.session_state.get(mode_k) or "Semanal")
-        vis_lbl = "Visão Semanal" if modo == "Semanal" else "Visão Mensal"
-        st.markdown(f"##### Calendário ({vis_lbl})")
-
-        if modo == "Semanal":
-            mon, sun = _cag_week_range(anchor)
-            period_lbl = f"{mon.strftime('%d/%m')} — {sun.strftime('%d/%m/%Y')}"
-            prev_lab, next_lab = "Semana Anterior", "Semana Seguinte"
-            d_de, d_ate = mon.isoformat(), sun.isoformat()
-        else:
-            mon, sun = _cag_month_bounds(anchor)
-            period_lbl = f"{mon.strftime('%d/%m/%Y')} — {sun.strftime('%d/%m/%Y')}"
-            prev_lab, next_lab = "Mês Anterior", "Mês Seguinte"
-            d_de, d_ate = mon.isoformat(), sun.isoformat()
-
-        cnav1, cnav2, cnav3 = st.columns([1, 2, 1])
-        with cnav1:
-            if st.button(prev_lab, key=f"cag_cal_prev_{cliente_id}_{fv}"):
-                if modo == "Semanal":
-                    st.session_state[anc_k] = anchor - timedelta(days=7)
-                else:
-                    st.session_state[anc_k] = _cag_shift_month(anchor, -1)
-                st.rerun()
-        with cnav2:
-            st.markdown(
-                f"<div style='text-align:center;font-weight:600;'>{html.escape(period_lbl)}</div>",
-                unsafe_allow_html=True,
-            )
-        with cnav3:
-            if st.button(next_lab, key=f"cag_cal_next_{cliente_id}_{fv}"):
-                if modo == "Semanal":
-                    st.session_state[anc_k] = anchor + timedelta(days=7)
-                else:
-                    st.session_state[anc_k] = _cag_shift_month(anchor, 1)
-                st.rerun()
-
-        cal_rows = listar_agendamentos(
-            data_de=d_de,
-            data_ate=d_ate,
-            cliente_ids=[int(cliente_id)],
+    else:
+        st.checkbox(
+            "Liberar edição do Agendamento Selecionado",
+            key="cag_lib_ag_edit",
         )
-        if modo == "Semanal":
-            cal_html = _cag_week_cal_table_html(mon=mon, week_rows=cal_rows)
-        else:
-            cal_html = _cag_month_cal_table_html(ref=mon, month_rows=cal_rows)
-        st.markdown(f'<div class="bea-proto-scope">{cal_html}</div>', unsafe_allow_html=True)
+        dis_ag = not bool(st.session_state.get("cag_lib_ag_edit"))
 
-        st.markdown("##### Lista de Agendamentos do Cliente")
-        st.caption("Para realizar qualquer alteração, selecione a linha do agendamento desejado.")
+    modo = str(st.session_state.get(mode_k) or "Semanal")
+    anchor: date = st.session_state[anc_k]
+    if modo not in ("Semanal", "Mensal"):
+        modo = "Semanal"
+        st.session_state[mode_k] = modo
 
-        st.session_state.setdefault(sort_col_k, "Data")
-        st.session_state.setdefault(sort_dir_k, "Ascendente")
-        sort_col = st.selectbox(
-            "Ordenar por coluna",
-            ["Data", "Início", "Fim", "Serviço", "Estado"],
-            key=sort_col_k,
+    st.radio(
+        "Período de visualização do calendário",
+        ["Semanal", "Mensal"],
+        horizontal=True,
+        key=mode_k,
+    )
+    modo = str(st.session_state.get(mode_k) or "Semanal")
+    vis_lbl = "Visão Semanal" if modo == "Semanal" else "Visão Mensal"
+    st.markdown(f"##### Calendário ({vis_lbl})")
+
+    if modo == "Semanal":
+        mon, sun = _cag_week_range(anchor)
+        period_lbl = f"{mon.strftime('%d/%m')} — {sun.strftime('%d/%m/%Y')}"
+        prev_lab, next_lab = "Semana Anterior", "Semana Seguinte"
+        d_de, d_ate = mon.isoformat(), sun.isoformat()
+    else:
+        mon, sun = _cag_month_bounds(anchor)
+        period_lbl = f"{mon.strftime('%d/%m/%Y')} — {sun.strftime('%d/%m/%Y')}"
+        prev_lab, next_lab = "Mês Anterior", "Mês Seguinte"
+        d_de, d_ate = mon.isoformat(), sun.isoformat()
+
+    cnav1, cnav2, cnav3 = st.columns([1, 2, 1])
+    with cnav1:
+        if st.button(prev_lab, key=f"cag_cal_prev_{cliente_id}_{fv}"):
+            if modo == "Semanal":
+                st.session_state[anc_k] = anchor - timedelta(days=7)
+            else:
+                st.session_state[anc_k] = _cag_shift_month(anchor, -1)
+            st.rerun()
+    with cnav2:
+        st.markdown(
+            f"<div style='text-align:center;font-weight:600;color:#2D332F;'>{html.escape(period_lbl)}</div>",
+            unsafe_allow_html=True,
         )
-        sort_dir = st.radio(
-            "Ordem",
-            ["Ascendente", "Descendente"],
-            horizontal=True,
-            key=sort_dir_k,
-        )
-        sort_asc = sort_dir == "Ascendente"
-        sig_now = (sort_col, sort_dir)
-        if st.session_state.get(sort_sig_k) != sig_now:
-            st.session_state[offset_key] = 0
-            st.session_state[sort_sig_k] = sig_now
-
-        todos = listar_agendamentos(cliente_ids=[int(cliente_id)])
-        todos_sorted = _cag_sort_ag_rows(todos, col=sort_col, asc=sort_asc)
-        n = len(todos_sorted)
-        page_size = 5
-        n_pages = max(1, (n + page_size - 1) // page_size)
-        if offset_key not in st.session_state:
-            st.session_state[offset_key] = 0
-        off = int(st.session_state[offset_key])
-        if off >= n and n > 0:
-            off = max(0, ((n - 1) // page_size) * page_size)
-            st.session_state[offset_key] = off
-        chunk = todos_sorted[off : off + page_size]
-
-        lp1, lp2, lp3 = st.columns([1, 2, 1])
-        with lp1:
-            if st.button(
-                "◀ Anterior (lista)",
-                key=f"cag_ag_prev_{fv}",
-                disabled=off <= 0,
-            ):
-                st.session_state[offset_key] = max(0, off - page_size)
-                st.rerun()
-        with lp2:
-            st.caption(f"Página {off // page_size + 1} de {n_pages} · {n} registo(s)")
-        with lp3:
-            if st.button(
-                "Seguinte (lista) ▶",
-                key=f"cag_ag_next_{fv}",
-                disabled=off + page_size >= n,
-            ):
-                st.session_state[offset_key] = min(max(0, n - page_size), off + page_size)
-                st.rerun()
-
-        if chunk:
-            rows_html = [
-                "<tr>"
-                f"<td>{html.escape(_cag_format_data_pt(str(a['data_agendamento'])))}</td>"
-                f"<td>{html.escape(str(a['hora_inicio']))}</td>"
-                f"<td>{html.escape(str(a['hora_fim']))}</td>"
-                f"<td>{html.escape(str(a['servico_nome']))}</td>"
-                f"<td>{html.escape(_CAG_STATUS_DB_TO_LBL.get(str(a['status']), str(a['status'])))}</td>"
-                "</tr>"
-                for a in chunk
-            ]
-        else:
-            rows_html = [
-                "<tr><td colspan='5' style='padding:10px;color:#64748B;font-size:0.9rem;'>"
-                f"{html.escape('Sem agendamentos para este cliente.')}</td></tr>"
-            ]
-        table = (
-            "<table style='width:100%;border-collapse:collapse;font-size:0.9rem;'>"
-            "<thead><tr>"
-            "<th style='text-align:left;padding:6px;border-bottom:1px solid #e2e8f0;'>Data</th>"
-            "<th style='text-align:left;padding:6px;border-bottom:1px solid #e2e8f0;'>Início</th>"
-            "<th style='text-align:left;padding:6px;border-bottom:1px solid #e2e8f0;'>Fim</th>"
-            "<th style='text-align:left;padding:6px;border-bottom:1px solid #e2e8f0;'>Serviço</th>"
-            "<th style='text-align:left;padding:6px;border-bottom:1px solid #e2e8f0;'>Estado</th>"
-            "</tr></thead><tbody>"
-            + "".join(rows_html)
-            + "</tbody></table>"
-        )
-        st.markdown(f'<div class="bea-proto-scope">{table}</div>', unsafe_allow_html=True)
-
-        opt_vals: list[str] = ["__novo__"]
-        opt_labels: list[str] = ["— Novo agendamento —"]
-        for a in chunk:
-            opt_vals.append(f"id:{int(a['id'])}")
-            opt_labels.append(
-                f"#{a['id']} · {_cag_format_data_pt(str(a['data_agendamento']))} · "
-                f"{a['hora_inicio']}–{a['hora_fim']} · {str(a['servico_nome'])[:40]}"
-            )
-
-        def _label_for_val(v: str) -> str:
-            try:
-                i = opt_vals.index(v)
-                return opt_labels[i]
-            except ValueError:
-                return opt_labels[0]
-
-        if pick_key not in st.session_state or st.session_state[pick_key] not in opt_vals:
-            st.session_state[pick_key] = "__novo__"
-            st.session_state.cag_ag_need_hydrate = True
+    with cnav3:
+        if st.button(next_lab, key=f"cag_cal_next_{cliente_id}_{fv}"):
+            if modo == "Semanal":
+                st.session_state[anc_k] = anchor + timedelta(days=7)
+            else:
+                st.session_state[anc_k] = _cag_shift_month(anchor, 1)
             st.rerun()
 
-        def _cag_ag_pick_changed() -> None:
-            st.session_state.cag_ag_need_hydrate = True
+    cal_rows = listar_agendamentos(
+        data_de=d_de,
+        data_ate=d_ate,
+        cliente_ids=[int(cliente_id)],
+    )
+    if modo == "Semanal":
+        cal_html = _cag_week_cal_table_html(mon=mon, week_rows=cal_rows)
+    else:
+        cal_html = _cag_month_cal_table_html(ref=mon, month_rows=cal_rows)
+    st.markdown(f'<div class="bea-proto-scope">{cal_html}</div>', unsafe_allow_html=True)
 
-        st.selectbox(
-            "Seleccionar agendamento (página actual)",
-            options=opt_vals,
-            key=pick_key,
-            format_func=_label_for_val,
-            on_change=_cag_ag_pick_changed,
+    st.markdown("##### Dados do Agendamento")
+
+    colabs_all = listar_colaboradores_resumo()
+    col_opts = [c[0] for c in colabs_all]
+    col_lbl = {c[0]: c[1] for c in colabs_all}
+
+    r1c1, r1c2, r1c3 = st.columns(3)
+    with r1c1:
+        st.date_input(
+            "Data (dd/mm/aaaa)",
+            key="cag_ag_data",
+            format="DD/MM/YYYY",
+            disabled=dis_ag,
+        )
+    with r1c2:
+        st.text_input("Hora início (HH:MM)", key="cag_ag_hi", disabled=dis_ag, placeholder="09:00")
+    with r1c3:
+        st.text_input("Hora fim (HH:MM)", key="cag_ag_hf", disabled=dis_ag, placeholder="10:00")
+
+    all_srv = listar_servicos_para_venda()
+
+    r2c1, r2c2, r2c3, r2c4 = st.columns([1.05, 1.25, 1.45, 1.1], gap="small")
+    with r2c1:
+        if modo_novo:
+            naturezas_opts = list(NATUREZAS_CATALOGO_FASE3)
+            st.selectbox("Natureza", naturezas_opts, key="cag_ag_natureza", disabled=dis_ag)
+        else:
+            ag_cur = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
+            nat_cur = str(ag_cur.get("servico_natureza") or "") if ag_cur else ""
+            st.selectbox(
+                "Natureza",
+                [nat_cur] if nat_cur else ["—"],
+                disabled=True,
+                key=f"cag_ag_nat_combo_{aid_sel}_{fv}",
+            )
+    with r2c2:
+        if modo_novo:
+            nat = str(st.session_state.get("cag_ag_natureza") or "Sessão")
+            filtrados = [s for s in all_srv if str(s.get("natureza")) == nat]
+            choices = [f"{int(s['id'])}|{s['nome']}" for s in filtrados]
+            if not choices:
+                st.caption("—")
+                st.session_state.cag_ag_servico_esc = ""
+            else:
+                if "cag_ag_servico_esc" not in st.session_state or (
+                    st.session_state.cag_ag_servico_esc not in choices
+                ):
+                    st.session_state.cag_ag_servico_esc = choices[0]
+                st.selectbox("Serviço", options=choices, key="cag_ag_servico_esc", disabled=dis_ag)
+        else:
+            ag_cur2 = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
+            srv_cur = str(ag_cur2.get("servico_nome") or "") if ag_cur2 else ""
+            st.selectbox(
+                "Serviço",
+                [srv_cur] if srv_cur else ["—"],
+                disabled=True,
+                key=f"cag_ag_srv_combo_{aid_sel}_{fv}",
+            )
+    with r2c3:
+        st.multiselect(
+            "Colaborador(es)",
+            options=col_opts,
+            format_func=lambda i: col_lbl.get(int(i), str(i)),
+            key="cag_ag_colabs",
+            disabled=dis_ag,
+        )
+    with r2c4:
+        ag_cur3 = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
+        opts_st = _cag_opcoes_status_edicao(str(ag_cur3["status"]) if ag_cur3 else "AGENDADO")
+        cur_lbl = str(st.session_state.get("cag_ag_status_lbl") or "Agendado")
+        if cur_lbl not in opts_st:
+            opts_st.insert(0, cur_lbl)
+        st.selectbox("Estado", opts_st, key="cag_ag_status_lbl", disabled=dis_ag)
+
+    if not modo_novo:
+        ag_cur4 = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
+        modo_cred = ag_cur4 and str(ag_cur4.get("modo_origem") or "") != "pre_venda"
+        if modo_cred and str(st.session_state.get("cag_ag_status_lbl")) == "Cancelado":
+            st.checkbox(
+                "Devolver crédito ao buffer (saldo da linha de venda)",
+                key="cag_ag_devolver_buffer",
+                value=True,
+                disabled=dis_ag,
+            )
+
+    st.text_area("Observações", key="cag_ag_obs", height=72, disabled=dis_ag)
+
+    if st.button("Salvar Agendamento", type="secondary", key=f"cag_salvar_ag_{fv}", disabled=dis_ag):
+        if not tem_cliente:
+            st.warning("Carregue ou registe um cliente antes de gravar agendamentos.")
+        else:
+            d_ag = st.session_state.get("cag_ag_data")
+            hi = str(st.session_state.get("cag_ag_hi") or "").strip()
+            hf = str(st.session_state.get("cag_ag_hf") or "").strip()
+            obs = str(st.session_state.get("cag_ag_obs") or "").strip()
+            colab_ids = [int(x) for x in (st.session_state.get("cag_ag_colabs") or [])]
+
+            if d_ag is None or not hasattr(d_ag, "isoformat"):
+                st.error("Indique a data.")
+            elif not colab_ids:
+                st.error("Seleccione pelo menos um colaborador.")
+            elif modo_novo:
+                esc = str(st.session_state.get("cag_ag_servico_esc") or "")
+                if "|" not in esc:
+                    st.error("Seleccione um serviço válido.")
+                else:
+                    sid = int(esc.split("|", 1)[0])
+                    d_iso = d_ag.isoformat()
+                    ok, msg = criar_agendamento_pre_venda(
+                        int(cliente_id),
+                        sid,
+                        d_iso,
+                        hi,
+                        hf,
+                        colab_ids,
+                        obs,
+                        None,
+                    )
+                    if ok:
+                        new_id = _cag_ag_parse_novo_id(msg)
+                        if new_id is not None:
+                            st.session_state.cag_ag_last_created_id = new_id
+                        st.session_state.cag_ag_flash = "Informações salvas com sucesso."
+                        st.session_state.cag_ag_pending_novo_dialog = "ask"
+                        st.session_state[offset_key] = 0
+                        st.rerun()
+                    else:
+                        st.error(msg)
+            else:
+                assert aid_sel is not None
+                ag0 = obter_agendamento(int(aid_sel))
+                if not ag0:
+                    st.error("Agendamento não encontrado.")
+                else:
+                    status_lbl = str(st.session_state.get("cag_ag_status_lbl") or "")
+                    status_new = _cag_status_lbl_para_db(status_lbl)
+                    d_iso = d_ag.isoformat()
+                    dev_buf = bool(st.session_state.get("cag_ag_devolver_buffer", True))
+                    if str(ag0.get("modo_origem") or "") == "pre_venda":
+                        dev_buf = False
+                    cancel_trans = status_new == "CANCELADO" and str(ag0["status"]) != "CANCELADO"
+                    is_b = cancel_trans and _cag_pagamento_pago_ou_parcial(
+                        str(ag0.get("pagamento") or "")
+                    )
+                    base_pl: dict[str, Any] = {
+                        "cliente_id": int(cliente_id),
+                        "fv": int(fv),
+                        "pick_key": pick_key,
+                        "aid_sel": int(aid_sel),
+                        "d_iso": d_iso,
+                        "hi": hi,
+                        "hf": hf,
+                        "obs": obs,
+                        "colab_ids": colab_ids,
+                        "status_lbl": status_lbl,
+                        "status_new": status_new,
+                        "dev_buf": dev_buf,
+                        "converter_credito": False,
+                        "saldo_choice": None,
+                    }
+                    if is_b:
+                        st.session_state.cag_ag_wizard = {"step": "saldo", "payload": base_pl}
+                    else:
+                        st.session_state.cag_ag_wizard = {"step": "edit_alert", "payload": base_pl}
+                    st.rerun()
+
+
+def _cag_setor4_render_list_island(*, cliente_id: int, fv: int, ctx: dict[str, Any]) -> None:
+    pick_key = ctx["pick_key"]
+    offset_key = ctx["offset_key"]
+    sort_col_k = ctx["sort_col_k"]
+    sort_dir_k = ctx["sort_dir_k"]
+    sort_sig_k = ctx["sort_sig_k"]
+
+    st.caption("Para realizar qualquer alteração, selecione a linha do agendamento desejado.")
+
+    st.session_state.setdefault(sort_col_k, "Data")
+    st.session_state.setdefault(sort_dir_k, "Ascendente")
+    st.selectbox(
+        "Ordenar por coluna",
+        ["Data", "Início", "Fim", "Serviço", "Estado"],
+        key=sort_col_k,
+    )
+    sort_dir = st.radio(
+        "Ordem",
+        ["Ascendente", "Descendente"],
+        horizontal=True,
+        key=sort_dir_k,
+    )
+    sort_col = str(st.session_state.get(sort_col_k) or "Data")
+    sort_asc = sort_dir == "Ascendente"
+    sig_now = (sort_col, sort_dir)
+    if st.session_state.get(sort_sig_k) != sig_now:
+        st.session_state[offset_key] = 0
+        st.session_state[sort_sig_k] = sig_now
+
+    todos = listar_agendamentos(cliente_ids=[int(cliente_id)])
+    todos_sorted = _cag_sort_ag_rows(todos, col=sort_col, asc=sort_asc)
+    n = len(todos_sorted)
+    page_size = 5
+    n_pages = max(1, (n + page_size - 1) // page_size)
+    if offset_key not in st.session_state:
+        st.session_state[offset_key] = 0
+    off = int(st.session_state[offset_key])
+    if off >= n and n > 0:
+        off = max(0, ((n - 1) // page_size) * page_size)
+        st.session_state[offset_key] = off
+    chunk = todos_sorted[off : off + page_size]
+
+    lp1, lp2, lp3 = st.columns([1, 2, 1])
+    with lp1:
+        if st.button(
+            "◀ Anterior (lista)",
+            key=f"cag_ag_prev_{fv}",
+            disabled=off <= 0,
+        ):
+            st.session_state[offset_key] = max(0, off - page_size)
+            st.rerun()
+    with lp2:
+        st.caption(f"Página {off // page_size + 1} de {n_pages} · {n} registo(s)")
+    with lp3:
+        if st.button(
+            "Seguinte (lista) ▶",
+            key=f"cag_ag_next_{fv}",
+            disabled=off + page_size >= n,
+        ):
+            st.session_state[offset_key] = min(max(0, n - page_size), off + page_size)
+            st.rerun()
+
+    if chunk:
+        rows_html = [
+            "<tr>"
+            f"<td>{html.escape(_cag_format_data_pt(str(a['data_agendamento'])))}</td>"
+            f"<td>{html.escape(str(a['hora_inicio']))}</td>"
+            f"<td>{html.escape(str(a['hora_fim']))}</td>"
+            f"<td>{html.escape(str(a['servico_nome']))}</td>"
+            "<td>"
+            f"{_cag_status_badge_html(str(a['status']), _CAG_STATUS_DB_TO_LBL.get(str(a['status']), str(a['status'])))}"
+            "</td>"
+            "</tr>"
+            for a in chunk
+        ]
+    else:
+        rows_html = [
+            "<tr><td colspan='5' style='padding:10px;color:#64748B;font-size:0.9rem;'>"
+            f"{html.escape('Sem agendamentos para este cliente.')}</td></tr>"
+        ]
+    table = (
+        "<table style='width:100%;border-collapse:collapse;font-size:0.9rem;font-family:var(--cv-sans,Montserrat),sans-serif;'>"
+        "<thead><tr>"
+        "<th style='text-align:left;padding:6px;border-bottom:1px solid rgba(118,148,125,0.2);color:#2D332F;'>Data</th>"
+        "<th style='text-align:left;padding:6px;border-bottom:1px solid rgba(118,148,125,0.2);color:#2D332F;'>Início</th>"
+        "<th style='text-align:left;padding:6px;border-bottom:1px solid rgba(118,148,125,0.2);color:#2D332F;'>Fim</th>"
+        "<th style='text-align:left;padding:6px;border-bottom:1px solid rgba(118,148,125,0.2);color:#2D332F;'>Serviço</th>"
+        "<th style='text-align:left;padding:6px;border-bottom:1px solid rgba(118,148,125,0.2);color:#2D332F;'>Estado</th>"
+        "</tr></thead><tbody>"
+        + "".join(rows_html)
+        + "</tbody></table>"
+    )
+    st.markdown(f'<div class="bea-proto-scope">{table}</div>', unsafe_allow_html=True)
+
+    opt_vals: list[str] = ["__novo__"]
+    opt_labels: list[str] = ["— Novo agendamento —"]
+    for a in chunk:
+        opt_vals.append(f"id:{int(a['id'])}")
+        opt_labels.append(
+            f"#{a['id']} · {_cag_format_data_pt(str(a['data_agendamento']))} · "
+            f"{a['hora_inicio']}–{a['hora_fim']} · {str(a['servico_nome'])[:40]}"
         )
 
-        st.markdown("##### Dados do Agendamento")
+    def _label_for_val(v: str) -> str:
+        try:
+            i = opt_vals.index(v)
+            return opt_labels[i]
+        except ValueError:
+            return opt_labels[0]
 
-        colabs_all = listar_colaboradores_resumo()
-        col_opts = [c[0] for c in colabs_all]
-        col_lbl = {c[0]: c[1] for c in colabs_all}
+    if pick_key not in st.session_state or st.session_state[pick_key] not in opt_vals:
+        st.session_state[pick_key] = "__novo__"
+        st.session_state.cag_ag_need_hydrate = True
+        st.rerun()
 
-        r1c1, r1c2, r1c3 = st.columns(3)
-        with r1c1:
-            st.date_input(
-                "Data (dd/mm/aaaa)",
-                key="cag_ag_data",
-                format="DD/MM/YYYY",
-                disabled=dis_ag,
+    def _cag_ag_pick_changed() -> None:
+        st.session_state.cag_ag_need_hydrate = True
+
+    st.selectbox(
+        "Seleccionar agendamento (página actual)",
+        options=opt_vals,
+        key=pick_key,
+        format_func=_label_for_val,
+        on_change=_cag_ag_pick_changed,
+    )
+
+
+def _render_cag_setor4_gestao_agendamentos(*, cliente_id: int, fv: int, tem_cliente: bool) -> None:
+    keys = _cag_setor4_agenda_keys(cliente_id=cliente_id, fv=fv)
+    _cag_setor4_run_flash_wizards_pend(cliente_id=cliente_id, fv=fv, tem_cliente=tem_cliente, keys=keys)
+    ctx = _cag_setor4_try_prepare_context(cliente_id=cliente_id, fv=fv, tem_cliente=tem_cliente, keys=keys)
+    st.markdown(_cag_section_title_html("4. Agendamentos"), unsafe_allow_html=True)
+    with st.container(border=True):
+        if ctx is None:
+            st.info(
+                "Seleccione ou **registe** um cliente na secção **3. Dados Pessoais** para criar ou alterar agendamentos."
             )
-        with r1c2:
-            st.text_input("Hora início (HH:MM)", key="cag_ag_hi", disabled=dis_ag, placeholder="09:00")
-        with r1c3:
-            st.text_input("Hora fim (HH:MM)", key="cag_ag_hf", disabled=dis_ag, placeholder="10:00")
-
-        all_srv = listar_servicos_para_venda()
-
-        r2c1, r2c2, r2c3, r2c4 = st.columns([1.05, 1.25, 1.45, 1.1], gap="small")
-        with r2c1:
-            if modo_novo:
-                naturezas_opts = list(NATUREZAS_CATALOGO_FASE3)
-                st.selectbox("Natureza", naturezas_opts, key="cag_ag_natureza", disabled=dis_ag)
-            else:
-                ag_cur = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
-                nat_cur = str(ag_cur.get("servico_natureza") or "") if ag_cur else ""
-                st.selectbox(
-                    "Natureza",
-                    [nat_cur] if nat_cur else ["—"],
-                    disabled=True,
-                    key=f"cag_ag_nat_combo_{aid_sel}_{fv}",
-                )
-        with r2c2:
-            if modo_novo:
-                nat = str(st.session_state.get("cag_ag_natureza") or "Sessão")
-                filtrados = [s for s in all_srv if str(s.get("natureza")) == nat]
-                choices = [f"{int(s['id'])}|{s['nome']}" for s in filtrados]
-                if not choices:
-                    st.caption("—")
-                    st.session_state.cag_ag_servico_esc = ""
-                else:
-                    if "cag_ag_servico_esc" not in st.session_state or (
-                        st.session_state.cag_ag_servico_esc not in choices
-                    ):
-                        st.session_state.cag_ag_servico_esc = choices[0]
-                    st.selectbox("Serviço", options=choices, key="cag_ag_servico_esc", disabled=dis_ag)
-            else:
-                ag_cur2 = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
-                srv_cur = str(ag_cur2.get("servico_nome") or "") if ag_cur2 else ""
-                st.selectbox(
-                    "Serviço",
-                    [srv_cur] if srv_cur else ["—"],
-                    disabled=True,
-                    key=f"cag_ag_srv_combo_{aid_sel}_{fv}",
-                )
-        with r2c3:
-            st.multiselect(
-                "Colaborador(es)",
-                options=col_opts,
-                format_func=lambda i: col_lbl.get(int(i), str(i)),
-                key="cag_ag_colabs",
-                disabled=dis_ag,
-            )
-        with r2c4:
-            ag_cur3 = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
-            opts_st = _cag_opcoes_status_edicao(str(ag_cur3["status"]) if ag_cur3 else "AGENDADO")
-            cur_lbl = str(st.session_state.get("cag_ag_status_lbl") or "Agendado")
-            if cur_lbl not in opts_st:
-                opts_st.insert(0, cur_lbl)
-            st.selectbox("Estado", opts_st, key="cag_ag_status_lbl", disabled=dis_ag)
-
-        if not modo_novo:
-            ag_cur4 = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
-            modo_cred = ag_cur4 and str(ag_cur4.get("modo_origem") or "") != "pre_venda"
-            if modo_cred and str(st.session_state.get("cag_ag_status_lbl")) == "Cancelado":
-                st.checkbox(
-                    "Devolver crédito ao buffer (saldo da linha de venda)",
-                    key="cag_ag_devolver_buffer",
-                    value=True,
-                    disabled=dis_ag,
-                )
-
-        st.text_area("Observações", key="cag_ag_obs", height=72, disabled=dis_ag)
-
-        if st.button("Salvar Agendamento", type="secondary", key=f"cag_salvar_ag_{fv}", disabled=dis_ag):
-            if not tem_cliente:
-                st.warning("Carregue ou registe um cliente antes de gravar agendamentos.")
-            else:
-                d_ag = st.session_state.get("cag_ag_data")
-                hi = str(st.session_state.get("cag_ag_hi") or "").strip()
-                hf = str(st.session_state.get("cag_ag_hf") or "").strip()
-                obs = str(st.session_state.get("cag_ag_obs") or "").strip()
-                colab_ids = [int(x) for x in (st.session_state.get("cag_ag_colabs") or [])]
-
-                if d_ag is None or not hasattr(d_ag, "isoformat"):
-                    st.error("Indique a data.")
-                elif not colab_ids:
-                    st.error("Seleccione pelo menos um colaborador.")
-                elif modo_novo:
-                    esc = str(st.session_state.get("cag_ag_servico_esc") or "")
-                    if "|" not in esc:
-                        st.error("Seleccione um serviço válido.")
-                    else:
-                        sid = int(esc.split("|", 1)[0])
-                        d_iso = d_ag.isoformat()
-                        ok, msg = criar_agendamento_pre_venda(
-                            int(cliente_id),
-                            sid,
-                            d_iso,
-                            hi,
-                            hf,
-                            colab_ids,
-                            obs,
-                            None,
-                        )
-                        if ok:
-                            new_id = _cag_ag_parse_novo_id(msg)
-                            if new_id is not None:
-                                st.session_state.cag_ag_last_created_id = new_id
-                            st.session_state.cag_ag_flash = "Informações salvas com sucesso."
-                            st.session_state.cag_ag_pending_novo_dialog = "ask"
-                            st.session_state[offset_key] = 0
-                            st.rerun()
-                        else:
-                            st.error(msg)
-                else:
-                    assert aid_sel is not None
-                    ag0 = obter_agendamento(int(aid_sel))
-                    if not ag0:
-                        st.error("Agendamento não encontrado.")
-                    else:
-                        status_lbl = str(st.session_state.get("cag_ag_status_lbl") or "")
-                        status_new = _cag_status_lbl_para_db(status_lbl)
-                        d_iso = d_ag.isoformat()
-                        dev_buf = bool(st.session_state.get("cag_ag_devolver_buffer", True))
-                        if str(ag0.get("modo_origem") or "") == "pre_venda":
-                            dev_buf = False
-                        cancel_trans = status_new == "CANCELADO" and str(ag0["status"]) != "CANCELADO"
-                        is_b = cancel_trans and _cag_pagamento_pago_ou_parcial(
-                            str(ag0.get("pagamento") or "")
-                        )
-                        base_pl: dict[str, Any] = {
-                            "cliente_id": int(cliente_id),
-                            "fv": int(fv),
-                            "pick_key": pick_key,
-                            "aid_sel": int(aid_sel),
-                            "d_iso": d_iso,
-                            "hi": hi,
-                            "hf": hf,
-                            "obs": obs,
-                            "colab_ids": colab_ids,
-                            "status_lbl": status_lbl,
-                            "status_new": status_new,
-                            "dev_buf": dev_buf,
-                            "converter_credito": False,
-                            "saldo_choice": None,
-                        }
-                        if is_b:
-                            st.session_state.cag_ag_wizard = {"step": "saldo", "payload": base_pl}
-                        else:
-                            st.session_state.cag_ag_wizard = {"step": "edit_alert", "payload": base_pl}
-                        st.rerun()
+        else:
+            _cag_setor4_render_form_island(cliente_id=cliente_id, fv=fv, tem_cliente=tem_cliente, ctx=ctx)
+    st.markdown(
+        '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
+        unsafe_allow_html=True,
+    )
+    with st.container(border=True):
+        st.markdown(_cag_section_title_html("Lista de agendamentos"), unsafe_allow_html=True)
+        if ctx is None:
+            st.caption("Seleccione ou registe um cliente para ver a listagem.")
+        else:
+            _cag_setor4_render_list_island(cliente_id=cliente_id, fv=fv, ctx=ctx)
 
 
 def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
+    inject_constituicao_cag_page()
     render_back_and_breadcrumb(
         ["Home", "Clientes e Agendamentos", "Cadastro"],
         back_key="bea_back_clientes_agendamentos",
     )
     st.markdown(
-        '<div class="bea-proto-scope"><div class="bea-pdv-titulo-wrap">'
-        '<p class="bea-pdv-titulo">Cadastro de Clientes e Gestão de Agendamentos</p></div></div>',
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        '<div style="height:6px;background:linear-gradient(90deg,#F0FDF4,#D1FAE5,#A7F3D0);'
-        "border-radius:8px;margin:0 0 0.85rem 0;opacity:0.95;\"></div>",
+        '<h1 class="bea-cv-cag-h1">Cadastro de Clientes e Gestão de Agendamentos</h1>',
         unsafe_allow_html=True,
     )
 
@@ -1542,8 +1610,7 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
     cands_m = st.session_state.get("cag_busca_cands")
     if cands_m and len(cands_m) > 1:
         st.markdown(
-            '<div class="bea-proto-scope"><p class="bea-pdv-titulo" '
-            'style="font-size:1.05rem;margin:0.6rem 0 0.35rem 0;">Resultados</p></div>',
+            '<div class="bea-cv-cag-h2" style="font-size:1.05rem;margin:0.6rem 0 0.35rem 0;">Resultados</div>',
             unsafe_allow_html=True,
         )
         n_c = len(cands_m)
@@ -1619,13 +1686,37 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
         _cag_garantir_defaults_formulario_vazio(fk)
         st.session_state.pop("cag_ficha_loaded_sig", None)
 
-    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-    _render_cag_setor3_dados_pessoais_completo(
-        fk=fk,
-        tem_cliente=tem_cliente,
-        eid=int(eid) if tem_cliente else None,
-    )
-
     cid_ag = int(eid) if tem_cliente else 0
-    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-    _render_cag_setor4_gestao_agendamentos(cliente_id=cid_ag, fv=fv, tem_cliente=tem_cliente)
+    keys = _cag_setor4_agenda_keys(cliente_id=cid_ag, fv=fv)
+
+    st.markdown(
+        '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
+        unsafe_allow_html=True,
+    )
+    with st.container(border=True):
+        _render_cag_setor3_dados_pessoais_completo(
+            fk=fk,
+            tem_cliente=tem_cliente,
+            eid=int(eid) if tem_cliente else None,
+        )
+        st.markdown(_cag_section_title_html("4. Agendamentos"), unsafe_allow_html=True)
+        _cag_setor4_run_flash_wizards_pend(cliente_id=cid_ag, fv=fv, tem_cliente=tem_cliente, keys=keys)
+        ctx = _cag_setor4_try_prepare_context(cliente_id=cid_ag, fv=fv, tem_cliente=tem_cliente, keys=keys)
+        if ctx is None:
+            st.info(
+                "Seleccione ou **registe** um cliente na secção **3. Dados Pessoais** "
+                "para criar ou alterar agendamentos."
+            )
+        else:
+            _cag_setor4_render_form_island(cliente_id=cid_ag, fv=fv, tem_cliente=tem_cliente, ctx=ctx)
+
+    st.markdown(
+        '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
+        unsafe_allow_html=True,
+    )
+    with st.container(border=True):
+        st.markdown(_cag_section_title_html("Lista de agendamentos"), unsafe_allow_html=True)
+        if ctx is None:
+            st.caption("Seleccione ou registe um cliente para ver a listagem.")
+        else:
+            _cag_setor4_render_list_island(cliente_id=cid_ag, fv=fv, ctx=ctx)

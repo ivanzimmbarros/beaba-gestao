@@ -273,3 +273,112 @@ def inject_constituicao_shell() -> None:
 
 def inject_constituicao_home_hub() -> None:
     st.markdown(get_constituicao_home_hub_css(), unsafe_allow_html=True)
+
+
+# Badges Master §5 — Área Única (CAG)
+CV_BADGE_TERRA_BG = "#FFF4E5"
+CV_BADGE_TERRA_FG = "#D4A373"
+CV_BADGE_VERDE_BG = "#E8F0EA"
+CV_BADGE_VERDE_FG = "#76947D"
+
+
+def get_constituicao_cag_page_css() -> str:
+    """Ilhas Master, separação 20px, badges estado, acções com círculo 15% sálvia (só na página CAG)."""
+    return f"""
+<style>
+    .bea-cv-cag-gap {{
+        min-height: 20px;
+        height: 20px;
+        margin: 0;
+        padding: 0;
+        pointer-events: none;
+    }}
+    section[data-testid="stMain"] [data-testid="stVerticalBlockBorderWrapper"] {{
+        background: {CV_BRANCO} !important;
+        border-radius: var(--cv-radius-isla) !important;
+        box-shadow: var(--cv-sombra-composta) !important;
+        border: 1px solid rgba(118, 148, 125, 0.12) !important;
+        padding: 24px 28px !important;
+    }}
+    section[data-testid="stMain"] [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlockBorderWrapper"] {{
+        padding: 18px 20px !important;
+        box-shadow: 0 2px 12px rgba(118, 148, 125, 0.08) !important;
+    }}
+    .bea-cv-cag-h1 {{
+        font-family: var(--cv-serif) !important;
+        font-weight: 500 !important;
+        color: {CV_TITULO} !important;
+        font-size: clamp(1.45rem, 3.2vw, 1.85rem) !important;
+        margin: 0 0 0.5rem 0 !important;
+        letter-spacing: 0.02em !important;
+        line-height: 1.25 !important;
+    }}
+    .bea-cv-cag-h2 {{
+        font-family: var(--cv-serif) !important;
+        font-weight: 500 !important;
+        color: {CV_TITULO} !important;
+        font-size: 1.2rem !important;
+        margin: 0 0 0.5rem 0 !important;
+        letter-spacing: 0.01em !important;
+    }}
+    .bea-cv-badge-terracota {{
+        display: inline-block;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        font-family: var(--cv-sans);
+        font-size: 0.78rem;
+        font-weight: 600;
+        background: {CV_BADGE_TERRA_BG};
+        color: {CV_BADGE_TERRA_FG};
+        white-space: nowrap;
+    }}
+    .bea-cv-badge-verde {{
+        display: inline-block;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        font-family: var(--cv-sans);
+        font-size: 0.78rem;
+        font-weight: 600;
+        background: {CV_BADGE_VERDE_BG};
+        color: {CV_BADGE_VERDE_FG};
+        white-space: nowrap;
+    }}
+    .bea-cv-badge-neutro {{
+        display: inline-block;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        font-family: var(--cv-sans);
+        font-size: 0.78rem;
+        font-weight: 500;
+        background: rgba(45, 51, 47, 0.06);
+        color: {CV_TITULO};
+        opacity: 0.85;
+        white-space: nowrap;
+    }}
+    section[data-testid="stMain"] [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stButton"] > button {{
+        border-radius: 9999px !important;
+        background: rgba(118, 148, 125, 0.15) !important;
+        border: 1px solid rgba(118, 148, 125, 0.35) !important;
+        color: {CV_TITULO} !important;
+        font-family: var(--cv-sans) !important;
+        font-weight: 500 !important;
+        box-shadow: none !important;
+    }}
+    section[data-testid="stMain"] [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stButton"] > button:hover {{
+        background: rgba(118, 148, 125, 0.22) !important;
+        border-color: rgba(118, 148, 125, 0.5) !important;
+    }}
+    section[data-testid="stMain"] [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stButton"] > button[kind="primary"] {{
+        background: rgba(118, 148, 125, 0.22) !important;
+        border-color: {CV_SALVIA} !important;
+        color: #FFFFFF !important;
+    }}
+    section[data-testid="stMain"] [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stButton"] > button[kind="primary"]:hover {{
+        filter: brightness(1.05);
+    }}
+</style>
+"""
+
+
+def inject_constituicao_cag_page() -> None:
+    st.markdown(get_constituicao_cag_page_css(), unsafe_allow_html=True)

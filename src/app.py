@@ -10,6 +10,7 @@ import streamlit as st
 
 from src.database.connection import create_tables
 from src.ui.constituicao_visual_shell import inject_constituicao_home_hub, inject_constituicao_shell
+from src.ui.fmt_euro_constituicao import fmt_euro_centavos
 from src.ui.page_catalogo import render_page_catalogo
 from src.ui.page_clientes_agendamentos import render_page_clientes_agendamentos
 from src.ui.page_colaboradores import render_page_colaboradores
@@ -36,17 +37,8 @@ if "page" not in st.session_state:
 
 
 def _fmt_euro_centavos(centavos: int) -> str:
-    """Formato canónico Master: € 1.250,00 (milhar por ponto, decimal vírgula)."""
-    neg = "−" if centavos < 0 else ""
-    x = abs(int(centavos))
-    euros, cent = divmod(x, 100)
-    s = str(euros)
-    parts: list[str] = []
-    while s:
-        parts.append(s[-3:])
-        s = s[:-3]
-    body = ".".join(reversed(parts))
-    return f"{neg}€ {body},{cent:02d}"
+    """Alias Hub: mesmo formato que `fmt_euro_centavos` (Constituição Visual)."""
+    return fmt_euro_centavos(centavos)
 
 
 def _shell_no_breadcrumb(*_a, **_k) -> None:
