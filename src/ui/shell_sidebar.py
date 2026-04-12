@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import streamlit as st
 
-# Ordem e chaves alinhadas a `src.app.main`
+# Ordem e chaves alinhadas a `src.app` (Streamlit). Posição 0 = Início (home).
 NAV_ITEMS: list[tuple[str, str]] = [
+    ("home", "Início"),
     ("clientes_agendamentos", "Clientes e Agendamentos"),
     ("vendas", "Painel de Vendas"),
     ("colaboradores", "Colaboradores"),
@@ -46,9 +47,6 @@ def render_shell_sidebar(*, current_page: str) -> None:
             '<p class="bea-sidebar-sector-title">Outros</p>',
             unsafe_allow_html=True,
         )
-        if st.button("Início / Hub", key="bea_nav_home", use_container_width=True):
-            st.session_state.page = "home"
-            st.rerun()
         if st.button("Dashboards", key="bea_nav_dash", use_container_width=True):
             st.session_state.page = "dashboards"
             st.rerun()
