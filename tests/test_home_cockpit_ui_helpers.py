@@ -7,6 +7,7 @@ from datetime import date, datetime
 from src.ui.home_cockpit_ui_helpers import (
     agenda_day_table_html,
     evolucao_atendimentos_html,
+    home_section_heading_html,
     row_is_proxima,
     status_badge_html,
 )
@@ -68,6 +69,12 @@ def test_row_is_proxima_limites():
 def test_status_badge_terracota_em_atendimento():
     h, _ = status_badge_html("REALIZADO_PENDENTE_PGTO")
     assert "terracota" in h
+
+
+def test_home_section_heading_serif_class():
+    h = home_section_heading_html(text="Agenda do dia")
+    assert "bea-cv-home-block-h" in h
+    assert "Agenda do dia" in h
 
 
 def test_evolucao_html_smoke():

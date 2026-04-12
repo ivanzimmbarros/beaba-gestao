@@ -22,6 +22,9 @@ from src.ui.constituicao_visual_shell import (
 from src.ui.home_cockpit_ui_helpers import (
     agenda_day_table_html,
     evolucao_atendimentos_html,
+    home_island_mark_html,
+    home_section_heading_html,
+    panorama_card_block_html,
 )
 
 CV_SALVIA = "rgba(118, 148, 125, 0.88)"
@@ -222,64 +225,69 @@ def render_page_home() -> None:
         ym = _ref_ym(snap)
         m_lbl = f"{ym[1]:02d}/{ym[0]}"
 
-        with st.container(border=True):
+        st.markdown(
+            '<p class="bea-cv-cockpit-tier-title">Principais Indicadores</p>',
+            unsafe_allow_html=True,
+        )
+        d1, d2, d3 = st.columns(3)
+        cfg = dict(displayModeBar=False, staticPlot=False)
+        with d1:
+            st.markdown(home_island_mark_html(), unsafe_allow_html=True)
+            st.plotly_chart(
+                _figure_donut_hoje_semana(
+                    snap.donut1_confirmados_hoje,
+                    snap.donut1_previstos_semana,
+                ),
+                use_container_width=True,
+                config=cfg,
+                key="home_donut_hoje",
+            )
             st.markdown(
-                '<p class="bea-cv-cockpit-tier-title">Principais Indicadores</p>',
+                '<p class="bea-cv-donut-caption">Atendimentos Confirmados Para Hoje</p>',
                 unsafe_allow_html=True,
             )
-            d1, d2, d3 = st.columns(3)
-            cfg = dict(displayModeBar=False, staticPlot=False)
-            with d1:
-                st.plotly_chart(
-                    _figure_donut_hoje_semana(
-                        snap.donut1_confirmados_hoje,
-                        snap.donut1_previstos_semana,
-                    ),
-                    use_container_width=True,
-                    config=cfg,
-                    key="home_donut_hoje",
-                )
-                st.markdown(
-                    '<p class="bea-cv-donut-caption">Atendimentos Confirmados Para Hoje</p>',
-                    unsafe_allow_html=True,
-                )
-            with d2:
-                st.plotly_chart(
-                    _figure_donut_contagem_unica(snap.donut2_agendados_e_confirmados_semana),
-                    use_container_width=True,
-                    config=cfg,
-                    key="home_donut_semana",
-                )
-                st.markdown(
-                    '<p class="bea-cv-donut-caption">Atendimentos Agendados e Confirmados na Semana!</p>',
-                    unsafe_allow_html=True,
-                )
-            with d3:
-                st.plotly_chart(
-                    _figure_donut_taxa_cancelamento(snap.donut3_taxa_cancelamento_pct),
-                    use_container_width=True,
-                    config=cfg,
-                    key="home_donut_retencao",
-                )
-                st.markdown(
-                    '<p class="bea-cv-donut-caption">Taxa de Cancelamento Acumulada do Mês</p>',
-                    unsafe_allow_html=True,
-                )
+        with d2:
+            st.markdown(home_island_mark_html(), unsafe_allow_html=True)
+            st.plotly_chart(
+                _figure_donut_contagem_unica(snap.donut2_agendados_e_confirmados_semana),
+                use_container_width=True,
+                config=cfg,
+                key="home_donut_semana",
+            )
+            st.markdown(
+                '<p class="bea-cv-donut-caption">Atendimentos Agendados e Confirmados na Semana!</p>',
+                unsafe_allow_html=True,
+            )
+        with d3:
+            st.markdown(home_island_mark_html(), unsafe_allow_html=True)
+            st.plotly_chart(
+                _figure_donut_taxa_cancelamento(snap.donut3_taxa_cancelamento_pct),
+                use_container_width=True,
+                config=cfg,
+                key="home_donut_retencao",
+            )
+            st.markdown(
+                '<p class="bea-cv-donut-caption">Taxa de Cancelamento Acumulada do Mês</p>',
+                unsafe_allow_html=True,
+            )
 
-        with st.container(border=True):
+        st.markdown(
+            '<p class="bea-cv-cockpit-tier-title">Panorama Global</p>',
+            unsafe_allow_html=True,
+        )
+        p1, p2, p3, p4 = st.columns(4)
+        with p1:
+            st.markdown(home_island_mark_html(), unsafe_allow_html=True)
             st.markdown(
-                '<p class="bea-cv-cockpit-tier-title">Panorama Global</p>',
+                panorama_card_block_html(
+                    material_icon="euro_symbol",
+                    title="Estimativa de atendimentos não confirmados no Mês",
+                    value_display=snap.card1_valor_fmt(),
+                    testid="bea-home-card-estimativa",
+                ),
                 unsafe_allow_html=True,
             )
-            p1, p2, p3, p4 = st.columns(4)
-            with p1:
-                st.markdown(
-                    f'<div class="bea-cv-panorama-card-title">Estimativa de atendimentos não confirmados no Mês</div>'
-                    f'<div class="bea-cv-panorama-card-val" data-testid="bea-home-card-estimativa">'
-                    f"{snap.card1_valor_fmt()}</div>",
-                    unsafe_allow_html=True,
-                )
-                if st.button(
+            if st.button(
                     f"Explorar — estimativa ({m_lbl})",
                     key="home_drill_estimativa",
                     use_container_width=True,
@@ -292,14 +300,18 @@ def render_page_home() -> None:
                         ),
                         seed_month=ym,
                     )
-            with p2:
-                st.markdown(
-                    f'<div class="bea-cv-panorama-card-title">Total de Agendamentos não Confirmados</div>'
-                    f'<div class="bea-cv-panorama-card-val" data-testid="bea-home-card-nao-conf">'
-                    f"{int(snap.card2_total_nao_confirmados_mes)}</div>",
-                    unsafe_allow_html=True,
-                )
-                if st.button(
+        with p2:
+            st.markdown(home_island_mark_html(), unsafe_allow_html=True)
+            st.markdown(
+                panorama_card_block_html(
+                    material_icon="event_busy",
+                    title="Total de Agendamentos não Confirmados",
+                    value_display=str(int(snap.card2_total_nao_confirmados_mes)),
+                    testid="bea-home-card-nao-conf",
+                ),
+                unsafe_allow_html=True,
+            )
+            if st.button(
                     f"Explorar — não confirmados ({m_lbl})",
                     key="home_drill_nao_conf",
                     use_container_width=True,
@@ -313,14 +325,18 @@ def render_page_home() -> None:
                         ),
                         seed_month=ym,
                     )
-            with p3:
-                st.markdown(
-                    f'<div class="bea-cv-panorama-card-title">Atendimentos em Pré-agendamento</div>'
-                    f'<div class="bea-cv-panorama-card-val" data-testid="bea-home-card-pre-ag">'
-                    f"{int(snap.card3_pre_agendados_mes)}</div>",
-                    unsafe_allow_html=True,
-                )
-                if st.button(
+        with p3:
+            st.markdown(home_island_mark_html(), unsafe_allow_html=True)
+            st.markdown(
+                panorama_card_block_html(
+                    material_icon="pending_actions",
+                    title="Atendimentos em Pré-agendamento",
+                    value_display=str(int(snap.card3_pre_agendados_mes)),
+                    testid="bea-home-card-pre-ag",
+                ),
+                unsafe_allow_html=True,
+            )
+            if st.button(
                     f"Explorar — pré-agendados ({m_lbl})",
                     key="home_drill_pre_ag",
                     use_container_width=True,
@@ -333,14 +349,18 @@ def render_page_home() -> None:
                         ),
                         seed_month=ym,
                     )
-            with p4:
-                st.markdown(
-                    f'<div class="bea-cv-panorama-card-title">Saldo de Clientes Pendente Confirmacao</div>'
-                    f'<div class="bea-cv-panorama-card-val" data-testid="bea-home-card-credito">'
-                    f"{snap.card4_valor_fmt()}</div>",
-                    unsafe_allow_html=True,
-                )
-                if st.button(
+        with p4:
+            st.markdown(home_island_mark_html(), unsafe_allow_html=True)
+            st.markdown(
+                panorama_card_block_html(
+                    material_icon="account_balance_wallet",
+                    title="Saldo de Clientes Pendente Confirmacao",
+                    value_display=snap.card4_valor_fmt(),
+                    testid="bea-home-card-credito",
+                ),
+                unsafe_allow_html=True,
+            )
+            if st.button(
                     "Explorar — créditos em carteira",
                     key="home_drill_credito",
                     use_container_width=True,
@@ -376,15 +396,22 @@ def render_page_home() -> None:
             prox_minutos=15,
         )
 
-        with st.container(border=True):
+        st.markdown(
+            '<p class="bea-cv-cockpit-tier-title">Agenda do Dia</p>',
+            unsafe_allow_html=True,
+        )
+        c_ag, c_ev = st.columns([0.68, 0.32])
+        with c_ag:
+            st.markdown(home_island_mark_html(), unsafe_allow_html=True)
             st.markdown(
-                '<p class="bea-cv-cockpit-tier-title">Agenda do Dia</p>',
+                home_section_heading_html(text="Agenda do dia"),
                 unsafe_allow_html=True,
             )
-            c_ag, c_ev = st.columns([0.68, 0.32])
-            with c_ag:
-                st.markdown("##### Agenda do dia")
-                st.markdown(agenda_html, unsafe_allow_html=True)
-            with c_ev:
-                st.markdown("##### Evolução de atendimentos")
-                st.markdown(evo_html, unsafe_allow_html=True)
+            st.markdown(agenda_html, unsafe_allow_html=True)
+        with c_ev:
+            st.markdown(home_island_mark_html(), unsafe_allow_html=True)
+            st.markdown(
+                home_section_heading_html(text="Evolução de atendimentos"),
+                unsafe_allow_html=True,
+            )
+            st.markdown(evo_html, unsafe_allow_html=True)

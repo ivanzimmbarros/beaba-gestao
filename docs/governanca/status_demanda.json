@@ -15,9 +15,9 @@
     "projeto": "BeaBa Gestão / BeaBa Materno",
     "escopo": "Sincronização código+CI com origin/develop; mapa completo de testes; certificação backup/restore (pytest + simulação verify semanal em sandbox).",
     "pytest": {
-      "total": 103,
+      "total": 109,
       "comando": "python -m pytest tests/ -v",
-      "resultado_2026_04_12": "103 passed (épico Cockpit Boas-vindas encerrado: UI Fase 3 + keys Plotly + limpeza Acesso rápido)",
+      "resultado_2026_04_12": "109 passed (Home: ilhas Master sem border Streamlit, Panorama Material Symbols, sidebar ativo sem barra)",
       "e2e_incluido": "tests/e2e_stress_test.py (hero + boundary quick na suite pytest)"
     },
     "backup_restore": {
@@ -153,7 +153,7 @@
   "pc_foco": "PC1–PC2",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "2026-04-12: Épico Cockpit de Boas-vindas CONCLUÍDO — UI Fase 3 (Horizonte 300px, ilhas, Plotly+keys, agenda HTML, drill CAG); sector Acesso rápido removido da Home; pytest 103; paridade visual CI: workflows Validador Maestro + e17_restore_certify.",
+  "live_status": "2026-04-12: Cockpit Home — ilhas flutuantes por coluna (CSS :has + marcador), sem st.container(border=True); Panorama com Material Symbols + serif; Horizonte transparente na main; sidebar item ativo só 15% branco; pytest 109.",
   "etapas_pendentes": [
     "Diretor: homologar PDV vs protótipo (semáforo visível, comanda spa). Sem OK → sem avançar módulos.",
     "E22: após OK — um único módulo seguinte (ex. Catálogo / Agendamentos).",
@@ -164,7 +164,7 @@
   "epico_cockpit_boas_vindas": {
     "status": "CONCLUÍDO",
     "data_iso": "2026-04-12",
-    "pytest_total": 103,
+    "pytest_total": 109,
     "nota": "Navegação global só via shell_sidebar; Home sem botões duplicados de módulos."
   },
   "epico_22_redesign_visual": {

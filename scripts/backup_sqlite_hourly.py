@@ -11,6 +11,10 @@ Variáveis de ambiente (opcionais):
 
 Arquitectura UI (2026-04-12): removidos `src/ui/page_clientes.py` e `page_agendamentos.py`;
 a área operacional única é `page_clientes_agendamentos.py` (registo de governação / PAINEL).
+
+Cockpit Home (2026-04-12+): métricas e agenda leem apenas SQLite; cópia integral do `.db`
+restaura também os dados exibidos em `page_home.py` (donuts, Panorama, Agenda). CSS/HTML
+do cockpit versionados em git — não há ficheiros extra no backup além do já coberto D1/D4.
 """
 
 from __future__ import annotations

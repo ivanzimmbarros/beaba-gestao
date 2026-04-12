@@ -6,6 +6,9 @@ Verificações comuns para ficheiros SQLite após cópia/backup (E17 / E19.1).
 
 Governação 2026-04-12: remoção física do legado UI Clientes/Agendamentos em ficheiros separados;
 perímetro de dados da app inalterado para este módulo.
+
+Cockpit Home: agendamentos/créditos no mesmo SQLite — verify destino cobre métricas exibidas
+em `page_home` após qualquer restore.
 """
 
 from __future__ import annotations

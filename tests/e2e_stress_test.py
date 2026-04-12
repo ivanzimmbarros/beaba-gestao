@@ -264,7 +264,11 @@ def _run_home_cockpit_slice() -> str | None:
         obter_home_evolucao_atendimentos,
     )
     from src.ui import page_home as ph
-    from src.ui.home_cockpit_ui_helpers import agenda_day_table_html, evolucao_atendimentos_html
+    from src.ui.home_cockpit_ui_helpers import (
+        agenda_day_table_html,
+        evolucao_atendimentos_html,
+        panorama_card_block_html,
+    )
 
     s = obter_home_cockpit_snapshot()
     if s is None:
@@ -290,6 +294,15 @@ def _run_home_cockpit_slice() -> str | None:
     )
     if "bea-home-evolucao" not in h_ev:
         return "home_cockpit: evolucao HTML"
+
+    h_pan = panorama_card_block_html(
+        material_icon="euro_symbol",
+        title="T",
+        value_display="0",
+        testid="bea-home-e2e-pano",
+    )
+    if "bea-cv-pano-icon-wrap" not in h_pan or "material-symbols-outlined" not in h_pan:
+        return "home_cockpit: panorama card HTML"
 
     if not callable(getattr(ph, "render_page_home", None)):
         return "home_cockpit: render_page_home ausente"

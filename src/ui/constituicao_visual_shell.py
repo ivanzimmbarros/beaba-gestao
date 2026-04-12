@@ -126,12 +126,12 @@ def get_constituicao_shell_css() -> str:
     [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="secondary"] span {{
         color: #FFFFFF !important;
     }}
-    /* Activo: fundo branco 15%, cantos 12px; indicador lateral 4px */
+    /* Activo: só fundo branco ~15% + raio 12px — sem contorno nem barra lateral */
     [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"] {{
         background: rgba(255, 255, 255, 0.15) !important;
         color: #FFFFFF !important;
         border: none !important;
-        border-left: 4px solid #FFFFFF !important;
+        outline: none !important;
         border-radius: var(--cv-radius-sidebar-ativo) !important;
         min-height: 2.65rem !important;
         font-family: var(--cv-sans) !important;
@@ -140,6 +140,14 @@ def get_constituicao_shell_css() -> str:
     }}
     [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"]:hover {{
         background: rgba(255, 255, 255, 0.24) !important;
+    }}
+    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"]:focus {{
+        outline: none !important;
+        box-shadow: none !important;
+    }}
+    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"]:focus-visible {{
+        outline: 2px solid rgba(255, 255, 255, 0.45) !important;
+        outline-offset: 2px !important;
     }}
     [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"] *,
     [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"] span {{
@@ -276,14 +284,33 @@ def inject_constituicao_home_hub() -> None:
 
 
 def get_constituicao_home_cockpit_extra_css() -> str:
-    """Fase 3 — ilhas em camadas, hero com relógio, agenda e evolução (além do hub base)."""
+    """Fase 3 — ilhas independentes (marcador .bea-cv-home-island-mark), Panorama, hero, agenda."""
     return f"""
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
 <style>
     .bea-cv-cockpit-active {{ display: none !important; }}
+    /* Horizonte visível: não deixar bloqueios brancos sobre o gradiente da main */
+    section[data-testid="stMain"]:has(.bea-cv-cockpit-active) [data-testid="stAppViewContainer"],
+    section[data-testid="stMain"]:has(.bea-cv-cockpit-active) [data-testid="stAppViewContainer"] > .main,
+    section[data-testid="stMain"]:has(.bea-cv-cockpit-active) .main .block-container {{
+        background: transparent !important;
+    }}
+    /* Ilha flutuante por coluna (1º bloco vertical sob o marcador) — Template Master */
     section[data-testid="stMain"]:has(.bea-cv-cockpit-active)
-        [data-testid="stVerticalBlockBorderWrapper"] {{
+        [data-testid="column"]:has(.bea-cv-home-island-mark) > div {{
+        background-color: {CV_BRANCO} !important;
+        border-radius: var(--cv-radius-isla) !important;
+        border: none !important;
         box-shadow: {CV_SOMBRA_COMPOSTA} !important;
-        border: 1px solid rgba(118, 148, 125, 0.14) !important;
+        padding: 24px !important;
+        margin-bottom: 20px !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-cockpit-active)
+        [data-testid="column"]:has(.bea-cv-home-island-mark)
+        [data-testid="stVerticalBlockBorderWrapper"] {{
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
     }}
     .bea-cv-cockpit-hero {{
         position: relative;
@@ -348,15 +375,36 @@ def get_constituicao_home_cockpit_extra_css() -> str:
         text-align: center !important;
         margin-top: 0.35rem !important;
     }}
-    .bea-cv-panorama-card-title {{
-        font-family: var(--cv-sans) !important;
-        font-size: 0.75rem !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.08em !important;
+    .bea-cv-pano-icon-wrap {{
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: rgba(118, 148, 125, 0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 14px;
+    }}
+    .bea-cv-pano-icon-wrap .material-symbols-outlined {{
+        font-size: 26px;
+        color: {CV_SALVIA};
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }}
+    .bea-cv-pano-card-h {{
+        font-family: var(--cv-serif) !important;
+        font-weight: 500 !important;
+        font-size: 0.95rem !important;
+        line-height: 1.35 !important;
         color: {CV_TITULO} !important;
-        opacity: 0.55 !important;
-        margin-bottom: 0.35rem !important;
-        font-weight: 600 !important;
+        margin: 0 0 10px 0 !important;
+        letter-spacing: 0.01em !important;
+    }}
+    .bea-cv-home-block-h {{
+        font-family: var(--cv-serif) !important;
+        font-weight: 500 !important;
+        font-size: 1.05rem !important;
+        color: {CV_TITULO} !important;
+        margin: 0 0 12px 0 !important;
     }}
     .bea-cv-panorama-card-val {{
         font-family: var(--cv-sans) !important;

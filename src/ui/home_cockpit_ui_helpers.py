@@ -7,6 +7,48 @@ import re
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
+# Marcador para CSS :has() — ilha = 1ª coluna com este nó (Template Master)
+HOME_ISLAND_MARK_CLASS = "bea-cv-home-island-mark"
+
+
+def home_island_mark_html() -> str:
+    return f'<p class="{HOME_ISLAND_MARK_CLASS}" aria-hidden="true"></p>'
+
+
+def panorama_card_block_html(
+    *,
+    material_icon: str,
+    title: str,
+    value_display: str,
+    testid: str,
+) -> str:
+    """
+    Card Panorama Global: ícone Material em círculo 15% sálvia + título serif + valor (sans).
+    `material_icon`: nome do glifo (ex.: euro_symbol).
+    """
+    ic = html.escape(str(material_icon).strip())
+    ti = html.escape(str(title).strip())
+    vd = html.escape(str(value_display))
+    tid_raw = str(testid).strip()
+    if not re.match(r"^[a-zA-Z0-9_.-]+$", tid_raw):
+        tid_raw = "bea-home-pano-card"
+    tid_esc = html.escape(tid_raw)
+    return (
+        f'<div class="bea-cv-pano-card" data-testid="{tid_esc}">'
+        '<div class="bea-cv-pano-icon-wrap" aria-hidden="true">'
+        f'<span class="material-symbols-outlined">{ic}</span></div>'
+        f'<p class="bea-cv-pano-card-h">{ti}</p>'
+        f'<div class="bea-cv-panorama-card-val">{vd}</div>'
+        "</div>"
+    )
+
+
+def home_section_heading_html(*, text: str, tag: str = "h3") -> str:
+    t = html.escape(str(text).strip())
+    tg = tag if tag in ("h2", "h3", "h4") else "h3"
+    return f'<{tg} class="bea-cv-home-block-h">{t}</{tg}>'
+
+
 def _parse_time_hhmm(s: str) -> time | None:
     raw = (s or "").strip()
     if not raw:

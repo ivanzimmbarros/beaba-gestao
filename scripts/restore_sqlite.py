@@ -6,6 +6,9 @@ Compara contagens com o último registo de backup em backup_dr_history.json (sna
 
 Arquitectura UI (2026-04-12): legado `page_clientes.py` / `page_agendamentos.py` descontinuado;
 consolidação em `page_clientes_agendamentos.py` (ver PAINEL / status_demanda.json).
+
+Após restore: o Cockpit Home (`page_home`, `home_cockpit_metrics`) reflecte o estado do
+SQLite reposto; UI Master (ilhas, Horizonte) acompanha o código no repositório.
 """
 
 from __future__ import annotations
