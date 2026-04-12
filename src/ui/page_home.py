@@ -208,8 +208,8 @@ def render_page_home() -> None:
     st.markdown(
         f"""
         <div class="bea-cv-cockpit-hero">
-          <h1>Olá, {nome}</h1>
-          <p class="bea-cv-cockpit-greet-sub">Bem-vindo ao cockpit operacional BeaBa Gestão.</p>
+          <h1>Olá, {nome}. Veja como está o BeaBá hoje.</h1>
+          <p class="bea-cv-cockpit-greet-sub">Cuidando de quem cuida: aqui está o resumo da sua missão hoje.</p>
           <span class="bea-cv-cockpit-hero-ts" data-testid="bea-home-hero-clock">{relogio}</span>
         </div>
         """,
@@ -224,7 +224,7 @@ def render_page_home() -> None:
 
         with st.container(border=True):
             st.markdown(
-                '<p class="bea-cv-cockpit-tier-title">Nível 1 — Fluxo operacional (donuts)</p>',
+                '<p class="bea-cv-cockpit-tier-title">Principais Indicadores</p>',
                 unsafe_allow_html=True,
             )
             d1, d2, d3 = st.columns(3)
@@ -240,7 +240,7 @@ def render_page_home() -> None:
                     key="home_donut_hoje",
                 )
                 st.markdown(
-                    '<p class="bea-cv-donut-caption">Confirmados hoje vs total previsto na semana</p>',
+                    '<p class="bea-cv-donut-caption">Atendimentos Confirmados Para Hoje</p>',
                     unsafe_allow_html=True,
                 )
             with d2:
@@ -251,7 +251,7 @@ def render_page_home() -> None:
                     key="home_donut_semana",
                 )
                 st.markdown(
-                    '<p class="bea-cv-donut-caption">Agendados + confirmados (semana)</p>',
+                    '<p class="bea-cv-donut-caption">Atendimentos Agendados e Confirmados na Semana!</p>',
                     unsafe_allow_html=True,
                 )
             with d3:
@@ -262,19 +262,19 @@ def render_page_home() -> None:
                     key="home_donut_retencao",
                 )
                 st.markdown(
-                    '<p class="bea-cv-donut-caption">Taxa de cancelamento no mês</p>',
+                    '<p class="bea-cv-donut-caption">Taxa de Cancelamento Acumulada do Mês</p>',
                     unsafe_allow_html=True,
                 )
 
         with st.container(border=True):
             st.markdown(
-                '<p class="bea-cv-cockpit-tier-title">Nível 2 — Panorama global</p>',
+                '<p class="bea-cv-cockpit-tier-title">Panorama Global</p>',
                 unsafe_allow_html=True,
             )
-            p1, p2 = st.columns(2)
+            p1, p2, p3, p4 = st.columns(4)
             with p1:
                 st.markdown(
-                    f'<div class="bea-cv-panorama-card-title">Estimativa não confirmados</div>'
+                    f'<div class="bea-cv-panorama-card-title">Estimativa de atendimentos não confirmados no Mês</div>'
                     f'<div class="bea-cv-panorama-card-val" data-testid="bea-home-card-estimativa">'
                     f"{snap.card1_valor_fmt()}</div>",
                     unsafe_allow_html=True,
@@ -294,7 +294,7 @@ def render_page_home() -> None:
                     )
             with p2:
                 st.markdown(
-                    f'<div class="bea-cv-panorama-card-title">Total não confirmados</div>'
+                    f'<div class="bea-cv-panorama-card-title">Total de Agendamentos não Confirmados</div>'
                     f'<div class="bea-cv-panorama-card-val" data-testid="bea-home-card-nao-conf">'
                     f"{int(snap.card2_total_nao_confirmados_mes)}</div>",
                     unsafe_allow_html=True,
@@ -313,10 +313,9 @@ def render_page_home() -> None:
                         ),
                         seed_month=ym,
                     )
-            p3, p4 = st.columns(2)
             with p3:
                 st.markdown(
-                    f'<div class="bea-cv-panorama-card-title">Pré-agendados</div>'
+                    f'<div class="bea-cv-panorama-card-title">Atendimentos em Pré-agendamento</div>'
                     f'<div class="bea-cv-panorama-card-val" data-testid="bea-home-card-pre-ag">'
                     f"{int(snap.card3_pre_agendados_mes)}</div>",
                     unsafe_allow_html=True,
@@ -336,7 +335,7 @@ def render_page_home() -> None:
                     )
             with p4:
                 st.markdown(
-                    f'<div class="bea-cv-panorama-card-title">Saldo crédito (pós-cancel. SIM)</div>'
+                    f'<div class="bea-cv-panorama-card-title">Saldo de Clientes Pendente Confirmacao</div>'
                     f'<div class="bea-cv-panorama-card-val" data-testid="bea-home-card-credito">'
                     f"{snap.card4_valor_fmt()}</div>",
                     unsafe_allow_html=True,
@@ -379,7 +378,7 @@ def render_page_home() -> None:
 
         with st.container(border=True):
             st.markdown(
-                '<p class="bea-cv-cockpit-tier-title">Nível 3 — Agenda do dia e evolução</p>',
+                '<p class="bea-cv-cockpit-tier-title">Agenda do Dia</p>',
                 unsafe_allow_html=True,
             )
             c_ag, c_ev = st.columns([0.68, 0.32])
