@@ -31,9 +31,11 @@ RESULT_JSON = "restore_result.json"
 
 
 def _repo_root() -> Path:
+    # BEABA_REPO_ROOT primeiro: testes/pytest com tmp_path no CI definem-no explicitamente;
+    # GITHUB_WORKSPACE existe sempre no runner e não deve mascarar o sandbox.
     return Path(
-        os.environ.get("GITHUB_WORKSPACE")
-        or os.environ.get("BEABA_REPO_ROOT")
+        os.environ.get("BEABA_REPO_ROOT")
+        or os.environ.get("GITHUB_WORKSPACE")
         or _REPO
     ).resolve()
 

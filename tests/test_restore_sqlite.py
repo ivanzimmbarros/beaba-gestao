@@ -14,6 +14,17 @@ import pytest
 REPO = Path(__file__).resolve().parents[1]
 RESTORE_SCRIPT = REPO / "scripts" / "restore_sqlite.py"
 
+# No GitHub Actions, GITHUB_WORKSPACE está sempre definido; o subprocess herda e, se tiver
+# prioridade sobre BEABA_REPO_ROOT, restore_sqlite gravaria fora do tmp_path do pytest.
+
+
+def _env_for_restore_subprocess(repo_root: Path, **extra: str) -> dict[str, str]:
+    base = {k: v for k, v in os.environ.items() if k not in ("GITHUB_WORKSPACE", "PYTHONPATH")}
+    base["BEABA_REPO_ROOT"] = str(repo_root)
+    base["PYTHONPATH"] = str(REPO)
+    base.update(extra)
+    return base
+
 
 def _key32_b64() -> str:
     import base64
@@ -77,12 +88,13 @@ def tiny_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def test_restore_blocks_without_allowed_branch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("BEABA_ALLOW_RESTORE_OFF_BRANCH", raising=False)
     monkeypatch.delenv("GITHUB_REF_NAME", raising=False)
-    monkeypatch.setenv("BEABA_REPO_ROOT", str(tmp_path))
+    env = _env_for_restore_subprocess(tmp_path)
+    env.pop("BEABA_ALLOW_RESTORE_OFF_BRANCH", None)
+    env.pop("GITHUB_REF_NAME", None)
     r = subprocess.run(
         [sys.executable, str(RESTORE_SCRIPT), str(tmp_path / "noop")],
         cwd=str(REPO),
-        env={k: v for k, v in os.environ.items() if k not in ("GITHUB_REF_NAME", "BEABA_ALLOW_RESTORE_OFF_BRANCH")}
-        | {"BEABA_REPO_ROOT": str(tmp_path), "PYTHONPATH": str(REPO)},
+        env=env,
         capture_output=True,
         text=True,
     )
@@ -99,10 +111,15 @@ def test_restore_ok_with_allow_flag_and_encrypted_file(tiny_repo: Path, monkeypa
     monkeypatch.setenv("BEABA_REPO_ROOT", str(tiny_repo))
     monkeypatch.setenv("BEABA_BACKUP_KEY", _key32_b64())
     enc = tiny_repo / "b.beaba.enc"
+    env = _env_for_restore_subprocess(
+        tiny_repo,
+        BEABA_ALLOW_RESTORE_OFF_BRANCH="1",
+        BEABA_BACKUP_KEY=_key32_b64(),
+    )
     r = subprocess.run(
         [sys.executable, str(RESTORE_SCRIPT), str(enc)],
         cwd=str(REPO),
-        env=os.environ | {"PYTHONPATH": str(REPO)},
+        env=env,
         capture_output=True,
         text=True,
     )
