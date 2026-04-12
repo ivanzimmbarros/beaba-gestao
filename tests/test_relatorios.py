@@ -61,6 +61,7 @@ def _cliente():
         contatos_emergencia=[],
         nif="286303850",
         documento_identificacao_internacional=False,
+        data_nascimento="1990-05-15",
     )
     return buscar_cliente_por_whatsapp("91333333330")
 

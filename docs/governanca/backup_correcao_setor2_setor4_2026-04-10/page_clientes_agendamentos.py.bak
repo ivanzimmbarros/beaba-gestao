@@ -1,0 +1,366 @@
+"""Consolidação Clientes + Agendamentos — Sprint A/B: navegação, pesquisa, resumo (raio‑X) e limpeza local."""
+
+from __future__ import annotations
+
+import html
+from datetime import datetime
+
+import streamlit as st
+
+from src.pages.theme import get_beaba_css  # noqa: F401 — BeaBa Sereno (CSS em app.main)
+from src.modules.catalogo import centavos_para_texto_euros
+from src.modules.cliente import (
+    buscar_clientes_por_nif_email_telefone,
+    obter_cliente_completo,
+    obter_resumo_cliente_raio_x,
+)
+from src.modules.nif import normalizar_nif_armazenamento
+from src.modules.telefone import normalizar_telefone_legado_ou_e164
+from src.modules.validators import email_valido
+from src.ui.widgets.cliente_search import render_cliente_search_widget
+
+_CAG_PREFIX = "cag_"
+
+_SUB_LORA = (
+    "font-family: var(--bea-vs-serif-t), Lora, Georgia, serif; "
+    "color: var(--bea-vs-bordeaux, #3b1c2f); font-weight: 700; margin: 0 0 0.4rem 0;"
+)
+
+
+def _html_cli_result_card(*, nome_e: str, sub_e: str) -> str:
+    return (
+        '<div class="bea-proto-scope">'
+        '<div class="bea-venda-comanda-item bea-comanda-min">'
+        '<p style="margin:0 0 6px 0;text-align:right;font-size:0.95rem;opacity:0.5;">👤</p>'
+        '<span class="bea-com-nome">'
+        + nome_e
+        + "</span><br/>"
+        '<span class="bea-com-badge">'
+        + sub_e
+        + "</span>"
+        "</div></div>"
+    )
+
+
+def _cag_data_visita_pt(data_iso: str | None) -> str:
+    if not data_iso or len(str(data_iso).strip()) < 10:
+        return "-"
+    try:
+        d = datetime.strptime(str(data_iso).strip()[:10], "%Y-%m-%d").date()
+        return d.strftime("%d/%m/%Y")
+    except ValueError:
+        return "-"
+
+
+def _cag_tipo_documento_label(identificacao_internacional: bool) -> str:
+    return "Documento internacional" if identificacao_internacional else "NIF (Portugal)"
+
+
+def _cag_valor_moeda_centavos(c: int) -> str:
+    return centavos_para_texto_euros(int(c)).replace(".", ",")
+
+
+def cag_valores_setor2_dados_pessoais(cli: dict | None) -> tuple[str, str, str, str, str, str]:
+    """Valores de leitura para os 6 campos (Código … Telemóvel); usado nos testes e na UI."""
+    if cli is None:
+        return ("-", "-", "-", "-", "-", "-")
+    return (
+        str(cli.get("id", "")),
+        str(cli.get("nome") or "-"),
+        _cag_tipo_documento_label(bool(cli.get("identificacao_internacional"))),
+        str(cli.get("nif_ou_documento") or "-"),
+        str(cli.get("email") or "-"),
+        str(cli.get("whatsapp") or "-"),
+    )
+
+
+def cag_valores_setor2_cards(resumo: dict[str, int | str | None]) -> dict[str, str]:
+    """Textos finais dos 5 cards do Resumo Geral (incl. vírgula decimal em moeda)."""
+    ultima = _cag_data_visita_pt(
+        str(resumo["ultima_visita_data"]) if resumo.get("ultima_visita_data") else None
+    )
+    n_vis = int(resumo.get("total_visitas") or 0)
+    gasto = int(resumo.get("total_gasto_centavos") or 0)
+    pend = int(resumo.get("saldo_pendente_centavos") or 0)
+    cred = int(resumo.get("saldo_credito_centavos") or 0)
+    return {
+        "ultima_visita": ultima,
+        "total_visitas": str(n_vis),
+        "total_gasto": _cag_valor_moeda_centavos(gasto),
+        "saldo_pendente": _cag_valor_moeda_centavos(pend),
+        "saldo_credito": _cag_valor_moeda_centavos(cred),
+        "_saldo_pendente_centavos": str(pend),
+        "_saldo_credito_centavos": str(cred),
+    }
+
+
+def _reset_cag_page_state() -> None:
+    """Remove apenas chaves da página consolidada (não altera dados persistidos)."""
+    for k in list(st.session_state.keys()):
+        if k.startswith(_CAG_PREFIX) or k == "_cag_prime":
+            del st.session_state[k]
+    st.session_state.cag_form_v = 0
+    st.session_state.cag_edit_id = None
+
+
+def _render_cag_setor2_dados_pessoais(*, cli: dict | None) -> None:
+    st.markdown(
+        f'<div class="bea-proto-scope"><p style="{_SUB_LORA} font-size:1.05rem;">Dados Pessoais</p></div>',
+        unsafe_allow_html=True,
+    )
+    cod, nome, tipo, ndoc, em, tel = cag_valores_setor2_dados_pessoais(cli)
+
+    lbl = (
+        "Código",
+        "Nome Completo",
+        "Tipo de Documento",
+        "Nº do Documento",
+        "E-mail",
+        "Telemóvel",
+    )
+    key_suf = str(cli.get("id")) if cli else "none"
+    keys_k = ("cod", "nome", "tipo_doc", "ndoc", "email", "tel")
+    vals = (cod, nome, tipo, ndoc, em, tel)
+    cols = st.columns(6)
+    for c, label, val, kpart in zip(cols, lbl, vals, keys_k):
+        with c:
+            st.caption(label)
+            st.text_input(
+                label,
+                value=val,
+                key=f"cag_s2_dp_{key_suf}_{kpart}",
+                disabled=True,
+                label_visibility="collapsed",
+            )
+    st.divider()
+
+
+def _render_cag_setor2_resumo_geral(*, resumo: dict[str, int | str | None]) -> None:
+    st.markdown(
+        f'<div class="bea-proto-scope"><p style="{_SUB_LORA} font-size:1.05rem;">Resumo Geral</p></div>',
+        unsafe_allow_html=True,
+    )
+    cv = cag_valores_setor2_cards(resumo)
+    ultima = cv["ultima_visita"]
+    n_vis = int(cv["total_visitas"])
+    pend = int(cv["_saldo_pendente_centavos"])
+    cred = int(cv["_saldo_credito_centavos"])
+    pend_s = cv["saldo_pendente"]
+    cred_s = cv["saldo_credito"]
+    gasto_s = cv["total_gasto"]
+
+    def _card(html_inner: str) -> None:
+        st.markdown(
+            '<div style="background:linear-gradient(165deg,#F0FDF4 0%,#ECFDF5 50%,#D1FAE5 100%);'
+            "border:1px solid rgba(22,101,52,0.12);border-radius:18px;padding:0.65rem 0.8rem;"
+            'min-height:5rem;box-shadow:0 1px 3px rgba(15,118,110,0.06);">'
+            f"{html_inner}</div>",
+            unsafe_allow_html=True,
+        )
+
+    r1 = st.columns(3)
+    with r1[0]:
+        _card(
+            f'<p style="margin:0 0 6px 0;font-size:0.78rem;color:#64748B;font-family:Montserrat,sans-serif;">'
+            f"{html.escape('Última Visita (Data)')}</p>"
+            f'<p style="margin:0;font-size:1.1rem;font-weight:700;color:var(--bea-vs-bordeaux,#3b1c2f);'
+            f'font-family:var(--bea-vs-serif-t),Lora,Georgia,serif;">{html.escape(ultima)}</p>'
+        )
+    with r1[1]:
+        _card(
+            f'<p style="margin:0 0 6px 0;font-size:0.78rem;color:#64748B;font-family:Montserrat,sans-serif;">'
+            f"{html.escape('Total de Visitas')}</p>"
+            f'<p style="margin:0;font-size:1.1rem;font-weight:700;color:var(--bea-vs-bordeaux,#3b1c2f);'
+            f'font-family:var(--bea-vs-serif-t),Lora,Georgia,serif;">{html.escape(str(n_vis))}</p>'
+        )
+    with r1[2]:
+        _card(
+            f'<p style="margin:0 0 6px 0;font-size:0.78rem;color:#64748B;font-family:Montserrat,sans-serif;">'
+            f"{html.escape('Total Gasto')}</p>"
+            f'<p style="margin:0;font-size:1.1rem;font-weight:700;color:var(--bea-vs-bordeaux,#3b1c2f);'
+            f'font-family:Montserrat,sans-serif;">{html.escape(gasto_s)}</p>'
+        )
+
+    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+    r2 = st.columns(2)
+    pend_color = "#DC2626" if pend > 0 else "var(--bea-vs-bordeaux,#3b1c2f)"
+    cred_color = "#15803D" if cred > 0 else "var(--bea-vs-bordeaux,#3b1c2f)"
+    with r2[0]:
+        _card(
+            f'<p style="margin:0 0 6px 0;font-size:0.78rem;color:#64748B;font-family:Montserrat,sans-serif;">'
+            f"{html.escape('Saldo Pendente')}</p>"
+            f'<p style="margin:0;font-size:1.1rem;font-weight:700;color:{pend_color};'
+            f'font-family:Montserrat,sans-serif;">{html.escape(pend_s)}</p>'
+        )
+    with r2[1]:
+        _card(
+            f'<p style="margin:0 0 6px 0;font-size:0.78rem;color:#64748B;font-family:Montserrat,sans-serif;">'
+            f"{html.escape('Saldo de Crédito')}</p>"
+            f'<p style="margin:0;font-size:1.1rem;font-weight:700;color:{cred_color};'
+            f'font-family:Montserrat,sans-serif;">{html.escape(cred_s)}</p>'
+        )
+
+
+def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
+    render_back_and_breadcrumb(
+        ["Home", "Clientes e Agendamentos", "Cadastro"],
+        back_key="bea_back_clientes_agendamentos",
+    )
+    st.markdown(
+        '<div class="bea-proto-scope"><div class="bea-pdv-titulo-wrap">'
+        '<p class="bea-pdv-titulo">Cadastro de Clientes e Gestão de Agendamentos</p></div></div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        '<div style="height:6px;background:linear-gradient(90deg,#F0FDF4,#D1FAE5,#A7F3D0);'
+        "border-radius:8px;margin:0 0 0.85rem 0;opacity:0.95;\"></div>",
+        unsafe_allow_html=True,
+    )
+
+    if "cag_form_v" not in st.session_state:
+        st.session_state.cag_form_v = 0
+    if "cag_edit_id" not in st.session_state:
+        st.session_state.cag_edit_id = None
+
+    st.markdown(
+        '<div class="bea-proto-scope"><p class="bea-pdv-titulo" '
+        'style="font-size:1.2rem;margin:0 0 0.5rem 0;letter-spacing:0.01em;">'
+        "1. Pesquisa de Clientes</p></div>",
+        unsafe_allow_html=True,
+    )
+
+    with st.container(border=True):
+        cag_busca_clicked = render_cliente_search_widget(
+            key_prefix="cag_busca",
+            button_type="secondary",
+            minimal=True,
+        )
+
+    if cag_busca_clicked:
+        nif_s = str(st.session_state.get("cag_busca_nif", "") or "").strip()
+        em_s = str(st.session_state.get("cag_busca_email", "") or "").strip()
+        tel_raw = str(st.session_state.get("cag_busca_tel_txt", "") or "").strip()
+        use_tel = normalizar_telefone_legado_ou_e164(tel_raw) if tel_raw else ""
+        busca_doc_intl = bool(st.session_state.get("cag_busca_docintl"))
+
+        msg_err: str | None = None
+        if not nif_s and not em_s and not tel_raw:
+            msg_err = "Indique NIF, email ou telefone."
+        elif em_s and not email_valido(em_s):
+            msg_err = "❌ Email inválido para pesquisa."
+        elif tel_raw and not use_tel:
+            msg_err = "❌ Telefone inválido (ex.: +351912345678)."
+        elif nif_s:
+            ok_nf, msg_nf, _vx = normalizar_nif_armazenamento(
+                nif_s, documento_identificacao_internacional=bool(busca_doc_intl)
+            )
+            if not ok_nf:
+                msg_err = msg_nf
+        if msg_err:
+            st.error(msg_err)
+        else:
+            cands = buscar_clientes_por_nif_email_telefone(
+                nif=nif_s,
+                email=em_s,
+                telefone=use_tel,
+                documento_internacional=bool(busca_doc_intl),
+            )
+            if len(cands) == 0:
+                st.warning("Nenhum cliente encontrado com estes critérios.")
+                st.session_state.pop("cag_busca_cands", None)
+            elif len(cands) == 1:
+                cid = cands[0][0]
+                data = obter_cliente_completo(cid)
+                if not data:
+                    st.error("Cliente não encontrado.")
+                else:
+                    st.session_state.cag_edit_id = cid
+                    st.session_state.cag_form_v += 1
+                    st.session_state.pop("cag_busca_cands", None)
+                    st.session_state.cag_busca_nif = ""
+                    st.session_state.cag_busca_email = ""
+                    st.session_state.cag_busca_tel_txt = ""
+                    st.session_state.cag_busca_docintl = False
+                    st.success(f"Cliente encontrado (#{cid}). Pesquisa limpa para nova consulta.")
+                    st.rerun()
+            else:
+                st.session_state.cag_busca_cands = cands
+                st.rerun()
+
+    cands_m = st.session_state.get("cag_busca_cands")
+    if cands_m and len(cands_m) > 1:
+        st.markdown(
+            '<div class="bea-proto-scope"><p class="bea-pdv-titulo" '
+            'style="font-size:1.05rem;margin:0.6rem 0 0.35rem 0;">Resultados</p></div>',
+            unsafe_allow_html=True,
+        )
+        n_c = len(cands_m)
+        for row_start in range(0, n_c, 3):
+            cols = st.columns(3)
+            for i in range(3):
+                ix = row_start + i
+                if ix >= n_c:
+                    break
+                cid, nome = cands_m[ix]
+                nome_e = html.escape(str(nome))
+                sub_e = html.escape(f"#{cid}")
+                with cols[i]:
+                    with st.container(border=True):
+                        st.markdown(
+                            _html_cli_result_card(nome_e=nome_e, sub_e=sub_e),
+                            unsafe_allow_html=True,
+                        )
+                        if st.button("Carregar ficha", key=f"cag_cand_load_{cid}", width="stretch"):
+                            data = obter_cliente_completo(cid)
+                            if not data:
+                                st.error("Cliente não encontrado.")
+                            else:
+                                st.session_state.cag_edit_id = cid
+                                st.session_state.cag_form_v += 1
+                                st.session_state.pop("cag_busca_cands", None)
+                                st.session_state.cag_busca_nif = ""
+                                st.session_state.cag_busca_email = ""
+                                st.session_state.cag_busca_tel_txt = ""
+                                st.session_state.cag_busca_docintl = False
+                                st.success(f"Cliente #{cid} selecionado. Pesquisa limpa.")
+                                st.rerun()
+
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="bea-proto-scope"><p style="font-size:1.2rem;letter-spacing:0.01em;{_SUB_LORA}">'
+        "2. Resumo do Cliente</p></div>",
+        unsafe_allow_html=True,
+    )
+
+    eid = st.session_state.cag_edit_id
+    cli_data: dict | None = None
+    resumo_empty: dict[str, int | str | None] = {
+        "ultima_visita_data": None,
+        "total_visitas": 0,
+        "total_gasto_centavos": 0,
+        "saldo_pendente_centavos": 0,
+        "saldo_credito_centavos": 0,
+    }
+    resumo = resumo_empty
+    if eid is not None:
+        cli_data = obter_cliente_completo(int(eid))
+        if cli_data is None:
+            st.warning("Cliente seleccionado já não existe na base. Limpe o ecrã e pesquise novamente.")
+            resumo = resumo_empty
+        else:
+            resumo = obter_resumo_cliente_raio_x(int(eid))
+
+    _render_cag_setor2_dados_pessoais(cli=cli_data)
+    _render_cag_setor2_resumo_geral(resumo=resumo)
+
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    st.markdown(
+        '<div class="bea-proto-scope"><p class="bea-pdv-titulo" '
+        'style="font-size:1.2rem;margin:0.5rem 0 0.35rem 0;letter-spacing:0.01em;">'
+        "3. Limpar informações na página</p></div>",
+        unsafe_allow_html=True,
+    )
+    if st.button("Limpar Informações Apresentadas", key="cag_btn_limpar_tela", type="secondary"):
+        _reset_cag_page_state()
+        st.rerun()

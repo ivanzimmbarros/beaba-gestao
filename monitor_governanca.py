@@ -242,9 +242,30 @@ def _render_status_live(data: dict) -> None:
     st.caption(f"**Última actualização telemetria:** {ts_s or '—'}")
 
 
+def _render_epico_22_redesign_visual(data: dict) -> None:
+    """Bloco dedicado ao Épico 22 (JSON `epico_22_redesign_visual`) — visível em tempo real."""
+    e22 = data.get("epico_22_redesign_visual")
+    if not isinstance(e22, dict):
+        return
+    st.divider()
+    st.subheader("Épico 22 — Redesign visual global «Verde Sereno»")
+    fa = e22.get("fase_actual")
+    nome = e22.get("nome")
+    plano = e22.get("plano_md")
+    prox = e22.get("proxima_fase_codigo_apos_ok")
+    st.caption(str(nome) if nome else "Paleta aprovada; faseamento 1 módulo por vez.")
+    if fa is not None:
+        st.metric("Fase actual (épico)", str(fa))
+    if plano:
+        st.markdown(f"**Plano / dossier:** `{plano}`")
+    if prox:
+        st.info(str(prox))
+
+
 def _render_governanca_tab(data: dict) -> None:
     _render_secoes_painel_demandas(data)
     _render_status_live(data)
+    _render_epico_22_redesign_visual(data)
 
     st.divider()
 
@@ -433,6 +454,11 @@ def main() -> None:
     if "erro" in data:
         st.error(str(data["erro"]))
         return
+
+    st.info(
+        f"**Demanda activa (JSON):** `{data.get('demanda_id') or '—'}` — {data.get('titulo') or '—'} · "
+        f"**Fase** {data.get('fase_actual') or '—'} · **PC** {data.get('pc_foco') or '—'}"
+    )
 
     tab_gov, tab_backup = st.tabs(["Governança", "Backup e Restore"])
     with tab_gov:

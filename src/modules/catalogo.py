@@ -787,7 +787,176 @@ def resolver_snapshot_venda(
         conn.close()
 
 
+def obter_servico_para_formulario(servico_id: int) -> dict | None:
+    """
+    Carrega um serviço para preencher o formulário do catálogo (todos os tipos).
+    Chaves devolvidas alinhadas com `render_page_catalogo` / cadastro.
+    """
+    sid = int(servico_id)
+    conn = get_connection()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, nome, natureza, ativo, descritivo,
+                   sessao_duracao_horas, sessao_valor_centavos,
+                   produto_tipo, produto_descricao, produto_valor_centavos,
+                   produto_origem, produto_repasse_pct_centesimos, produto_repasse_valor_centavos,
+                   cowork_sala_nome, cowork_cobranca, cowork_valor_centavos,
+                   pacote_valor_venda_centavos, pacote_repasse_ref_pct_centesimos,
+                   evento_data, evento_local, evento_observacoes, evento_escopo,
+                   evento_preco_crianca_centavos, evento_preco_adulto_centavos,
+                   evento_desconto_filho_adicional_centavos
+            FROM servicos WHERE id = ?
+            """,
+            (sid,),
+        )
+        row = cur.fetchone()
+        if not row:
+            return None
+        (
+            rid,
+            nome,
+            natureza,
+            ativo,
+            descritivo,
+            sdh,
+            svc,
+            ptipo,
+            pdesc,
+            pvc,
+            porig,
+            prpct,
+            prval,
+            cws,
+            cwc,
+            cwv,
+            pvalc,
+            prefc,
+            edata,
+            eloc,
+            eobs,
+            eesc,
+            epcc,
+            epca,
+            edfa,
+        ) = row
+        nat = str(natureza or "")
+        out: dict = {
+            "id": int(rid),
+            "nome": str(nome or ""),
+            "natureza": nat,
+            "ativo": bool(ativo),
+            "descritivo": str(descritivo or ""),
+        }
+        if nat == "Sessão":
+            out["sessao_duracao_horas"] = float(sdh) if sdh is not None else 1.0
+            out["sessao_valor_euros"] = (int(svc) / 100.0) if svc is not None else 45.0
+        elif nat == "Produto":
+            out["produto_tipo"] = str(ptipo or "")
+            out["produto_descricao"] = str(pdesc or "")
+            out["produto_valor_euros"] = (int(pvc) / 100.0) if pvc is not None else 10.0
+            po = str(porig or "proprio")
+            out["produto_origem"] = po
+            if po == "repasse":
+                if prpct:
+                    out["produto_repasse_modo"] = "percentual"
+                    out["produto_repasse_pct"] = int(prpct) / 100.0
+                elif prval:
+                    out["produto_repasse_modo"] = "valor"
+                    out["produto_repasse_valor_euros"] = int(prval) / 100.0
+                else:
+                    out["produto_repasse_modo"] = "percentual"
+                    out["produto_repasse_pct"] = 30.0
+        elif nat == "Coworking":
+            out["cowork_sala_nome"] = str(cws or "")
+            out["cowork_cobranca"] = str(cwc or "hora")
+            out["cowork_valor_euros"] = (int(cwv) / 100.0) if cwv is not None else 8.0
+        elif nat == "Pacote":
+            out["pacote_valor_euros"] = (int(pvalc) / 100.0) if pvalc is not None else 100.0
+            out["pacote_repasse_ref_pct"] = (int(prefc) / 100.0) if prefc is not None else 50.0
+            cur.execute(
+                """
+                SELECT psi.sessao_servico_id, s.nome, psi.quantidade,
+                       COALESCE(psi.duracao_horas, 0.0)
+                FROM servico_pacote_sessoes psi
+                JOIN servicos s ON s.id = psi.sessao_servico_id
+                WHERE psi.pacote_servico_id = ?
+                ORDER BY psi.ordem
+                """,
+                (sid,),
+            )
+            out["pacote_linhas"] = [
+                {"sessao_id": int(a), "sessao_nome": str(b), "quantidade": int(c), "duracao_horas": float(d or 0)}
+                for a, b, c, d in cur.fetchall()
+            ]
+            cur.execute(
+                """
+                SELECT ppi.produto_servico_id, s.nome, ppi.quantidade
+                FROM servico_pacote_produtos ppi
+                JOIN servicos s ON s.id = ppi.produto_servico_id
+                WHERE ppi.pacote_servico_id = ?
+                """,
+                (sid,),
+            )
+            prow = cur.fetchone()
+            if prow:
+                out["pacote_produto_opcional"] = {
+                    "produto_id": int(prow[0]),
+                    "nome": str(prow[1]),
+                    "quantidade": int(prow[2]),
+                }
+        elif nat == "Evento":
+            ds = (edata or "").strip()[:10]
+            out["evento_data_iso"] = ds
+            out["evento_local"] = str(eloc or "")
+            out["evento_observacoes"] = str(eobs or "")
+            out["evento_escopo"] = str(eesc or "interno")
+            out["evento_preco_crianca_euros"] = (int(epcc) / 100.0) if epcc is not None else 10.0
+            out["evento_preco_adulto_euros"] = (int(epca) / 100.0) if epca is not None else 15.0
+            out["evento_desconto_filho_euros"] = (int(edfa) / 100.0) if edfa is not None else 0.0
+            cur.execute(
+                """
+                SELECT sep.tipo, sep.colaborador_id, sep.parceiro_nome,
+                       sep.repasse_pct_centesimos, sep.repasse_valor_centavos,
+                       c.nome
+                FROM servico_evento_participantes sep
+                LEFT JOIN colaboradores c ON c.id = sep.colaborador_id
+                WHERE sep.evento_servico_id = ?
+                ORDER BY sep.ordem
+                """,
+                (sid,),
+            )
+            parts: list[tuple[str, int | None, str, str, float | None, float | None]] = []
+            for t, cid, pn, rpc, rvl, cnom in cur.fetchall():
+                tipo = str(t or "")
+                modo = "percentual" if rpc else "valor"
+                pct_e = float(rpc) / 100.0 if rpc else None
+                ve_e = float(rvl) / 100.0 if rvl else None
+                if tipo == "colaborador":
+                    parts.append((tipo, int(cid) if cid is not None else None, "", modo, pct_e, ve_e))
+                else:
+                    parts.append((tipo, None, str(pn or ""), modo, pct_e, ve_e))
+            out["evento_participantes"] = parts
+        return out
+    finally:
+        conn.close()
+
+
+# Re-export: implementação em módulo dedicado (import preguiçoso interno evita ciclos).
+from src.modules.catalogo_atualizacao import (
+    atualizar_evento_existente,
+    atualizar_pacote_existente,
+    atualizar_servico_fase1_existente,
+)
+
+
 __all__ = [
+    "atualizar_evento_existente",
+    "atualizar_pacote_existente",
+    "atualizar_servico_fase1_existente",
     "cadastrar_evento",
     "cadastrar_pacote",
     "cadastrar_servico_fase1",
@@ -797,6 +966,7 @@ __all__ = [
     "listar_servicos_para_venda",
     "listar_servicos_produto_para_pacote",
     "listar_servicos_sessao_para_pacote",
+    "obter_servico_para_formulario",
     "percentual_para_centesimos_ref",
     "repasse_medio_ponderado_pacote",
     "resolver_snapshot_venda",

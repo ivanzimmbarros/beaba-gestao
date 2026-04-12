@@ -431,6 +431,7 @@ def main() -> int:
             ],
             nif=nif,
             documento_identificacao_internacional=False,
+            data_nascimento=f"19{60 + (i % 39):02d}-{(i % 28) + 1:02d}-15",
         )
         assert ok, msg
         cur = sqlite3.connect(str(db_path)).cursor()
