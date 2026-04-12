@@ -1,7 +1,9 @@
 """
 E20 — Fortaleza Operacional: stress & E2E (Jornada do Herói + fronteiras + concorrência).
 
-- Jornada (N iterações): cadastro → pré-venda → venda integral → associação → verificações.
+- Jornada (N iterações): cadastro → pré-venda → venda integral → associação → verificações
+  → **slice CAG** (`obter_cliente_completo`, resumo setor 2, `listar_agendamentos`,
+  helpers `page_clientes_agendamentos`: identificação, HTML naturezas, ordenação).
 - Execução completa (1000 iterações): `python tests/e2e_stress_test.py`
 - Pytest (mais leve): `pytest tests/e2e_stress_test.py` (defeito N=35; sobrescrever com
   `E2E_STRESS_HERO_ITERATIONS=1000`).
@@ -240,6 +242,60 @@ def _run_single_hero(iteration: int, servico_id: int, colaborador_id: int) -> st
             return f"FK venda não preenchida[{iteration}]"
     finally:
         conn.close()
+
+    err_cag = _run_cag_consolidated_slice(cliente_id, ag_id)
+    if err_cag:
+        return err_cag
+
+    return None
+
+
+def _run_cag_consolidated_slice(cliente_id: int, ag_id: int) -> str | None:
+    """E20 — ciclo de dados da página consolidada Clientes+Agendamentos (sem Streamlit)."""
+    from src.modules.agendamento import (
+        listar_agendamentos,
+        obter_agendamento,
+        obter_resumo_agendamentos_cliente_setor2_proposta,
+    )
+    from src.modules.cliente import obter_cliente_completo
+    from src.ui import page_clientes_agendamentos as cag
+
+    cli = obter_cliente_completo(cliente_id)
+    if not cli:
+        return "cag: obter_cliente_completo vazio"
+
+    resumo = obter_resumo_agendamentos_cliente_setor2_proposta(cliente_id)
+    if not isinstance(resumo, dict):
+        return "cag: resumo setor2 inválido"
+
+    rows = listar_agendamentos(cliente_ids=[cliente_id])
+    ids = {int(r["id"]) for r in rows}
+    if ag_id not in ids:
+        return f"cag: agendamento {ag_id} ausente em listar_agendamentos"
+
+    ag = obter_agendamento(ag_id)
+    if not ag:
+        return "cag: obter_agendamento vazio"
+
+    nome, _doc, _tel, _mail = cag.cag_valores_setor2_identificacao_basica(cli)
+    if not nome or str(nome).strip() == "-":
+        return "cag: identificação setor2"
+
+    prev = resumo.get("previstos_30d_por_natureza")
+    pairs: list[tuple[str, int]] = []
+    if isinstance(prev, list):
+        for item in prev:
+            if isinstance(item, (list, tuple)) and len(item) >= 2:
+                pairs.append((str(item[0]), int(item[1])))
+            elif isinstance(item, dict):
+                pairs.append(
+                    (str(item.get("natureza", "")), int(item.get("n", item.get("count", 0))))
+                )
+    _ = cag._html_linhas_natureza(pairs)
+
+    sorted_rows = cag._cag_sort_ag_rows(list(rows), col="Data", asc=True)
+    if len(sorted_rows) != len(rows):
+        return "cag: _cag_sort_ag_rows alterou cardinalidade"
 
     return None
 
