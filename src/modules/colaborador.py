@@ -2,17 +2,106 @@
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from datetime import date, datetime
 
 from src.database.connection import get_connection
 from src.modules.constants import SEXOS
+from src.modules.nif import normalizar_nif_armazenamento
+from src.modules.telefone import normalizar_telefone_legado_ou_e164
 from src.modules.validators import (
     email_valido,
     normalizar_codigo_postal_pt,
     parse_data_iso,
     validar_e_limpar_telefone,
 )
+
+
+def _candidatos_whatsapp_colaborador_busca(raw: str) -> list[str]:
+    """Variantes para bater com `colaboradores.whatsapp` (E.164, só dígitos, legado 11)."""
+    out: list[str] = []
+    s = (raw or "").strip()
+    if not s:
+        return []
+    t = normalizar_telefone_legado_ou_e164(s)
+    if t:
+        out.append(t)
+        out.append(t.lstrip("+"))
+    d = re.sub(r"\D", "", s)
+    if d:
+        out.append(d)
+    v = validar_e_limpar_telefone(s)
+    if v:
+        out.append(v)
+    seen: set[str] = set()
+    uniq: list[str] = []
+    for x in out:
+        if x and x not in seen:
+            seen.add(x)
+            uniq.append(x)
+    return uniq
+
+
+def buscar_colaboradores_por_nif_email_telefone(
+    *,
+    nif: str = "",
+    email: str = "",
+    telefone: str = "",
+    documento_internacional: bool = False,
+) -> list[tuple[int, str]]:
+    """Pesquisa OR (NIF normalizado, email, várias formas de telefone)."""
+    merged: dict[int, str] = {}
+    conn = get_connection()
+    if not conn:
+        return []
+
+    def _add_rows(rows: list[tuple[int, str]]) -> None:
+        for cid, nome in rows:
+            merged[int(cid)] = str(nome)
+
+    try:
+        cur = conn.cursor()
+        for cand in _candidatos_whatsapp_colaborador_busca((telefone or "").strip()):
+            cur.execute(
+                "SELECT id, nome FROM colaboradores WHERE whatsapp = ? ORDER BY nome COLLATE NOCASE",
+                (cand,),
+            )
+            _add_rows([(int(a), str(b)) for a, b in cur.fetchall()])
+
+        em = (email or "").strip().lower()
+        if em and email_valido(em):
+            cur.execute(
+                """
+                SELECT id, nome FROM colaboradores
+                WHERE lower(trim(email)) = ?
+                ORDER BY nome COLLATE NOCASE
+                """,
+                (em,),
+            )
+            _add_rows([(int(a), str(b)) for a, b in cur.fetchall()])
+
+        nif_raw = (nif or "").strip()
+        if nif_raw:
+            ok_n, _, nif_v = normalizar_nif_armazenamento(
+                nif_raw, documento_identificacao_internacional=bool(documento_internacional)
+            )
+            if ok_n:
+                cur.execute(
+                    """
+                    SELECT id, nome FROM colaboradores
+                    WHERE nif_ou_documento IS NOT NULL AND trim(nif_ou_documento) != ''
+                      AND nif_ou_documento = ?
+                    ORDER BY nome COLLATE NOCASE
+                    """,
+                    (nif_v,),
+                )
+                _add_rows([(int(a), str(b)) for a, b in cur.fetchall()])
+    finally:
+        conn.close()
+
+    out = sorted(merged.items(), key=lambda x: (x[1].lower(), x[0]))
+    return [(i, n) for i, n in out]
 
 
 def percentual_para_centesimos(pct: float) -> int | None:
@@ -67,6 +156,9 @@ def cadastrar_colaborador(
     numero_contato: str,
     observacoes: str,
     servicos_repasse: list[tuple[int, float, str]],
+    *,
+    nif_ou_documento: str = "",
+    identificacao_internacional: bool = False,
 ) -> tuple[bool, str]:
     """
     `servicos_repasse`: lista (servico_id, percentual %, data_insercao_linha ISO YYYY-MM-DD)
@@ -112,6 +204,18 @@ def cadastrar_colaborador(
     if not email_valido(email):
         return False, "❌ Indique um email válido."
 
+    nif_raw = (nif_ou_documento or "").strip()
+    nif_store: str | None = None
+    intl_i = 0
+    if nif_raw:
+        ok_n, msg_n, nif_v = normalizar_nif_armazenamento(
+            nif_raw, documento_identificacao_internacional=bool(identificacao_internacional)
+        )
+        if not ok_n:
+            return False, msg_n
+        nif_store = nif_v
+        intl_i = 1 if identificacao_internacional else 0
+
     tel = validar_e_limpar_telefone(numero_contato)
     if not tel:
         return False, "❌ O número de contacto deve ter 11 dígitos numéricos."
@@ -149,16 +253,19 @@ def cadastrar_colaborador(
         cur.execute(
             """
             INSERT INTO colaboradores (
-                nome, sexo, data_nascimento, email, whatsapp, observacoes,
+                nome, sexo, data_nascimento, email, nif_ou_documento, identificacao_internacional,
+                whatsapp, observacoes,
                 endereco_rua, endereco_numero, endereco_complemento,
                 codigo_postal, concelho, freguesia, distrito, pais
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 nome,
                 sexo,
                 dn,
                 email,
+                nif_store,
+                intl_i,
                 tel,
                 obs,
                 rua,
@@ -205,6 +312,38 @@ def listar_colaboradores_resumo() -> list[tuple[int, str]]:
         conn.close()
 
 
+def listar_colaboradores_vitrine() -> list[tuple[int, str, str]]:
+    """
+    Lista para cards na UI: (id, nome, primeiro serviço habilitado ou etiqueta neutra).
+    """
+    conn = get_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT c.id, c.nome,
+              COALESCE(
+                (SELECT s.nome FROM colaborador_servicos cs
+                 JOIN servicos s ON s.id = cs.servico_id
+                 WHERE cs.colaborador_id = c.id
+                 ORDER BY cs.ordem LIMIT 1),
+                ''
+              ) AS primeiro_serv
+            FROM colaboradores c
+            ORDER BY c.nome COLLATE NOCASE
+            """
+        )
+        out: list[tuple[int, str, str]] = []
+        for rid, nome, ps in cur.fetchall():
+            lbl = str(ps).strip() if ps else "Sem serviço"
+            out.append((int(rid), str(nome), lbl))
+        return out
+    finally:
+        conn.close()
+
+
 def obter_colaborador(colaborador_id: int) -> dict | None:
     cid = int(colaborador_id)
     conn = get_connection()
@@ -214,7 +353,8 @@ def obter_colaborador(colaborador_id: int) -> dict | None:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT nome, sexo, data_nascimento, email, whatsapp, observacoes,
+            SELECT nome, sexo, data_nascimento, email, nif_ou_documento, identificacao_internacional,
+                   whatsapp, observacoes,
                    endereco_rua, endereco_numero, endereco_complemento,
                    codigo_postal, concelho, freguesia, distrito, pais
             FROM colaboradores WHERE id = ?
@@ -255,16 +395,18 @@ def obter_colaborador(colaborador_id: int) -> dict | None:
         "sexo": row[1],
         "data_nascimento": row[2],
         "email": row[3],
-        "whatsapp": row[4],
-        "observacoes": row[5] or "",
-        "endereco_rua": row[6],
-        "endereco_numero": row[7],
-        "endereco_complemento": row[8] or "",
-        "codigo_postal": row[9],
-        "concelho": row[10],
-        "freguesia": row[11],
-        "distrito": row[12] or "",
-        "pais": row[13] or "Portugal",
+        "nif_ou_documento": row[4] or "",
+        "identificacao_internacional": bool(row[5]),
+        "whatsapp": row[6],
+        "observacoes": row[7] or "",
+        "endereco_rua": row[8],
+        "endereco_numero": row[9],
+        "endereco_complemento": row[10] or "",
+        "codigo_postal": row[11],
+        "concelho": row[12],
+        "freguesia": row[13],
+        "distrito": row[14] or "",
+        "pais": row[15] or "Portugal",
         "linhas": linhas,
     }
 
@@ -286,6 +428,9 @@ def atualizar_colaborador(
     numero_contato: str,
     observacoes: str,
     servicos_repasse: list[tuple[int, float, str]],
+    *,
+    nif_ou_documento: str = "",
+    identificacao_internacional: bool = False,
 ) -> tuple[bool, str]:
     """Atualiza ficha e substitui todas as linhas de habilitação."""
     nome = (nome or "").strip()
@@ -327,6 +472,18 @@ def atualizar_colaborador(
         return False, "❌ O email é obrigatório."
     if not email_valido(email):
         return False, "❌ Indique um email válido."
+
+    nif_raw = (nif_ou_documento or "").strip()
+    nif_store: str | None = None
+    intl_i = 0
+    if nif_raw:
+        ok_n, msg_n, nif_v = normalizar_nif_armazenamento(
+            nif_raw, documento_identificacao_internacional=bool(identificacao_internacional)
+        )
+        if not ok_n:
+            return False, msg_n
+        nif_store = nif_v
+        intl_i = 1 if identificacao_internacional else 0
 
     tel = validar_e_limpar_telefone(numero_contato)
     if not tel:
@@ -370,7 +527,9 @@ def atualizar_colaborador(
         cur.execute(
             """
             UPDATE colaboradores SET
-                nome = ?, sexo = ?, data_nascimento = ?, email = ?, whatsapp = ?, observacoes = ?,
+                nome = ?, sexo = ?, data_nascimento = ?, email = ?,
+                nif_ou_documento = ?, identificacao_internacional = ?,
+                whatsapp = ?, observacoes = ?,
                 endereco_rua = ?, endereco_numero = ?, endereco_complemento = ?,
                 codigo_postal = ?, concelho = ?, freguesia = ?, distrito = ?, pais = ?
             WHERE id = ?
@@ -380,6 +539,8 @@ def atualizar_colaborador(
                 sexo,
                 dn,
                 email,
+                nif_store,
+                intl_i,
                 tel,
                 obs,
                 rua,

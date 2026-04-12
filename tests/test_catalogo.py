@@ -9,6 +9,7 @@ from src.modules.catalogo import (
     cadastrar_pacote,
     cadastrar_servico_fase1,
     listar_itens_catalogo,
+    obter_servico_para_formulario,
     repasse_medio_ponderado_pacote,
 )
 from src.modules.colaborador import cadastrar_colaborador, listar_servicos
@@ -145,6 +146,15 @@ def test_pacote_ok_e_listagem():
     row = next(x for x in itens if x["nome"] == "Pacote Integração")
     assert row["natureza"] == "Pacote"
     assert "2×" in str(row["detalhes"]) and "Óleo" in str(row["detalhes"])
+
+    cur2 = __import__("sqlite3").connect(os.environ["BEABA_SQLITE_PATH"])
+    pk_id = int(cur2.execute("SELECT id FROM servicos WHERE nome = 'Pacote Integração'").fetchone()[0])
+    cur2.close()
+    form = obter_servico_para_formulario(pk_id)
+    assert form is not None
+    assert form["natureza"] == "Pacote"
+    assert form.get("pacote_linhas"), "Pacote deve trazer linhas de composição para a ficha (validade do pacote)"
+    assert "pacote_valor_euros" in form and "pacote_repasse_ref_pct" in form
 
 
 def _sid_habilitacao():

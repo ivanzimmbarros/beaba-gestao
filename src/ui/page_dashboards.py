@@ -12,6 +12,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from src.pages.theme import get_beaba_css  # noqa: F401 — BeaBa Sereno (CSS em app.main)
 from src.database.connection import get_connection
 from src.modules.relatorios import (
     DimensaoGroupBy,
@@ -175,17 +176,7 @@ def _bea_plotly_layout(fig: go.Figure) -> go.Figure:
     return fig
 
 
-def render_page_dashboards(
-    *,
-    render_back_and_breadcrumb,
-) -> None:
-    render_back_and_breadcrumb(["Home", "Dashboards e Relatórios"], back_key="bea_back_dash")
-    st.markdown("### Dashboards e relatórios")
-
-    _render_dw_analytics_block()
-
-    st.markdown("---")
-    st.markdown("#### Relatórios operacionais (E08)")
+def _render_e08_operacional(*, with_charts: bool, with_table: bool) -> None:
     st.caption(
         "**Fase A:** receita com base em vendas registadas; «margem / lucro» = receita (sem custos). "
         "Desconto global na venda pode fazer divergir soma das linhas do total do cabeçalho — ambos os valores são mostrados."
@@ -297,102 +288,125 @@ def render_page_dashboards(
     with m6:
         st.metric("Quantidade (unidades/sessões)", str(k["quantidade_total"]))
 
-    st.markdown("---")
-    st.subheader("Evolução temporal (receita por linha)")
-    ser = serie_receita_temporal(filt, gran)
-    if ser:
-        df_s = pd.DataFrame(ser, columns=["Período", "Receita (€)"])
-        df_s["Receita (€)"] = df_s["Receita (€)"] / 100.0
-        fig_l = go.Figure()
-        fig_l.add_trace(
-            go.Scatter(
-                x=df_s["Período"],
-                y=df_s["Receita (€)"],
-                mode="lines+markers",
-                name="Receita",
-                line=dict(color=ANALYTICS_COLORS[0], width=2),
-                marker=dict(size=8, color=ANALYTICS_COLORS[1], line=dict(width=1, color=COLORS["text"])),
-            )
-        )
-        fig_l.update_layout(title="Receita agregada no período", xaxis_title="Período", yaxis_title="€")
-        st.plotly_chart(_bea_plotly_layout(fig_l), width="stretch")
-    else:
-        st.info("Sem dados no período e filtros selecionados.")
-
-    st.markdown("---")
-    c_left, c_right = st.columns(2)
-    with c_left:
-        st.subheader(f"Top {top_n} — {group_pick}")
-        top = top_n_dimensao(filt, dim_gb, top_n)
-        if top:
-            df_t = pd.DataFrame(
-                [(a, b / 100.0, c) for a, b, c in top],
-                columns=["Dimensão", "Receita (€)", "Qtd"],
-            )
-            colors_bar = (ANALYTICS_COLORS * ((len(df_t) // len(ANALYTICS_COLORS)) + 1))[: len(df_t)]
-            fig_b = go.Figure(
-                go.Bar(
-                    x=df_t["Receita (€)"],
-                    y=df_t["Dimensão"],
-                    orientation="h",
-                    marker=dict(color=colors_bar, line=dict(width=0)),
-                    text=df_t["Receita (€)"].map(lambda x: f"{x:.2f} €"),
-                    textposition="outside",
-                )
-            )
-            fig_b.update_layout(title="Ranking por receita (linhas)", yaxis=dict(autorange="reversed"))
-            st.plotly_chart(_bea_plotly_layout(fig_b), width="stretch")
-        else:
-            st.caption("Sem dados.")
-
-    with c_right:
-        st.subheader("Pareto (% cumulativo)")
-        par = pareto_dimensao(filt, dim_gb, limite_barras=max(10, top_n))
-        if par:
-            df_p = pd.DataFrame(par, columns=["Dimensão", "Receita (c)", "Cum %"])
-            df_p["Receita (€)"] = df_p["Receita (c)"] / 100.0
-            fig_p = go.Figure()
-            fig_p.add_trace(
-                go.Bar(
-                    x=df_p["Dimensão"],
-                    y=df_p["Receita (€)"],
-                    name="Receita",
-                    marker_color=ANALYTICS_COLORS[2],
-                )
-            )
-            fig_p.add_trace(
+    if with_charts:
+        st.markdown("---")
+        st.subheader("Evolução temporal (receita por linha)")
+        ser = serie_receita_temporal(filt, gran)
+        if ser:
+            df_s = pd.DataFrame(ser, columns=["Período", "Receita (€)"])
+            df_s["Receita (€)"] = df_s["Receita (€)"] / 100.0
+            fig_l = go.Figure()
+            fig_l.add_trace(
                 go.Scatter(
-                    x=df_p["Dimensão"],
-                    y=df_p["Cum %"],
-                    name="% acumulado",
-                    yaxis="y2",
+                    x=df_s["Período"],
+                    y=df_s["Receita (€)"],
                     mode="lines+markers",
+                    name="Receita",
                     line=dict(color=ANALYTICS_COLORS[0], width=2),
-                    marker=dict(size=6),
+                    marker=dict(size=8, color=ANALYTICS_COLORS[1], line=dict(width=1, color=COLORS["text"])),
                 )
             )
-            fig_p.update_layout(
-                title="Concentração (sobre categorias exibidas)",
-                yaxis=dict(title="Receita (€)"),
-                yaxis2=dict(title="% acumulado", overlaying="y", side="right", range=[0, 105]),
-            )
-            fig_p.update_xaxes(tickangle=-28)
-            st.plotly_chart(_bea_plotly_layout(fig_p), width="stretch")
+            fig_l.update_layout(title="Receita agregada no período", xaxis_title="Período", yaxis_title="€")
+            st.plotly_chart(_bea_plotly_layout(fig_l), width="stretch")
         else:
-            st.caption("Sem dados.")
+            st.info("Sem dados no período e filtros selecionados.")
+
+        st.markdown("---")
+        c_left, c_right = st.columns(2)
+        with c_left:
+            st.subheader(f"Top {top_n} — {group_pick}")
+            top = top_n_dimensao(filt, dim_gb, top_n)
+            if top:
+                df_t = pd.DataFrame(
+                    [(a, b / 100.0, c) for a, b, c in top],
+                    columns=["Dimensão", "Receita (€)", "Qtd"],
+                )
+                colors_bar = (ANALYTICS_COLORS * ((len(df_t) // len(ANALYTICS_COLORS)) + 1))[: len(df_t)]
+                fig_b = go.Figure(
+                    go.Bar(
+                        x=df_t["Receita (€)"],
+                        y=df_t["Dimensão"],
+                        orientation="h",
+                        marker=dict(color=colors_bar, line=dict(width=0)),
+                        text=df_t["Receita (€)"].map(lambda x: f"{x:.2f} €"),
+                        textposition="outside",
+                    )
+                )
+                fig_b.update_layout(title="Ranking por receita (linhas)", yaxis=dict(autorange="reversed"))
+                st.plotly_chart(_bea_plotly_layout(fig_b), width="stretch")
+            else:
+                st.caption("Sem dados.")
+
+        with c_right:
+            st.subheader("Pareto (% cumulativo)")
+            par = pareto_dimensao(filt, dim_gb, limite_barras=max(10, top_n))
+            if par:
+                df_p = pd.DataFrame(par, columns=["Dimensão", "Receita (c)", "Cum %"])
+                df_p["Receita (€)"] = df_p["Receita (c)"] / 100.0
+                fig_p = go.Figure()
+                fig_p.add_trace(
+                    go.Bar(
+                        x=df_p["Dimensão"],
+                        y=df_p["Receita (€)"],
+                        name="Receita",
+                        marker_color=ANALYTICS_COLORS[2],
+                    )
+                )
+                fig_p.add_trace(
+                    go.Scatter(
+                        x=df_p["Dimensão"],
+                        y=df_p["Cum %"],
+                        name="% acumulado",
+                        yaxis="y2",
+                        mode="lines+markers",
+                        line=dict(color=ANALYTICS_COLORS[0], width=2),
+                        marker=dict(size=6),
+                    )
+                )
+                fig_p.update_layout(
+                    title="Concentração (sobre categorias exibidas)",
+                    yaxis=dict(title="Receita (€)"),
+                    yaxis2=dict(title="% acumulado", overlaying="y", side="right", range=[0, 105]),
+                )
+                fig_p.update_xaxes(tickangle=-28)
+                st.plotly_chart(_bea_plotly_layout(fig_p), width="stretch")
+            else:
+                st.caption("Sem dados.")
+
+    if with_table:
+        st.markdown("---")
+        st.subheader("Relatório tabular")
+        tab = tabela_agregada(filt, dim_gb)
+        if tab:
+            st.dataframe(pd.DataFrame(tab), hide_index=True, width="stretch")
+            csv = pd.DataFrame(tab).to_csv(index=False).encode("utf-8")
+            st.download_button(
+                "Descarregar CSV",
+                csv,
+                file_name="relatorio_beaba.csv",
+                mime="text/csv",
+                key="dash_dl_rel" if not with_charts else "dash_dl",
+            )
+        else:
+            st.caption("Sem linhas para exportar.")
+
+
+def render_page_dashboards(
+    *,
+    render_back_and_breadcrumb,
+    modo: str = "dashboards",
+) -> None:
+    if modo == "relatorios":
+        render_back_and_breadcrumb(["Home", "Relatórios"], back_key="bea_back_rel")
+        st.markdown("### Relatórios")
+        _render_e08_operacional(with_charts=False, with_table=True)
+        return
+
+    render_back_and_breadcrumb(["Home", "Dashboards"], back_key="bea_back_dash")
+    st.markdown("### Dashboards")
+
+    _render_dw_analytics_block()
 
     st.markdown("---")
-    st.subheader("Relatório tabular")
-    tab = tabela_agregada(filt, dim_gb)
-    if tab:
-        st.dataframe(pd.DataFrame(tab), hide_index=True, width="stretch")
-        csv = pd.DataFrame(tab).to_csv(index=False).encode("utf-8")
-        st.download_button(
-            "Descarregar CSV",
-            csv,
-            file_name="relatorio_beaba.csv",
-            mime="text/csv",
-            key="dash_dl",
-        )
-    else:
-        st.caption("Sem linhas para exportar.")
+    st.markdown("#### Indicadores operacionais (E08)")
+    _render_e08_operacional(with_charts=True, with_table=False)

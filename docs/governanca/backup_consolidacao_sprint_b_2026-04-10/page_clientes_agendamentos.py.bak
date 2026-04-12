@@ -1,0 +1,181 @@
+"""Consolidação Clientes + Agendamentos — Sprint A: navegação, pesquisa e limpeza de estado local."""
+
+from __future__ import annotations
+
+import html
+
+import streamlit as st
+
+from src.pages.theme import get_beaba_css  # noqa: F401 — BeaBa Sereno (CSS em app.main)
+from src.modules.cliente import (
+    buscar_clientes_por_nif_email_telefone,
+    obter_cliente_completo,
+)
+from src.modules.nif import normalizar_nif_armazenamento
+from src.modules.telefone import normalizar_telefone_legado_ou_e164
+from src.modules.validators import email_valido
+from src.ui.widgets.cliente_search import render_cliente_search_widget
+
+_CAG_PREFIX = "cag_"
+
+
+def _html_cli_result_card(*, nome_e: str, sub_e: str) -> str:
+    return (
+        '<div class="bea-proto-scope">'
+        '<div class="bea-venda-comanda-item bea-comanda-min">'
+        '<p style="margin:0 0 6px 0;text-align:right;font-size:0.95rem;opacity:0.5;">👤</p>'
+        '<span class="bea-com-nome">'
+        + nome_e
+        + "</span><br/>"
+        '<span class="bea-com-badge">'
+        + sub_e
+        + "</span>"
+        "</div></div>"
+    )
+
+
+def _reset_cag_page_state() -> None:
+    """Remove apenas chaves da página consolidada (não altera dados persistidos)."""
+    for k in list(st.session_state.keys()):
+        if k.startswith(_CAG_PREFIX) or k == "_cag_prime":
+            del st.session_state[k]
+    st.session_state.cag_form_v = 0
+    st.session_state.cag_edit_id = None
+
+
+def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
+    render_back_and_breadcrumb(
+        ["Home", "Clientes e Agendamentos", "Cadastro"],
+        back_key="bea_back_clientes_agendamentos",
+    )
+    st.markdown(
+        '<div class="bea-proto-scope"><div class="bea-pdv-titulo-wrap">'
+        '<p class="bea-pdv-titulo">Cadastro de Clientes e Gestão de Agendamentos</p></div></div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        '<div style="height:6px;background:linear-gradient(90deg,#F0FDF4,#D1FAE5,#A7F3D0);'
+        "border-radius:8px;margin:0 0 0.85rem 0;opacity:0.95;\"></div>",
+        unsafe_allow_html=True,
+    )
+
+    if "cag_form_v" not in st.session_state:
+        st.session_state.cag_form_v = 0
+    if "cag_edit_id" not in st.session_state:
+        st.session_state.cag_edit_id = None
+
+    st.markdown(
+        '<div class="bea-proto-scope"><p class="bea-pdv-titulo" '
+        'style="font-size:1.2rem;margin:0 0 0.5rem 0;letter-spacing:0.01em;">'
+        "1. Pesquisa de Clientes</p></div>",
+        unsafe_allow_html=True,
+    )
+
+    with st.container(border=True):
+        cag_busca_clicked = render_cliente_search_widget(
+            key_prefix="cag_busca",
+            button_type="secondary",
+            minimal=True,
+        )
+
+    if cag_busca_clicked:
+        nif_s = str(st.session_state.get("cag_busca_nif", "") or "").strip()
+        em_s = str(st.session_state.get("cag_busca_email", "") or "").strip()
+        tel_raw = str(st.session_state.get("cag_busca_tel_txt", "") or "").strip()
+        use_tel = normalizar_telefone_legado_ou_e164(tel_raw) if tel_raw else ""
+        busca_doc_intl = bool(st.session_state.get("cag_busca_docintl"))
+
+        msg_err: str | None = None
+        if not nif_s and not em_s and not tel_raw:
+            msg_err = "Indique NIF, email ou telefone."
+        elif em_s and not email_valido(em_s):
+            msg_err = "❌ Email inválido para pesquisa."
+        elif tel_raw and not use_tel:
+            msg_err = "❌ Telefone inválido (ex.: +351912345678)."
+        elif nif_s:
+            ok_nf, msg_nf, _vx = normalizar_nif_armazenamento(
+                nif_s, documento_identificacao_internacional=bool(busca_doc_intl)
+            )
+            if not ok_nf:
+                msg_err = msg_nf
+        if msg_err:
+            st.error(msg_err)
+        else:
+            cands = buscar_clientes_por_nif_email_telefone(
+                nif=nif_s,
+                email=em_s,
+                telefone=use_tel,
+                documento_internacional=bool(busca_doc_intl),
+            )
+            if len(cands) == 0:
+                st.warning("Nenhum cliente encontrado com estes critérios.")
+                st.session_state.pop("cag_busca_cands", None)
+            elif len(cands) == 1:
+                cid = cands[0][0]
+                data = obter_cliente_completo(cid)
+                if not data:
+                    st.error("Cliente não encontrado.")
+                else:
+                    st.session_state.cag_edit_id = cid
+                    st.session_state.cag_form_v += 1
+                    st.session_state.pop("cag_busca_cands", None)
+                    st.session_state.cag_busca_nif = ""
+                    st.session_state.cag_busca_email = ""
+                    st.session_state.cag_busca_tel_txt = ""
+                    st.session_state.cag_busca_docintl = False
+                    st.success(f"Cliente encontrado (#{cid}). Pesquisa limpa para nova consulta.")
+                    st.rerun()
+            else:
+                st.session_state.cag_busca_cands = cands
+                st.rerun()
+
+    cands_m = st.session_state.get("cag_busca_cands")
+    if cands_m and len(cands_m) > 1:
+        st.markdown(
+            '<div class="bea-proto-scope"><p class="bea-pdv-titulo" '
+            'style="font-size:1.05rem;margin:0.6rem 0 0.35rem 0;">Resultados</p></div>',
+            unsafe_allow_html=True,
+        )
+        n_c = len(cands_m)
+        for row_start in range(0, n_c, 3):
+            cols = st.columns(3)
+            for i in range(3):
+                ix = row_start + i
+                if ix >= n_c:
+                    break
+                cid, nome = cands_m[ix]
+                nome_e = html.escape(str(nome))
+                sub_e = html.escape(f"#{cid}")
+                with cols[i]:
+                    with st.container(border=True):
+                        st.markdown(
+                            _html_cli_result_card(nome_e=nome_e, sub_e=sub_e),
+                            unsafe_allow_html=True,
+                        )
+                        if st.button("Carregar ficha", key=f"cag_cand_load_{cid}", width="stretch"):
+                            data = obter_cliente_completo(cid)
+                            if not data:
+                                st.error("Cliente não encontrado.")
+                            else:
+                                st.session_state.cag_edit_id = cid
+                                st.session_state.cag_form_v += 1
+                                st.session_state.pop("cag_busca_cands", None)
+                                st.session_state.cag_busca_nif = ""
+                                st.session_state.cag_busca_email = ""
+                                st.session_state.cag_busca_tel_txt = ""
+                                st.session_state.cag_busca_docintl = False
+                                st.success(f"Cliente #{cid} selecionado. Pesquisa limpa.")
+                                st.rerun()
+
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+    st.markdown(
+        '<div class="bea-proto-scope"><p class="bea-pdv-titulo" '
+        'style="font-size:1.2rem;margin:0.5rem 0 0.35rem 0;letter-spacing:0.01em;">'
+        "3. Limpar informações na página</p></div>",
+        unsafe_allow_html=True,
+    )
+    if st.button("Limpar Informações Apresentadas", key="cag_btn_limpar_tela", type="secondary"):
+        _reset_cag_page_state()
+        st.rerun()
