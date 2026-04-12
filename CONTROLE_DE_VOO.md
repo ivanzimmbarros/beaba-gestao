@@ -3,7 +3,7 @@
 **PROJETO:** Centro Terapêutico BeaBa Materno  
 **DESENHO FUNCIONAL:** V11.0 — Identidade integrada (ver `docs/CADERNO_MESTRE.md`)  
 **STATUS ATUAL:** 🔵 DESENVOLVIMENTO EM CURSO (#01)  
-**CONTADOR DE INTEGRIDADE MASSIVA (N+1):** [ 0 ] Funcionalidades Validadas
+**CONTADOR DE INTEGRIDADE MASSIVA (N+1):** [ 89 ] Testes automatizados na suite `pytest tests/` (auditoria 2026-04-12)
 
 **PROCESSO OBRIGATÓRIO:** toda evolução segue o **Fluxo oficial de governança** em **`docs/governanca/FLUXO_SUCESSO_E_FALHA.md`** (passos 1–25, PC1–PC13; percurso de correção **FALHA**) e [`.cursorrules`](../.cursorrules). **Entrada:** demanda via **Cursor `@Files` → Analista**; **EQUIPE** gera toda a documentação e controlos (sem exigir ficheiros manuais do Diretor). Git (`develop`) + `PAINEL` + `status_demanda.json` **sincronizados** após cada par de ponto de controlo.
 
@@ -59,3 +59,4 @@
 - [x] **E14 — Telemetria ao vivo (`2026-04-07_E14_telemetria_live`):** **Concluída** — `live_status`, `etapas_pendentes`, `live_actualizado_iso` em `status_demanda.json`; **STATUS LIVE** + autorefresh na UI de governança (até **E15**); `streamlit-autorefresh` em `requirements.txt`; regra **6** em `.cursorrules`; **49** `pytest` no fecho E14; `99_encerramento.md` (2026-04-07).
 - [x] **E15 — Monitor governança externo (`2026-04-07_E15_monitor_governanca_externo`):** **Concluída** — `monitor_governanca.py` na raiz; remoção de `page_fluxo_gestao.py` e entrada na app; PAINEL com dois acessos; **50** `pytest`; `99_encerramento.md` (2026-04-07).
 - [x] **Hotfix Streamlit + sync Git (2026-04-08):** `src/app.py` — País (clientes/colaboradores) e Repasse % sem conflito `value=` vs `session_state` após «Carregar para edição»; **commit + push `develop`**; backup D1 continua cópia integral de `data/beaba_gestao.db` (sem alteração de percursos).
+- [x] **Auditoria 360º + sync nuvem (2026-04-12):** Diff local (`workflows` backup, `monitor_governanca`, `seed_validacao_massiva`, `src/*` módulos core+UI, `tests/*`) fechado com **commit + push `origin/develop`**; mapa mestre de testes actualizado (**89** casos); **restore:** provas automatizadas + simulação semanal em sandbox; `status_demanda.json` / PAINEL / CADERNO alinhados — cumprimento protocolo Git→Painel (`.cursorrules`).

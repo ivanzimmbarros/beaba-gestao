@@ -8,18 +8,33 @@
 |:---|:---|:---|
 | Suite completa | `python -m pytest tests/ -v` | Deve passar antes de **selo QA** e push em `develop`. |
 
-## 2. Por módulo (referência rápida)
+## 2. Mapa completo da suite (regressão global — não só último épico)
 
-- `tests/test_qa_auto.py` — clientes, validações
-- `tests/test_colaborador.py` — colaboradores
-- `tests/test_catalogo.py` — catálogo, pacotes, eventos
-- `tests/test_venda.py` — vendas (incl. `agendamento_contexto_id` / cliente ≠ agendamento)
-- `tests/test_relatorios.py` — relatórios / dashboards
-- `tests/test_agendamento.py` — agendamentos (incl. E11 pré-venda, migração `modo_origem`, associação a `venda_item`)
-- `tests/test_nif_e164.py` — E16 NIF (módulo 11) e normalização E.164 / legado
-- `tests/test_e17_backup_dr.py` — E17 backup horário + verificação semanal (subprocess, repo isolado)
-- `tests/test_governanca.py` — inclui `test_backup_dr_history_json_existe_e_schema_vazio` (E17.1 telemetry)
-- `tests/test_e17_1_cloud.py` — E17.1 AES-GCM, evidências SQLite, append telemetria
+**Total actual (auditoria 2026-04-12):** **89** testes — `python -m pytest tests/ -v`.
+
+| Ficheiro | Âmbito de negócio / técnico |
+|:---|:---|
+| `tests/conftest.py` | SQLite isolado por teste (`BEABA_SQLITE_PATH`); protege `data/beaba_gestao.db` local |
+| `tests/e2e_stress_test.py` | E2E herói + boundary (jornada transversal: cliente, venda, agendamento, integridade) |
+| `tests/test_agendamento.py` | Agendamentos, buffer, máquina de estados, E11 pré-venda |
+| `tests/test_app_governance_syntax.py` | Compilação smoke `app_governance` |
+| `tests/test_catalogo.py` | Catálogo: sessão, pacote, evento, validações |
+| `tests/test_cliente.py` | Módulo `cliente`: busca, cadastro, NIF/datas |
+| `tests/test_clientes_agendamentos_page.py` | UI consolidada CAG: import, estado, resumo setor 2, HTML naturezas |
+| `tests/test_colaborador.py` | Colaboradores, serviços, repasse, idade |
+| `tests/test_e17_backup_dr.py` | E17 backup horário, verify, rotação, corrupção |
+| `tests/test_e17_1_cloud.py` | E17.1 crypto GCM, evidências SQLite, append telemetria |
+| `tests/test_e18_credito.py` | Ledger crédito, gate pagamento, meios legado |
+| `tests/test_etl_analytics.py` | ETL / DW, regras LTV e carga horária |
+| `tests/test_governanca.py` | JSON painel, fluxo doc, caderno, monitor, telemetry schema |
+| `tests/test_monitor_demanda.py` | Script monitor demanda (exit zero) |
+| `tests/test_nif_e164.py` | E16 NIF PT, doc. internacional, E.164 |
+| `tests/test_qa_auto.py` | Cliente: CP, duplicidade, emergência, filhos, grávida |
+| `tests/test_relatorios.py` | Relatórios, KPIs, filtros, colaborador em linha |
+| `tests/test_restore_sqlite.py` | E17.2 `restore_sqlite.py`: trava de branch + restore BEA1 com flag de teste |
+| `tests/test_sqlite_backup_verify.py` | Header SQLite + verify destino mínimo |
+| `tests/test_venda.py` | Vendas: totais, split, pendente, contexto agendamento |
+| `tests/test_view_governance.py` | `view_governance` CLI smoke |
 
 ## 3. Plano por demanda (template)
 
@@ -87,17 +102,26 @@ Para cada **ID de demanda**, acrescentar secção:
 - **2026-04-08:** E17 (backup/DR SQLite) — `test_e17_backup_dr.py`; suite **62** testes.
 - **2026-04-09:** E17.1 — `test_backup_dr_history_json_existe_e_schema_vazio`; suite **63** testes.
 - **2026-04-09:** E17.1 Fase C — `test_e17_1_cloud.py`; suite **66** testes.
+- **2026-04-12:** Auditoria 360º — mapa completo §2 (21 ficheiros + `conftest`); suite **89** testes (`test_cliente.py`, `test_clientes_agendamentos_page.py`, `test_e18_credito.py`, `test_etl_analytics.py`, `test_restore_sqlite.py`, `test_sqlite_backup_verify.py`, `test_app_governance_syntax.py`, `test_monitor_demanda.py`, `test_view_governance.py`, `e2e_stress_test` na suite pytest).
 
 ### Demanda `2026-04-09_E17_1_autonomia_resiliencia_cloud` — telemetria backup/DR (Monitor)
 
 - **Objectivo:** `backup_dr_history.json` + workflows GHA + AES-GCM + aba Monitor (matriz).
 - **Novos casos:** `test_backup_dr_history_json_existe_e_schema_vazio`; `test_e17_1_cloud.py` (GCM, evidências SQLite, append telemetria).
-- **Regressão:** `python -m pytest tests/ -v` (**66** testes).
+- **Regressão:** `python -m pytest tests/ -v` (**89** testes em 2026-04-12).
 - **Critérios de aceite:** [`04_desenho_logico.md`](governanca/demandas/2026-04-09_E17_1_autonomia_resiliencia_cloud/04_desenho_logico.md) §6 e workflows.
 
 ### Demanda `2026-04-08_E17_backup_dr` — backup e DR SQLite
 
 - **Objectivo:** `scripts/backup_sqlite_hourly.py`, `scripts/verify_restore_weekly.py`; WAL em `connection.py`; pasta `backups/`; política nuvem documentada no PAINEL.
 - **Novos casos:** compilação dos scripts; backup sem fonte (exit 1); backup + verify OK; verify sem backups (exit 1); rotação com `BEABA_BACKUP_KEEP=2`; corrupção binária na cópia horária → verify falha.
-- **Regressão:** `python -m pytest tests/ -v` (suite actual **66** testes; E17 manteve casos em `test_e17_backup_dr.py`).
+- **Regressão:** `python -m pytest tests/ -v` (suite actual **89** testes; E17 em `test_e17_backup_dr.py` + `test_sqlite_backup_verify.py` + `test_restore_sqlite.py`).
 - **Critérios de aceite:** [`04_desenho_logico.md`](governanca/demandas/2026-04-08_E17_backup_dr/04_desenho_logico.md) e [`99_encerramento.md`](governanca/demandas/2026-04-08_E17_backup_dr/99_encerramento.md).
+
+### Pós-E18 / E19 / UI (mapa transversal)
+
+- **E18 crédito e gate:** `tests/test_e18_credito.py`.
+- **E19 DW / ETL:** `tests/test_etl_analytics.py` + regressão em `test_relatorios.py` / dashboards.
+- **Página Clientes+Agendamentos (CAG):** `tests/test_clientes_agendamentos_page.py`.
+- **Módulo cliente (API):** `tests/test_cliente.py` (além de `test_qa_auto` / E16).
+- **Stress E2E (portão E20):** além da suite, correr `python tests/e2e_stress_test.py` com iterações ≥1000 antes de PC13 de épico; relatório opcional `tests/last_stress_report.txt`.

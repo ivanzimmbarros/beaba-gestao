@@ -10,6 +10,27 @@
       ".cursorrules"
     ]
   },
+  "auditoria_360": {
+    "data_iso": "2026-04-12",
+    "projeto": "BeaBa Gestão / BeaBa Materno",
+    "escopo": "Sincronização código+CI com origin/develop; mapa completo de testes; certificação backup/restore (pytest + simulação verify semanal em sandbox).",
+    "pytest": {
+      "total": 89,
+      "comando": "python -m pytest tests/ -v",
+      "resultado_2026_04_12": "89 passed",
+      "e2e_incluido": "tests/e2e_stress_test.py (hero + boundary quick na suite pytest)"
+    },
+    "backup_restore": {
+      "nuvem_codigo": "Artefactos encriptados GHA + telemetria backup_dr_history.json — cópia integral SQLite em backup horário (.gitignore *.db intencional).",
+      "simulacao_restore_semanal": "scripts.verify_restore_weekly.run_verify(BEABA_REPO_ROOT=tmp) com beaba_gestao_*.db sintético em backups/hourly — exit 0; não altera data/beaba_gestao.db.",
+      "restore_encriptado": "tests/test_restore_sqlite.py — BEABA_ALLOW_RESTORE_OFF_BRANCH=1; roundtrip BEA1 + consistência com telemetria."
+    },
+    "exclusoes_git_normativas": [
+      "*.db (operacional e réplicas) — política D1 em .cursorrules / .gitignore",
+      "__pycache__/ — bytecode"
+    ],
+    "diferencas_locais_vs_origin_corrigidas": "Ficheiros modificados não enviados: workflows backup_*.yml, monitor_governanca.py, seed_validacao_massiva.py, src (app, connection, catalogo, cliente, colaborador, UI vendas/agendamentos/dashboards), tests (e2e_stress, agendamento, catalogo, qa_auto, relatorios, venda) — resolvidos por commit+push develop."
+  },
   "painel_layout_version": 2,
   "secao_epicos_em_execucao": {
     "titulo": "[SEÇÃO: ÉPICOS EM EXECUÇÃO]",
@@ -51,7 +72,7 @@
         "status_demanda": "CONCLUÍDO",
         "data_conclusao": "2026-04-08",
         "entrega": "Máquina de estados dual, Ledger de Créditos, Gate de Integridade Financeira e Repasses.",
-        "validacao": "69 testes passados e integrity_check: ok.",
+        "validacao": "Suite pytest completa (89 testes em 2026-04-12); integrity_check operacional documentado no PAINEL.",
         "refs_docs": [
           "docs/governanca/demandas/2026-04-08_E18_operacional_financeiro/01_demanda_diretor.md",
           "docs/governanca/demandas/2026-04-08_E18_operacional_financeiro/02_desenho_funcional.md"
@@ -79,7 +100,7 @@
     "entrega_sprint_b": "Setor 2 conforme Proposta: Dados Pessoais (3 campos B.1.1) + Resumo Geral: Agendamentos (5 cards, naturezas e estados); `obter_resumo_agendamentos_cliente_setor2_proposta`. Removido resumo por vendas/saldo.",
     "entrega_correcao_setor_4": "Setor 4 «4. Ficha do Cliente»: checkbox edição, campos disabled por defeito, Salvar Alterações #C43048, reversão ao desmarcar; ficha alinhada ao setor 2.Ficha de Clientes (sem histórico de compras nesta página).",
     "entrega_fase_final_setores_3_4_5": "Setor 3 «3. Dados Pessoais» (Lora) + expander «Informações Detalhadas do Cliente» fechado por defeito com campos da ficha; Setor 4 só controlo de edição + Salvar; Setor 5 «Gestão de Agendamentos» — tabela 5 colunas, paginação 5, formulário (Natureza, busca serviço, colaboradores, estado), cancelamento com cancelar_agendamento e devolução ao buffer; pós-gravar modal SIM/NÃO novo agendamento.",
-    "ultima_actualizacao_iso": "2026-04-11"
+    "ultima_actualizacao_iso": "2026-04-12"
   },
   "demanda_id": "2026-04-10_E22_redesign_visual_verde_sereno",
   "titulo": "Épico 22 — Redesign visual global «Verde Sereno»",
@@ -99,20 +120,20 @@
   ],
   "pendente": "Consolidação UI — Fase Final Setores 3, 4 e 5 na página consolidada (Dados Pessoais em expander, Ficha, Gestão de Agendamentos). E22 Fase 2 — homologar Clientes/Colaboradores vs PDV. E17.1: fila.",
   "falha": "2026-04-09 — Push telemetria: `secrets.GITHUB_TOKEN` incorrecto (não é o token automático). Correcção: `github.token` no `actions/checkout`. Prova EQUIPE: run **24215460665** → commit em `develop` → `git pull` traz `gha-24215460665` no JSON. Grounding: Diretor validar pull local + schedules seguintes.",
-  "ultima_actualizacao_iso": "2026-04-11",
+  "ultima_actualizacao_iso": "2026-04-12",
   "notas_dashboard": "Painel v2: secções «Épicos em execução» e «Histórico de épicos concluídos» em `status_demanda.json`. Apps: `scripts/app_governance.py`, `view_governance.py`, `monitor_demanda.py`, `monitor_governanca.py` (aba Governança).",
   "fase_governanca": "A",
   "pc_foco": "PC1–PC2",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "Repouso: CAG — Setores 3–5 sempre renderizados (placeholders sem cliente carregado); correção entregue em develop.",
+  "live_status": "Auditoria 360º 2026-04-12: código e CI alinhados com push develop; pytest 89/89; backup/restore certificado (testes + simulação verify semanal em tmp).",
   "etapas_pendentes": [
     "Diretor: homologar PDV vs protótipo (semáforo visível, comanda spa). Sem OK → sem avançar módulos.",
-    "E22: após OK — um único módulo seguinte (ex. Clientes em cards).",
-    "Encerramento futuro E22: pytest completo + `python tests/e2e_stress_test.py` (≥1000) + evidência em `tests/last_stress_report.txt` sem bloqueios.",
-    "E17.1: na fila — pull develop + permissões GHA quando priorizado."
+    "E22: após OK — um único módulo seguinte (ex. Catálogo / Agendamentos).",
+    "Encerramento futuro E22: `python tests/e2e_stress_test.py` (≥1000 iterações) + `tests/last_stress_report.txt` sem bloqueios (além da suite pytest).",
+    "E17.1: na fila — CONFIRMO desenho lógico Cloud quando priorizado."
   ],
-  "live_actualizado_iso": "2026-04-11T23:45:00Z",
+  "live_actualizado_iso": "2026-04-12T12:00:00Z",
   "epico_22_redesign_visual": {
     "fase_actual": "2-gestao-pessoas",
     "nome": "BeaBa Sereno — Fase 2 Gestão de Pessoas (Clientes + Colaboradores = PDV)",
@@ -163,6 +184,7 @@
     "2026-04-10 — E22 Fase 2 Gestão de Pessoas — Em Execução: `page_colaboradores` vitrine 3×3; `page_clientes` pesquisa + grelha + cards ficha + histórico vendas; `2-gestao-pessoas`.",
     "2026-04-10 — E22 reconstrução app: `shell_sidebar.py`, `initial_sidebar_state=expanded`, coluna central; comanda HTML só concatenação; cliente card + expanders; moldura principal removida.",
     "2026-04-10 — Consolidação Clientes+Agendamentos Sprint B homologada: Setor 2 raio‑X (`obter_resumo_cliente_raio_x`, cards visita/gasto/pendente/crédito).",
-    "2026-04-10 — Correção Crítica Setor 2 e 4: alinhamento total à Proposta (agendamentos + naturezas); ficha Setor 4 com edição controlada; removido `obter_resumo_cliente_raio_x`."
+    "2026-04-10 — Correção Crítica Setor 2 e 4: alinhamento total à Proposta (agendamentos + naturezas); ficha Setor 4 com edição controlada; removido `obter_resumo_cliente_raio_x`.",
+    "2026-04-12 — Auditoria 360º: diff local→origin fechado (commit+push develop); `CADERNO_TESTES_MASTER` com mapa completo 21 ficheiros / 89 testes; `verify_restore_weekly` simulado em sandbox; `status_demanda.auditoria_360` e PAINEL/CONTROLE actualizados; conformidade .cursorrules (sem código só em disco sem push)."
   ]
 }
