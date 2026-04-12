@@ -237,6 +237,7 @@ def render_page_home() -> None:
                     ),
                     use_container_width=True,
                     config=cfg,
+                    key="home_donut_hoje",
                 )
                 st.markdown(
                     '<p class="bea-cv-donut-caption">Confirmados hoje vs total previsto na semana</p>',
@@ -247,6 +248,7 @@ def render_page_home() -> None:
                     _figure_donut_contagem_unica(snap.donut2_agendados_e_confirmados_semana),
                     use_container_width=True,
                     config=cfg,
+                    key="home_donut_semana",
                 )
                 st.markdown(
                     '<p class="bea-cv-donut-caption">Agendados + confirmados (semana)</p>',
@@ -257,6 +259,7 @@ def render_page_home() -> None:
                     _figure_donut_taxa_cancelamento(snap.donut3_taxa_cancelamento_pct),
                     use_container_width=True,
                     config=cfg,
+                    key="home_donut_retencao",
                 )
                 st.markdown(
                     '<p class="bea-cv-donut-caption">Taxa de cancelamento no mês</p>',
@@ -393,24 +396,39 @@ def render_page_home() -> None:
     )
     row1 = st.columns(2)
     with row1[0]:
-        if st.button("Painel de Vendas", width="stretch", type="primary"):
+        if st.button("Painel de Vendas", width="stretch", type="primary", key="home_nav_vendas"):
             st.session_state.page = "vendas"
     with row1[1]:
-        if st.button("Clientes e Agendamentos", width="stretch", type="secondary"):
+        if st.button(
+            "Clientes e Agendamentos",
+            width="stretch",
+            type="secondary",
+            key="home_nav_clientes_agendamentos",
+        ):
             st.session_state.page = "clientes_agendamentos"
 
     row2 = st.columns(2)
     with row2[0]:
-        if st.button("Gestão de Colaboradores", width="stretch", type="primary"):
+        if st.button(
+            "Gestão de Colaboradores",
+            width="stretch",
+            type="primary",
+            key="home_nav_colaboradores",
+        ):
             st.session_state.page = "colaboradores"
     with row2[1]:
-        if st.button("Catálogo de Serviços", width="stretch", type="secondary"):
+        if st.button(
+            "Catálogo de Serviços",
+            width="stretch",
+            type="secondary",
+            key="home_nav_catalogo",
+        ):
             st.session_state.page = "catalogo"
 
     row3 = st.columns(2)
     with row3[0]:
-        if st.button("Dashboards", width="stretch", type="primary"):
+        if st.button("Dashboards", width="stretch", type="primary", key="home_nav_dashboards"):
             st.session_state.page = "dashboards"
     with row3[1]:
-        if st.button("Relatórios", width="stretch", type="secondary"):
+        if st.button("Relatórios", width="stretch", type="secondary", key="home_nav_relatorios"):
             st.session_state.page = "relatorios"
