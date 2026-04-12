@@ -1,0 +1,275 @@
+"""
+Constituição Visual BeaBá Sereno — camada de shell (Horizonte + Sidebar Sálvia).
+
+Documentação normativa: Template Master + `.cursorrules`. Injectar após
+`inject_beaba_verde_sereno()` para predominar sobre tokens legados do mesmo rerun.
+"""
+
+from __future__ import annotations
+
+import streamlit as st
+
+# —— Template Master (valores literais canónicos) ——
+CV_SALVIA = "#76947D"
+CV_SALVIA_10 = "rgba(118, 148, 125, 0.1)"
+CV_CREME = "#FAF8F5"
+CV_BRANCO = "#FFFFFF"
+CV_TITULO = "#2D332F"
+CV_SOMBRA_1 = "0 12px 40px rgba(118, 148, 125, 0.12)"
+CV_SOMBRA_2 = "0 2px 10px rgba(0, 0, 0, 0.05)"
+CV_SOMBRA_COMPOSTA = f"{CV_SOMBRA_1}, {CV_SOMBRA_2}"
+
+CV_SERIF = '"Lora", "Playfair Display", Georgia, "Times New Roman", serif'
+CV_SANS = '"Montserrat", "Inter", system-ui, -apple-system, sans-serif'
+
+
+def get_constituicao_shell_css() -> str:
+    return f"""
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;0,700;1,500&family=Montserrat:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
+<style>
+    :root {{
+        --cv-salvia: {CV_SALVIA};
+        --cv-creme: {CV_CREME};
+        --cv-branco: {CV_BRANCO};
+        --cv-titulo: {CV_TITULO};
+        --cv-sombra-composta: {CV_SOMBRA_COMPOSTA};
+        --cv-serif: {CV_SERIF};
+        --cv-sans: {CV_SANS};
+        --cv-radius-isla: 20px;
+        --cv-radius-sidebar-ativo: 12px;
+    }}
+    /* —— Horizonte: faixa 300px + creme (corte nítido); mobile 150px —— */
+    html, html[data-theme="dark"], html[data-theme="light"] {{
+        color-scheme: light !important;
+    }}
+    .stApp {{
+        background-color: {CV_CREME} !important;
+    }}
+    section[data-testid="stMain"] > div {{
+        background: linear-gradient(
+            to bottom,
+            {CV_SALVIA_10} 0,
+            {CV_SALVIA_10} 300px,
+            {CV_CREME} 300px,
+            {CV_CREME} 100%
+        ) !important;
+    }}
+    @media (max-width: 768px) {{
+        section[data-testid="stMain"] > div {{
+            background: linear-gradient(
+                to bottom,
+                {CV_SALVIA_10} 0,
+                {CV_SALVIA_10} 150px,
+                {CV_CREME} 150px,
+                {CV_CREME} 100%
+            ) !important;
+        }}
+    }}
+    .main .block-container {{
+        background: transparent !important;
+        padding-top: 1rem !important;
+        max-width: min(1120px, 100%) !important;
+    }}
+    /* —— Sidebar: Sálvia sólida, texto/ícones brancos, ativo 12px + 15% branco —— */
+    header[data-testid="stHeader"] {{
+        background-color: {CV_SALVIA} !important;
+        background: {CV_SALVIA} !important;
+        border: none !important;
+        box-shadow: none !important;
+    }}
+    [data-testid="stExpandSidebarButton"] button,
+    [data-testid="stExpandSidebarButton"] svg,
+    [data-testid="stExpandSidebarButton"] path,
+    [data-testid="stSidebarCollapseButton"] button,
+    [data-testid="stSidebarCollapseButton"] svg,
+    [data-testid="stSidebarCollapseButton"] path {{
+        color: #FFFFFF !important;
+        fill: #FFFFFF !important;
+    }}
+    [data-testid="stSidebar"] {{
+        background: {CV_SALVIA} !important;
+        background-color: {CV_SALVIA} !important;
+        border-right: none !important;
+        box-shadow: none !important;
+    }}
+    [data-testid="stSidebar"] * {{
+        color: #FFFFFF !important;
+    }}
+    [data-testid="stSidebar"] .bea-sidebar-app-title,
+    [data-testid="stSidebar"] .bea-sidebar-sector-title {{
+        font-family: var(--cv-sans) !important;
+        font-weight: 600 !important;
+        color: #FFFFFF !important;
+        opacity: 0.98 !important;
+    }}
+    [data-testid="stSidebar"] hr {{
+        border-color: rgba(255, 255, 255, 0.22) !important;
+    }}
+    /* Itens não seleccionados: leve contraste sobre sálvia */
+    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="secondary"] {{
+        background: rgba(255, 255, 255, 0.08) !important;
+        color: #FFFFFF !important;
+        border: 1px solid rgba(255, 255, 255, 0.28) !important;
+        border-radius: var(--cv-radius-sidebar-ativo) !important;
+        min-height: 2.65rem !important;
+        font-family: var(--cv-sans) !important;
+        font-weight: 500 !important;
+        box-shadow: none !important;
+    }}
+    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="secondary"]:hover {{
+        background: rgba(255, 255, 255, 0.18) !important;
+        border-color: rgba(255, 255, 255, 0.45) !important;
+    }}
+    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="secondary"] *,
+    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="secondary"] span {{
+        color: #FFFFFF !important;
+    }}
+    /* Activo: fundo branco 15%, cantos 12px; indicador lateral 4px */
+    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"] {{
+        background: rgba(255, 255, 255, 0.15) !important;
+        color: #FFFFFF !important;
+        border: none !important;
+        border-left: 4px solid #FFFFFF !important;
+        border-radius: var(--cv-radius-sidebar-ativo) !important;
+        min-height: 2.65rem !important;
+        font-family: var(--cv-sans) !important;
+        font-weight: 600 !important;
+        box-shadow: none !important;
+    }}
+    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"]:hover {{
+        background: rgba(255, 255, 255, 0.24) !important;
+    }}
+    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"] *,
+    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"] span {{
+        color: #FFFFFF !important;
+    }}
+</style>
+"""
+
+
+def get_constituicao_home_hub_css() -> str:
+    """CSS só para o Hub (Início): ilhas em blocos horizontais de botões."""
+    return f"""
+<style>
+    .bea-cv-hero {{
+        min-height: 300px;
+        box-sizing: border-box;
+        padding: 2rem 1.5rem 1.5rem 1.5rem;
+        margin: 0 0 1.25rem 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        background: transparent;
+    }}
+    @media (max-width: 768px) {{
+        .bea-cv-hero {{ min-height: 150px; padding: 1.25rem 1rem; }}
+    }}
+    .bea-cv-hero h1 {{
+        font-family: var(--cv-serif) !important;
+        font-weight: 500 !important;
+        color: {CV_TITULO} !important;
+        font-size: clamp(1.75rem, 4vw, 2.35rem) !important;
+        margin: 0 0 0.5rem 0 !important;
+        letter-spacing: 0.02em !important;
+    }}
+    .bea-cv-hero .bea-cv-sub {{
+        font-family: var(--cv-sans) !important;
+        font-weight: 400 !important;
+        color: {CV_TITULO} !important;
+        opacity: 0.72 !important;
+        font-size: 1rem !important;
+        margin: 0 !important;
+        max-width: 36rem;
+    }}
+    /* Ilha: métricas / resumo financeiro (padrão €) */
+    .bea-cv-island-metricas {{
+        background: {CV_BRANCO};
+        border-radius: var(--cv-radius-isla);
+        box-shadow: var(--cv-sombra-composta);
+        padding: 28px 32px;
+        margin: 0 0 20px 0;
+        max-width: 920px;
+        margin-left: auto;
+        margin-right: auto;
+    }}
+    .bea-cv-island-metricas .bea-cv-island-titulo {{
+        font-family: var(--cv-sans) !important;
+        font-size: 0.72rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.1em !important;
+        color: {CV_TITULO} !important;
+        opacity: 0.55 !important;
+        margin: 0 0 1rem 0 !important;
+        font-weight: 600 !important;
+    }}
+    .bea-cv-metric-grid {{
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 20px;
+    }}
+    .bea-cv-metric {{
+        font-family: var(--cv-sans) !important;
+    }}
+    .bea-cv-metric .lbl {{
+        display: block;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: {CV_TITULO};
+        opacity: 0.65;
+        margin-bottom: 0.35rem;
+    }}
+    .bea-cv-metric .eur {{
+        font-size: 1.35rem;
+        font-weight: 600;
+        color: {CV_TITULO};
+        letter-spacing: 0.02em;
+    }}
+    /* Blocos horizontais do hub = ilhas */
+    section[data-testid="stMain"] div[data-testid="stHorizontalBlock"] {{
+        background: {CV_BRANCO} !important;
+        border-radius: var(--cv-radius-isla) !important;
+        box-shadow: var(--cv-sombra-composta) !important;
+        padding: 24px 28px !important;
+        margin-bottom: 20px !important;
+        border: none !important;
+        gap: 1rem !important;
+    }}
+    section[data-testid="stMain"] div[data-testid="stHorizontalBlock"] button {{
+        border-radius: var(--cv-radius-isla) !important;
+        min-height: 3.25rem !important;
+        font-family: var(--cv-sans) !important;
+        font-weight: 600 !important;
+    }}
+    section[data-testid="stMain"] div[data-testid="stHorizontalBlock"] button[kind="primary"] {{
+        background-color: {CV_SALVIA} !important;
+        border: 1px solid rgba(118, 148, 125, 0.45) !important;
+        color: #FFFFFF !important;
+        box-shadow: {CV_SOMBRA_2} !important;
+    }}
+    section[data-testid="stMain"] div[data-testid="stHorizontalBlock"] button[kind="primary"]:hover {{
+        filter: brightness(1.06);
+    }}
+    section[data-testid="stMain"] div[data-testid="stHorizontalBlock"] button[kind="secondary"] {{
+        background-color: {CV_CREME} !important;
+        border: 1px solid rgba(118, 148, 125, 0.25) !important;
+        color: {CV_TITULO} !important;
+        box-shadow: none !important;
+    }}
+    section[data-testid="stMain"] div[data-testid="stHorizontalBlock"] button[kind="secondary"]:hover {{
+        background-color: #FFFFFF !important;
+        border-color: {CV_SALVIA} !important;
+    }}
+</style>
+"""
+
+
+def inject_constituicao_shell() -> None:
+    st.markdown(get_constituicao_shell_css(), unsafe_allow_html=True)
+
+
+def inject_constituicao_home_hub() -> None:
+    st.markdown(get_constituicao_home_hub_css(), unsafe_allow_html=True)

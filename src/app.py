@@ -1,6 +1,7 @@
 """
-Aplicação Streamlit BeaBa Gestão — shell V11.0 (tema + dashboard de 4 blocos).
-Referência: docs/CADERNO_MESTRE.md
+Aplicação Streamlit BeaBa Gestão — shell com Constituição Visual BeaBá Sereno (Horizonte + Ilhas).
+
+Referência normativa: Template Master + `.cursorrules` (faixa 300px, creme #FAF8F5, ilhas 20px, sombras compostas).
 """
 
 from __future__ import annotations
@@ -8,6 +9,7 @@ from __future__ import annotations
 import streamlit as st
 
 from src.database.connection import create_tables
+from src.ui.constituicao_visual_shell import inject_constituicao_home_hub, inject_constituicao_shell
 from src.ui.page_catalogo import render_page_catalogo
 from src.ui.page_clientes_agendamentos import render_page_clientes_agendamentos
 from src.ui.page_colaboradores import render_page_colaboradores
@@ -27,9 +29,24 @@ st.set_page_config(
 create_tables()
 inject_bea_theme()
 inject_beaba_verde_sereno()
+inject_constituicao_shell()
 
 if "page" not in st.session_state:
     st.session_state.page = "home"
+
+
+def _fmt_euro_centavos(centavos: int) -> str:
+    """Formato canónico Master: € 1.250,00 (milhar por ponto, decimal vírgula)."""
+    neg = "−" if centavos < 0 else ""
+    x = abs(int(centavos))
+    euros, cent = divmod(x, 100)
+    s = str(euros)
+    parts: list[str] = []
+    while s:
+        parts.append(s[-3:])
+        s = s[:-3]
+    body = ".".join(reversed(parts))
+    return f"{neg}€ {body},{cent:02d}"
 
 
 def _shell_no_breadcrumb(*_a, **_k) -> None:
@@ -38,23 +55,39 @@ def _shell_no_breadcrumb(*_a, **_k) -> None:
 
 
 def _page_home() -> None:
-    st.markdown(
-        '<h1 class="bea-title" style="text-align:center;margin-bottom:0.25rem;">BeaBa Gestão</h1>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<p style="text-align:center;font-family:Montserrat,sans-serif;color:#545454;opacity:0.85;">'
-        "Centro terapêutico — painel operacional</p>",
-        unsafe_allow_html=True,
-    )
-    st.markdown("<br>", unsafe_allow_html=True)
+    """Hub — prova de conceito Constituição: Horizonte (via shell), hero, ilha métricas, ilhas de acção."""
+    inject_constituicao_home_hub()
 
     st.markdown(
         """
-        <style>
-        .bea-dash-wrap { max-width: 920px; margin: 0 auto; }
-        </style>
-        <div class="bea-dash-wrap">
+        <div class="bea-cv-hero">
+          <h1>BeaBa Gestão</h1>
+          <p class="bea-cv-sub">Centro terapêutico — painel operacional</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Ilha: indicadores financeiros (valores ilustrativos; padrão € obrigatório)
+    st.markdown(
+        f"""
+        <div class="bea-cv-island-metricas">
+          <p class="bea-cv-island-titulo">Indicadores do dia (exemplo)</p>
+          <div class="bea-cv-metric-grid">
+            <div class="bea-cv-metric">
+              <span class="lbl">Vendas registadas</span>
+              <span class="eur">{_fmt_euro_centavos(0)}</span>
+            </div>
+            <div class="bea-cv-metric">
+              <span class="lbl">Pendente de liquidação</span>
+              <span class="eur">{_fmt_euro_centavos(0)}</span>
+            </div>
+            <div class="bea-cv-metric">
+              <span class="lbl">Crédito em carteira</span>
+              <span class="eur">{_fmt_euro_centavos(125000)}</span>
+            </div>
+          </div>
+        </div>
         """,
         unsafe_allow_html=True,
     )
@@ -67,33 +100,21 @@ def _page_home() -> None:
         if st.button("Clientes e Agendamentos", width="stretch", type="secondary"):
             st.session_state.page = "clientes_agendamentos"
 
-    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-
     row2 = st.columns(2)
     with row2[0]:
         if st.button("Gestão de Colaboradores", width="stretch", type="primary"):
             st.session_state.page = "colaboradores"
     with row2[1]:
-        st.write("")
+        if st.button("Catálogo de Serviços", width="stretch", type="secondary"):
+            st.session_state.page = "catalogo"
 
-    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
     row3 = st.columns(2)
     with row3[0]:
-        if st.button("Catálogo de Serviços", width="stretch", type="primary"):
-            st.session_state.page = "catalogo"
-    with row3[1]:
-        if st.button("Dashboards", width="stretch", type="secondary"):
+        if st.button("Dashboards", width="stretch", type="primary"):
             st.session_state.page = "dashboards"
-
-    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-    row4 = st.columns(2)
-    with row4[0]:
-        if st.button("Relatórios", width="stretch", type="primary"):
+    with row3[1]:
+        if st.button("Relatórios", width="stretch", type="secondary"):
             st.session_state.page = "relatorios"
-    with row4[1]:
-        st.write("")
-
-    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def main() -> None:
