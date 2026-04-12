@@ -12,6 +12,7 @@ from src.modules.home_cockpit_metrics import (
     HomeCockpitSnapshot,
     _week_sunday_to_saturday,
     obter_home_cockpit_snapshot,
+    obter_home_evolucao_atendimentos,
 )
 from src.ui.fmt_euro_constituicao import fmt_euro_centavos
 
@@ -92,6 +93,14 @@ def test_week_sunday_to_saturday_contains_ref():
     assert sun == date(2026, 6, 7)
     assert sat == date(2026, 6, 13)
     assert sun <= ref <= sat
+
+
+def test_obter_home_evolucao_atendimentos_base_vazia():
+    e = obter_home_evolucao_atendimentos(ref=date(2099, 1, 15))
+    assert e is not None
+    assert e.variacao_semanal_delta == 0
+    assert e.desempenho_mensal_pct is None
+    assert "—" in e.desempenho_pct_label()
 
 
 def test_obter_home_cockpit_snapshot_base_vazia():

@@ -25,7 +25,7 @@ import sqlite3
 import sys
 import threading
 import time
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -258,8 +258,13 @@ def _run_single_hero(iteration: int, servico_id: int, colaborador_id: int) -> st
 
 
 def _run_home_cockpit_slice() -> str | None:
-    """E20 — snapshot SQL do cockpit Home (sem Streamlit)."""
-    from src.modules.home_cockpit_metrics import obter_home_cockpit_snapshot
+    """E20 — snapshot SQL do cockpit Home + helpers visuais Fase 3 (sem Streamlit)."""
+    from src.modules.home_cockpit_metrics import (
+        obter_home_cockpit_snapshot,
+        obter_home_evolucao_atendimentos,
+    )
+    from src.ui import page_home as ph
+    from src.ui.home_cockpit_ui_helpers import agenda_day_table_html, evolucao_atendimentos_html
 
     s = obter_home_cockpit_snapshot()
     if s is None:
@@ -267,6 +272,31 @@ def _run_home_cockpit_slice() -> str | None:
     d = s.to_raw_dict()
     if not isinstance(d.get("referencia_data_iso"), str):
         return "home_cockpit: payload inválido"
+
+    evo = obter_home_evolucao_atendimentos()
+    if evo is None:
+        return "home_cockpit: evolucao None (DB?)"
+
+    ref_d = date.fromisoformat(str(s.referencia_data_iso)[:10])
+    h_ag = agenda_day_table_html([], ref_date=ref_d, now=datetime.now())
+    if "bea-home-agenda-empty" not in h_ag:
+        return "home_cockpit: agenda HTML vazio inválido"
+
+    h_ev = evolucao_atendimentos_html(
+        variacao_delta=int(evo.variacao_semanal_delta),
+        desempenho_pct_label=evo.desempenho_pct_label(),
+        mes_atual=int(evo.mes_concluidos_atual),
+        mes_ant=int(evo.mes_concluidos_anterior),
+    )
+    if "bea-home-evolucao" not in h_ev:
+        return "home_cockpit: evolucao HTML"
+
+    if not callable(getattr(ph, "render_page_home", None)):
+        return "home_cockpit: render_page_home ausente"
+    fig0 = ph._figure_donut_hoje_semana(0, 0)
+    if not getattr(fig0, "data", None):
+        return "home_cockpit: plotly donut vazio"
+
     return None
 
 

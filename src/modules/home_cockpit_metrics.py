@@ -244,8 +244,102 @@ def obter_home_cockpit_snapshot(ref: date | None = None) -> HomeCockpitSnapshot 
         conn.close()
 
 
+@dataclass(frozen=True)
+class HomeEvolucaoMetrics:
+    """Secção «Evolução de Atendimentos» (Boas-vindas)."""
+
+    ref_data_iso: str
+    semana_confirmados_atual: int
+    semana_confirmados_anterior: int
+    variacao_semanal_delta: int
+    mes_concluidos_atual: int
+    mes_concluidos_anterior: int
+    desempenho_mensal_pct: float | None
+
+    def desempenho_pct_label(self) -> str:
+        if self.desempenho_mensal_pct is None:
+            return "—"
+        v = self.desempenho_mensal_pct
+        sign = "+" if v > 0 else ""
+        return f"{sign}{v:.1f} %"
+
+
+def obter_home_evolucao_atendimentos(ref: date | None = None) -> HomeEvolucaoMetrics | None:
+    """CONFIRMADOS por semana (dom–sáb) vs semana anterior; CONCLUÍDOS mês vs mês anterior."""
+    d = ref or date.today()
+    conn = get_connection()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        w0, w1 = _week_sunday_to_saturday(d)
+        p1_end = w0 - timedelta(days=1)
+        p0 = p1_end - timedelta(days=6)
+        cur.execute(
+            """
+            SELECT COUNT(*) FROM agendamentos
+            WHERE status = 'CONFIRMADO'
+              AND data_agendamento >= ? AND data_agendamento <= ?
+            """,
+            (w0.isoformat(), w1.isoformat()),
+        )
+        s_atual = int(cur.fetchone()[0])
+        cur.execute(
+            """
+            SELECT COUNT(*) FROM agendamentos
+            WHERE status = 'CONFIRMADO'
+              AND data_agendamento >= ? AND data_agendamento <= ?
+            """,
+            (p0.isoformat(), p1_end.isoformat()),
+        )
+        s_ant = int(cur.fetchone()[0])
+
+        m_start, m_end = _month_bounds(d)
+        if d.month == 1:
+            pm_last = date(d.year - 1, 12, 31)
+        else:
+            pm_last = date(d.year, d.month, 1) - timedelta(days=1)
+        pm_first = date(pm_last.year, pm_last.month, 1)
+        cur.execute(
+            """
+            SELECT COUNT(*) FROM agendamentos
+            WHERE status = 'CONCLUIDO'
+              AND data_agendamento >= ? AND data_agendamento <= ?
+            """,
+            (m_start, m_end),
+        )
+        c_atual = int(cur.fetchone()[0])
+        cur.execute(
+            """
+            SELECT COUNT(*) FROM agendamentos
+            WHERE status = 'CONCLUIDO'
+              AND data_agendamento >= ? AND data_agendamento <= ?
+            """,
+            (pm_first.isoformat(), pm_last.isoformat()),
+        )
+        c_ant = int(cur.fetchone()[0])
+        if c_ant == 0:
+            pct: float | None = None
+        else:
+            pct = 100.0 * (c_atual - c_ant) / c_ant
+
+        return HomeEvolucaoMetrics(
+            ref_data_iso=d.isoformat(),
+            semana_confirmados_atual=s_atual,
+            semana_confirmados_anterior=s_ant,
+            variacao_semanal_delta=s_atual - s_ant,
+            mes_concluidos_atual=c_atual,
+            mes_concluidos_anterior=c_ant,
+            desempenho_mensal_pct=pct,
+        )
+    finally:
+        conn.close()
+
+
 __all__ = [
     "HomeCockpitSnapshot",
+    "HomeEvolucaoMetrics",
     "obter_home_cockpit_snapshot",
+    "obter_home_evolucao_atendimentos",
     "_week_sunday_to_saturday",
 ]

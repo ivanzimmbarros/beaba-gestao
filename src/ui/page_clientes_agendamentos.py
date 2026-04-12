@@ -42,6 +42,22 @@ from src.ui.widgets.cliente_search import CLIENTE_SEARCH_DATE_MIN, render_client
 _CAG_PREFIX = "cag_"
 
 
+def _cag_init_calendar_anchor(anc_k: str) -> None:
+    """Primeira âncora do calendário; consome `cag_home_calendar_seed_month` vinda do cockpit."""
+    if anc_k in st.session_state:
+        return
+    seed = st.session_state.pop("cag_home_calendar_seed_month", None)
+    if isinstance(seed, dict):
+        try:
+            y = int(seed.get("y", seed.get("year", 0)))
+            m = int(seed.get("m", seed.get("month", 0)))
+            st.session_state[anc_k] = date(y, m, 1)
+            return
+        except (ValueError, TypeError):
+            pass
+    st.session_state[anc_k] = date.today()
+
+
 def _cag_section_title_html(title: str) -> str:
     """Título de secção — serifado Master (#2D332F)."""
     t = html.escape(title)
@@ -1110,7 +1126,7 @@ def _cag_setor4_try_prepare_context(
         dis_ag = not bool(st.session_state.get("cag_lib_ag_edit"))
 
     st.session_state.setdefault(mode_k, "Semanal")
-    st.session_state.setdefault(anc_k, date.today())
+    _cag_init_calendar_anchor(anc_k)
 
     return {
         **keys,
@@ -1527,6 +1543,9 @@ def _render_cag_setor4_gestao_agendamentos(*, cliente_id: int, fv: int, tem_clie
 
 def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
     inject_constituicao_cag_page()
+    _drill = st.session_state.pop("cag_home_drill_banner", None)
+    if _drill:
+        st.info(str(_drill))
     render_back_and_breadcrumb(
         ["Home", "Clientes e Agendamentos", "Cadastro"],
         back_key="bea_back_clientes_agendamentos",

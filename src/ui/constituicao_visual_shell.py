@@ -275,6 +275,213 @@ def inject_constituicao_home_hub() -> None:
     st.markdown(get_constituicao_home_hub_css(), unsafe_allow_html=True)
 
 
+def get_constituicao_home_cockpit_extra_css() -> str:
+    """Fase 3 — ilhas em camadas, hero com relógio, agenda e evolução (além do hub base)."""
+    return f"""
+<style>
+    .bea-cv-cockpit-active {{ display: none !important; }}
+    section[data-testid="stMain"]:has(.bea-cv-cockpit-active)
+        [data-testid="stVerticalBlockBorderWrapper"] {{
+        box-shadow: {CV_SOMBRA_COMPOSTA} !important;
+        border: 1px solid rgba(118, 148, 125, 0.14) !important;
+    }}
+    .bea-cv-cockpit-hero {{
+        position: relative;
+        min-height: 300px;
+        box-sizing: border-box;
+        padding: 2rem 1.5rem 2.5rem 1.5rem;
+        margin: 0 0 1.25rem 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        background: transparent;
+    }}
+    @media (max-width: 768px) {{
+        .bea-cv-cockpit-hero {{ min-height: 150px; padding: 1.25rem 1rem 2rem 1rem; }}
+    }}
+    .bea-cv-cockpit-hero h1 {{
+        font-family: var(--cv-serif) !important;
+        font-weight: 500 !important;
+        color: {CV_TITULO} !important;
+        font-size: clamp(1.75rem, 4vw, 2.35rem) !important;
+        margin: 0 0 0.35rem 0 !important;
+        letter-spacing: 0.02em !important;
+    }}
+    .bea-cv-cockpit-hero .bea-cv-cockpit-greet-sub {{
+        font-family: var(--cv-sans) !important;
+        font-weight: 400 !important;
+        color: {CV_TITULO} !important;
+        opacity: 0.72 !important;
+        font-size: 1rem !important;
+        margin: 0 !important;
+        max-width: 34rem;
+    }}
+    .bea-cv-cockpit-hero-ts {{
+        position: absolute;
+        right: 1.25rem;
+        bottom: 1rem;
+        font-family: var(--cv-sans) !important;
+        font-weight: 600 !important;
+        font-size: 1.35rem !important;
+        letter-spacing: 0.04em !important;
+        color: {CV_TITULO} !important;
+        opacity: 0.88 !important;
+    }}
+    .bea-cv-cockpit-tier-title {{
+        font-family: var(--cv-sans) !important;
+        font-size: 0.72rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.1em !important;
+        color: {CV_TITULO} !important;
+        opacity: 0.55 !important;
+        margin: 0 0 0.75rem 0 !important;
+        font-weight: 600 !important;
+    }}
+    .bea-cv-donut-caption {{
+        font-family: var(--cv-sans) !important;
+        font-size: 0.82rem !important;
+        font-weight: 500 !important;
+        color: {CV_TITULO} !important;
+        opacity: 0.78 !important;
+        text-align: center !important;
+        margin-top: 0.35rem !important;
+    }}
+    .bea-cv-panorama-card-title {{
+        font-family: var(--cv-sans) !important;
+        font-size: 0.75rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.08em !important;
+        color: {CV_TITULO} !important;
+        opacity: 0.55 !important;
+        margin-bottom: 0.35rem !important;
+        font-weight: 600 !important;
+    }}
+    .bea-cv-panorama-card-val {{
+        font-family: var(--cv-sans) !important;
+        font-size: 1.5rem !important;
+        font-weight: 700 !important;
+        color: {CV_TITULO} !important;
+        letter-spacing: 0.02em !important;
+    }}
+    /* Badges Master (mesmos tokens da CAG; Home não injecta CSS da Área Única) */
+    .bea-cv-badge-verde {{
+        display: inline-block;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        font-family: var(--cv-sans);
+        font-size: 0.78rem;
+        font-weight: 600;
+        background: #E8F0EA;
+        color: #76947D;
+        white-space: nowrap;
+    }}
+    .bea-cv-badge-terracota {{
+        display: inline-block;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        font-family: var(--cv-sans);
+        font-size: 0.78rem;
+        font-weight: 600;
+        background: #FFF4E5;
+        color: #D4A373;
+        white-space: nowrap;
+    }}
+    .bea-cv-badge-neutro {{
+        display: inline-block;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        font-family: var(--cv-sans);
+        font-size: 0.78rem;
+        font-weight: 500;
+        background: rgba(45, 51, 47, 0.06);
+        color: {CV_TITULO};
+        opacity: 0.85;
+        white-space: nowrap;
+    }}
+    .bea-cv-agenda-table {{
+        width: 100%;
+        border-collapse: collapse;
+        font-family: var(--cv-sans);
+        font-size: 0.88rem;
+    }}
+    .bea-cv-agenda-table th {{
+        text-align: left;
+        padding: 0.5rem 0.4rem;
+        border-bottom: 1px solid rgba(45, 51, 47, 0.12);
+        color: {CV_TITULO};
+        opacity: 0.65;
+        font-weight: 600;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }}
+    .bea-cv-agenda-table td {{
+        padding: 0.55rem 0.4rem;
+        border-bottom: 1px solid rgba(45, 51, 47, 0.06);
+        color: {CV_TITULO};
+        vertical-align: middle;
+    }}
+    .bea-cv-agenda-empty {{
+        font-family: var(--cv-sans);
+        font-size: 0.92rem;
+        color: {CV_TITULO};
+        opacity: 0.62;
+        padding: 0.5rem 0;
+    }}
+    @keyframes bea-cv-pulse-sage {{
+        0%, 100% {{ box-shadow: inset 0 0 0 0 rgba(118, 148, 125, 0.25); }}
+        50% {{ box-shadow: inset 0 0 0 2px rgba(118, 148, 125, 0.35); }}
+    }}
+    .bea-cv-agenda-tr-proxima {{
+        animation: bea-cv-pulse-sage 2.2s ease-in-out infinite;
+        background: rgba(118, 148, 125, 0.09) !important;
+    }}
+    .bea-cv-evolucao {{
+        font-family: var(--cv-sans);
+        color: {CV_TITULO};
+    }}
+    .bea-cv-evolucao-linha {{
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin: 0 0 0.85rem 0;
+        font-size: 0.9rem;
+    }}
+    .bea-cv-evolucao-k {{ opacity: 0.72; max-width: 62%; }}
+    .bea-cv-evolucao-v {{
+        font-weight: 700;
+        font-size: 1.15rem;
+    }}
+    .bea-cv-evolucao-sage {{ color: {CV_SALVIA} !important; }}
+    .bea-cv-evolucao-pill {{
+        display: inline-block;
+        padding: 0.2rem 0.65rem;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: 0.88rem;
+        background: #E8F0EA;
+        color: #76947D;
+    }}
+    .bea-cv-evolucao-foot {{
+        margin: 0.75rem 0 0 0;
+        font-size: 0.78rem;
+        opacity: 0.55;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-cockpit-active) .js-plotly-plot .plotly {{
+        border-radius: 12px;
+    }}
+</style>
+"""
+
+
+def inject_constituicao_home_cockpit_extra() -> None:
+    st.markdown(get_constituicao_home_cockpit_extra_css(), unsafe_allow_html=True)
+
+
 # Badges Master §5 — Área Única (CAG)
 CV_BADGE_TERRA_BG = "#FFF4E5"
 CV_BADGE_TERRA_FG = "#D4A373"
