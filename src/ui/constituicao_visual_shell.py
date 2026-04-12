@@ -537,10 +537,17 @@ CV_BADGE_VERDE_BG = "#E8F0EA"
 CV_BADGE_VERDE_FG = "#76947D"
 
 
+def cag_island_mark_html() -> str:
+    """Marcador DOM para ilha flutuante na página CAG (CSS :has no shell)."""
+    return '<p class="bea-cv-cag-island-mark" aria-hidden="true"></p>'
+
+
 def get_constituicao_cag_page_css() -> str:
-    """Ilhas Master, separação 20px, badges estado, acções com círculo 15% sálvia (só na página CAG)."""
+    """CAG: Horizonte visível, ilhas por coluna com marcador, cards métricas, badges (sem border Streamlit)."""
     return f"""
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
 <style>
+    .bea-cv-cag-page-active {{ display: none !important; }}
     .bea-cv-cag-gap {{
         min-height: 20px;
         height: 20px;
@@ -548,16 +555,29 @@ def get_constituicao_cag_page_css() -> str:
         padding: 0;
         pointer-events: none;
     }}
-    section[data-testid="stMain"] [data-testid="stVerticalBlockBorderWrapper"] {{
-        background: {CV_BRANCO} !important;
-        border-radius: var(--cv-radius-isla) !important;
-        box-shadow: var(--cv-sombra-composta) !important;
-        border: 1px solid rgba(118, 148, 125, 0.12) !important;
-        padding: 24px 28px !important;
+    /* Horizonte global já vem do shell; garantir transparência na área CAG */
+    section[data-testid="stMain"]:has(.bea-cv-cag-page-active) [data-testid="stAppViewContainer"],
+    section[data-testid="stMain"]:has(.bea-cv-cag-page-active) [data-testid="stAppViewContainer"] > .main,
+    section[data-testid="stMain"]:has(.bea-cv-cag-page-active) .main .block-container {{
+        background: transparent !important;
     }}
-    section[data-testid="stMain"] [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlockBorderWrapper"] {{
-        padding: 18px 20px !important;
-        box-shadow: 0 2px 12px rgba(118, 148, 125, 0.08) !important;
+    /* Ilha = 1ª coluna com marcador (Template Master: branco, 20px, sombra composta, sem borda) */
+    section[data-testid="stMain"]:has(.bea-cv-cag-page-active)
+        [data-testid="column"]:has(.bea-cv-cag-island-mark) > div {{
+        background-color: {CV_BRANCO} !important;
+        border-radius: var(--cv-radius-isla) !important;
+        border: none !important;
+        box-shadow: var(--cv-sombra-composta) !important;
+        padding: 24px !important;
+        margin-bottom: 0 !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-cag-page-active)
+        [data-testid="column"]:has(.bea-cv-cag-island-mark)
+        [data-testid="stVerticalBlockBorderWrapper"] {{
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
     }}
     .bea-cv-cag-h1 {{
         font-family: var(--cv-serif) !important;
@@ -610,7 +630,52 @@ def get_constituicao_cag_page_css() -> str:
         opacity: 0.85;
         white-space: nowrap;
     }}
-    section[data-testid="stMain"] [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stButton"] > button {{
+    /* Cards métricas (dentro da ilha Resumo) — Padrão BeaBá */
+    .bea-cv-cag-metric-card {{
+        background: {CV_BRANCO};
+        border-radius: var(--cv-radius-isla);
+        border: none;
+        box-shadow: var(--cv-sombra-composta);
+        padding: 16px 18px;
+        min-height: 6.5rem;
+        box-sizing: border-box;
+    }}
+    .bea-cv-cag-metric-icon {{
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: rgba(118, 148, 125, 0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 10px;
+    }}
+    .bea-cv-cag-metric-icon .material-symbols-outlined {{
+        font-size: 24px;
+        color: {CV_SALVIA};
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }}
+    .bea-cv-cag-metric-title {{
+        font-family: var(--cv-serif) !important;
+        font-weight: 500 !important;
+        font-size: 0.82rem !important;
+        line-height: 1.35 !important;
+        color: {CV_TITULO} !important;
+        margin: 0 0 8px 0 !important;
+        opacity: 0.92;
+    }}
+    .bea-cv-cag-metric-body {{
+        font-family: var(--cv-sans) !important;
+        color: {CV_TITULO};
+    }}
+    .bea-cv-cag-metric-body .bea-cv-cag-metric-val {{
+        margin: 0;
+        font-size: 1.12rem;
+        font-weight: 700;
+        color: {CV_TITULO};
+    }}
+    /* Botões na área CAG (ilhas sem wrapper nativo) */
+    section[data-testid="stMain"]:has(.bea-cv-cag-page-active) .block-container [data-testid="stButton"] > button {{
         border-radius: 9999px !important;
         background: rgba(118, 148, 125, 0.15) !important;
         border: 1px solid rgba(118, 148, 125, 0.35) !important;
@@ -619,16 +684,16 @@ def get_constituicao_cag_page_css() -> str:
         font-weight: 500 !important;
         box-shadow: none !important;
     }}
-    section[data-testid="stMain"] [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stButton"] > button:hover {{
+    section[data-testid="stMain"]:has(.bea-cv-cag-page-active) .block-container [data-testid="stButton"] > button:hover {{
         background: rgba(118, 148, 125, 0.22) !important;
         border-color: rgba(118, 148, 125, 0.5) !important;
     }}
-    section[data-testid="stMain"] [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stButton"] > button[kind="primary"] {{
+    section[data-testid="stMain"]:has(.bea-cv-cag-page-active) .block-container [data-testid="stButton"] > button[kind="primary"] {{
         background: rgba(118, 148, 125, 0.22) !important;
         border-color: {CV_SALVIA} !important;
         color: #FFFFFF !important;
     }}
-    section[data-testid="stMain"] [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stButton"] > button[kind="primary"]:hover {{
+    section[data-testid="stMain"]:has(.bea-cv-cag-page-active) .block-container [data-testid="stButton"] > button[kind="primary"]:hover {{
         filter: brightness(1.05);
     }}
 </style>

@@ -9,6 +9,9 @@ perímetro de dados da app inalterado para este módulo.
 
 Cockpit Home: agendamentos/créditos no mesmo SQLite — verify destino cobre métricas exibidas
 em `page_home` após qualquer restore.
+
+CAG: listagens e resumos vêm do mesmo `.db`; integridade do ficheiro cobre também a página
+consolidada (dados); camada visual Sereno é código em git, não artefacto de backup.
 """
 
 from __future__ import annotations

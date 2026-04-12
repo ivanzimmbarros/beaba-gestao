@@ -12,7 +12,8 @@ Segurança: exige `--confirmar` ou `BEABA_RESTORE_OPERACIONAL=1`. Pare a app Str
 antes de restaurar para evitar bloqueio de ficheiro no Windows.
 
 Arquitectura UI (2026-04-12): páginas legadas Clientes/Agendamentos substituídas por
-`page_clientes_agendamentos.py` (registo em governança).
+`page_clientes_agendamentos.py` (registo em governança). Shell Sereno CAG
+(`constituicao_visual_shell`) e testes `test_cag_visual_sereno` / E20 seguem o repo, não a cópia `.db`.
 """
 
 from __future__ import annotations

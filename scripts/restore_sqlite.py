@@ -9,6 +9,10 @@ consolidação em `page_clientes_agendamentos.py` (ver PAINEL / status_demanda.j
 
 Após restore: o Cockpit Home (`page_home`, `home_cockpit_metrics`) reflecte o estado do
 SQLite reposto; UI Master (ilhas, Horizonte) acompanha o código no repositório.
+
+CAG: o mesmo restore repõe dados de clientes/agendamentos no SQLite; o aspeto Sereno
+(Horizonte, ilhas, cards) vem do código (`constituicao_visual_shell`, `page_clientes_agendamentos`)
+e dos testes `test_cag_visual_sereno` / E20.
 """
 
 from __future__ import annotations

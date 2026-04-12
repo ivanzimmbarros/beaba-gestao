@@ -322,6 +322,16 @@ def _run_cag_consolidated_slice(cliente_id: int, ag_id: int) -> str | None:
     )
     from src.modules.cliente import obter_cliente_completo
     from src.ui import page_clientes_agendamentos as cag
+    from src.ui.constituicao_visual_shell import (
+        cag_island_mark_html,
+        get_constituicao_cag_page_css,
+    )
+
+    css_cag = get_constituicao_cag_page_css()
+    if "bea-cv-cag-island-mark" not in css_cag or "bea-cv-cag-metric-card" not in css_cag:
+        return "cag: shell CSS Sereno incompleto"
+    if "bea-cv-cag-island-mark" not in cag_island_mark_html():
+        return "cag: marcador de ilha ausente"
 
     cli = obter_cliente_completo(cliente_id)
     if not cli:
@@ -359,6 +369,14 @@ def _run_cag_consolidated_slice(cliente_id: int, ag_id: int) -> str | None:
     sorted_rows = cag._cag_sort_ag_rows(list(rows), col="Data", asc=True)
     if len(sorted_rows) != len(rows):
         return "cag: _cag_sort_ag_rows alterou cardinalidade"
+
+    h_mc = cag._cag_metric_card_html(
+        material_icon="calendar_month",
+        title="Total 30d",
+        body_html="<p>0</p>",
+    )
+    if "bea-cv-cag-metric-card" not in h_mc or "material-symbols-outlined" not in h_mc:
+        return "cag: card métrica Sereno inválido"
 
     return None
 

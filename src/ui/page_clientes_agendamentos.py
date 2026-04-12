@@ -35,7 +35,7 @@ from src.modules.telefone import normalizar_telefone_legado_ou_e164
 from src.modules.validators import email_valido, parse_data_iso
 from src.ui.telefone_widgets import ler_e164_de_widgets, preencher_session_telefone_de_e164, render_grupo_telefone
 from src.ui.theme import agenda_pagamento_dot, agenda_status_style, agenda_tipo_icon
-from src.ui.constituicao_visual_shell import inject_constituicao_cag_page
+from src.ui.constituicao_visual_shell import cag_island_mark_html, inject_constituicao_cag_page
 from src.ui.fmt_euro_constituicao import fmt_euro_centavos
 from src.ui.widgets.cliente_search import CLIENTE_SEARCH_DATE_MIN, render_cliente_search_widget
 
@@ -460,15 +460,16 @@ def _reset_cag_page_state() -> None:
     st.session_state.cag_edit_id = None
 
 
-def _card_shell(*, label: str, body_html: str) -> str:
-    lab_e = html.escape(label)
+def _cag_metric_card_html(*, material_icon: str, title: str, body_html: str) -> str:
+    """Card métrica Setor 2 — ícone Material em círculo 15% sálvia + título serif (Template Master)."""
+    ic = html.escape(str(material_icon).strip())
+    tit_e = html.escape(str(title).strip())
     return (
-        "<div style=\"background:#FFFFFF;border-radius:20px;padding:0.75rem 0.95rem;min-height:5.5rem;"
-        "box-shadow:0 12px 40px rgba(118,148,125,0.12),0 2px 10px rgba(0,0,0,0.05);"
-        "border:1px solid rgba(118,148,125,0.12);\">"
-        f'<p style="margin:0 0 8px 0;font-size:0.72rem;color:#2D332F;font-family:var(--cv-sans,Montserrat),sans-serif;'
-        f"line-height:1.25;opacity:0.65;font-weight:600;\">{lab_e}</p>"
-        f"{body_html}</div>"
+        '<div class="bea-cv-cag-metric-card">'
+        '<div class="bea-cv-cag-metric-icon" aria-hidden="true">'
+        f'<span class="material-symbols-outlined">{ic}</span></div>'
+        f'<p class="bea-cv-cag-metric-title">{tit_e}</p>'
+        f'<div class="bea-cv-cag-metric-body">{body_html}</div></div>'
     )
 
 
@@ -538,14 +539,16 @@ def _render_cag_setor2_resumo_agendamentos(*, resumo: dict) -> None:
         _html_linhas_natureza(list(c30)),
         _html_linhas_natureza(list(c10)),
         _html_linhas_natureza(list(pend_n)),
-        f'<p style="margin:0;font-size:1.15rem;font-weight:700;color:#2D332F;">'
-        f"{html.escape(_cag_valor_moeda_centavos(pend_v))}</p>",
-        f'<p style="margin:0;font-size:1.15rem;font-weight:700;color:#2D332F;">'
-        f"{html.escape(str(n_can))}</p>",
+        f'<p class="bea-cv-cag-metric-val">{html.escape(_cag_valor_moeda_centavos(pend_v))}</p>',
+        f'<p class="bea-cv-cag-metric-val">{html.escape(str(n_can))}</p>',
     )
-    for col, lab, body in zip(r1, labels, bodies):
+    icons = ("calendar_month", "event", "payments", "euro_symbol", "history")
+    for col, lab, body, icon in zip(r1, labels, bodies, icons):
         with col:
-            st.markdown(_card_shell(label=lab, body_html=body), unsafe_allow_html=True)
+            st.markdown(
+                _cag_metric_card_html(material_icon=icon, title=lab, body_html=body),
+                unsafe_allow_html=True,
+            )
 
 
 def _cag_executar_gravacao_ficha(*, eid: int | None, fk: str, tem_cliente: bool) -> None:
@@ -1521,8 +1524,10 @@ def _render_cag_setor4_gestao_agendamentos(*, cliente_id: int, fv: int, tem_clie
     keys = _cag_setor4_agenda_keys(cliente_id=cliente_id, fv=fv)
     _cag_setor4_run_flash_wizards_pend(cliente_id=cliente_id, fv=fv, tem_cliente=tem_cliente, keys=keys)
     ctx = _cag_setor4_try_prepare_context(cliente_id=cliente_id, fv=fv, tem_cliente=tem_cliente, keys=keys)
-    st.markdown(_cag_section_title_html("4. Agendamentos"), unsafe_allow_html=True)
-    with st.container(border=True):
+    c_ag_f, = st.columns(1)
+    with c_ag_f:
+        st.markdown(cag_island_mark_html(), unsafe_allow_html=True)
+        st.markdown(_cag_section_title_html("4. Agendamentos"), unsafe_allow_html=True)
         if ctx is None:
             st.info(
                 "Seleccione ou **registe** um cliente na secção **3. Dados Pessoais** para criar ou alterar agendamentos."
@@ -1533,7 +1538,9 @@ def _render_cag_setor4_gestao_agendamentos(*, cliente_id: int, fv: int, tem_clie
         '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
         unsafe_allow_html=True,
     )
-    with st.container(border=True):
+    c_ag_l, = st.columns(1)
+    with c_ag_l:
+        st.markdown(cag_island_mark_html(), unsafe_allow_html=True)
         st.markdown(_cag_section_title_html("Lista de agendamentos"), unsafe_allow_html=True)
         if ctx is None:
             st.caption("Seleccione ou registe um cliente para ver a listagem.")
@@ -1554,6 +1561,10 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
         '<h1 class="bea-cv-cag-h1">Cadastro de Clientes e Gestão de Agendamentos</h1>',
         unsafe_allow_html=True,
     )
+    st.markdown(
+        '<div class="bea-cv-cag-page-active" data-testid="bea-cag-page-root"></div>',
+        unsafe_allow_html=True,
+    )
 
     if "cag_form_v" not in st.session_state:
         st.session_state.cag_form_v = 0
@@ -1570,7 +1581,9 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
 
     st.markdown(_cag_section_title_html("1. Pesquisa de Clientes"), unsafe_allow_html=True)
 
-    with st.container(border=True):
+    c_busca, = st.columns(1)
+    with c_busca:
+        st.markdown(cag_island_mark_html(), unsafe_allow_html=True)
         cag_busca_clicked = render_cliente_search_widget(
             key_prefix="cag_busca",
             button_type="secondary",
@@ -1643,25 +1656,28 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
                 nome_e = html.escape(str(nome))
                 sub_e = html.escape(f"#{cid}")
                 with cols[i]:
-                    with st.container(border=True):
-                        st.markdown(
-                            _html_cli_result_card(nome_e=nome_e, sub_e=sub_e),
-                            unsafe_allow_html=True,
-                        )
-                        if st.button("Carregar ficha", key=f"cag_cand_load_{cid}", width="stretch"):
-                            data = obter_cliente_completo(cid)
-                            if not data:
-                                st.error("Cliente não encontrado.")
-                            else:
-                                st.session_state.cag_edit_id = cid
-                                st.session_state.cag_form_v += 1
-                                st.session_state.pop("cag_busca_cands", None)
-                                st.session_state.cag_busca_clear_pending = True
-                                st.session_state.cag_cli_carregado_pesquisa = True
-                                st.success(f"Cliente #{cid} selecionado. Pesquisa limpa.")
-                                st.rerun()
+                    st.markdown(cag_island_mark_html(), unsafe_allow_html=True)
+                    st.markdown(
+                        _html_cli_result_card(nome_e=nome_e, sub_e=sub_e),
+                        unsafe_allow_html=True,
+                    )
+                    if st.button("Carregar ficha", key=f"cag_cand_load_{cid}", width="stretch"):
+                        data = obter_cliente_completo(cid)
+                        if not data:
+                            st.error("Cliente não encontrado.")
+                        else:
+                            st.session_state.cag_edit_id = cid
+                            st.session_state.cag_form_v += 1
+                            st.session_state.pop("cag_busca_cands", None)
+                            st.session_state.cag_busca_clear_pending = True
+                            st.session_state.cag_cli_carregado_pesquisa = True
+                            st.success(f"Cliente #{cid} selecionado. Pesquisa limpa.")
+                            st.rerun()
 
-    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+    st.markdown(
+        '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
+        unsafe_allow_html=True,
+    )
     st.markdown(_cag_section_title_html("2. Resumo do Cliente"), unsafe_allow_html=True)
 
     eid = st.session_state.cag_edit_id
@@ -1677,10 +1693,16 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
         else obter_resumo_agendamentos_cliente_setor2_proposta(0)
     )
 
-    _render_cag_setor2_dados_pessoais(cli=cli_data)
-    _render_cag_setor2_resumo_agendamentos(resumo=resumo_ag)
+    c_resumo, = st.columns(1)
+    with c_resumo:
+        st.markdown(cag_island_mark_html(), unsafe_allow_html=True)
+        _render_cag_setor2_dados_pessoais(cli=cli_data)
+        _render_cag_setor2_resumo_agendamentos(resumo=resumo_ag)
 
-    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    st.markdown(
+        '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
+        unsafe_allow_html=True,
+    )
     if st.button("Limpar Informações Apresentadas", key="cag_btn_limpar_tela", type="secondary"):
         _reset_cag_page_state()
         st.rerun()
@@ -1707,17 +1729,28 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
 
     cid_ag = int(eid) if tem_cliente else 0
     keys = _cag_setor4_agenda_keys(cliente_id=cid_ag, fv=fv)
+    ctx: dict[str, Any] | None = None
 
     st.markdown(
         '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
         unsafe_allow_html=True,
     )
-    with st.container(border=True):
+    c_s3, = st.columns(1)
+    with c_s3:
+        st.markdown(cag_island_mark_html(), unsafe_allow_html=True)
         _render_cag_setor3_dados_pessoais_completo(
             fk=fk,
             tem_cliente=tem_cliente,
             eid=int(eid) if tem_cliente else None,
         )
+
+    st.markdown(
+        '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
+        unsafe_allow_html=True,
+    )
+    c_s4, = st.columns(1)
+    with c_s4:
+        st.markdown(cag_island_mark_html(), unsafe_allow_html=True)
         st.markdown(_cag_section_title_html("4. Agendamentos"), unsafe_allow_html=True)
         _cag_setor4_run_flash_wizards_pend(cliente_id=cid_ag, fv=fv, tem_cliente=tem_cliente, keys=keys)
         ctx = _cag_setor4_try_prepare_context(cliente_id=cid_ag, fv=fv, tem_cliente=tem_cliente, keys=keys)
@@ -1733,7 +1766,9 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
         '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
         unsafe_allow_html=True,
     )
-    with st.container(border=True):
+    c_s5, = st.columns(1)
+    with c_s5:
+        st.markdown(cag_island_mark_html(), unsafe_allow_html=True)
         st.markdown(_cag_section_title_html("Lista de agendamentos"), unsafe_allow_html=True)
         if ctx is None:
             st.caption("Seleccione ou registe um cliente para ver a listagem.")
