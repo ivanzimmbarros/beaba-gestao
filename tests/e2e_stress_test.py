@@ -250,6 +250,23 @@ def _run_single_hero(iteration: int, servico_id: int, colaborador_id: int) -> st
     if err_cag:
         return err_cag
 
+    err_home = _run_home_cockpit_slice()
+    if err_home:
+        return err_home
+
+    return None
+
+
+def _run_home_cockpit_slice() -> str | None:
+    """E20 — snapshot SQL do cockpit Home (sem Streamlit)."""
+    from src.modules.home_cockpit_metrics import obter_home_cockpit_snapshot
+
+    s = obter_home_cockpit_snapshot()
+    if s is None:
+        return "home_cockpit: snapshot None (DB?)"
+    d = s.to_raw_dict()
+    if not isinstance(d.get("referencia_data_iso"), str):
+        return "home_cockpit: payload inválido"
     return None
 
 
