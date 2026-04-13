@@ -586,23 +586,35 @@ def get_constituicao_cag_page_css() -> str:
     section[data-testid="stMain"]:has(.bea-cv-cag-page-active) .main .block-container {{
         background: transparent !important;
     }}
-    /* Ilha Mãe: coluna única (marcador) + fallback VerticalBlock — fundo branco atrás de todo o formulário */
+    /*
+     * Ilha Mãe: o Streamlit muda a árvore interna (column > div nem sempre existe).
+     * Forçar o cartão branco no .block-container que contém o marcador — especificidade
+     * acima da regra transparent imediatamente acima.
+     */
     section[data-testid="stMain"]:has(.bea-cv-cag-page-active)
-        [data-testid="column"]:has(.bea-cv-cag-mother-mark) > div,
-    section[data-testid="stMain"]:has(.bea-cv-cag-page-active)
-        [data-testid="stVerticalBlockBorderWrapper"]:has(.bea-cv-cag-mother-mark) {{
+        .main .block-container:has(.bea-cv-cag-mother-mark) {{
         background-color: #FFFFFF !important;
+        background: #FFFFFF !important;
         border-radius: 20px !important;
         border: none !important;
         box-shadow: {CV_SOMBRA_COMPOSTA} !important;
         padding: 32px !important;
-        margin-bottom: 0 !important;
+        box-sizing: border-box !important;
+        margin-top: 0.5rem !important;
+        margin-bottom: 1.5rem !important;
+    }}
+    /* Reforço: coluna/VerticalBlock com marcador (versões antigas ou DOM alternativo) */
+    section[data-testid="stMain"]:has(.bea-cv-cag-page-active)
+        [data-testid="column"]:has(.bea-cv-cag-mother-mark) > div,
+    section[data-testid="stMain"]:has(.bea-cv-cag-page-active)
+        [data-testid="stVerticalBlockBorderWrapper"]:has(.bea-cv-cag-mother-mark) {{
+        background-color: transparent !important;
+        box-shadow: none !important;
+        padding: 0 !important;
     }}
     /* Cards de resumo do cliente (não Panorama Home): sombra removida, título sans no bloco abaixo */
     section[data-testid="stMain"]:has(.bea-cv-cag-page-active)
-        [data-testid="column"]:has(.bea-cv-cag-mother-mark) .bea-cv-cag-metric-card,
-    section[data-testid="stMain"]:has(.bea-cv-cag-page-active)
-        [data-testid="stVerticalBlockBorderWrapper"]:has(.bea-cv-cag-mother-mark) .bea-cv-cag-metric-card {{
+        .main .block-container:has(.bea-cv-cag-mother-mark) .bea-cv-cag-metric-card {{
         box-shadow: none !important;
         background: rgba(250, 248, 245, 0.72) !important;
         border: 1px solid rgba(118, 148, 125, 0.14) !important;

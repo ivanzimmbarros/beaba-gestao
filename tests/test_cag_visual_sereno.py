@@ -38,10 +38,7 @@ def test_cag_shell_css_ilha_mae_e_pagina_ativa():
     assert "bea-cv-cag-page-active" in css
     assert "bea-cv-cag-mother-mark" in css
     assert ":has(.bea-cv-cag-mother-mark)" in css
-    assert (
-        '[data-testid="column"]:has(.bea-cv-cag-mother-mark)' in css
-        or "stVerticalBlockBorderWrapper" in css
-    )
+    assert "block-container:has(.bea-cv-cag-mother-mark)" in css
     assert "0 12px 40px rgba(118, 148, 125, 0.12)" in css
     assert "0 2px 10px rgba(0, 0, 0, 0.05)" in css
     assert "bea-cv-cag-metric-card" in css
