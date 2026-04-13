@@ -8,6 +8,7 @@ E20 — Fortaleza Operacional: stress & E2E (Jornada do Herói + fronteiras + co
 - **slice Vendas (UI Sereno):** Ilha Mãe + slot — `tests/vnd_ui_contract.py`,
   `tests/test_vnd_visual_sereno.py`.
 - **slice Colaboradores (UI Sereno):** `tests/col_ui_contract.py`, `tests/test_col_visual_sereno.py`.
+- **slice Catálogo (UI Sereno):** `tests/cat_ui_contract.py`, `tests/test_cat_visual_sereno.py`.
 - Execução completa (1000 iterações): `python tests/e2e_stress_test.py`
 - Pytest (mais leve): `pytest tests/e2e_stress_test.py` (defeito N=35; sobrescrever com
   `E2E_STRESS_HERO_ITERATIONS=1000`).
@@ -659,6 +660,13 @@ def test_e2e_col_visual_shell_contract() -> None:
     from tests.col_ui_contract import assert_col_area_unica_shell
 
     assert_col_area_unica_shell()
+
+
+def test_e2e_cat_visual_shell_contract() -> None:
+    """E2E leve: Catálogo com Ilha Mãe + slot (paridade CAG/VND/COL)."""
+    from tests.cat_ui_contract import assert_cat_area_unica_shell
+
+    assert_cat_area_unica_shell()
 
 
 if __name__ == "__main__":

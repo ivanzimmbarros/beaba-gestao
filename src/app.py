@@ -69,6 +69,10 @@ def main() -> None:
                     render_back_and_breadcrumb=_shell_no_breadcrumb,
                 )
             elif page == "catalogo":
+                st.markdown(
+                    '<div class="bea-cv-cat-slot" data-testid="bea-cat-slot" aria-hidden="true"></div>',
+                    unsafe_allow_html=True,
+                )
                 render_page_catalogo(render_back_and_breadcrumb=_shell_no_breadcrumb)
             elif page == "vendas":
                 st.markdown(

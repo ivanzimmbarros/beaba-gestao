@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import uuid
 from datetime import date, datetime
 
@@ -25,8 +26,35 @@ from src.modules.catalogo import (
 from src.modules.colaborador import listar_colaboradores_resumo
 from src.modules.constants import NATUREZAS_CATALOGO_FASE3
 from src.modules.validators import parse_data_iso
+from src.ui.constituicao_visual_shell import inject_constituicao_cat_page
 
 _CAT_PICK_NONE = "— Seleccione um item para carregar na ficha —"
+
+
+def _cat_section_title_html(title: str) -> str:
+    t = html.escape(title)
+    return f'<div class="bea-cv-cag-h2">{t}</div>'
+
+
+def _cat_ficha_subsec_html(title: str) -> str:
+    t = html.escape(title)
+    return (
+        f'<div class="bea-cv-cag-h2" style="font-size:1.05rem;margin:0.75rem 0 0.3rem 0;">{t}</div>'
+    )
+
+
+def _cat_linha_lbl_html(n: int) -> str:
+    return (
+        '<p style="font-family:var(--cv-sans);font-weight:600;color:#2D332F;margin:0.6rem 0 0.25rem 0;">'
+        f"Linha {int(n)}</p>"
+    )
+
+
+def _cat_participante_lbl_html(n: int) -> str:
+    return (
+        '<p style="font-family:var(--cv-sans);font-weight:600;color:#2D332F;margin:0.6rem 0 0.25rem 0;">'
+        f"Participante {int(n)}</p>"
+    )
 
 
 def _dataframe_selected_rows(ev: object | None, session_key: str) -> list[int]:
@@ -168,9 +196,17 @@ def _ensure_cat_form_widget_defaults(fk: str, natureza: str) -> None:
 
 
 def render_page_catalogo(*, render_back_and_breadcrumb) -> None:
+    inject_constituicao_cat_page()
     render_back_and_breadcrumb(["Home", "Catálogo"], back_key="bea_back_catalogo")
-    st.markdown("### Catálogo de serviços")
+    st.markdown(
+        '<h1 class="bea-cv-cag-h1">Catálogo de serviços</h1>',
+        unsafe_allow_html=True,
+    )
     st.caption("Controle de todos os serviços prestados e disponíveis para oferta")
+    st.markdown(
+        '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
+        unsafe_allow_html=True,
+    )
 
     if "cat_form_v" not in st.session_state:
         st.session_state.cat_form_v = 0
@@ -261,13 +297,19 @@ def render_page_catalogo(*, render_back_and_breadcrumb) -> None:
                 if "cat_pac_row_ids" not in st.session_state:
                     st.session_state.cat_pac_row_ids = [uuid.uuid4().hex[:12]]
 
-                st.subheader("Validade do pacote — composição e valores")
+                st.markdown(
+                    _cat_section_title_html("Validade do pacote — composição e valores"),
+                    unsafe_allow_html=True,
+                )
                 st.caption("Sessões incluídas, repasse de referência e preço de venda do pacote.")
-                st.markdown("**Composição: tipos e quantidades de sessões**")
+                st.markdown(
+                    _cat_ficha_subsec_html("Composição: tipos e quantidades de sessões"),
+                    unsafe_allow_html=True,
+                )
                 st.caption("Duração `0` = usar a duração definida no catálogo para essa sessão (deve estar preenchida).")
                 p_row_ids = list(st.session_state.cat_pac_row_ids)
                 for pos, prid in enumerate(p_row_ids):
-                    st.markdown(f"**Linha {pos + 1}**")
+                    st.markdown(_cat_linha_lbl_html(pos + 1), unsafe_allow_html=True)
                     pc1, pc2, pc3 = st.columns([2, 1, 1])
                     with pc1:
                         _psk = f"{fk}_ps_{prid}"
@@ -332,7 +374,10 @@ def render_page_catalogo(*, render_back_and_breadcrumb) -> None:
                     st.number_input("Valor de venda do pacote (€) *", min_value=0.01, step=1.0, key=f"{fk}_pval")
                 )
 
-                st.subheader("Produto opcional no pacote")
+                st.markdown(
+                    _cat_section_title_html("Produto opcional no pacote"),
+                    unsafe_allow_html=True,
+                )
                 prod_opts = listar_servicos_produto_para_pacote()
                 incluir_p = st.checkbox("Incluir produto do catálogo no pacote", key=f"{fk}_pinc_prod")
                 if incluir_p and prod_opts:
@@ -352,7 +397,7 @@ def render_page_catalogo(*, render_back_and_breadcrumb) -> None:
                     st.info("Não há produtos ativos no catálogo. Crie um item **Produto** primeiro.")
 
         elif natureza == "Evento":
-            st.subheader("Dados do evento")
+            st.markdown(_cat_section_title_html("Dados do evento"), unsafe_allow_html=True)
             ed = st.date_input(
                 "Data do evento *",
                 key=f"{fk}_edt",
@@ -385,7 +430,7 @@ def render_page_catalogo(*, render_back_and_breadcrumb) -> None:
                     )
                 )
 
-            st.subheader("Participantes e repasse")
+            st.markdown(_cat_section_title_html("Participantes e repasse"), unsafe_allow_html=True)
             st.caption("Uma linha por colaborador ou parceiro externo; indique **percentual** ou **valor** de repasse acordado.")
             colab_opts = listar_colaboradores_resumo()
             if not colab_opts:
@@ -398,7 +443,7 @@ def render_page_catalogo(*, render_back_and_breadcrumb) -> None:
 
             erow_ids = list(st.session_state.cat_evt_row_ids)
             for pos, erid in enumerate(erow_ids):
-                st.markdown(f"**Participante {pos + 1}**")
+                st.markdown(_cat_participante_lbl_html(pos + 1), unsafe_allow_html=True)
                 st.session_state.setdefault(f"{fk}_ept_{erid}", "Colaborador")
                 tipo_l = st.radio(
                     "Tipo *",
@@ -600,7 +645,11 @@ def render_page_catalogo(*, render_back_and_breadcrumb) -> None:
                     st.error(msg)
 
     itens_all = listar_itens_catalogo()
-    st.subheader("Itens registados")
+    st.markdown(
+        '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(_cat_section_title_html("Itens registados"), unsafe_allow_html=True)
     f1, f2, f3 = st.columns([1.2, 1.8, 1])
     with f1:
         sel_nat = st.multiselect(
