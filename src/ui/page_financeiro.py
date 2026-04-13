@@ -149,7 +149,7 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
             # —— Linha 1: só texto «Centro de Custo» ——
             st.text_input("Centro de Custo", key=f"{fk}l1_cc")
 
-            # —— Linha 2: seleção CC + texto Natureza + SALVAR DADOS (mesma linha) ——
+            # —— Linha 2: seleção CC + texto Natureza + SALVAR DADOS (sempre visível na mesma linha) ——
             l2a, l2b, l2btn = st.columns([1.2, 1.2, 0.42], vertical_alignment="center")
             with l2a:
                 if cc_ids:
@@ -160,10 +160,15 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
                         key=f"{fk}l2_cc",
                     )
                 else:
-                    st.empty()
+                    st.selectbox(
+                        "Centro de Custo",
+                        options=[0],
+                        format_func=lambda _: "(sem centros — use a linha 1 + SALVAR DADOS)",
+                        disabled=True,
+                        key=f"{fk}l2_cc",
+                    )
             with l2b:
-                if cc_ids:
-                    st.text_input("Natureza", key=f"{fk}l2_nat_txt")
+                st.text_input("Natureza", key=f"{fk}l2_nat_txt")
             with l2btn:
                 if st.button("SALVAR DADOS", key="fin_gxc_btn_salvar", type="primary"):
                     try:
