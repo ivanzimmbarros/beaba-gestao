@@ -37,9 +37,11 @@ def test_cag_metric_card_html_material_e_serif():
 def test_cag_shell_css_ilha_mae_e_slot():
     from src.ui.constituicao_visual_shell import (
         get_constituicao_cag_page_css,
+        inject_area_unica_visual_mount,
         inject_cag_visual_mount,
     )
 
+    assert callable(inject_area_unica_visual_mount)
     assert callable(inject_cag_visual_mount)
     css = get_constituicao_cag_page_css()
     assert "bea-cv-cag-slot" in css

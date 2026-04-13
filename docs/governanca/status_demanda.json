@@ -15,9 +15,10 @@
     "projeto": "BeaBa Gestão / BeaBa Materno",
     "escopo": "Sincronização código+CI com origin/develop; mapa completo de testes; certificação backup/restore (pytest + simulação verify semanal em sandbox).",
     "pytest": {
-      "total": 109,
+      "total": 124,
       "comando": "python -m pytest tests/ -v",
       "resultado_2026_04_12": "109 passed (Home: ilhas Master sem border Streamlit, Panorama Material Symbols, sidebar ativo sem barra)",
+      "resultado_2026_04_13": "124 passed — Painel de Vendas Ilha Mãe Sereno (slot vnd + inject_constituicao_vnd_page + mount unificado CAG/VND)",
       "e2e_incluido": "tests/e2e_stress_test.py (hero + boundary quick na suite pytest)"
     },
     "backup_restore": {
@@ -147,20 +148,20 @@
   ],
   "pendente": "Consolidação UI — Fase Final Setores 3, 4 e 5 na página consolidada (Dados Pessoais em expander, Ficha, Gestão de Agendamentos). E22 Fase 2 — homologar Clientes/Colaboradores vs PDV. E17.1: fila.",
   "falha": "",
-  "ultima_actualizacao_iso": "2026-04-12",
+  "ultima_actualizacao_iso": "2026-04-13",
   "notas_dashboard": "Painel v2: secções «Épicos em execução» e «Histórico de épicos concluídos» em `status_demanda.json`. Apps: `scripts/app_governance.py`, `view_governance.py`, `monitor_demanda.py`, `monitor_governanca.py` (aba Governança).",
   "fase_governanca": "A",
   "pc_foco": "PC1–PC2",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "2026-04-12: Cockpit Home — ilhas flutuantes por coluna (CSS :has + marcador), sem st.container(border=True); Panorama com Material Symbols + serif; Horizonte transparente na main; sidebar item ativo só 15% branco; pytest 109.",
+  "live_status": "2026-04-13: Painel de Vendas — Ilha Mãe Sereno (paridade CAG: slot bea-cv-vnd-slot, inject_constituicao_vnd_page, inject_area_unica_visual_mount); sem border Streamlit; € canónico; pytest tests/ 124 passed.",
   "etapas_pendentes": [
     "Diretor: homologar PDV vs protótipo (semáforo visível, comanda spa). Sem OK → sem avançar módulos.",
     "E22: após OK — um único módulo seguinte (ex. Catálogo / Agendamentos).",
     "Encerramento futuro E22: `python tests/e2e_stress_test.py` (≥1000 iterações) + `tests/last_stress_report.txt` sem bloqueios (além da suite pytest).",
     "E17.1: na fila — CONFIRMO desenho lógico Cloud quando priorizado."
   ],
-  "live_actualizado_iso": "2026-04-12T22:25:00Z",
+  "live_actualizado_iso": "2026-04-13T12:00:00Z",
   "epico_cockpit_boas_vindas": {
     "status": "CONCLUÍDO",
     "data_iso": "2026-04-12",

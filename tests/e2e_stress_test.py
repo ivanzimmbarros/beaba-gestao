@@ -5,6 +5,8 @@ E20 — Fortaleza Operacional: stress & E2E (Jornada do Herói + fronteiras + co
   → **slice CAG** (`obter_cliente_completo`, resumo setor 2, `listar_agendamentos`,
   helpers `page_clientes_agendamentos`: identificação, HTML naturezas, ordenação,
   **contrato Setor 4** — listagem dentro do expander «Agendamentos», ver `cag_setor4_ui_contract`).
+- **slice Vendas (UI Sereno):** Ilha Mãe + slot — `tests/vnd_ui_contract.py`,
+  `tests/test_vnd_visual_sereno.py`.
 - Execução completa (1000 iterações): `python tests/e2e_stress_test.py`
 - Pytest (mais leve): `pytest tests/e2e_stress_test.py` (defeito N=35; sobrescrever com
   `E2E_STRESS_HERO_ITERATIONS=1000`).
@@ -642,6 +644,13 @@ def test_e2e_hero_journey(stress_db_path: Path):
 def test_e2e_boundary_quick(stress_db_path: Path):
     b = _run_boundary_tests(stress_db_path)
     assert not b, b
+
+
+def test_e2e_vnd_visual_shell_contract() -> None:
+    """E2E leve: evidência de que o Painel de Vendas segue o mesmo padrão de área única que CAG."""
+    from tests.vnd_ui_contract import assert_vnd_area_unica_shell
+
+    assert_vnd_area_unica_shell()
 
 
 if __name__ == "__main__":

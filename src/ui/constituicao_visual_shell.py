@@ -567,7 +567,7 @@ def get_constituicao_cag_page_css() -> str:
     /* Horizonte Sereno: sálvia 10% no topo + creme (stMain + filho directo — Streamlit 1.3x–1.6x) */
     section[data-testid="stMain"]:has(.bea-cv-cag-slot),
     section[data-testid="stMain"]:has(.bea-cv-cag-slot) > div,
-    /* Fallback: :has() por vezes não bate com a árvore real; inject_cag_visual_mount() põe body.bea-cv-cag-page */
+    /* Fallback: :has() por vezes não bate com a árvore real; inject_area_unica_visual_mount() põe body.bea-cv-cag-page */
     body.bea-cv-cag-page .stApp,
     body.bea-cv-cag-page section[data-testid="stMain"],
     body.bea-cv-cag-page section[data-testid="stMain"] > div {{
@@ -762,8 +762,8 @@ def get_constituicao_cag_page_css() -> str:
 """
 
 
-def inject_cag_visual_mount() -> None:
-    """Marca body + coluna ancestral do slot (sem depender de CSS :has no pai). Executar no fim da coluna principal."""
+def inject_area_unica_visual_mount() -> None:
+    """CAG ou Vendas: marca `body` + coluna da Ilha Mãe conforme o slot presente no DOM."""
     components.html(
         """
 <script>
@@ -772,17 +772,28 @@ def inject_cag_visual_mount() -> None:
     try {
       var doc = window.parent.document;
       doc.body.classList.remove("bea-cv-cag-page");
+      doc.body.classList.remove("bea-cv-vnd-page");
       doc.querySelectorAll(".bea-cv-cag-mother-island").forEach(function (el) {
         el.classList.remove("bea-cv-cag-mother-island");
       });
+      doc.querySelectorAll(".bea-cv-vnd-mother-island").forEach(function (el) {
+        el.classList.remove("bea-cv-vnd-mother-island");
+      });
       var slot = doc.querySelector(".bea-cv-cag-slot");
+      var bodyCls = "bea-cv-cag-page";
+      var colCls = "bea-cv-cag-mother-island";
+      if (!slot) {
+        slot = doc.querySelector(".bea-cv-vnd-slot");
+        bodyCls = "bea-cv-vnd-page";
+        colCls = "bea-cv-vnd-mother-island";
+      }
       if (!slot) return;
-      doc.body.classList.add("bea-cv-cag-page");
+      doc.body.classList.add(bodyCls);
       var el = slot.parentElement;
       while (el && el !== doc.body) {
         var tid = el.getAttribute && el.getAttribute("data-testid");
         if (tid === "column" || tid === "stColumn") {
-          el.classList.add("bea-cv-cag-mother-island");
+          el.classList.add(colCls);
           break;
         }
         el = el.parentElement;
@@ -800,5 +811,183 @@ def inject_cag_visual_mount() -> None:
     )
 
 
+def inject_cag_visual_mount() -> None:
+    """Compat: mesmo que `inject_area_unica_visual_mount()` (CAG + Vendas)."""
+    inject_area_unica_visual_mount()
+
+
 def inject_constituicao_cag_page() -> None:
     st.markdown(get_constituicao_cag_page_css(), unsafe_allow_html=True)
+
+
+def get_constituicao_vnd_page_css() -> str:
+    """Painel de Vendas: Horizonte + Ilha Mãe (paridade técnica com CAG, classes `vnd`)."""
+    return f"""
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+<style>
+    .bea-cv-vnd-slot {{
+        display: none !important;
+    }}
+    .bea-cv-cag-gap {{
+        min-height: 20px;
+        height: 20px;
+        margin: 0;
+        padding: 0;
+        pointer-events: none;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot),
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot) > div,
+    body.bea-cv-vnd-page .stApp,
+    body.bea-cv-vnd-page section[data-testid="stMain"],
+    body.bea-cv-vnd-page section[data-testid="stMain"] > div {{
+        background: linear-gradient(
+            to bottom,
+            rgba(118, 148, 125, 0.1) 0,
+            rgba(118, 148, 125, 0.1) 300px,
+            {CV_CREME} 300px,
+            {CV_CREME} 100%
+        ) !important;
+    }}
+    @media (max-width: 768px) {{
+        section[data-testid="stMain"]:has(.bea-cv-vnd-slot),
+        section[data-testid="stMain"]:has(.bea-cv-vnd-slot) > div,
+        body.bea-cv-vnd-page .stApp,
+        body.bea-cv-vnd-page section[data-testid="stMain"],
+        body.bea-cv-vnd-page section[data-testid="stMain"] > div {{
+            background: linear-gradient(
+                to bottom,
+                rgba(118, 148, 125, 0.1) 0,
+                rgba(118, 148, 125, 0.1) 150px,
+                {CV_CREME} 150px,
+                {CV_CREME} 100%
+            ) !important;
+        }}
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot) [data-testid="stAppViewContainer"],
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot) [data-testid="stAppViewContainer"] > .main,
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot) .main .block-container,
+    body.bea-cv-vnd-page [data-testid="stAppViewContainer"],
+    body.bea-cv-vnd-page [data-testid="stAppViewContainer"] > .main,
+    body.bea-cv-vnd-page .main .block-container {{
+        background: transparent !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot)
+        [data-testid="column"]:has(.bea-cv-vnd-slot),
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot)
+        [data-testid="column"]:has([data-testid="bea-vnd-slot"]),
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot) [data-testid="stColumn"]:has(.bea-cv-vnd-slot),
+    body.bea-cv-vnd-page [data-testid="column"].bea-cv-vnd-mother-island,
+    body.bea-cv-vnd-page [data-testid="stColumn"].bea-cv-vnd-mother-island {{
+        background-color: #FFFFFF !important;
+        background: #FFFFFF !important;
+        border-radius: 20px !important;
+        border: none !important;
+        box-shadow: {CV_SOMBRA_COMPOSTA} !important;
+        padding: 32px !important;
+        box-sizing: border-box !important;
+        margin-top: 0.35rem !important;
+        margin-bottom: 1.25rem !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot)
+        [data-testid="column"]:has(.bea-cv-vnd-slot) .bea-cv-vnd-status-surface,
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot)
+        [data-testid="column"]:has([data-testid="bea-vnd-slot"]) .bea-cv-vnd-status-surface,
+    body.bea-cv-vnd-page [data-testid="column"].bea-cv-vnd-mother-island .bea-cv-vnd-status-surface,
+    body.bea-cv-vnd-page [data-testid="stColumn"].bea-cv-vnd-mother-island .bea-cv-vnd-status-surface {{
+        box-shadow: none !important;
+        background: rgba(250, 248, 245, 0.72) !important;
+        border: 1px solid rgba(118, 148, 125, 0.14) !important;
+        border-radius: var(--cv-radius-isla) !important;
+        padding: 18px 20px !important;
+        margin-bottom: 16px !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot)
+        [data-testid="column"]:has(.bea-cv-vnd-slot) .bea-venda-comanda-item,
+    body.bea-cv-vnd-page [data-testid="column"].bea-cv-vnd-mother-island .bea-venda-comanda-item {{
+        box-shadow: none !important;
+        background: rgba(250, 248, 245, 0.55) !important;
+        border: 1px solid rgba(118, 148, 125, 0.12) !important;
+        border-radius: 16px !important;
+    }}
+    .bea-cv-cag-h1 {{
+        font-family: var(--cv-serif) !important;
+        font-weight: 500 !important;
+        color: {CV_TITULO} !important;
+        font-size: clamp(1.45rem, 3.2vw, 1.85rem) !important;
+        margin: 0 0 0.5rem 0 !important;
+        letter-spacing: 0.02em !important;
+        line-height: 1.25 !important;
+    }}
+    .bea-cv-cag-h2 {{
+        font-family: var(--cv-serif) !important;
+        font-weight: 500 !important;
+        color: {CV_TITULO} !important;
+        font-size: 1.2rem !important;
+        margin: 0 0 0.5rem 0 !important;
+        letter-spacing: 0.01em !important;
+    }}
+    .bea-cv-badge-terracota {{
+        display: inline-block;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        font-family: var(--cv-sans);
+        font-size: 0.78rem;
+        font-weight: 600;
+        background: {CV_BADGE_TERRA_BG};
+        color: {CV_BADGE_TERRA_FG};
+        white-space: nowrap;
+    }}
+    .bea-cv-badge-verde {{
+        display: inline-block;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        font-family: var(--cv-sans);
+        font-size: 0.78rem;
+        font-weight: 600;
+        background: {CV_BADGE_VERDE_BG};
+        color: {CV_BADGE_VERDE_FG};
+        white-space: nowrap;
+    }}
+    .bea-cv-badge-neutro {{
+        display: inline-block;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        font-family: var(--cv-sans);
+        font-size: 0.78rem;
+        font-weight: 500;
+        background: rgba(45, 51, 47, 0.06);
+        color: {CV_TITULO};
+        opacity: 0.85;
+        white-space: nowrap;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot) .block-container [data-testid="stButton"] > button,
+    body.bea-cv-vnd-page section[data-testid="stMain"] .block-container [data-testid="stButton"] > button {{
+        border-radius: 9999px !important;
+        background: rgba(118, 148, 125, 0.15) !important;
+        border: 1px solid rgba(118, 148, 125, 0.35) !important;
+        color: {CV_TITULO} !important;
+        font-family: var(--cv-sans) !important;
+        font-weight: 500 !important;
+        box-shadow: none !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot) .block-container [data-testid="stButton"] > button:hover,
+    body.bea-cv-vnd-page section[data-testid="stMain"] .block-container [data-testid="stButton"] > button:hover {{
+        background: rgba(118, 148, 125, 0.22) !important;
+        border-color: rgba(118, 148, 125, 0.5) !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot) .block-container [data-testid="stButton"] > button[kind="primary"],
+    body.bea-cv-vnd-page section[data-testid="stMain"] .block-container [data-testid="stButton"] > button[kind="primary"] {{
+        background: rgba(118, 148, 125, 0.22) !important;
+        border-color: {CV_SALVIA} !important;
+        color: #FFFFFF !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot) .block-container [data-testid="stButton"] > button[kind="primary"]:hover,
+    body.bea-cv-vnd-page section[data-testid="stMain"] .block-container [data-testid="stButton"] > button[kind="primary"]:hover {{
+        filter: brightness(1.05);
+    }}
+</style>
+"""
+
+
+def inject_constituicao_vnd_page() -> None:
+    st.markdown(get_constituicao_vnd_page_css(), unsafe_allow_html=True)

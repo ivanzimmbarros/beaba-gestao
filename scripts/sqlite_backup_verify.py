@@ -13,6 +13,7 @@ em `page_home` após qualquer restore.
 CAG: listagens e resumos vêm do mesmo `.db`; integridade do ficheiro cobre também a página
 consolidada (dados); camada visual Sereno é código em git, não artefacto de backup.
 Setor 4 (listagem dentro do expander «Agendamentos»): contrato `tests/cag_setor4_ui_contract.py`.
+Painel de Vendas Sereno: `tests/vnd_ui_contract.py`, `tests/test_vnd_visual_sereno.py`.
 """
 
 from __future__ import annotations

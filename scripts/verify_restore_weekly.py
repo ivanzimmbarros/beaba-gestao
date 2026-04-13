@@ -8,6 +8,7 @@ Variáveis de ambiente (opcionais):
 Arquitectura UI (2026-04-12): decomissionamento de `page_clientes.py` e `page_agendamentos.py`;
 UI consolidada em `page_clientes_agendamentos.py` (PAINEL / JSON). Setor 4 CAG (lista no expander
 «Agendamentos»): regressão em `tests/cag_setor4_ui_contract.py` e suites pytest associadas.
+Painel de Vendas: `tests/vnd_ui_contract.py` / `tests/test_vnd_visual_sereno.py`.
 """
 
 from __future__ import annotations

@@ -67,6 +67,10 @@ def main() -> None:
             elif page == "catalogo":
                 render_page_catalogo(render_back_and_breadcrumb=_shell_no_breadcrumb)
             elif page == "vendas":
+                st.markdown(
+                    '<div class="bea-cv-vnd-slot" data-testid="bea-vnd-slot" aria-hidden="true"></div>',
+                    unsafe_allow_html=True,
+                )
                 render_page_vendas(render_back_and_breadcrumb=_shell_no_breadcrumb)
             elif page == "dashboards":
                 render_page_dashboards(

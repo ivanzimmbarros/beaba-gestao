@@ -8,7 +8,6 @@ from datetime import date, datetime
 import streamlit as st
 
 from src.modules.catalogo import (
-    centavos_para_texto_euros,
     euros_para_centavos,
     listar_servicos_para_venda,
     resolver_snapshot_venda,
@@ -38,8 +37,20 @@ from src.ui.telefone_widgets import (
     render_grupo_telefone,
 )
 from src.pages.theme import get_beaba_css  # noqa: F401 — BeaBa Sereno (CSS em app.main)
-from src.ui.styles_theme import BEABA_VS
+from src.ui.constituicao_visual_shell import inject_constituicao_vnd_page
+from src.ui.fmt_euro_constituicao import fmt_euro_centavos
 from src.ui.widgets.cliente_search import CLIENTE_SEARCH_DATE_MIN, render_cliente_search_widget
+
+
+def _vnd_fmt_cent(c: int | None) -> str:
+    if c is None:
+        return "—"
+    return fmt_euro_centavos(int(c))
+
+
+def _vnd_section_title_html(title: str) -> str:
+    t = html.escape(title)
+    return f'<div class="bea-cv-cag-h2">{t}</div>'
 
 
 def _venda_slimos_from_cart(cart: list, id_to: dict) -> list[dict]:
@@ -118,7 +129,9 @@ def _venda_collect_pag_rows_from_state(
         if vc > 0:
             pag_rows.append((meio_code, vc))
             if tipo_pg == "Parcelado" and nparc >= 2:
-                obs_pay_notes.append(f"[Pagamento] {lbl_m} em {nparc}× — total {ve:.2f} €.")
+                obs_pay_notes.append(
+                    f"[Pagamento] {lbl_m} em {nparc}× — total {_vnd_fmt_cent(euros_para_centavos(ve) or 0)}."
+                )
     return pag_rows, obs_pay_notes
 
 
@@ -169,9 +182,9 @@ def _venda_finance_snapshot(
         "liq_cent": liq_cent,
         "sp_cent": sp_cent,
         "a_distribuir_cent": a_distribuir_cent,
-        "pedido_txt": centavos_para_texto_euros(liq_cent),
-        "distrib_txt": centavos_para_texto_euros(sp_cent),
-        "ad_txt": centavos_para_texto_euros(abs(a_distribuir_cent)),
+        "pedido_txt": _vnd_fmt_cent(liq_cent),
+        "distrib_txt": _vnd_fmt_cent(sp_cent),
+        "ad_txt": _vnd_fmt_cent(abs(a_distribuir_cent)),
         "pag_rows": pag_rows,
         "obs_pay_notes": _obs,
     }
@@ -192,7 +205,6 @@ def _html_comanda_item_minimal(*, nome_e: str, nat_e: str, val_e: str) -> str:
     Montagem por concatenação (evita f-strings que quebram `{` do CSS/HTML no Streamlit).
     """
     return (
-        '<div class="bea-proto-scope">'
         '<div class="bea-venda-comanda-item bea-comanda-min">'
         '<div class="bea-comanda-min-row">'
         "<div>"
@@ -207,7 +219,6 @@ def _html_comanda_item_minimal(*, nome_e: str, nat_e: str, val_e: str) -> str:
         '<div class="bea-com-val">'
         + val_e
         + "</div>"
-        "</div>"
         "</div>"
         "</div>"
         "</div>"
@@ -231,7 +242,7 @@ def _render_venda_status_card_superior(snap: dict) -> None:
     cab_m = int(snap["cab_m"])
     cab_html = ""
     if cab_m > 0:
-        cab_e = html.escape(centavos_para_texto_euros(cab_m))
+        cab_e = html.escape(_vnd_fmt_cent(cab_m))
         cab_html = (
             f'<p class="bea-vs-sem-foot">Abatimento de crédito aplicado: <strong>{cab_e}</strong></p>'
         )
@@ -240,6 +251,7 @@ def _render_venda_status_card_superior(snap: dict) -> None:
     adt_e = html.escape(str(snap["ad_txt"]))
     lbl_ad_e = html.escape(ad_label)
     inner = (
+        '<div class="bea-cv-vnd-status-surface">'
         '<div class="bea-proto-scope">'
         '<div class="bea-venda-semaforo">'
         '<p class="bea-vs-sem-kicker">Estado da venda</p>'
@@ -274,11 +286,9 @@ def _render_venda_status_card_superior(snap: dict) -> None:
         + cab_html
         + "</div>"
         "</div>"
+        "</div>"
     )
-    st.markdown(
-        '<div class="bea-sem-float-wrap">' + inner + "</div>",
-        unsafe_allow_html=True,
-    )
+    st.markdown(inner, unsafe_allow_html=True)
 
 
 def _prime_cliente_form(prefix: str, d: dict) -> None:
@@ -647,12 +657,10 @@ def render_page_vendas(
     *,
     render_back_and_breadcrumb,
 ) -> None:
+    inject_constituicao_vnd_page()
     render_back_and_breadcrumb(["Home", "Vendas", "Registo"], back_key="bea_back_vendas")
     st.markdown(
-        '<div class="bea-proto-scope">'
-        '<div class="bea-pdv-titulo-wrap">'
-        '<p class="bea-pdv-titulo">Painel de Vendas</p>'
-        "</div></div>",
+        '<h1 class="bea-cv-cag-h1">Painel de Vendas</h1>',
         unsafe_allow_html=True,
     )
 
@@ -701,107 +709,112 @@ def render_page_vendas(
     )
     _render_venda_status_card_superior(snap_topo)
 
-    st.subheader("1. Pesquisa Cliente")
-    # --- Cliente: card único (busca minimalista) ---
-    with st.container(border=True):
-        vnd_busca_clicked = render_cliente_search_widget(
-            key_prefix="vnd_busca",
-            button_type="secondary",
-            minimal=True,
-        )
+    st.markdown(
+        '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(_vnd_section_title_html("1. Pesquisa de clientes"), unsafe_allow_html=True)
+    vnd_busca_clicked = render_cliente_search_widget(
+        key_prefix="vnd_busca",
+        button_type="secondary",
+        minimal=True,
+    )
 
-        if vnd_busca_clicked:
-            nif_s = str(st.session_state.get("vnd_busca_nif", "") or "").strip()
-            em_s = str(st.session_state.get("vnd_busca_email", "") or "").strip()
-            tel_raw = str(st.session_state.get("vnd_busca_tel_txt", "") or "").strip()
-            use_tel = normalizar_telefone_legado_ou_e164(tel_raw) if tel_raw else ""
-            busca_doc_intl = bool(st.session_state.get("vnd_busca_docintl"))
+    if vnd_busca_clicked:
+        nif_s = str(st.session_state.get("vnd_busca_nif", "") or "").strip()
+        em_s = str(st.session_state.get("vnd_busca_email", "") or "").strip()
+        tel_raw = str(st.session_state.get("vnd_busca_tel_txt", "") or "").strip()
+        use_tel = normalizar_telefone_legado_ou_e164(tel_raw) if tel_raw else ""
+        busca_doc_intl = bool(st.session_state.get("vnd_busca_docintl"))
 
-            msg_err: str | None = None
-            if not nif_s and not em_s and not tel_raw:
-                msg_err = "Indique NIF, email ou telefone."
-            elif em_s and not email_valido(em_s):
-                msg_err = "❌ Email inválido para pesquisa."
-            elif tel_raw and not use_tel:
-                msg_err = "❌ Telefone inválido (ex.: +351912345678)."
-            elif nif_s:
-                ok_nf, msg_nf, _vx = normalizar_nif_armazenamento(
-                    nif_s, documento_identificacao_internacional=bool(busca_doc_intl)
+        msg_err: str | None = None
+        if not nif_s and not em_s and not tel_raw:
+            msg_err = "Indique NIF, email ou telefone."
+        elif em_s and not email_valido(em_s):
+            msg_err = "❌ Email inválido para pesquisa."
+        elif tel_raw and not use_tel:
+            msg_err = "❌ Telefone inválido (ex.: +351912345678)."
+        elif nif_s:
+            ok_nf, msg_nf, _vx = normalizar_nif_armazenamento(
+                nif_s, documento_identificacao_internacional=bool(busca_doc_intl)
+            )
+            if not ok_nf:
+                msg_err = msg_nf
+        if msg_err:
+            st.error(msg_err)
+        else:
+            cands = buscar_clientes_por_nif_email_telefone(
+                nif=nif_s,
+                email=em_s,
+                telefone=use_tel,
+                documento_internacional=bool(busca_doc_intl),
+            )
+            if len(cands) == 0:
+                st.warning(
+                    "Nenhum cliente encontrado. Abra **Novo cliente** no expander abaixo."
                 )
-                if not ok_nf:
-                    msg_err = msg_nf
-            if msg_err:
-                st.error(msg_err)
-            else:
-                cands = buscar_clientes_por_nif_email_telefone(
-                    nif=nif_s,
-                    email=em_s,
-                    telefone=use_tel,
-                    documento_internacional=bool(busca_doc_intl),
-                )
-                if len(cands) == 0:
-                    st.warning(
-                        "Nenhum cliente encontrado. Abra **Novo cliente** no expander abaixo."
-                    )
-                    st.session_state.pop("vnd_busca_cands", None)
-                    st.session_state.venda_cliente_id = None
-                elif len(cands) == 1:
-                    cid = cands[0][0]
-                    d = obter_cliente_completo(cid)
-                    if not d:
-                        st.error("Cliente não encontrado.")
-                    else:
-                        st.session_state.venda_cliente_id = cid
-                        st.session_state._vnda_prime = {"prefix": f"{fk}_vc", "data": d}
-                        st.session_state.pop("vnd_busca_cands", None)
-                        st.success(f"Cliente encontrado (#{cid}). Ficha carregada.")
-                        st.rerun()
-                else:
-                    st.session_state.vnd_busca_cands = cands
-                    st.info(f"**{len(cands)}** clientes encontrados — seleccione abaixo.")
-                    st.rerun()
-
-        cands_v = st.session_state.get("vnd_busca_cands")
-        if cands_v and len(cands_v) > 1:
-            labels_v = [f"{nome} (#{cid})" for cid, nome in cands_v]
-            pick_v = st.selectbox("Seleccione o cliente", labels_v, key="vnd_busca_pick_label")
-            if st.button("Carregar cliente seleccionado", key="vnd_busca_apply_pick"):
-                idx_v = labels_v.index(pick_v)
-                cid_v = cands_v[idx_v][0]
-                d_v = obter_cliente_completo(cid_v)
-                if not d_v:
+                st.session_state.pop("vnd_busca_cands", None)
+                st.session_state.venda_cliente_id = None
+            elif len(cands) == 1:
+                cid = cands[0][0]
+                d = obter_cliente_completo(cid)
+                if not d:
                     st.error("Cliente não encontrado.")
                 else:
-                    st.session_state.venda_cliente_id = cid_v
-                    st.session_state._vnda_prime = {"prefix": f"{fk}_vc", "data": d_v}
+                    st.session_state.venda_cliente_id = cid
+                    st.session_state._vnda_prime = {"prefix": f"{fk}_vc", "data": d}
                     st.session_state.pop("vnd_busca_cands", None)
+                    st.success(f"Cliente encontrado (#{cid}). Ficha carregada.")
                     st.rerun()
+            else:
+                st.session_state.vnd_busca_cands = cands
+                st.info(f"**{len(cands)}** clientes encontrados — seleccione abaixo.")
+                st.rerun()
 
-        _c1, _c2 = st.columns([3, 1])
-        with _c2:
-            st.write("")
-            if st.session_state.venda_cliente_id and st.button(
-                "Limpar seleção", key=f"{fk}_clr_cli"
-            ):
-                st.session_state.venda_cliente_id = None
+    cands_v = st.session_state.get("vnd_busca_cands")
+    if cands_v and len(cands_v) > 1:
+        labels_v = [f"{nome} (#{cid})" for cid, nome in cands_v]
+        pick_v = st.selectbox("Seleccione o cliente", labels_v, key="vnd_busca_pick_label")
+        if st.button("Carregar cliente seleccionado", key="vnd_busca_apply_pick"):
+            idx_v = labels_v.index(pick_v)
+            cid_v = cands_v[idx_v][0]
+            d_v = obter_cliente_completo(cid_v)
+            if not d_v:
+                st.error("Cliente não encontrado.")
+            else:
+                st.session_state.venda_cliente_id = cid_v
+                st.session_state._vnda_prime = {"prefix": f"{fk}_vc", "data": d_v}
                 st.session_state.pop("vnd_busca_cands", None)
                 st.rerun()
 
-        cli_id = st.session_state.venda_cliente_id
+    _c1, _c2 = st.columns([3, 1])
+    with _c2:
+        st.write("")
+        if st.session_state.venda_cliente_id and st.button(
+            "Limpar seleção", key=f"{fk}_clr_cli"
+        ):
+            st.session_state.venda_cliente_id = None
+            st.session_state.pop("vnd_busca_cands", None)
+            st.rerun()
 
-        if cli_id:
-            saldo_loja = obter_saldo_credito_cliente(int(cli_id))
-            st.info(
-                f"**#{cli_id}** · crédito de loja: **{centavos_para_texto_euros(saldo_loja)}**."
-            )
-            with st.expander("Editar ficha do cliente", expanded=False):
-                _render_venda_editar_cliente_form(int(cli_id), fk)
-        else:
-            with st.expander("Novo cliente — cadastro completo", expanded=False):
-                _render_venda_novo_cliente_form(fk)
+    cli_id = st.session_state.venda_cliente_id
 
-    # --- Catálogo / carrinho ---
-    st.subheader("2. Serviços Requisitados")
+    if cli_id:
+        saldo_loja = obter_saldo_credito_cliente(int(cli_id))
+        st.info(
+            f"**#{cli_id}** · crédito de loja: **{_vnd_fmt_cent(saldo_loja)}**."
+        )
+        with st.expander("Editar ficha do cliente", expanded=False):
+            _render_venda_editar_cliente_form(int(cli_id), fk)
+    else:
+        with st.expander("Novo cliente — cadastro completo", expanded=False):
+            _render_venda_novo_cliente_form(fk)
+
+    st.markdown(
+        '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(_vnd_section_title_html("2. Serviços requisitados"), unsafe_allow_html=True)
     if not cat:
         st.error("Sem serviços ativos. Abra o Catálogo.")
         return
@@ -852,7 +865,7 @@ def render_page_vendas(
                     )
                     if ok_hdr:
                         bruto_hdr = q0 * int(snap_hdr["preco_unitario_centavos"])
-                        valor_card = centavos_para_texto_euros(bruto_hdr)
+                        valor_card = _vnd_fmt_cent(bruto_hdr)
                     else:
                         valor_card = "—"
                     nome_e = html.escape(nome_svc)
@@ -860,14 +873,13 @@ def render_page_vendas(
                     val_e = html.escape(valor_card)
                     row_html = _html_comanda_item_minimal(nome_e=nome_e, nat_e=nat_e, val_e=val_e)
 
-                    with st.container(border=True):
-                        h_left, h_x = st.columns([5, 1])
-                        with h_left:
-                            st.markdown(row_html, unsafe_allow_html=True)
-                        with h_x:
-                            st.caption("")
-                            if st.button("✕", key=f"{fk}_rm_{idx}", help="Remover este item"):
-                                to_remove = idx
+                    h_left, h_x = st.columns([5, 1])
+                    with h_left:
+                        st.markdown(row_html, unsafe_allow_html=True)
+                    with h_x:
+                        st.caption("")
+                        if st.button("✕", key=f"{fk}_rm_{idx}", help="Remover este item"):
+                            to_remove = idx
 
                     with st.expander(f"⋯ Item {idx + 1}", expanded=False):
                         c_a, c_c = st.columns([1, 2])
@@ -953,7 +965,7 @@ def render_page_vendas(
                             bruto = q * unit
                             st.markdown(
                                 f"**Cálculo:** {snap['unidade_medida']} × {q} → subtotal bruto "
-                                f"**{centavos_para_texto_euros(bruto)}**"
+                                f"**{_vnd_fmt_cent(bruto)}**"
                             )
                         else:
                             st.warning(msg_r)
@@ -961,8 +973,11 @@ def render_page_vendas(
             st.session_state.venda_cart.pop(to_remove)
             st.rerun()
 
-    # Totais parciais (global discount below)
-    st.subheader("3. Desconto sobre o total")
+    st.markdown(
+        '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(_vnd_section_title_html("3. Desconto sobre o total"), unsafe_allow_html=True)
     g_opt = st.radio(
         "Desconto global",
         ["Nenhum", "Percentagem", "Valor (€)"],
@@ -994,15 +1009,19 @@ def render_page_vendas(
         )
         if ok_t and tot_preview:
             st.success(
-                f"**Subtotal (bruto):** {centavos_para_texto_euros(tot_preview['subtotal_bruto_centavos'])} · "
-                f"**Após linhas:** {centavos_para_texto_euros(tot_preview['subtotal_apos_descontos_linha_centavos'])} · "
-                f"**Desconto global:** {centavos_para_texto_euros(tot_preview['desconto_global_centavos_aplicado'])} · "
-                f"**Total final:** {centavos_para_texto_euros(tot_preview['total_final_centavos'])}"
+                f"**Subtotal (bruto):** {_vnd_fmt_cent(tot_preview['subtotal_bruto_centavos'])} · "
+                f"**Após linhas:** {_vnd_fmt_cent(tot_preview['subtotal_apos_descontos_linha_centavos'])} · "
+                f"**Desconto global:** {_vnd_fmt_cent(tot_preview['desconto_global_centavos_aplicado'])} · "
+                f"**Total final:** {_vnd_fmt_cent(tot_preview['total_final_centavos'])}"
             )
         elif not ok_t:
             st.error(msg_t)
 
-    st.subheader("4. Pagamento")
+    st.markdown(
+        '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(_vnd_section_title_html("4. Pagamento"), unsafe_allow_html=True)
 
     abat_cred_eur = 0.0
     if cli_id:
@@ -1014,7 +1033,7 @@ def render_page_vendas(
                 value=0.0,
                 step=0.01,
                 key=f"{fk}_abat_cred",
-                help=f"Máximo sugerido: saldo {centavos_para_texto_euros(saldo_ab)}.",
+                help=f"Máximo sugerido: saldo {_vnd_fmt_cent(saldo_ab)}.",
             )
         )
 
@@ -1082,13 +1101,13 @@ def render_page_vendas(
 
     if cli_id and int(snap_fin.get("cab_m", 0) or 0) > 0:
         st.caption(
-            f"Total da venda (antes de abatimento): **{centavos_para_texto_euros(snap_fin['tf_cent'])}** · "
-            f"Crédito abatido: **{centavos_para_texto_euros(int(snap_fin['cab_m']))}**"
+            f"Total da venda (antes de abatimento): **{_vnd_fmt_cent(snap_fin['tf_cent'])}** · "
+            f"Crédito abatido: **{_vnd_fmt_cent(int(snap_fin['cab_m']))}**"
         )
 
     if a_distribuir_cent < 0:
         st.warning(
-            f"A soma dos meios excede o total a liquidar em **{centavos_para_texto_euros(-a_distribuir_cent)}**."
+            f"A soma dos meios excede o total a liquidar em **{_vnd_fmt_cent(-a_distribuir_cent)}**."
         )
 
     obs = st.text_area("Observações da venda", key=f"{fk}_obs_v")
