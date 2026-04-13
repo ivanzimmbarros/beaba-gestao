@@ -15,8 +15,10 @@ CAG: o mesmo restore repõe dados de clientes/agendamentos no SQLite; o aspeto S
 e dos testes `test_cag_visual_sereno`, `test_vnd_visual_sereno`, `test_col_visual_sereno`,
 `test_cat_visual_sereno`, `test_home_visual_sereno` / E20. Setor 4
 (lista no expander «Agendamentos»): contrato em `tests/cag_setor4_ui_contract.py` +
-`test_clientes_agendamentos_page.py` (incl. pesquisa unificada `cag_busca_nome`); dados de busca por
-prefixo de nome: `tests/test_cliente.py`; Painel de Vendas: `tests/vnd_ui_contract.py`; Colaboradores:
+`test_clientes_agendamentos_page.py` (incl. pesquisa unificada `cag_busca_nome`); E2E em
+`tests/e2e_stress_test.py` (_run_cag_consolidated_slice) valida contrato do widget em
+`src/ui/widgets/cliente_search.py`; dados de busca por prefixo de nome: `tests/test_cliente.py`; Painel de Vendas:
+`tests/vnd_ui_contract.py`; Colaboradores:
 `tests/col_ui_contract.py`; Catálogo: `tests/cat_ui_contract.py`; Início: `tests/home_ui_contract.py`.
 """
 

@@ -63,15 +63,14 @@ def render_cliente_search_widget(
     pesquisa_unificada_cag: bool = False,
 ) -> bool:
     """
-    Com `pesquisa_unificada_cag=True` (Clientes e Agendamentos): linha Nome | NIF | Email | Telefone,
-    checkbox «Doc. internacional» abaixo do NIF, facilitador de nome (lista clicável, sem selectbox),
-    botão «Procurar» alinhado ao eixo médio da linha de inputs.
+    Com `pesquisa_unificada_cag=True` (Clientes e Agendamentos): rótulos numa linha; inputs + «Procurar»
+    noutra (`vertical_alignment="center"` na linha dos widgets — centra o botão à altura dos text_input).
+    Linha seguinte: sugestões de nome (col. Nome), quando existirem.
 
-    Caso contrário: layout compacto legado (NIF+doc | email | telefone | botão).
+    Caso contrário: layout compacto legado (NIF+doc | email | telefone | botão), com `{prefix}_docintl`.
 
-    Chaves de sessão (prefixo `key_prefix`):
-    `{prefix}_nome`, `{prefix}_nome_sug_list` (só CAG), `{prefix}_docintl`, `{prefix}_nif`,
-    `{prefix}_email`, `{prefix}_tel_txt`, `{prefix}_go`.
+    Chaves de sessão CAG: `{prefix}_nome`, `{prefix}_nome_sug_list`, `{prefix}_nif`, `{prefix}_email`,
+    `{prefix}_tel_txt`, `{prefix}_go`.
 
     Retorna True se «Procurar» foi clicado neste rerun.
     """
@@ -103,12 +102,28 @@ def _render_widget_pesquisa_unificada_cag(
     clicked = False
     go_key = f"{key_prefix}_go"
     gap = "small"
-    cn, cf, ce, ct, cb = st.columns([1.08, 1.08, 1.02, 1.02, 0.36], gap=gap)
-
+    col_weights = [1.08, 1.08, 1.02, 1.02, 0.36]
     lbl = _BUSCA_LBL_CAG if minimal else _BUSCA_LBL_HTML
 
-    with cn:
+    # Linha 1 — só rótulos (col. do botão: vão com a mesma altura visual da faixa de rótulo).
+    ln, lf, le, lt, lb = st.columns(col_weights, gap=gap, vertical_alignment="top")
+    with ln:
         st.markdown(lbl.format("Nome"), unsafe_allow_html=True)
+    with lf:
+        st.markdown(lbl.format("NIF"), unsafe_allow_html=True)
+    with le:
+        st.markdown(lbl.format("Email"), unsafe_allow_html=True)
+    with lt:
+        st.markdown(lbl.format("Telefone"), unsafe_allow_html=True)
+    with lb:
+        st.markdown(
+            '<div style="height:calc(1.35rem + 4px);margin:0;padding:0;" aria-hidden="true"></div>',
+            unsafe_allow_html=True,
+        )
+
+    # Linha 2 — só inputs + botão; «center» alinha verticalmente o botão mais baixo ao meio dos text_input.
+    cn, cf, ce, ct, cb = st.columns(col_weights, gap=gap, vertical_alignment="center")
+    with cn:
         st.text_input(
             "Nome do cliente",
             key=f"{key_prefix}_nome",
@@ -118,29 +133,16 @@ def _render_widget_pesquisa_unificada_cag(
             args=(key_prefix,),
         )
         _refresh_nome_suggestions(key_prefix)
-        _render_cag_nome_facilitador(key_prefix=key_prefix)
 
     with cf:
-        st.markdown(lbl.format("NIF"), unsafe_allow_html=True)
-        ph_nif = (
-            "Documento internacional"
-            if st.session_state.get(f"{key_prefix}_docintl")
-            else "NIF ou documento"
-        )
         st.text_input(
             "NIF",
             key=f"{key_prefix}_nif",
             label_visibility="collapsed",
-            placeholder=ph_nif,
-        )
-        st.checkbox(
-            "Doc. internacional",
-            key=f"{key_prefix}_docintl",
-            label_visibility="visible",
+            placeholder="NIF",
         )
 
     with ce:
-        st.markdown(lbl.format("Email"), unsafe_allow_html=True)
         st.text_input(
             "Email",
             key=f"{key_prefix}_email",
@@ -149,7 +151,6 @@ def _render_widget_pesquisa_unificada_cag(
         )
 
     with ct:
-        st.markdown(lbl.format("Telefone"), unsafe_allow_html=True)
         st.text_input(
             "Telefone",
             key=f"{key_prefix}_tel_txt",
@@ -158,17 +159,16 @@ def _render_widget_pesquisa_unificada_cag(
         )
 
     with cb:
-        # Centra verticalmente o botão relativamente à linha de inputs (~label + campo)
-        st.markdown(
-            '<div style="height:calc(1.35rem + 4px + 22px);" aria-hidden="true"></div>',
-            unsafe_allow_html=True,
-        )
         clicked = st.button(
             button_label,
             type=button_type,
             key=go_key,
             width="stretch",
         )
+
+    r2n, _, _, _, _ = st.columns(col_weights, gap=gap, vertical_alignment="top")
+    with r2n:
+        _render_cag_nome_facilitador(key_prefix=key_prefix)
 
     return bool(clicked)
 

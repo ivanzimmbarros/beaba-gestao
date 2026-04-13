@@ -50,11 +50,12 @@ jobs:
           pip install -r requirements.txt
           pip install pytest
 
-      - name: Pytest — restore + verify + contrato CAG Setor 4 + cliente (prefixo nome)
+      - name: Pytest — restore + verify + contrato CAG Setor 4 + cliente + pesquisa unificada
         run: |
           python -m pytest tests/test_restore_sqlite.py tests/test_sqlite_backup_verify.py \
             tests/test_cliente.py \
             tests/test_clientes_agendamentos_page.py::test_cag_setor4_lista_obrigatoriamente_dentro_expander_agendamentos \
+            tests/test_clientes_agendamentos_page.py::test_cag_busca_nome_integrado_estado_sessao_na_pagina \
             -v --tb=short
 
       - name: Regenerar certificado no runner

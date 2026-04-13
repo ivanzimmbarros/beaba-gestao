@@ -1571,7 +1571,7 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
         st.session_state["cag_busca_nif"] = ""
         st.session_state["cag_busca_email"] = ""
         st.session_state["cag_busca_tel_txt"] = ""
-        st.session_state["cag_busca_docintl"] = False
+        st.session_state.pop("cag_busca_docintl", None)
 
     st.markdown(
         '<h1 class="bea-cv-cag-h1">Cadastro de Clientes e Gestão de Agendamentos</h1>',
@@ -1591,7 +1591,6 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
         em_s = str(st.session_state.get("cag_busca_email", "") or "").strip()
         tel_raw = str(st.session_state.get("cag_busca_tel_txt", "") or "").strip()
         use_tel = normalizar_telefone_legado_ou_e164(tel_raw) if tel_raw else ""
-        busca_doc_intl = bool(st.session_state.get("cag_busca_docintl"))
 
         msg_err: str | None = None
         if not nome_s and not nif_s and not em_s and not tel_raw:
@@ -1602,7 +1601,7 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
             msg_err = "❌ Telefone inválido (ex.: +351912345678)."
         elif nif_s:
             ok_nf, msg_nf, _vx = normalizar_nif_armazenamento(
-                nif_s, documento_identificacao_internacional=bool(busca_doc_intl)
+                nif_s, documento_identificacao_internacional=False
             )
             if not ok_nf:
                 msg_err = msg_nf
@@ -1617,12 +1616,11 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
                 nif=nif_s,
                 email=em_s,
                 telefone=use_tel,
-                documento_internacional=bool(busca_doc_intl),
+                documento_internacional=False,
             ):
                 merged[int(cid)] = str(nm)
             cands = sorted(merged.items(), key=lambda x: (x[1].lower(), x[0]))
             if len(cands) == 0:
-                st.warning("Nenhum cliente encontrado com estes critérios.")
                 st.session_state.pop("cag_busca_cands", None)
             elif len(cands) == 1:
                 cid = cands[0][0]
