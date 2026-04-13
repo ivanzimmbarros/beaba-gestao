@@ -15,7 +15,7 @@
     "projeto": "BeaBa Gestão / BeaBa Materno",
     "escopo": "Sincronização código+CI com origin/develop; mapa completo de testes; certificação backup/restore (pytest + simulação verify semanal em sandbox).",
     "pytest": {
-      "total": 161,
+      "total": 170,
       "comando": "python -m pytest tests/ -v",
       "resultado_2026_04_12": "109 passed (Home: ilhas Master sem border Streamlit, Panorama Material Symbols, sidebar ativo sem barra)",
       "resultado_2026_04_13": "124 passed — Painel de Vendas Ilha Mãe Sereno (slot vnd + inject_constituicao_vnd_page + mount unificado CAG/VND)",
@@ -25,6 +25,7 @@
       "resultado_2026_04_13_col_mapa": "156 passed — Colaboradores Mapa da Equipa (filtros natureza/serviço, tabela + badges; vitrine 3×3 removida da página; testes col_ui_contract + colaborador + shell CSS)",
       "resultado_2026_04_13_vnd_nem": "157 passed — Vendas: form editar cliente sem value= duplicado em st.number_input (*_vc_nem / *_vc_qfil); contrato vnd_ui_contract + E2E test_e2e_vnd_visual_shell_contract",
       "resultado_2026_04_13_cag_virtual": "161 passed — CAG Dados do Agendamento: tipo_atendimento + sala_virtual_disponibilizada (NULL presencial); UI + agendamento.py + migração connection",
+      "resultado_2026_04_13_financeiro": "170 passed — Página Financeiro + Gastos Operacionais (tabelas financeiro_* , UI Sereno slot fin, SUBAREA1 cadastro/filtros/tabela; testes fin_ui_contract + financeiro_categorias_gasto + E2E slice)",
       "e2e_incluido": "tests/e2e_stress_test.py (hero + boundary quick na suite pytest)"
     },
     "backup_restore": {
@@ -55,6 +56,14 @@
     "titulo": "[SEÇÃO: ÉPICOS EM EXECUÇÃO]",
     "descricao": "Demandas com status «Em Aberto» ou «Pendente» (foco operacional actual).",
     "itens": [
+      {
+        "demanda_id": "2026-04-13_financeiro_gastos_operacionais",
+        "titulo": "Financeiro — Sector 1 Gastos Operacionais (categorias CC / Natureza / Tipo)",
+        "status_demanda": "Em Execução",
+        "fase_actual": "1-categorias",
+        "pc_foco": "PC5–PC8",
+        "resumo_foco": "Página `Financeiro` na sidebar; expander Manutenção das Categorias; hierarquia SQLite + regra desactivação com `financeiro_gasto_lancamentos`; próximos sectores (Repasses, Saldos, etc.) em fases posteriores."
+      },
       {
         "demanda_id": "2026-04-10_E22_redesign_visual_verde_sereno",
         "titulo": "Épico 22 — Redesign visual global «Verde Sereno»",
@@ -164,14 +173,14 @@
   "pc_foco": "PC1–PC2",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "2026-04-13: CAG atendimento virtual/presencial entregue — pytest 161 passed; commit+push develop.",
+  "live_status": "2026-04-13: Financeiro — página + Gastos Operacionais (SUBAREA1) entregue; pytest 170 passed; aguarda commit/push develop pelo operador.",
   "etapas_pendentes": [
     "Diretor: homologar PDV vs protótipo (semáforo visível, comanda spa). Sem OK → sem avançar módulos.",
     "E22: após OK — um único módulo seguinte (ex. Catálogo / Agendamentos).",
     "Encerramento futuro E22: `python tests/e2e_stress_test.py` (≥1000 iterações) + `tests/last_stress_report.txt` sem bloqueios (além da suite pytest).",
     "E17.1: na fila — CONFIRMO desenho lógico Cloud quando priorizado."
   ],
-  "live_actualizado_iso": "2026-04-13T22:00:00Z",
+  "live_actualizado_iso": "2026-04-13T23:30:00Z",
   "epico_cockpit_boas_vindas": {
     "status": "CONCLUÍDO",
     "data_iso": "2026-04-12",

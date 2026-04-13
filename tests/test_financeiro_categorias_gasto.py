@@ -1,0 +1,113 @@
+"""Regras e persistência — categorias de gasto operacional (Financeiro)."""
+
+from __future__ import annotations
+
+import sqlite3
+
+import pytest
+
+from src.database.connection import create_tables, get_connection
+from src.modules.financeiro_categorias_gasto import (
+    atualizar_tipo_a_partir_formulario,
+    listar_linhas_tabela_tipos,
+    natureza_tem_lancamentos,
+    obter_tipo_com_caminho,
+    resolver_salvar_formulario,
+    salvar_linha1_tres_textos,
+    tipo_tem_lancamentos,
+)
+
+
+@pytest.fixture()
+def fin_conn(tmp_path, monkeypatch):
+    db = tmp_path / "fin_cat.db"
+    monkeypatch.setenv("BEABA_SQLITE_PATH", str(db))
+    create_tables()
+    c = get_connection()
+    assert c is not None
+    yield c
+    c.close()
+
+
+def test_linha1_cria_hierarquia_completa(fin_conn: sqlite3.Connection):
+    ok, msg = salvar_linha1_tres_textos(fin_conn, "  CC-A ", "Nat-1", "Tipo-X")
+    assert ok and not msg
+    fin_conn.commit()
+    rows = listar_linhas_tabela_tipos(fin_conn)
+    assert len(rows) == 1
+    assert rows[0]["centro_nome"] == "CC-A"
+    assert rows[0]["natureza_nome"] == "Nat-1"
+    assert rows[0]["tipo_nome"] == "Tipo-X"
+
+
+def test_linha1_duplicado_tipo_mesma_natureza_rejeita(fin_conn: sqlite3.Connection):
+    salvar_linha1_tres_textos(fin_conn, "C", "N", "T")
+    fin_conn.commit()
+    ok, msg = salvar_linha1_tres_textos(fin_conn, "C", "N", "T")
+    assert not ok
+
+
+def test_resolver_prioridade_edicao_sobre_linha1(fin_conn: sqlite3.Connection):
+    salvar_linha1_tres_textos(fin_conn, "C", "N", "T1")
+    fin_conn.commit()
+    tid = listar_linhas_tabela_tipos(fin_conn)[0]["tipo_id"]
+    ok, msg = resolver_salvar_formulario(
+        fin_conn,
+        linha1_cc="C",
+        linha1_natureza="N",
+        linha1_tipo="T2",
+        linha2_centro_id=None,
+        linha2_natureza_texto="",
+        linha3_centro_id=obter_tipo_com_caminho(fin_conn, tid)["centro_custo_id"],
+        linha3_natureza_id=obter_tipo_com_caminho(fin_conn, tid)["natureza_id"],
+        linha3_tipo_texto="T1-alt",
+        editando_tipo_id=tid,
+    )
+    assert ok and not msg
+    fin_conn.commit()
+    path = obter_tipo_com_caminho(fin_conn, tid)
+    assert path is not None
+    assert path["tipo_nome"] == "T1-alt"
+
+
+def test_tipo_com_lancamento_renomear_desactiva_e_cria_novo(fin_conn: sqlite3.Connection):
+    salvar_linha1_tres_textos(fin_conn, "C", "N", "Told")
+    fin_conn.commit()
+    tid = listar_linhas_tabela_tipos(fin_conn)[0]["tipo_id"]
+    assert not tipo_tem_lancamentos(fin_conn, tid)
+    fin_conn.execute(
+        "INSERT INTO financeiro_gasto_lancamentos (tipo_gasto_id, valor_centavos) VALUES (?, 100)",
+        (tid,),
+    )
+    fin_conn.commit()
+    assert tipo_tem_lancamentos(fin_conn, tid)
+    ok, _ = atualizar_tipo_a_partir_formulario(
+        fin_conn,
+        tid,
+        obter_tipo_com_caminho(fin_conn, tid)["centro_custo_id"],
+        obter_tipo_com_caminho(fin_conn, tid)["natureza_id"],
+        "Tnew",
+    )
+    assert ok
+    fin_conn.commit()
+    n_old = fin_conn.execute(
+        "SELECT ativo FROM financeiro_tipo_gasto WHERE id = ?", (tid,)
+    ).fetchone()[0]
+    assert int(n_old) == 0
+    rows = listar_linhas_tabela_tipos(fin_conn)
+    assert len(rows) == 1
+    assert rows[0]["tipo_nome"] == "Tnew"
+
+
+def test_natureza_tem_lancamentos_detecta_via_tipo(fin_conn: sqlite3.Connection):
+    salvar_linha1_tres_textos(fin_conn, "C", "N", "T")
+    fin_conn.commit()
+    tid = listar_linhas_tabela_tipos(fin_conn)[0]["tipo_id"]
+    nid = obter_tipo_com_caminho(fin_conn, tid)["natureza_id"]
+    assert not natureza_tem_lancamentos(fin_conn, nid)
+    fin_conn.execute(
+        "INSERT INTO financeiro_gasto_lancamentos (tipo_gasto_id, valor_centavos) VALUES (?, 1)",
+        (tid,),
+    )
+    fin_conn.commit()
+    assert natureza_tem_lancamentos(fin_conn, nid)

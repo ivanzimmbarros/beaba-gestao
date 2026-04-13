@@ -865,6 +865,64 @@ def create_tables():
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_agendamento_colab_ag ON agendamento_colaboradores(agendamento_id)"
     )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS financeiro_centro_custo (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL,
+            ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1))
+        )
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS financeiro_natureza (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            centro_custo_id INTEGER NOT NULL,
+            nome TEXT NOT NULL,
+            ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1)),
+            FOREIGN KEY (centro_custo_id) REFERENCES financeiro_centro_custo(id)
+        )
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS financeiro_tipo_gasto (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            natureza_id INTEGER NOT NULL,
+            nome TEXT NOT NULL,
+            ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1)),
+            FOREIGN KEY (natureza_id) REFERENCES financeiro_natureza(id)
+        )
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS financeiro_gasto_lancamentos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tipo_gasto_id INTEGER NOT NULL,
+            observacao TEXT NOT NULL DEFAULT '',
+            valor_centavos INTEGER NOT NULL DEFAULT 0 CHECK (valor_centavos >= 0),
+            data_registo TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (tipo_gasto_id) REFERENCES financeiro_tipo_gasto(id)
+        )
+        """
+    )
+    cursor.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_fin_cc_nome_ativo "
+        "ON financeiro_centro_custo(nome) WHERE ativo = 1"
+    )
+    cursor.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_fin_nat_cc_nome_ativo "
+        "ON financeiro_natureza(centro_custo_id, nome) WHERE ativo = 1"
+    )
+    cursor.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_fin_tipo_nat_nome_ativo "
+        "ON financeiro_tipo_gasto(natureza_id, nome) WHERE ativo = 1"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_fin_lanc_tipo ON financeiro_gasto_lancamentos(tipo_gasto_id)"
+    )
     _migrate_agendamentos_e11_if_needed(cursor)
     _ensure_column(
         cursor,

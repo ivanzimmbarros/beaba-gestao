@@ -14,6 +14,7 @@ from src.ui.page_catalogo import render_page_catalogo
 from src.ui.page_clientes_agendamentos import render_page_clientes_agendamentos
 from src.ui.page_colaboradores import render_page_colaboradores
 from src.ui.page_dashboards import render_page_dashboards
+from src.ui.page_financeiro import render_page_financeiro
 from src.ui.page_home import render_page_home
 from src.ui.page_vendas import render_page_vendas
 from src.ui.shell_sidebar import render_shell_sidebar
@@ -78,6 +79,12 @@ def main() -> None:
                     unsafe_allow_html=True,
                 )
                 render_page_catalogo(render_back_and_breadcrumb=_shell_no_breadcrumb)
+            elif page == "financeiro":
+                st.markdown(
+                    '<div class="bea-cv-fin-slot" data-testid="bea-fin-slot" aria-hidden="true"></div>',
+                    unsafe_allow_html=True,
+                )
+                render_page_financeiro(render_back_and_breadcrumb=_shell_no_breadcrumb)
             elif page == "vendas":
                 st.markdown(
                     '<div class="bea-cv-vnd-slot" data-testid="bea-vnd-slot" aria-hidden="true"></div>',

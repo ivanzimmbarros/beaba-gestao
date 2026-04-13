@@ -29,6 +29,7 @@ def test_shell_sidebar_nav_items_inicio_posicao_zero():
     assert len(NAV_ITEMS) >= 1
     assert NAV_ITEMS[0] == ("home", "Início")
     assert NAV_ITEMS[1][0] == "clientes_agendamentos"
+    assert ("financeiro", "Financeiro") in NAV_ITEMS
 
 
 def test_nav_clientes_agendamentos_respeita_contrato_setor4_expander():

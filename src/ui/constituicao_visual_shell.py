@@ -793,6 +793,7 @@ def inject_area_unica_visual_mount() -> None:
       doc.body.classList.remove("bea-cv-vnd-page");
       doc.body.classList.remove("bea-cv-col-page");
       doc.body.classList.remove("bea-cv-cat-page");
+      doc.body.classList.remove("bea-cv-fin-page");
       doc.body.classList.remove("bea-cv-home-page");
       doc.querySelectorAll(".bea-cv-cag-mother-island").forEach(function (el) {
         el.classList.remove("bea-cv-cag-mother-island");
@@ -805,6 +806,9 @@ def inject_area_unica_visual_mount() -> None:
       });
       doc.querySelectorAll(".bea-cv-cat-mother-island").forEach(function (el) {
         el.classList.remove("bea-cv-cat-mother-island");
+      });
+      doc.querySelectorAll(".bea-cv-fin-mother-island").forEach(function (el) {
+        el.classList.remove("bea-cv-fin-mother-island");
       });
       doc.querySelectorAll(".bea-cv-home-mother-island").forEach(function (el) {
         el.classList.remove("bea-cv-home-mother-island");
@@ -826,6 +830,11 @@ def inject_area_unica_visual_mount() -> None:
         slot = doc.querySelector(".bea-cv-cat-slot");
         bodyCls = "bea-cv-cat-page";
         colCls = "bea-cv-cat-mother-island";
+      }
+      if (!slot) {
+        slot = doc.querySelector(".bea-cv-fin-slot");
+        bodyCls = "bea-cv-fin-page";
+        colCls = "bea-cv-fin-mother-island";
       }
       if (!slot) {
         slot = doc.querySelector(".bea-cv-home-slot");
@@ -857,7 +866,7 @@ def inject_area_unica_visual_mount() -> None:
 
 
 def inject_cag_visual_mount() -> None:
-    """Compat: mesmo que `inject_area_unica_visual_mount()` (CAG + Vendas + Colaboradores + Catálogo + Início)."""
+    """Compat: mesmo que `inject_area_unica_visual_mount()` (CAG/VND/COL/CAT/Financeiro/Início)."""
     inject_area_unica_visual_mount()
 
 
@@ -1431,6 +1440,124 @@ def get_constituicao_cat_page_css() -> str:
 
 def inject_constituicao_cat_page() -> None:
     st.markdown(get_constituicao_cat_page_css(), unsafe_allow_html=True)
+
+
+def get_constituicao_fin_page_css() -> str:
+    """Financeiro — Horizonte + Ilha Mãe (paridade CAT/COL/VND/CAG)."""
+    return f"""
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+<style>
+    .bea-cv-fin-slot {{
+        display: none !important;
+    }}
+    .bea-cv-cag-gap {{
+        min-height: 20px;
+        height: 20px;
+        margin: 0;
+        padding: 0;
+        pointer-events: none;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-fin-slot),
+    section[data-testid="stMain"]:has(.bea-cv-fin-slot) > div,
+    body.bea-cv-fin-page .stApp,
+    body.bea-cv-fin-page section[data-testid="stMain"],
+    body.bea-cv-fin-page section[data-testid="stMain"] > div {{
+        background: linear-gradient(
+            to bottom,
+            rgba(118, 148, 125, 0.1) 0,
+            rgba(118, 148, 125, 0.1) 300px,
+            {CV_CREME} 300px,
+            {CV_CREME} 100%
+        ) !important;
+    }}
+    @media (max-width: 768px) {{
+        section[data-testid="stMain"]:has(.bea-cv-fin-slot),
+        section[data-testid="stMain"]:has(.bea-cv-fin-slot) > div,
+        body.bea-cv-fin-page .stApp,
+        body.bea-cv-fin-page section[data-testid="stMain"],
+        body.bea-cv-fin-page section[data-testid="stMain"] > div {{
+            background: linear-gradient(
+                to bottom,
+                rgba(118, 148, 125, 0.1) 0,
+                rgba(118, 148, 125, 0.1) 150px,
+                {CV_CREME} 150px,
+                {CV_CREME} 100%
+            ) !important;
+        }}
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-fin-slot) [data-testid="stAppViewContainer"],
+    section[data-testid="stMain"]:has(.bea-cv-fin-slot) [data-testid="stAppViewContainer"] > .main,
+    section[data-testid="stMain"]:has(.bea-cv-fin-slot) .main .block-container,
+    body.bea-cv-fin-page [data-testid="stAppViewContainer"],
+    body.bea-cv-fin-page [data-testid="stAppViewContainer"] > .main,
+    body.bea-cv-fin-page .main .block-container {{
+        background: transparent !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-fin-slot)
+        [data-testid="column"]:has(.bea-cv-fin-slot),
+    section[data-testid="stMain"]:has(.bea-cv-fin-slot)
+        [data-testid="column"]:has([data-testid="bea-fin-slot"]),
+    section[data-testid="stMain"]:has(.bea-cv-fin-slot) [data-testid="stColumn"]:has(.bea-cv-fin-slot),
+    body.bea-cv-fin-page [data-testid="column"].bea-cv-fin-mother-island,
+    body.bea-cv-fin-page [data-testid="stColumn"].bea-cv-fin-mother-island {{
+        background-color: #FFFFFF !important;
+        background: #FFFFFF !important;
+        border-radius: 20px !important;
+        border: none !important;
+        box-shadow: {CV_SOMBRA_COMPOSTA} !important;
+        padding: 32px !important;
+        box-sizing: border-box !important;
+        margin-top: 0.35rem !important;
+        margin-bottom: 1.25rem !important;
+    }}
+    .bea-cv-cag-h1 {{
+        font-family: var(--cv-serif) !important;
+        font-weight: 500 !important;
+        color: {CV_TITULO} !important;
+        font-size: clamp(1.45rem, 3.2vw, 1.85rem) !important;
+        margin: 0 0 0.5rem 0 !important;
+        letter-spacing: 0.02em !important;
+        line-height: 1.25 !important;
+    }}
+    .bea-cv-cag-h2 {{
+        font-family: var(--cv-serif) !important;
+        font-weight: 500 !important;
+        color: {CV_TITULO} !important;
+        font-size: 1.2rem !important;
+        margin: 0 0 0.5rem 0 !important;
+        letter-spacing: 0.01em !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-fin-slot) .block-container [data-testid="stButton"] > button,
+    body.bea-cv-fin-page section[data-testid="stMain"] .block-container [data-testid="stButton"] > button {{
+        border-radius: 9999px !important;
+        background: rgba(118, 148, 125, 0.15) !important;
+        border: 1px solid rgba(118, 148, 125, 0.35) !important;
+        color: {CV_TITULO} !important;
+        font-family: var(--cv-sans) !important;
+        font-weight: 500 !important;
+        box-shadow: none !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-fin-slot) .block-container [data-testid="stButton"] > button:hover,
+    body.bea-cv-fin-page section[data-testid="stMain"] .block-container [data-testid="stButton"] > button:hover {{
+        background: rgba(118, 148, 125, 0.22) !important;
+        border-color: rgba(118, 148, 125, 0.5) !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-fin-slot) .block-container [data-testid="stButton"] > button[kind="primary"],
+    body.bea-cv-fin-page section[data-testid="stMain"] .block-container [data-testid="stButton"] > button[kind="primary"] {{
+        background: rgba(118, 148, 125, 0.22) !important;
+        border-color: {CV_SALVIA} !important;
+        color: #FFFFFF !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-fin-slot) .block-container [data-testid="stButton"] > button[kind="primary"]:hover,
+    body.bea-cv-fin-page section[data-testid="stMain"] .block-container [data-testid="stButton"] > button[kind="primary"]:hover {{
+        filter: brightness(1.05);
+    }}
+</style>
+"""
+
+
+def inject_constituicao_fin_page() -> None:
+    st.markdown(get_constituicao_fin_page_css(), unsafe_allow_html=True)
 
 
 def get_constituicao_home_page_css() -> str:
