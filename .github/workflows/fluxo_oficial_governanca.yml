@@ -21,13 +21,15 @@ jobs:
       - name: Preparar Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.12'
 
-      # conftest.py importa create_tables → connection.py exige streamlit no PYTHONPATH
-      - name: Instalar dependências do projeto e pytest
+      # conftest.py importa create_tables → connection.py importa streamlit (requirements.txt)
+      - name: Instalar dependências (requirements.txt) e pytest
         run: |
-          pip install -r requirements.txt
-          pip install pytest
+          set -euo pipefail
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -r requirements.txt
+          python3 -m pip install pytest
 
       - name: "Fase A — Analista + Diretor (PC1–PC2): norma, Painel, regras Cursor"
         run: |
