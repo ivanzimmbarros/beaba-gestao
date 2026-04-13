@@ -54,6 +54,50 @@ def _h2(text: str) -> None:
     st.markdown(f'<div class="bea-cv-cag-h2">{t}</div>', unsafe_allow_html=True)
 
 
+def _executar_salvamento_categorias(
+    conn,
+    *,
+    fk: str,
+    fv: int,
+    cc_ids: list[int],
+) -> tuple[bool, str]:
+    """Persistência com `resolver_salvar_formulario`; sem UI."""
+    l1_cc = str(st.session_state.get(f"{fk}l1_cc", "")).strip()
+    l1_nat = str(st.session_state.get(f"{fk}l1_nat", "")).strip()
+    l1_tip = str(st.session_state.get(f"{fk}l1_tip", "")).strip()
+    l2_cc = st.session_state.get(f"{fk}l2_cc")
+    l2_txt = str(st.session_state.get(f"{fk}l2_nat_txt", "")).strip()
+    l3_cc = st.session_state.get(f"{fk}l3_cc")
+    l3_nat = st.session_state.get(f"{fk}l3_nat")
+    l3_tip = str(st.session_state.get(f"{fk}l3_tip_txt", "")).strip()
+    edit_id = st.session_state.get("fin_gxc_edit_tipo_id")
+
+    l2_centro = int(l2_cc) if l2_cc is not None and cc_ids else None
+    l3_c = int(l3_cc) if l3_cc is not None and cc_ids else None
+    l3_nat_opts = (
+        listar_naturezas_por_centro_ativas(conn, int(l3_cc)) if l3_cc is not None and cc_ids else []
+    )
+    l3_nat_ids_btn = [n[0] for n in l3_nat_opts]
+    l3_n = (
+        int(l3_nat)
+        if l3_nat is not None and l3_nat_ids_btn and int(l3_nat) in l3_nat_ids_btn
+        else None
+    )
+
+    return resolver_salvar_formulario(
+        conn,
+        linha1_cc=l1_cc,
+        linha1_natureza=l1_nat,
+        linha1_tipo=l1_tip,
+        linha2_centro_id=l2_centro,
+        linha2_natureza_texto=l2_txt,
+        linha3_centro_id=l3_c,
+        linha3_natureza_id=l3_n,
+        linha3_tipo_texto=l3_tip,
+        editando_tipo_id=int(edit_id) if edit_id is not None else None,
+    )
+
+
 def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
     inject_constituicao_fin_page()
     render_back_and_breadcrumb(["Home", "Financeiro"], back_key="bea_back_financeiro")
@@ -99,127 +143,123 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
         )
 
         _h2("Cadastramento de Novas Categorias")
+        st.markdown(
+            '<p style="font-family:var(--cv-sans);font-size:0.88rem;font-weight:500;color:#2D332F;'
+            'margin:0 0 0.75rem 0;text-align:left;max-width:52rem;">'
+            "Caixas de texto e caixas de seleção — todas alinhadas à esquerda do formulário.</p>",
+            unsafe_allow_html=True,
+        )
 
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            st.text_input("Centro de Custo", key=f"{fk}l1_cc")
-        with c2:
-            st.text_input("Natureza", key=f"{fk}l1_nat")
-        with c3:
-            st.text_input("Tipo do Gasto", key=f"{fk}l1_tip")
+        form_blk, _spacer = st.columns([2.65, 1.35])
+        with form_blk:
+            # —— Linha 1: 3 entradas + botão de salvamento na mesma linha ——
+            l1c1, l1c2, l1c3, l1c4 = st.columns([1.15, 1.15, 1.15, 0.55])
+            with l1c1:
+                st.text_input("Centro de Custo", key=f"{fk}l1_cc")
+            with l1c2:
+                st.text_input("Natureza", key=f"{fk}l1_nat")
+            with l1c3:
+                st.text_input("Tipo do Gasto", key=f"{fk}l1_tip")
+            with l1c4:
+                st.markdown('<div style="height:1.55rem"></div>', unsafe_allow_html=True)
+                if st.button("Salvar", key="fin_gxc_btn_salvar_linha1", help="Grava a partir da linha 1 (três campos)."):
+                    try:
+                        ok, msg = _executar_salvamento_categorias(conn, fk=fk, fv=fv, cc_ids=cc_ids)
+                        if ok:
+                            conn.commit()
+                            st.success("Dados gravados com sucesso.")
+                            st.session_state.fin_gxc_form_v = fv + 1
+                            st.session_state.fin_gxc_edit_tipo_id = None
+                            st.session_state.pop("_fin_gxc_prev_sel", None)
+                            st.rerun()
+                        else:
+                            st.warning(msg or "Não foi possível gravar.")
+                    except Exception as e:
+                        conn.rollback()
+                        st.error(f"Erro ao gravar: {e}")
 
-        l2a, l2b = st.columns(2)
-        with l2a:
-            if cc_ids:
-                st.selectbox(
-                    "Centro de Custo",
-                    options=cc_ids,
-                    format_func=_fmt_cc,
-                    key=f"{fk}l2_cc",
-                )
-            else:
-                st.caption("Cadastre um Centro de Custo (linha 1) para usar a linha 2.")
-        with l2b:
-            st.text_input("Natureza", key=f"{fk}l2_nat_txt")
-
-        l3a, l3b, l3c = st.columns(3)
-        with l3a:
-            if cc_ids:
-                st.selectbox(
-                    "Centro de Custo",
-                    options=cc_ids,
-                    format_func=_fmt_cc,
-                    key=f"{fk}l3_cc",
-                )
-            else:
-                st.selectbox(
-                    "Centro de Custo",
-                    options=[0],
-                    format_func=lambda _: "(sem centros)",
-                    key=f"{fk}l3_cc",
-                )
-        sel_cc = int(st.session_state.get(f"{fk}l3_cc") or 0)
-        nat_opts = listar_naturezas_por_centro_ativas(conn, sel_cc) if sel_cc else []
-        nat_ids = [n[0] for n in nat_opts]
-        nat_lbl = {n[0]: n[1] for n in nat_opts}
-
-        def _fmt_nat(i: int) -> str:
-            return nat_lbl.get(int(i), str(i))
-
-        with l3b:
-            if nat_ids:
-                cur_nat = st.session_state.get(f"{fk}l3_nat")
-                if cur_nat is not None and int(cur_nat) not in nat_ids:
-                    st.session_state[f"{fk}l3_nat"] = nat_ids[0]
-                st.selectbox(
-                    "Natureza",
-                    options=nat_ids,
-                    format_func=_fmt_nat,
-                    key=f"{fk}l3_nat",
-                )
-            else:
-                st.selectbox(
-                    "Natureza",
-                    options=[0],
-                    format_func=lambda _: "(sem naturezas)",
-                    key=f"{fk}l3_nat",
-                )
-        with l3c:
-            st.text_input("Tipo de Gasto", key=f"{fk}l3_tip_txt")
-
-        if st.button("Salvar Dados", key="fin_gxc_btn_salvar", type="primary"):
-            l1_cc = str(st.session_state.get(f"{fk}l1_cc", "")).strip()
-            l1_nat = str(st.session_state.get(f"{fk}l1_nat", "")).strip()
-            l1_tip = str(st.session_state.get(f"{fk}l1_tip", "")).strip()
-            l2_cc = st.session_state.get(f"{fk}l2_cc")
-            l2_txt = str(st.session_state.get(f"{fk}l2_nat_txt", "")).strip()
-            l3_cc = st.session_state.get(f"{fk}l3_cc")
-            l3_nat = st.session_state.get(f"{fk}l3_nat")
-            l3_tip = str(st.session_state.get(f"{fk}l3_tip_txt", "")).strip()
-            edit_id = st.session_state.get("fin_gxc_edit_tipo_id")
-
-            l2_centro = int(l2_cc) if l2_cc is not None and cc_ids else None
-            l3_c = int(l3_cc) if l3_cc is not None and cc_ids else None
-            l3_nat_opts = (
-                listar_naturezas_por_centro_ativas(conn, int(l3_cc))
-                if l3_cc is not None and cc_ids
-                else []
-            )
-            l3_nat_ids_btn = [n[0] for n in l3_nat_opts]
-            l3_n = (
-                int(l3_nat)
-                if l3_nat is not None and l3_nat_ids_btn and int(l3_nat) in l3_nat_ids_btn
-                else None
-            )
-
-            try:
-                ok, msg = resolver_salvar_formulario(
-                    conn,
-                    linha1_cc=l1_cc,
-                    linha1_natureza=l1_nat,
-                    linha1_tipo=l1_tip,
-                    linha2_centro_id=l2_centro,
-                    linha2_natureza_texto=l2_txt,
-                    linha3_centro_id=l3_c,
-                    linha3_natureza_id=l3_n,
-                    linha3_tipo_texto=l3_tip,
-                    editando_tipo_id=int(edit_id) if edit_id is not None else None,
-                )
-                if ok:
-                    conn.commit()
-                    st.success("Dados gravados com sucesso.")
-                    st.session_state.fin_gxc_form_v = fv + 1
-                    st.session_state.fin_gxc_edit_tipo_id = None
-                    st.session_state.pop("_fin_gxc_prev_sel", None)
-                    st.rerun()
+            # —— Linha 2: Centro (seleção) + Natureza (texto) ——
+            l2a, l2b = st.columns(2)
+            with l2a:
+                if cc_ids:
+                    st.selectbox(
+                        "Centro de Custo",
+                        options=cc_ids,
+                        format_func=_fmt_cc,
+                        key=f"{fk}l2_cc",
+                    )
                 else:
-                    st.warning(msg or "Não foi possível gravar.")
-            except Exception as e:
-                conn.rollback()
-                st.error(f"Erro ao gravar: {e}")
+                    st.caption("Cadastre um Centro de Custo (linha 1) para usar a linha 2.")
+            with l2b:
+                st.text_input("Natureza", key=f"{fk}l2_nat_txt")
+
+            # —— Linha 3: 2 seleções + Tipo de Gasto (texto) ——
+            l3a, l3b, l3c = st.columns(3)
+            with l3a:
+                if cc_ids:
+                    st.selectbox(
+                        "Centro de Custo",
+                        options=cc_ids,
+                        format_func=_fmt_cc,
+                        key=f"{fk}l3_cc",
+                    )
+                else:
+                    st.selectbox(
+                        "Centro de Custo",
+                        options=[0],
+                        format_func=lambda _: "(sem centros)",
+                        key=f"{fk}l3_cc",
+                    )
+            sel_cc = int(st.session_state.get(f"{fk}l3_cc") or 0)
+            nat_opts = listar_naturezas_por_centro_ativas(conn, sel_cc) if sel_cc else []
+            nat_ids = [n[0] for n in nat_opts]
+            nat_lbl = {n[0]: n[1] for n in nat_opts}
+
+            def _fmt_nat(i: int) -> str:
+                return nat_lbl.get(int(i), str(i))
+
+            with l3b:
+                if nat_ids:
+                    cur_nat = st.session_state.get(f"{fk}l3_nat")
+                    if cur_nat is not None and int(cur_nat) not in nat_ids:
+                        st.session_state[f"{fk}l3_nat"] = nat_ids[0]
+                    st.selectbox(
+                        "Natureza",
+                        options=nat_ids,
+                        format_func=_fmt_nat,
+                        key=f"{fk}l3_nat",
+                    )
+                else:
+                    st.selectbox(
+                        "Natureza",
+                        options=[0],
+                        format_func=lambda _: "(sem naturezas)",
+                        key=f"{fk}l3_nat",
+                    )
+            with l3c:
+                st.text_input("Tipo de Gasto", key=f"{fk}l3_tip_txt")
+
+            # —— Salvar Dados: imediatamente abaixo da linha 3, alinhado à esquerda ——
+            sal_col, _ = st.columns([0.42, 3.0])
+            with sal_col:
+                if st.button("Salvar Dados", key="fin_gxc_btn_salvar", type="primary"):
+                    try:
+                        ok, msg = _executar_salvamento_categorias(conn, fk=fk, fv=fv, cc_ids=cc_ids)
+                        if ok:
+                            conn.commit()
+                            st.success("Dados gravados com sucesso.")
+                            st.session_state.fin_gxc_form_v = fv + 1
+                            st.session_state.fin_gxc_edit_tipo_id = None
+                            st.session_state.pop("_fin_gxc_prev_sel", None)
+                            st.rerun()
+                        else:
+                            st.warning(msg or "Não foi possível gravar.")
+                    except Exception as e:
+                        conn.rollback()
+                        st.error(f"Erro ao gravar: {e}")
 
         st.markdown(
-            '<div style="height:16px" aria-hidden="true"></div>',
+            '<div style="height:18px" aria-hidden="true"></div>',
             unsafe_allow_html=True,
         )
         _h2("Filtros de Categorias Cadastradas")
@@ -231,7 +271,8 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
         tip_f_ids = [x[0] for x in tip_f_opts]
         tip_f_lbl = {x[0]: x[1] for x in tip_f_opts}
 
-        f1, f2, f3, f4, f5 = st.columns([1.1, 1.1, 1.1, 0.45, 0.55])
+        # Mesma linha: 3 multiselects com pesos iguais + Pesquisar + Limpar Campos
+        f1, f2, f3, f4, f5 = st.columns([1.0, 1.0, 1.0, 0.32, 0.38])
         with f1:
             st.multiselect(
                 "Centro de Custo",
@@ -254,12 +295,14 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
                 key="fin_gxc_ms_tip",
             )
         with f4:
+            st.markdown('<div style="height:1.55rem"></div>', unsafe_allow_html=True)
             if st.button("Pesquisar", key="fin_gxc_btn_pesquisar"):
                 st.session_state.fin_gxc_apl_cc = list(st.session_state.get("fin_gxc_ms_cc") or [])
                 st.session_state.fin_gxc_apl_nat = list(st.session_state.get("fin_gxc_ms_nat") or [])
                 st.session_state.fin_gxc_apl_tip = list(st.session_state.get("fin_gxc_ms_tip") or [])
                 st.rerun()
         with f5:
+            st.markdown('<div style="height:1.55rem"></div>', unsafe_allow_html=True)
             if st.button("Limpar Campos", key="fin_gxc_btn_limpar_form"):
                 st.session_state.fin_gxc_form_v = fv + 1
                 st.session_state.fin_gxc_edit_tipo_id = None
@@ -282,7 +325,7 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
         row_ids = [int(r["tipo_id"]) for r in rows]
 
         st.markdown(
-            '<div class="bea-cv-cag-h2" style="font-size:1.05rem;margin-top:1rem;">'
+            '<div class="bea-cv-cag-h2" style="font-size:1.05rem;margin-top:0.85rem;">'
             f"{html.escape('Lista de Categorias de Gasto Cadastradas')}</div>",
             unsafe_allow_html=True,
         )
@@ -332,5 +375,5 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
         if eid is not None:
             st.caption(
                 f"Linha da tabela seleccionada — Tipo de gasto **#{eid}**. "
-                "Alterações só ficam válidas após **Salvar Dados**."
+                "Alterações só ficam válidas após **Salvar** (linha 1) ou **Salvar Dados**."
             )
