@@ -340,6 +340,20 @@ def _prime_cliente_form(prefix: str, d: dict) -> None:
         preencher_session_telefone_de_e164(f"{prefix}_emerg_{j}", str(et or ""))
 
 
+def _vnd_tratar_sugestao_nome_clicada(cid: int, fk: str) -> None:
+    d = obter_cliente_completo(int(cid))
+    if not d:
+        st.error("Cliente não encontrado.")
+        return
+    st.session_state.venda_cliente_id = int(cid)
+    st.session_state._vnda_prime = {"prefix": f"{fk}_vc", "data": d}
+    st.session_state["vnd_busca_nome"] = str(d.get("nome") or "")
+    st.session_state["vnd_busca_nif"] = str(d.get("nif_ou_documento") or "")
+    st.session_state["vnd_busca_email"] = str(d.get("email") or "")
+    st.session_state["vnd_busca_tel_txt"] = str(d.get("whatsapp") or "").strip()
+    st.session_state.pop("vnd_busca_cands", None)
+
+
 def _collect_filhos(
     prefix: str, tem: bool, qtd: int
 ) -> list[tuple[str, int, str] | tuple[str, int, str, str]]:
@@ -546,12 +560,12 @@ def _render_venda_editar_cliente_form(cli_id: int, fk: str) -> None:
     temf = st.radio("Possui filhos? *", ["Não", "Sim"], horizontal=True, key=f"{p}_temf") == "Sim"
     qfil = 1
     if temf:
+        st.session_state.setdefault(f"{p}_qfil", 1)
         qfil = int(
             st.number_input(
                 "Quantos filhos? *",
                 min_value=1,
                 max_value=20,
-                value=int(st.session_state.get(f"{p}_qfil", 1)),
                 key=f"{p}_qfil",
             )
         )
@@ -576,12 +590,12 @@ def _render_venda_editar_cliente_form(cli_id: int, fk: str) -> None:
                     format="DD/MM/YYYY",
                     key=f"{p}_fdn_{j}",
                 )
+    st.session_state.setdefault(f"{p}_nem", 1)
     nem = int(
         st.number_input(
             "Linhas de contacto de emergência (0–10)",
             min_value=0,
             max_value=10,
-            value=min(10, int(st.session_state.get(f"{p}_nem", 1))),
             key=f"{p}_nem",
         )
     )
@@ -680,6 +694,10 @@ def render_page_vendas(
         st.session_state.venda_fechar_agendamento_id = None
     if "venda_agendamento_contexto_id" not in st.session_state:
         st.session_state.venda_agendamento_contexto_id = None
+
+    sug_vnd = st.session_state.pop("vnd_busca_suggestion_apply_id", None)
+    if sug_vnd is not None:
+        _vnd_tratar_sugestao_nome_clicada(int(sug_vnd), fk)
 
     cat = listar_servicos_para_venda()
     id_to = {int(c["id"]): c for c in cat} if cat else {}

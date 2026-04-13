@@ -27,3 +27,11 @@ def assert_vnd_area_unica_shell() -> None:
     assert "bea-cv-vnd-mother-island" in shell
     assert "def inject_area_unica_visual_mount" in shell
     assert "bea-busca-nome-sug-panel" in shell
+
+
+def assert_vnd_editar_cliente_number_input_sem_value_duplicado_session() -> None:
+    """Contrato Streamlit: form editar ficha (prefixo *_vc_) — sem value= em number_input com key já primada."""
+    root = Path(__file__).resolve().parents[1]
+    src = (root / "src" / "ui" / "page_vendas.py").read_text(encoding="utf-8")
+    assert 'value=int(st.session_state.get(f"{p}_qfil"' not in src
+    assert 'value=min(10, int(st.session_state.get(f"{p}_nem"' not in src

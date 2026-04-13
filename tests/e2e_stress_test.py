@@ -5,10 +5,12 @@ E20 — Fortaleza Operacional: stress & E2E (Jornada do Herói + fronteiras + co
   → **slice CAG** (`obter_cliente_completo`, resumo setor 2, `listar_agendamentos`,
   helpers `page_clientes_agendamentos`: identificação, HTML naturezas, ordenação,
   **contrato Setor 4** — listagem dentro do expander «Agendamentos», ver `cag_setor4_ui_contract`);
-  **pesquisa unificada CAG + VND** — contrato estático de `cliente_search.py` e `page_vendas.py` (grelha, sem checkbox na busca).
+  **pesquisa unificada CAG + VND + COL** — contrato estático de `cliente_search.py`,
+  `page_vendas.py` e `page_colaboradores.py` (grelha, sem doc internacional na busca).
 - **slice Vendas (UI Sereno):** Ilha Mãe + slot — `tests/vnd_ui_contract.py`,
   `tests/test_vnd_visual_sereno.py`.
-- **slice Colaboradores (UI Sereno):** `tests/col_ui_contract.py`, `tests/test_col_visual_sereno.py`.
+- **slice Colaboradores (UI Sereno):** `tests/col_ui_contract.py`, `tests/test_col_visual_sereno.py`
+  (incl. pesquisa unificada Col).
 - **slice Catálogo (UI Sereno):** `tests/cat_ui_contract.py`, `tests/test_cat_visual_sereno.py`.
 - **slice Início / Cockpit (UI Sereno):** `tests/home_ui_contract.py`, `tests/test_home_visual_sereno.py`.
 - Execução completa (1000 iterações): `python tests/e2e_stress_test.py`
@@ -412,6 +414,12 @@ def _run_cag_consolidated_slice(cliente_id: int, ag_id: int) -> str | None:
     if "pesquisa_unificada=True" not in pv or "vnd_busca_nome" not in pv:
         return "vnd: Painel de Vendas sem pesquisa unificada (nome + flag)"
 
+    pcol = (repo / "src" / "ui" / "page_colaboradores.py").read_text(encoding="utf-8")
+    if "pesquisa_unificada=True" not in pcol or "col_busca_nome" not in pcol:
+        return "col: Colaboradores sem pesquisa unificada (nome + flag)"
+    if "Mapa da Equipa" not in pcol or "listar_colaboradores_mapa_equipa" not in pcol:
+        return "col: Mapa da Equipa (filtros + listagem) ausente"
+
     return None
 
 
@@ -675,16 +683,26 @@ def test_e2e_boundary_quick(stress_db_path: Path):
 
 def test_e2e_vnd_visual_shell_contract() -> None:
     """E2E leve: evidência de que o Painel de Vendas segue o mesmo padrão de área única que CAG."""
-    from tests.vnd_ui_contract import assert_vnd_area_unica_shell
+    from tests.vnd_ui_contract import (
+        assert_vnd_area_unica_shell,
+        assert_vnd_editar_cliente_number_input_sem_value_duplicado_session,
+    )
 
     assert_vnd_area_unica_shell()
+    assert_vnd_editar_cliente_number_input_sem_value_duplicado_session()
 
 
 def test_e2e_col_visual_shell_contract() -> None:
     """E2E leve: Colaboradores com Ilha Mãe + slot (paridade CAG/VND)."""
-    from tests.col_ui_contract import assert_col_area_unica_shell
+    from tests.col_ui_contract import (
+        assert_col_area_unica_shell,
+        assert_col_mapa_equipa_na_pagina,
+        assert_col_pesquisa_unificada_na_pagina,
+    )
 
     assert_col_area_unica_shell()
+    assert_col_pesquisa_unificada_na_pagina()
+    assert_col_mapa_equipa_na_pagina()
 
 
 def test_e2e_cat_visual_shell_contract() -> None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Literal
 
 import streamlit as st
 
@@ -23,12 +24,22 @@ _BUSCA_LBL_CAG = (
     'min-height:1.35rem;line-height:1.35rem;">{}</p>'
 )
 
-def _refresh_nome_suggestions(prefix: str, min_chars: int = 1) -> None:
+def _refresh_nome_suggestions(
+    prefix: str,
+    min_chars: int = 1,
+    *,
+    entidade: Literal["cliente", "colaborador"] = "cliente",
+) -> None:
     t = str(st.session_state.get(f"{prefix}_nome", "") or "").strip()
     if len(t) < min_chars:
         st.session_state[f"{prefix}_nome_sug_list"] = []
         return
-    st.session_state[f"{prefix}_nome_sug_list"] = buscar_clientes_por_prefixo_nome(t, limit=12)
+    if entidade == "colaborador":
+        from src.modules.colaborador import buscar_colaboradores_por_prefixo_nome
+
+        st.session_state[f"{prefix}_nome_sug_list"] = buscar_colaboradores_por_prefixo_nome(t, limit=12)
+    else:
+        st.session_state[f"{prefix}_nome_sug_list"] = buscar_clientes_por_prefixo_nome(t, limit=12)
 
 
 def _render_nome_facilitador(*, key_prefix: str) -> None:
@@ -49,7 +60,8 @@ def _render_nome_facilitador(*, key_prefix: str) -> None:
             type="secondary",
             width="stretch",
         ):
-            st.session_state[f"{key_prefix}_nome"] = nome
+            # A página trata `{prefix}_suggestion_apply_id` antes dos widgets e preenche ficha + barra.
+            st.session_state[f"{key_prefix}_suggestion_apply_id"] = int(cid)
             st.session_state[f"{key_prefix}_nome_sug_list"] = []
             st.rerun()
 
@@ -62,17 +74,22 @@ def render_cliente_search_widget(
     minimal: bool = False,
     pesquisa_unificada: bool = False,
     pesquisa_unificada_cag: bool = False,
+    nome_placeholder: str = "Nome do cliente",
+    entidade_nome: Literal["cliente", "colaborador"] = "cliente",
 ) -> bool:
     """
     Com `pesquisa_unificada=True` (ou legado `pesquisa_unificada_cag=True`): rótulos numa linha; inputs +
     «Procurar» noutra (`vertical_alignment="center"`). Linha seguinte: sugestões de nome (col. Nome).
 
-    Usado em Clientes e Agendamentos, Painel de Vendas, e extensível a Colaboradores / Catálogo.
+    `nome_placeholder` / `entidade_nome`: modo unificado — texto do campo Nome e origem das sugestões
+    (tabela `clientes` ou `colaboradores`).
 
     Caso contrário: layout legado (NIF+doc | email | telefone | botão), com `{prefix}_docintl`.
 
-    Chaves de sessão (modo unificado): `{prefix}_nome`, `{prefix}_nome_sug_list`, `{prefix}_nif`,
-    `{prefix}_email`, `{prefix}_tel_txt`, `{prefix}_go`.
+    Chaves de sessão (modo unificado): `{prefix}_nome`, `{prefix}_nome_sug_list`,
+    `{prefix}_suggestion_apply_id` (id do registo ao clicar «Sugestões»; a página deve fazer `pop`
+    antes de instanciar o widget e carregar ficha + barra), `{prefix}_nif`, `{prefix}_email`,
+    `{prefix}_tel_txt`, `{prefix}_go`.
 
     Retorna True se «Procurar» foi clicado neste rerun.
     """
@@ -85,6 +102,8 @@ def render_cliente_search_widget(
             button_label=button_label,
             button_type=button_type,
             minimal=minimal,
+            nome_placeholder=nome_placeholder,
+            entidade_nome=entidade_nome,
         )
 
     return _render_widget_legacy(
@@ -101,6 +120,8 @@ def _render_widget_pesquisa_unificada(
     button_label: str,
     button_type: str,
     minimal: bool,
+    nome_placeholder: str,
+    entidade_nome: Literal["cliente", "colaborador"],
 ) -> bool:
     clicked = False
     go_key = f"{key_prefix}_go"
@@ -126,16 +147,18 @@ def _render_widget_pesquisa_unificada(
 
     # Linha 2 — só inputs + botão; «center» alinha verticalmente o botão mais baixo ao meio dos text_input.
     cn, cf, ce, ct, cb = st.columns(col_weights, gap=gap, vertical_alignment="center")
+    def _on_nome_change() -> None:
+        _refresh_nome_suggestions(key_prefix, entidade=entidade_nome)
+
     with cn:
         st.text_input(
-            "Nome do cliente",
+            nome_placeholder,
             key=f"{key_prefix}_nome",
             label_visibility="collapsed",
-            placeholder="Nome do cliente",
-            on_change=_refresh_nome_suggestions,
-            args=(key_prefix,),
+            placeholder=nome_placeholder,
+            on_change=_on_nome_change,
         )
-        _refresh_nome_suggestions(key_prefix)
+        _refresh_nome_suggestions(key_prefix, entidade=entidade_nome)
 
     with cf:
         st.text_input(

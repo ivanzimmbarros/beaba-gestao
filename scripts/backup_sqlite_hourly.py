@@ -20,7 +20,7 @@ CAG Clientes+Agendamentos (2026-04-12+): Horizonte Sereno, Ilha Mãe branca úni
 do cliente em `constituicao_visual_shell.py` + `page_clientes_agendamentos.py`; regressão em
 `tests/test_cag_visual_sereno.py`, `tests/test_vnd_visual_sereno.py`, `tests/test_col_visual_sereno.py`,
 `tests/test_cat_visual_sereno.py`, `tests/test_home_visual_sereno.py`,
-`tests/vnd_ui_contract.py`, `tests/col_ui_contract.py`, `tests/cat_ui_contract.py`,
+`tests/vnd_ui_contract.py` (form editar cliente: number_input sem value= + session_state duplicado), `tests/col_ui_contract.py`, `tests/cat_ui_contract.py`,
 `tests/home_ui_contract.py`,
 `tests/cag_setor4_ui_contract.py` (Setor 4: lista no expander «Agendamentos») e fatia E20 em
 `e2e_stress_test.py` — tudo em git, não no `.db`.

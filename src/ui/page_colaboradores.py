@@ -12,10 +12,15 @@ from src.pages.theme import get_beaba_css  # noqa: F401 — BeaBa Sereno (CSS em
 from src.modules.colaborador import (
     atualizar_colaborador,
     buscar_colaboradores_por_nif_email_telefone,
+    buscar_colaboradores_por_prefixo_nome,
     cadastrar_colaborador,
-    listar_colaboradores_vitrine,
+    listar_colaboradores_mapa_equipa,
+    listar_colaboradores_resumo,
+    listar_naturezas_servicos_mapa_equipa,
     listar_servicos,
+    listar_servicos_para_mapa_equipa,
     obter_colaborador,
+    resolver_conjunto_servicos_mapa_equipa,
 )
 from src.modules.constants import SEXOS
 from src.modules.nif import normalizar_nif_armazenamento
@@ -52,7 +57,34 @@ def _html_colab_vitrine_card(*, nome_e: str, serv_e: str) -> str:
     )
 
 
-def _carregar_colab_para_edicao(cid: int) -> None:
+_LBL_FILTRO_COL_MAPA = (
+    '<p style="margin:0 0 4px 0;font-size:0.8rem;color:#718355;font-weight:600;'
+    'min-height:1.35rem;line-height:1.35rem;">{}</p>'
+)
+
+_COL_MAPA_COL_W = [1.08, 1.08, 0.36]
+_COL_MAPA_TBL_W = [0.38, 0.62]
+
+
+def _col_badge_cls_natureza_servico(natureza: str) -> str:
+    n = (natureza or "").strip()
+    if n == "Sessão":
+        return "bea-cv-badge-verde"
+    if n in ("Produto", "Coworking"):
+        return "bea-cv-badge-terracota"
+    return "bea-cv-badge-neutro"
+
+
+def _html_col_mapa_cell_servicos(servicos: list[tuple[str, str]]) -> str:
+    parts: list[str] = []
+    for sn, nat in servicos:
+        cls = _col_badge_cls_natureza_servico(nat)
+        parts.append(f'<span class="{cls}">{html.escape(sn)}</span>')
+    sep = ' <span class="bea-col-mapa-sep">;</span> '
+    return sep.join(parts)
+
+
+def _carregar_colab_para_edicao(cid: int, *, limpar_barra_busca: bool = True) -> None:
     data = obter_colaborador(cid)
     if not data or not data["linhas"]:
         st.error("Não foi possível carregar a ficha.")
@@ -64,6 +96,13 @@ def _carregar_colab_para_edicao(cid: int) -> None:
     st.session_state.col_row_ids = [uuid.uuid4().hex[:12] for _ in data["linhas"]]
     st.session_state._col_prime = {"fk_target": f"col_{fv2}", "data": data}
     st.session_state.pop("col_busca_cands", None)
+    if limpar_barra_busca:
+        st.session_state.col_busca_clear_pending = True
+    else:
+        st.session_state["col_busca_nome"] = str(data.get("nome") or "")
+        st.session_state["col_busca_nif"] = str(data.get("nif_ou_documento") or "")
+        st.session_state["col_busca_email"] = str(data.get("email") or "")
+        st.session_state["col_busca_tel_txt"] = str(data.get("whatsapp") or "").strip()
 
 
 def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
@@ -82,6 +121,13 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
         st.session_state.col_edit_id = None
     if "col_edit_nome" not in st.session_state:
         st.session_state.col_edit_nome = ""
+
+    # Carregar ficha + barra de busca ANTES de qualquer widget `col_busca_*` (regra Streamlit).
+    _col_load_id = st.session_state.pop("col_mapa_open_id", None)
+    if _col_load_id is None:
+        _col_load_id = st.session_state.pop("col_busca_suggestion_apply_id", None)
+    if _col_load_id is not None:
+        _carregar_colab_para_edicao(int(_col_load_id), limpar_barra_busca=False)
 
     fv = st.session_state.col_form_v
     fk = f"col_{fv}"
@@ -120,41 +166,58 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
         unsafe_allow_html=True,
     )
     st.markdown(_col_section_title_html("1. Pesquisa de colaboradores"), unsafe_allow_html=True)
+    if st.session_state.pop("col_busca_clear_pending", False):
+        st.session_state["col_busca_nome"] = ""
+        st.session_state["col_busca_nome_sug_list"] = []
+        st.session_state["col_busca_nif"] = ""
+        st.session_state["col_busca_email"] = ""
+        st.session_state["col_busca_tel_txt"] = ""
+        st.session_state.pop("col_busca_docintl", None)
+
     col_busca_clicked = render_cliente_search_widget(
         key_prefix="col_busca",
         button_type="secondary",
         minimal=True,
+        pesquisa_unificada=True,
+        nome_placeholder="Nome do colaborador",
+        entidade_nome="colaborador",
     )
 
     if col_busca_clicked:
+        nome_s = str(st.session_state.get("col_busca_nome", "") or "").strip()
         nif_s = str(st.session_state.get("col_busca_nif", "") or "").strip()
         em_s = str(st.session_state.get("col_busca_email", "") or "").strip()
         tel_raw = str(st.session_state.get("col_busca_tel_txt", "") or "").strip()
         use_tel = normalizar_telefone_legado_ou_e164(tel_raw) if tel_raw else ""
-        busca_doc_intl = bool(st.session_state.get("col_busca_docintl"))
 
         msg_err: str | None = None
-        if not nif_s and not em_s and not tel_raw:
-            msg_err = "Indique NIF, email ou telefone."
+        if not nome_s and not nif_s and not em_s and not tel_raw:
+            msg_err = "Indique nome, NIF, email ou telefone."
         elif em_s and not email_valido(em_s):
             msg_err = "❌ Email inválido para pesquisa."
         elif tel_raw and not use_tel:
             msg_err = "❌ Telefone inválido (ex.: +351912345678)."
         elif nif_s:
             ok_nf, msg_nf, _vx = normalizar_nif_armazenamento(
-                nif_s, documento_identificacao_internacional=bool(busca_doc_intl)
+                nif_s, documento_identificacao_internacional=False
             )
             if not ok_nf:
                 msg_err = msg_nf
         if msg_err:
             st.error(msg_err)
         else:
-            cands = buscar_colaboradores_por_nif_email_telefone(
+            merged: dict[int, str] = {}
+            if nome_s:
+                for cid, nm in buscar_colaboradores_por_prefixo_nome(nome_s, limit=80):
+                    merged[int(cid)] = str(nm)
+            for cid, nm in buscar_colaboradores_por_nif_email_telefone(
                 nif=nif_s,
                 email=em_s,
                 telefone=use_tel,
-                documento_internacional=bool(busca_doc_intl),
-            )
+                documento_internacional=False,
+            ):
+                merged[int(cid)] = str(nm)
+            cands = sorted(merged.items(), key=lambda x: (x[1].lower(), x[0]))
             if len(cands) == 0:
                 st.warning("Nenhum colaborador encontrado com estes critérios.")
                 st.session_state.pop("col_busca_cands", None)
@@ -202,45 +265,138 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
     nomes_servicos = [row[1] for row in servicos_opts]
     id_por_nome: dict[str, int] = {row[1]: row[0] for row in servicos_opts}
 
-    vitrine = listar_colaboradores_vitrine()
-    if vitrine:
+    st.markdown(
+        '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(_col_section_title_html("2. Equipa"), unsafe_allow_html=True)
+    if st.button("Novo cadastro limpo", key=f"{fk}_reset_new", type="secondary"):
+        st.session_state.col_edit_id = None
+        st.session_state.col_edit_nome = ""
+        st.session_state.col_form_v += 1
+        st.session_state.col_row_ids = [uuid.uuid4().hex[:12]]
+        st.session_state.pop("col_mapa_resultado", None)
+        st.rerun()
+
+    st.markdown(_col_ficha_subsec_html("Mapa da Equipa"), unsafe_allow_html=True)
+    _gap_m = "small"
+    r1m = st.columns(_COL_MAPA_COL_W, gap=_gap_m, vertical_alignment="top")
+    with r1m[0]:
+        st.markdown(_LBL_FILTRO_COL_MAPA.format("Tipos de Serviço"), unsafe_allow_html=True)
+    with r1m[1]:
+        st.markdown(_LBL_FILTRO_COL_MAPA.format("Serviços Registados"), unsafe_allow_html=True)
+    with r1m[2]:
         st.markdown(
-            '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
+            '<div style="height:calc(1.35rem + 4px);margin:0;padding:0;" aria-hidden="true"></div>',
             unsafe_allow_html=True,
         )
-        st.markdown(_col_section_title_html("2. Equipa"), unsafe_allow_html=True)
-        if st.button("Novo cadastro limpo", key=f"{fk}_reset_new", type="secondary"):
-            st.session_state.col_edit_id = None
-            st.session_state.col_edit_nome = ""
-            st.session_state.col_form_v += 1
-            st.session_state.col_row_ids = [uuid.uuid4().hex[:12]]
-            st.rerun()
 
-        n_v = len(vitrine)
-        for row_start in range(0, n_v, 3):
-            cols = st.columns(3)
-            for i in range(3):
-                ix = row_start + i
-                if ix >= n_v:
-                    break
-                cid, nome, serv_lbl = vitrine[ix]
-                nome_e = html.escape(nome)
-                serv_e = html.escape(serv_lbl)
-                with cols[i]:
-                    st.markdown(
-                        _html_colab_vitrine_card(nome_e=nome_e, serv_e=serv_e),
-                        unsafe_allow_html=True,
-                    )
-                    if st.button("Abrir ficha", key=f"colab_vit_load_{cid}", width="stretch"):
-                        _carregar_colab_para_edicao(cid)
-                        st.rerun()
+    nat_opts = listar_naturezas_servicos_mapa_equipa()
+    r2m = st.columns(_COL_MAPA_COL_W, gap=_gap_m, vertical_alignment="center")
+    with r2m[0]:
+        nat_sel = st.multiselect(
+            "Tipos de Serviço",
+            options=nat_opts,
+            key="col_mapa_nat",
+            label_visibility="collapsed",
+            placeholder="Naturezas…",
+        )
+    svc_rows = listar_servicos_para_mapa_equipa(nat_sel if nat_sel else None)
+    avail_ids = [r[0] for r in svc_rows]
+    if "col_mapa_svc" in st.session_state:
+        st.session_state["col_mapa_svc"] = [
+            x for x in st.session_state.get("col_mapa_svc", []) if x in set(avail_ids)
+        ]
+
+    def _fmt_svc_mapa(sid: int) -> str:
+        for a, b, c in svc_rows:
+            if int(a) == int(sid):
+                return f"{b} ({c})"
+        return str(sid)
+
+    with r2m[1]:
+        svc_sel = st.multiselect(
+            "Serviços Registados",
+            options=avail_ids,
+            key="col_mapa_svc",
+            format_func=_fmt_svc_mapa,
+            label_visibility="collapsed",
+            placeholder="Serviços…",
+        )
+    with r2m[2]:
+        can_mapa_search = bool(nat_sel or svc_sel)
+        if st.button(
+            "Pesquisar",
+            key="col_mapa_pesquisar",
+            type="secondary",
+            disabled=not can_mapa_search,
+            width="stretch",
+        ):
+            cj = resolver_conjunto_servicos_mapa_equipa(
+                naturezas_seleccionadas=list(nat_sel),
+                servico_ids_seleccionados=list(svc_sel),
+            )
+            st.session_state.col_mapa_resultado = listar_colaboradores_mapa_equipa(cj)
+
+    res_mapa = st.session_state.get("col_mapa_resultado")
+    if res_mapa is None:
+        st.caption(
+            "Seleccione **Tipos de Serviço** e/ou **Serviços Registados** (pelo menos um) e clique "
+            "**Pesquisar** — a tabela com *Nome completo* e *Serviços habilitados* aparece abaixo."
+        )
+    elif len(res_mapa) == 0:
+        st.info("Nenhum colaborador encontrado para esta combinação.")
     else:
+        st.markdown(
+            '<div class="bea-col-mapa-wrap" data-testid="bea-col-mapa-wrap">',
+            unsafe_allow_html=True,
+        )
+        th0, th1 = st.columns(_COL_MAPA_TBL_W, gap="small")
+        with th0:
+            st.markdown(
+                '<div class="bea-col-mapa-th" data-testid="bea-col-mapa-th-nome">Nome completo</div>',
+                unsafe_allow_html=True,
+            )
+        with th1:
+            st.markdown(
+                '<div class="bea-col-mapa-th" data-testid="bea-col-mapa-th-svc">Serviços habilitados</div>',
+                unsafe_allow_html=True,
+            )
+        for row in res_mapa:
+            cid_m = int(row["id"])
+            nome_m = str(row["nome"])
+            sv_tuples = list(row["servicos"])
+            cell_html = _html_col_mapa_cell_servicos(sv_tuples)
+            cnm, csv = st.columns(_COL_MAPA_TBL_W, gap="small", vertical_alignment="center")
+            with cnm:
+                if st.button(
+                    nome_m,
+                    key=f"col_mapa_open_{cid_m}",
+                    type="tertiary",
+                    help="Abrir ficha no expander abaixo",
+                ):
+                    st.session_state.col_mapa_open_id = int(cid_m)
+                    st.rerun()
+            with csv:
+                st.markdown(
+                    f'<div class="bea-col-mapa-svc-cell">{cell_html}</div>',
+                    unsafe_allow_html=True,
+                )
+            st.markdown(
+                '<div class="bea-col-mapa-row-end" aria-hidden="true"></div>',
+                unsafe_allow_html=True,
+            )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    _resumo_col = listar_colaboradores_resumo()
+    if not _resumo_col:
         st.info("Ainda não há colaboradores. Utilize o formulário abaixo para o primeiro cadastro.")
         if st.button("Preparar novo cadastro", key=f"{fk}_prep_new"):
             st.session_state.col_edit_id = None
             st.session_state.col_edit_nome = ""
             st.session_state.col_form_v += 1
             st.session_state.col_row_ids = [uuid.uuid4().hex[:12]]
+            st.session_state.pop("col_mapa_resultado", None)
             st.rerun()
 
     exp_nome = st.session_state.col_edit_nome or "Novo colaborador"

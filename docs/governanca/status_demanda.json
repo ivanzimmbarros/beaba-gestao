@@ -15,13 +15,15 @@
     "projeto": "BeaBa Gestão / BeaBa Materno",
     "escopo": "Sincronização código+CI com origin/develop; mapa completo de testes; certificação backup/restore (pytest + simulação verify semanal em sandbox).",
     "pytest": {
-      "total": 139,
+      "total": 157,
       "comando": "python -m pytest tests/ -v",
       "resultado_2026_04_12": "109 passed (Home: ilhas Master sem border Streamlit, Panorama Material Symbols, sidebar ativo sem barra)",
       "resultado_2026_04_13": "124 passed — Painel de Vendas Ilha Mãe Sereno (slot vnd + inject_constituicao_vnd_page + mount unificado CAG/VND)",
       "resultado_2026_04_13_col": "129 passed — Colaboradores Ilha Mãe Sereno (slot col + inject_constituicao_col_page + mount CAG/VND/COL)",
       "resultado_2026_04_13_cat": "134 passed — Catálogo Ilha Mãe Sereno (slot cat + inject_constituicao_cat_page + mount CAG/VND/COL/CAT)",
       "resultado_2026_04_13_home": "139 passed — Início Ilha Mãe Sereno (slot home + inject_constituicao_home_page + mount CAG/VND/COL/CAT/HOME; ilhas cockpit sem double box)",
+      "resultado_2026_04_13_col_mapa": "156 passed — Colaboradores Mapa da Equipa (filtros natureza/serviço, tabela + badges; vitrine 3×3 removida da página; testes col_ui_contract + colaborador + shell CSS)",
+      "resultado_2026_04_13_vnd_nem": "157 passed — Vendas: form editar cliente sem value= duplicado em st.number_input (*_vc_nem / *_vc_qfil); contrato vnd_ui_contract + E2E test_e2e_vnd_visual_shell_contract",
       "e2e_incluido": "tests/e2e_stress_test.py (hero + boundary quick na suite pytest)"
     },
     "backup_restore": {
@@ -135,7 +137,7 @@
   "demanda_id": "2026-04-10_E22_redesign_visual_verde_sereno",
   "titulo": "Épico 22 — Redesign visual global «Verde Sereno»",
   "fase_actual": "2-gestao-pessoas",
-  "passo_referencia": "E22 Fase 2 — Gestão de Pessoas — Em Execução: `page_clientes_agendamentos.py` (clientes + agenda consolidados) e `page_colaboradores.py` alinhados ao PDV (grelha 3×3, cards brancos, pesquisa minimalista, expander «Item»); `listar_colaboradores_vitrine`, `listar_vendas_resumo_cliente`. Sidebar sem entradas duplicadas Clientes/Agendamentos; destaque Sálvia / texto verde escuro.",
+  "passo_referencia": "E22 Fase 2 — Colaboradores: transição **Vitrine 3×3 → Mapa da Equipa** (filtros Natureza + Serviço, tabela antes do expander, clique no nome carrega ficha); pesquisa unificada com placeholder «Nome do colaborador»; módulo `listar_colaboradores_mapa_equipa` / `resolver_conjunto_servicos_mapa_equipa`; `listar_colaboradores_vitrine` mantido só para compatibilidade de módulo se necessário.",
   "responsavel_actual": "EQUIPE — E22 Fase 2 Clientes/Colaboradores; E17.1 na fila",
   "pontos_controlo_concluidos": [
     "E16 — PC1 a PC13a: dossier 01–09 + 99; implementação + pareceres + QA em develop",
@@ -157,14 +159,14 @@
   "pc_foco": "PC1–PC2",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "2026-04-13: Início / Cockpit — Ilha Mãe Sereno (bea-cv-home-slot, inject_constituicao_home_page, mount até HOME); cockpit sem ilhas filhas redundantes; tests/home_ui_contract + test_home_visual_sereno + E2E; pytest 139 passed.",
+  "live_status": "2026-04-13: Colaboradores — Mapa da Equipa entregue; pytest tests/ 156 passed (venv); pronto para commit+push develop pelo Diretor.",
   "etapas_pendentes": [
     "Diretor: homologar PDV vs protótipo (semáforo visível, comanda spa). Sem OK → sem avançar módulos.",
     "E22: após OK — um único módulo seguinte (ex. Catálogo / Agendamentos).",
     "Encerramento futuro E22: `python tests/e2e_stress_test.py` (≥1000 iterações) + `tests/last_stress_report.txt` sem bloqueios (além da suite pytest).",
     "E17.1: na fila — CONFIRMO desenho lógico Cloud quando priorizado."
   ],
-  "live_actualizado_iso": "2026-04-13T13:15:00Z",
+  "live_actualizado_iso": "2026-04-13T19:30:00Z",
   "epico_cockpit_boas_vindas": {
     "status": "CONCLUÍDO",
     "data_iso": "2026-04-12",

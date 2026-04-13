@@ -1117,6 +1117,17 @@ def get_constituicao_col_page_css() -> str:
         margin-top: 0.35rem !important;
         margin-bottom: 1.25rem !important;
     }}
+    /* Facilitador pesquisa unificada (nome) — paridade CAG/VND */
+    section[data-testid="stMain"]:has(.bea-cv-col-slot)
+        .main div[data-testid="stVerticalBlock"]:has(p[data-testid="bea-busca-nome-sug-panel"]),
+    body.bea-cv-col-page .main div[data-testid="stVerticalBlock"]:has(p[data-testid="bea-busca-nome-sug-panel"]) {{
+        border-radius: 12px !important;
+        background: {CV_BRANCO} !important;
+        box-shadow: {CV_SOMBRA_COMPOSTA} !important;
+        border: 1px solid rgba(113, 131, 85, 0.22) !important;
+        padding: 8px 10px 10px 10px !important;
+        margin: 4px 0 8px 0 !important;
+    }}
     section[data-testid="stMain"]:has(.bea-cv-col-slot)
         [data-testid="column"]:has(.bea-cv-col-slot) .bea-venda-comanda-item,
     body.bea-cv-col-page [data-testid="column"].bea-cv-col-mother-island .bea-venda-comanda-item {{
@@ -1175,6 +1186,67 @@ def get_constituicao_col_page_css() -> str:
         color: {CV_TITULO};
         opacity: 0.85;
         white-space: nowrap;
+    }}
+    /* Mapa da Equipa — tabela + separador textual entre badges (Master Sereno) */
+    .bea-col-mapa-sep {{
+        color: rgba(45, 51, 47, 0.35);
+        margin: 0 0.25rem;
+        font-weight: 500;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-col-slot) .bea-col-mapa-wrap,
+    body.bea-cv-col-page .bea-col-mapa-wrap {{
+        width: 100%;
+        margin: 10px 0 16px 0;
+        padding: 0;
+        border-top: 1px solid rgba(118, 148, 125, 0.15);
+        padding-top: 8px;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-col-slot) .bea-col-mapa-wrap .bea-col-mapa-svc-cell,
+    body.bea-cv-col-page .bea-col-mapa-wrap .bea-col-mapa-svc-cell {{
+        flex: 1;
+        min-width: 0;
+        line-height: 1.5;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-col-slot) .bea-col-mapa-wrap .bea-col-mapa-th,
+    body.bea-cv-col-page .bea-col-mapa-wrap .bea-col-mapa-th {{
+        font-family: var(--cv-sans) !important;
+        font-size: 0.8rem !important;
+        font-weight: 600 !important;
+        color: #718355 !important;
+        padding: 4px 2px 10px 2px !important;
+        margin: 0 !important;
+        border-bottom: 2px solid rgba(118, 148, 125, 0.28) !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-col-slot) .bea-col-mapa-wrap .bea-col-mapa-row-end,
+    body.bea-cv-col-page .bea-col-mapa-wrap .bea-col-mapa-row-end {{
+        height: 0;
+        margin: 0;
+        padding: 0;
+        border: none;
+        border-bottom: 1px solid rgba(118, 148, 125, 0.14);
+        width: 100%;
+    }}
+    /* Nome na «tabela»: só existem botões de nome dentro do wrap — estilo célula (não pílula) */
+    section[data-testid="stMain"]:has(.bea-cv-col-slot) .bea-col-mapa-wrap [data-testid="stButton"] > button,
+    body.bea-cv-col-page .bea-col-mapa-wrap [data-testid="stButton"] > button {{
+        border-radius: 6px !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        color: {CV_TITULO} !important;
+        font-family: var(--cv-sans) !important;
+        font-weight: 600 !important;
+        justify-content: flex-start !important;
+        text-align: left !important;
+        padding: 6px 4px !important;
+        width: auto !important;
+        min-height: unset !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-col-slot) .bea-col-mapa-wrap [data-testid="stButton"] > button:hover,
+    body.bea-cv-col-page .bea-col-mapa-wrap [data-testid="stButton"] > button:hover {{
+        background: rgba(118, 148, 125, 0.08) !important;
+        color: {CV_SALVIA} !important;
+        border: none !important;
     }}
     section[data-testid="stMain"]:has(.bea-cv-col-slot) .block-container [data-testid="stButton"] > button,
     body.bea-cv-col-page section[data-testid="stMain"] .block-container [data-testid="stButton"] > button {{

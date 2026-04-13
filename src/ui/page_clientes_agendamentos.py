@@ -414,6 +414,25 @@ def _cag_carregar_ficha(fk: str, d: dict) -> None:
     st.session_state[f"{fk}_obs"] = d.get("observacoes") or ""
 
 
+def _cag_preencher_barra_busca_de_cliente(data: dict) -> None:
+    st.session_state["cag_busca_nome"] = str(data.get("nome") or "")
+    st.session_state["cag_busca_nif"] = str(data.get("nif_ou_documento") or "")
+    st.session_state["cag_busca_email"] = str(data.get("email") or "")
+    st.session_state["cag_busca_tel_txt"] = str(data.get("whatsapp") or "").strip()
+
+
+def _cag_tratar_sugestao_nome_clicada(cid: int) -> None:
+    data = obter_cliente_completo(int(cid))
+    if not data:
+        st.error("Cliente não encontrado.")
+        return
+    st.session_state.cag_edit_id = int(cid)
+    st.session_state.cag_form_v += 1
+    st.session_state.pop("cag_busca_cands", None)
+    st.session_state.cag_cli_carregado_pesquisa = True
+    _cag_preencher_barra_busca_de_cliente(data)
+
+
 def _cag_garantir_defaults_formulario_vazio(fk: str) -> None:
     """Valores iniciais para cadastro sem pesquisa / cliente carregado (só `setdefault`)."""
     st.session_state.setdefault(f"{fk}_nome", "")
@@ -1572,6 +1591,10 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
         st.session_state["cag_busca_email"] = ""
         st.session_state["cag_busca_tel_txt"] = ""
         st.session_state.pop("cag_busca_docintl", None)
+
+    sug_cag = st.session_state.pop("cag_busca_suggestion_apply_id", None)
+    if sug_cag is not None:
+        _cag_tratar_sugestao_nome_clicada(int(sug_cag))
 
     st.markdown(
         '<h1 class="bea-cv-cag-h1">Cadastro de Clientes e Gestão de Agendamentos</h1>',

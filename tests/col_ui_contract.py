@@ -18,3 +18,31 @@ def assert_col_area_unica_shell() -> None:
     assert "bea-cv-col-slot" in shell
     assert "bea-cv-col-page" in shell
     assert 'querySelector(".bea-cv-col-slot")' in shell
+
+
+def assert_col_pesquisa_unificada_na_pagina() -> None:
+    """Contrato: pesquisa unificada (Nome+NIF+Email+Tel), NIF só PT na busca, placeholder colaborador."""
+    root = Path(__file__).resolve().parents[1]
+    src = (root / "src" / "ui" / "page_colaboradores.py").read_text(encoding="utf-8")
+    assert "pesquisa_unificada=True" in src
+    assert "col_busca_nome" in src
+    assert "buscar_colaboradores_por_prefixo_nome" in src
+    assert "documento_internacional=False" in src
+    assert "Nome do colaborador" in src
+    assert 'entidade_nome="colaborador"' in src
+
+
+def assert_col_mapa_equipa_na_pagina() -> None:
+    """Contrato: vitrine 3×3 substituída por Mapa da Equipa (filtros + tabela + módulo)."""
+    root = Path(__file__).resolve().parents[1]
+    src = (root / "src" / "ui" / "page_colaboradores.py").read_text(encoding="utf-8")
+    assert "Mapa da Equipa" in src
+    assert "Tipos de Serviço" in src
+    assert "Serviços Registados" in src
+    assert "col_mapa_pesquisar" in src
+    assert "listar_colaboradores_mapa_equipa" in src
+    assert "resolver_conjunto_servicos_mapa_equipa" in src
+    assert "listar_colaboradores_vitrine" not in src
+    assert "bea-col-mapa-wrap" in src
+    assert "bea-col-mapa-th" in src
+    assert "type=\"tertiary\"" in src or "type='tertiary'" in src

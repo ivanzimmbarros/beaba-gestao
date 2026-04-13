@@ -22,8 +22,13 @@ on:
       - "src/modules/cliente.py"
       - "src/ui/constituicao_visual_shell.py"
       - "src/ui/page_vendas.py"
+      - "src/ui/page_colaboradores.py"
+      - "src/modules/colaborador.py"
       - "tests/vnd_ui_contract.py"
       - "tests/test_vnd_visual_sereno.py"
+      - "tests/col_ui_contract.py"
+      - "tests/test_col_visual_sereno.py"
+      - "tests/test_colaborador.py"
       - "tests/e2e_stress_test.py"
       - ".github/workflows/e17_restore_certify.yml"
       - ".github/workflows/backup_encrypt_callable.yml"
@@ -54,13 +59,23 @@ jobs:
           pip install -r requirements.txt
           pip install pytest
 
-      - name: Pytest — restore + verify + CAG/VND pesquisa unificada + cliente
+      - name: Pytest — restore + verify + CAG/VND/COL pesquisa unificada + cliente
         run: |
           python -m pytest tests/test_restore_sqlite.py tests/test_sqlite_backup_verify.py \
             tests/test_cliente.py \
             tests/test_clientes_agendamentos_page.py::test_cag_setor4_lista_obrigatoriamente_dentro_expander_agendamentos \
             tests/test_clientes_agendamentos_page.py::test_cag_busca_nome_integrado_estado_sessao_na_pagina \
             tests/test_vnd_visual_sereno.py::test_vnd_pesquisa_unificada_contrato \
+            tests/test_col_visual_sereno.py::test_col_pesquisa_unificada_contrato \
+            tests/test_col_visual_sereno.py::test_col_mapa_equipa_contrato \
+            tests/test_colaborador.py::test_resolver_conjunto_servicos_mapa_equipa_vazio \
+            tests/test_colaborador.py::test_listar_colaboradores_mapa_equipa_sem_ids \
+            tests/test_colaborador.py::test_mapa_equipa_servicos_e_colaborador_habilitado \
+            tests/test_colaborador.py::test_buscar_colaboradores_por_prefixo_nome_vazio \
+            tests/test_colaborador.py::test_buscar_colaboradores_por_prefixo_nome_encontra_e_ordena \
+            tests/test_colaborador.py::test_buscar_colaboradores_por_prefixo_nome_sem_match \
+            tests/test_colaborador.py::test_buscar_colaboradores_por_prefixo_nome_respeita_limite \
+            tests/test_colaborador.py::test_buscar_colaboradores_por_prefixo_nome_escapa_metacaracteres_like \
             -v --tb=short
 
       - name: Regenerar certificado no runner
