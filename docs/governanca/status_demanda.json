@@ -173,7 +173,7 @@
   "pc_foco": "PC1–PC2",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "2026-04-13: Financeiro — página + Gastos Operacionais (SUBAREA1) entregue; pytest 170 passed; aguarda commit/push develop pelo operador.",
+  "live_status": "2026-04-13: Financeiro — SUBAREA1 entregue; pytest 170 passed; push origin/develop 76c1f3ba.",
   "etapas_pendentes": [
     "Diretor: homologar PDV vs protótipo (semáforo visível, comanda spa). Sem OK → sem avançar módulos.",
     "E22: após OK — um único módulo seguinte (ex. Catálogo / Agendamentos).",
