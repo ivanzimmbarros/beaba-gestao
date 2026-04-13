@@ -6,16 +6,12 @@ import streamlit as st
 
 def get_connection():
     """
-    Gerenciador de Conexão Mestre:
-    Prioriza Bancos de Dados de Produção (PostgreSQL/MySQL) via Secrets.
-    Mantém SQLite local com criação automática de diretório como Fallback.
-    """
-    try:
-        if hasattr(st, "secrets") and "database" in st.secrets:
-            pass
-    except Exception:
-        pass
+    Conexão SQLite (WAL, foreign_keys).
 
+    Não aceder a `st.secrets` aqui sem `secrets.toml`: o Streamlit chama `st.error` ao
+    falhar o parse mesmo antes de propagar excepção, o que quebra toda a UI local.
+    Produção com secrets: usar `BEABA_SQLITE_PATH` ou futura camada explícita.
+    """
     db_path = os.environ.get("BEABA_SQLITE_PATH") or "data/beaba_gestao.db"
     db_dir = os.path.dirname(os.path.abspath(db_path))
     if db_dir:
