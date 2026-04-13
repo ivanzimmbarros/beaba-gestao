@@ -586,7 +586,9 @@ def get_constituicao_cag_page_css() -> str:
     section[data-testid="stMain"]:has(.bea-cv-cag-page-active) .main .block-container {{
         background: transparent !important;
     }}
-    /* Ilha Mãe: st.container() (VerticalBlock) com marcador — evita coluna extra dentro de col_main */
+    /* Ilha Mãe: coluna única (marcador) + fallback VerticalBlock — fundo branco atrás de todo o formulário */
+    section[data-testid="stMain"]:has(.bea-cv-cag-page-active)
+        [data-testid="column"]:has(.bea-cv-cag-mother-mark) > div,
     section[data-testid="stMain"]:has(.bea-cv-cag-page-active)
         [data-testid="stVerticalBlockBorderWrapper"]:has(.bea-cv-cag-mother-mark) {{
         background-color: #FFFFFF !important;
@@ -596,8 +598,9 @@ def get_constituicao_cag_page_css() -> str:
         padding: 32px !important;
         margin-bottom: 0 !important;
     }}
-    /* Não neutralizar wrappers internos (expanders, colunas de calendário) — evita regressões funcionais */
     /* Cards de resumo do cliente (não Panorama Home): sombra removida, título sans no bloco abaixo */
+    section[data-testid="stMain"]:has(.bea-cv-cag-page-active)
+        [data-testid="column"]:has(.bea-cv-cag-mother-mark) .bea-cv-cag-metric-card,
     section[data-testid="stMain"]:has(.bea-cv-cag-page-active)
         [data-testid="stVerticalBlockBorderWrapper"]:has(.bea-cv-cag-mother-mark) .bea-cv-cag-metric-card {{
         box-shadow: none !important;

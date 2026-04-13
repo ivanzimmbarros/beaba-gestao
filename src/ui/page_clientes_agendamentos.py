@@ -1151,7 +1151,7 @@ def _cag_setor4_render_form_island(
     modo_novo = ctx["modo_novo"]
     dis_ag = ctx["dis_ag"]
 
-    st.markdown("##### Agendamentos do Cliente")
+    st.markdown("##### Selecção e edição")
 
     if modo_novo:
         st.checkbox(
@@ -1531,7 +1531,13 @@ def _render_cag_setor4_gestao_agendamentos(*, cliente_id: int, fv: int, tem_clie
             "Seleccione ou **registe** um cliente na secção **3. Dados Pessoais** para criar ou alterar agendamentos."
         )
     else:
-        _cag_setor4_render_form_island(cliente_id=cliente_id, fv=fv, tem_cliente=tem_cliente, ctx=ctx)
+        with st.expander(
+            "Agendamentos — calendário e formulário",
+            expanded=False,
+        ):
+            _cag_setor4_render_form_island(
+                cliente_id=cliente_id, fv=fv, tem_cliente=tem_cliente, ctx=ctx
+            )
     st.markdown(
         '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
         unsafe_allow_html=True,
@@ -1570,7 +1576,8 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
         st.session_state["cag_busca_tel_txt"] = ""
         st.session_state["cag_busca_docintl"] = False
 
-    with st.container():
+    c_mom, = st.columns(1)
+    with c_mom:
         st.markdown(cag_mother_mark_html(), unsafe_allow_html=True)
         st.markdown(
             '<h1 class="bea-cv-cag-h1">Cadastro de Clientes e Gestão de Agendamentos</h1>',
