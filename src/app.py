@@ -61,6 +61,10 @@ def main() -> None:
             elif page in ("colaboradores", "colaboradoras"):
                 if page == "colaboradoras":
                     st.session_state.page = "colaboradores"
+                st.markdown(
+                    '<div class="bea-cv-col-slot" data-testid="bea-col-slot" aria-hidden="true"></div>',
+                    unsafe_allow_html=True,
+                )
                 render_page_colaboradores(
                     render_back_and_breadcrumb=_shell_no_breadcrumb,
                 )

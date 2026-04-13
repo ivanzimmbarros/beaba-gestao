@@ -15,10 +15,11 @@
     "projeto": "BeaBa Gestão / BeaBa Materno",
     "escopo": "Sincronização código+CI com origin/develop; mapa completo de testes; certificação backup/restore (pytest + simulação verify semanal em sandbox).",
     "pytest": {
-      "total": 124,
+      "total": 129,
       "comando": "python -m pytest tests/ -v",
       "resultado_2026_04_12": "109 passed (Home: ilhas Master sem border Streamlit, Panorama Material Symbols, sidebar ativo sem barra)",
       "resultado_2026_04_13": "124 passed — Painel de Vendas Ilha Mãe Sereno (slot vnd + inject_constituicao_vnd_page + mount unificado CAG/VND)",
+      "resultado_2026_04_13_col": "129 passed — Colaboradores Ilha Mãe Sereno (slot col + inject_constituicao_col_page + mount CAG/VND/COL)",
       "e2e_incluido": "tests/e2e_stress_test.py (hero + boundary quick na suite pytest)"
     },
     "backup_restore": {
@@ -154,14 +155,14 @@
   "pc_foco": "PC1–PC2",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "2026-04-13: Painel de Vendas — Ilha Mãe Sereno (paridade CAG: slot bea-cv-vnd-slot, inject_constituicao_vnd_page, inject_area_unica_visual_mount); sem border Streamlit; € canónico; pytest tests/ 124 passed.",
+  "live_status": "2026-04-13: Colaboradores — Ilha Mãe Sereno (bea-cv-col-slot, inject_constituicao_col_page, mount triplo); alinhado CAG/VND; sem border Streamlit; tests/col_ui_contract + test_col_visual_sereno; pytest 129 passed.",
   "etapas_pendentes": [
     "Diretor: homologar PDV vs protótipo (semáforo visível, comanda spa). Sem OK → sem avançar módulos.",
     "E22: após OK — um único módulo seguinte (ex. Catálogo / Agendamentos).",
     "Encerramento futuro E22: `python tests/e2e_stress_test.py` (≥1000 iterações) + `tests/last_stress_report.txt` sem bloqueios (além da suite pytest).",
     "E17.1: na fila — CONFIRMO desenho lógico Cloud quando priorizado."
   ],
-  "live_actualizado_iso": "2026-04-13T12:00:00Z",
+  "live_actualizado_iso": "2026-04-13T18:30:00Z",
   "epico_cockpit_boas_vindas": {
     "status": "CONCLUÍDO",
     "data_iso": "2026-04-12",

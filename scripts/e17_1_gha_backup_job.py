@@ -5,7 +5,8 @@ Escreve gha_backup_state.json e GITHUB_OUTPUT encrypted_path.
 Nota 2026-04-12: UI consolidada em `page_clientes_agendamentos.py` (legado `page_clientes` /
 `page_agendamentos` removido do repositório). CAG Setor 4: listagem dentro do expander
 «Agendamentos» — testes `tests/cag_setor4_ui_contract.py` / `test_clientes_agendamentos_page.py`;
-Painel de Vendas — `tests/vnd_ui_contract.py` / `test_vnd_visual_sereno.py`.
+Painel de Vendas — `tests/vnd_ui_contract.py` / `test_vnd_visual_sereno.py`; Colaboradores —
+`tests/col_ui_contract.py` / `test_col_visual_sereno.py`.
 """
 
 from __future__ import annotations
