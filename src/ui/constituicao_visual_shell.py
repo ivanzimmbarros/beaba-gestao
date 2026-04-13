@@ -631,6 +631,17 @@ def get_constituicao_cag_page_css() -> str:
         margin-top: 0.35rem !important;
         margin-bottom: 1.25rem !important;
     }}
+    /* Facilitador de nome (pesquisa unificada): painel com sombra Master + borda #718355 suave */
+    section[data-testid="stMain"]:has(.bea-cv-cag-slot)
+        .main div[data-testid="stVerticalBlock"]:has(p[data-testid="bea-cag-nome-sug-panel"]),
+    body.bea-cv-cag-page .main div[data-testid="stVerticalBlock"]:has(p[data-testid="bea-cag-nome-sug-panel"]) {{
+        border-radius: 12px !important;
+        background: {CV_BRANCO} !important;
+        box-shadow: {CV_SOMBRA_COMPOSTA} !important;
+        border: 1px solid rgba(113, 131, 85, 0.22) !important;
+        padding: 8px 10px 10px 10px !important;
+        margin: 4px 0 8px 0 !important;
+    }}
     /* Cards métricas resumo (dentro da coluna CAG) */
     section[data-testid="stMain"]:has(.bea-cv-cag-slot)
         [data-testid="column"]:has(.bea-cv-cag-slot) .bea-cv-cag-metric-card,

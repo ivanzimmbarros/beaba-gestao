@@ -16,7 +16,11 @@ on:
       - "tests/test_sqlite_backup_verify.py"
       - "tests/cag_setor4_ui_contract.py"
       - "tests/test_clientes_agendamentos_page.py"
+      - "tests/test_cliente.py"
       - "src/ui/page_clientes_agendamentos.py"
+      - "src/ui/widgets/cliente_search.py"
+      - "src/modules/cliente.py"
+      - "src/ui/constituicao_visual_shell.py"
       - ".github/workflows/e17_restore_certify.yml"
       - ".github/workflows/backup_encrypt_callable.yml"
       - ".github/workflows/restore_weekly.yml"
@@ -46,9 +50,10 @@ jobs:
           pip install -r requirements.txt
           pip install pytest
 
-      - name: Pytest — restore + verify + contrato CAG Setor 4
+      - name: Pytest — restore + verify + contrato CAG Setor 4 + cliente (prefixo nome)
         run: |
           python -m pytest tests/test_restore_sqlite.py tests/test_sqlite_backup_verify.py \
+            tests/test_cliente.py \
             tests/test_clientes_agendamentos_page.py::test_cag_setor4_lista_obrigatoriamente_dentro_expander_agendamentos \
             -v --tb=short
 

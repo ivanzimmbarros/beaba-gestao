@@ -3,16 +3,30 @@
 Pós-decomissionamento 2026-04-12: `page_clientes.py` e `page_agendamentos.py` foram removidos;
 esta suite cobre apenas `page_clientes_agendamentos.py`.
 
+Pesquisa unificada CAG (2026-04): estado de sessão `cag_busca_nome` + widget
+`src/ui/widgets/cliente_search.py` (`pesquisa_unificada_cag`); testes de dados em `tests/test_cliente.py`.
+
 Setor 4 (2026-04): listagem dentro do expander «Agendamentos» — ver `tests/cag_setor4_ui_contract.py`.
 """
+
+from pathlib import Path
 
 from tests.cag_setor4_ui_contract import assert_cag_setor4_lista_dentro_expander_agendamentos
 
 from src.modules.agendamento import obter_resumo_agendamentos_cliente_setor2_proposta
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+
 
 def test_cag_setor4_lista_obrigatoriamente_dentro_expander_agendamentos():
     assert_cag_setor4_lista_dentro_expander_agendamentos()
+
+
+def test_cag_busca_nome_integrado_estado_sessao_na_pagina():
+    """Contrato UI: pesquisa unificada lê `cag_busca_nome` (prefixo `cag_busca` + `_nome`)."""
+    src = (_REPO_ROOT / "src" / "ui" / "page_clientes_agendamentos.py").read_text(encoding="utf-8")
+    assert "cag_busca_nome" in src
+    assert "pesquisa_unificada_cag=True" in src
 
 
 def test_page_clientes_agendamentos_importa_e_expoe_render():
@@ -32,6 +46,7 @@ def test_reset_cag_page_state_remove_apenas_prefixo_cag(monkeypatch):
         "page": "clientes_agendamentos",
         "cag_form_v": 2,
         "cag_edit_id": 99,
+        "cag_busca_nome": "Ana",
         "cag_busca_nif": "123",
         "cli_edit_id": 1,
     }
@@ -79,6 +94,7 @@ def test_reset_cag_page_state_remove_apenas_prefixo_cag(monkeypatch):
     assert sess._d["cli_edit_id"] == 1
     assert sess._d["cag_form_v"] == 0
     assert sess._d["cag_edit_id"] is None
+    assert "cag_busca_nome" not in sess._d
     assert "cag_busca_nif" not in sess._d
 
 

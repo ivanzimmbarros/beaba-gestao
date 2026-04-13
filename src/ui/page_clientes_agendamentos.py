@@ -25,6 +25,7 @@ from src.modules.cliente import (
     atualizar_cliente,
     buscar_cliente_por_whatsapp,
     buscar_clientes_por_nif_email_telefone,
+    buscar_clientes_por_prefixo_nome,
     cadastrar_cliente,
     obter_cliente_completo,
 )
@@ -1565,6 +1566,8 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
     st.session_state.setdefault("cag_lib_edit", True)
 
     if st.session_state.pop("cag_busca_clear_pending", False):
+        st.session_state["cag_busca_nome"] = ""
+        st.session_state["cag_busca_nome_sug_list"] = []
         st.session_state["cag_busca_nif"] = ""
         st.session_state["cag_busca_email"] = ""
         st.session_state["cag_busca_tel_txt"] = ""
@@ -1579,9 +1582,11 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
         key_prefix="cag_busca",
         button_type="secondary",
         minimal=True,
+        pesquisa_unificada_cag=True,
     )
 
     if cag_busca_clicked:
+        nome_s = str(st.session_state.get("cag_busca_nome", "") or "").strip()
         nif_s = str(st.session_state.get("cag_busca_nif", "") or "").strip()
         em_s = str(st.session_state.get("cag_busca_email", "") or "").strip()
         tel_raw = str(st.session_state.get("cag_busca_tel_txt", "") or "").strip()
@@ -1589,8 +1594,8 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
         busca_doc_intl = bool(st.session_state.get("cag_busca_docintl"))
 
         msg_err: str | None = None
-        if not nif_s and not em_s and not tel_raw:
-            msg_err = "Indique NIF, email ou telefone."
+        if not nome_s and not nif_s and not em_s and not tel_raw:
+            msg_err = "Indique nome, NIF, email ou telefone."
         elif em_s and not email_valido(em_s):
             msg_err = "❌ Email inválido para pesquisa."
         elif tel_raw and not use_tel:
@@ -1604,12 +1609,18 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
         if msg_err:
             st.error(msg_err)
         else:
-            cands = buscar_clientes_por_nif_email_telefone(
+            merged: dict[int, str] = {}
+            if nome_s:
+                for cid, nm in buscar_clientes_por_prefixo_nome(nome_s, limit=80):
+                    merged[int(cid)] = str(nm)
+            for cid, nm in buscar_clientes_por_nif_email_telefone(
                 nif=nif_s,
                 email=em_s,
                 telefone=use_tel,
                 documento_internacional=bool(busca_doc_intl),
-            )
+            ):
+                merged[int(cid)] = str(nm)
+            cands = sorted(merged.items(), key=lambda x: (x[1].lower(), x[0]))
             if len(cands) == 0:
                 st.warning("Nenhum cliente encontrado com estes critérios.")
                 st.session_state.pop("cag_busca_cands", None)

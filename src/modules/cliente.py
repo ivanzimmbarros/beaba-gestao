@@ -350,6 +350,38 @@ def buscar_clientes_por_nif_email_telefone(
     return [(i, n) for i, n in out]
 
 
+def buscar_clientes_por_prefixo_nome(prefixo: str, *, limit: int = 40) -> list[tuple[int, str]]:
+    """
+    Clientes cujo nome começa por `prefixo` (trim, comparação por LIKE case-insensitive).
+    SQL parametrizado; `%` e `_` no prefixo são escapados. `limit` capa custo em bases grandes.
+    """
+    raw = (prefixo or "").strip()
+    if not raw:
+        return []
+    lim = max(1, min(int(limit), 200))
+
+    esc = raw.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    like_arg = f"{esc}%"
+
+    conn = get_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, nome FROM clientes
+            WHERE nome LIKE ? ESCAPE '\\'
+            ORDER BY nome COLLATE NOCASE
+            LIMIT ?
+            """,
+            (like_arg, lim),
+        )
+        return [(int(a), str(b)) for a, b in cur.fetchall()]
+    finally:
+        conn.close()
+
+
 def listar_clientes_resumo() -> list[tuple[int, str]]:
     """Lista `(id, nome)` para filtros e selects (ex.: agendamentos)."""
     conn = get_connection()
