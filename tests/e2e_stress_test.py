@@ -323,15 +323,15 @@ def _run_cag_consolidated_slice(cliente_id: int, ag_id: int) -> str | None:
     from src.modules.cliente import obter_cliente_completo
     from src.ui import page_clientes_agendamentos as cag
     from src.ui.constituicao_visual_shell import (
-        cag_island_mark_html,
+        cag_mother_mark_html,
         get_constituicao_cag_page_css,
     )
 
     css_cag = get_constituicao_cag_page_css()
-    if "bea-cv-cag-island-mark" not in css_cag or "bea-cv-cag-metric-card" not in css_cag:
+    if "bea-cv-cag-mother-mark" not in css_cag or "bea-cv-cag-metric-card" not in css_cag:
         return "cag: shell CSS Sereno incompleto"
-    if "bea-cv-cag-island-mark" not in cag_island_mark_html():
-        return "cag: marcador de ilha ausente"
+    if "bea-cv-cag-mother-mark" not in cag_mother_mark_html():
+        return "cag: marcador Ilha Mãe ausente"
 
     cli = obter_cliente_completo(cliente_id)
     if not cli:

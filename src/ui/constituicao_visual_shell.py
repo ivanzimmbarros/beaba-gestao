@@ -537,13 +537,18 @@ CV_BADGE_VERDE_BG = "#E8F0EA"
 CV_BADGE_VERDE_FG = "#76947D"
 
 
+def cag_mother_mark_html() -> str:
+    """Marcador DOM da Ilha Mãe CAG — um único cartão branco com todo o conteúdo operacional."""
+    return '<p class="bea-cv-cag-mother-mark" aria-hidden="true"></p>'
+
+
 def cag_island_mark_html() -> str:
-    """Marcador DOM para ilha flutuante na página CAG (CSS :has no shell)."""
-    return '<p class="bea-cv-cag-island-mark" aria-hidden="true"></p>'
+    """Legado: redirecciona para a Ilha Mãe (evitar ilhas aninhadas tipo Panorama Home)."""
+    return cag_mother_mark_html()
 
 
 def get_constituicao_cag_page_css() -> str:
-    """CAG: Horizonte visível, ilhas por coluna com marcador, cards métricas, badges (sem border Streamlit)."""
+    """CAG: Horizonte 300px + creme, Ilha Mãe branca, cards métricas internos discretos, badges."""
     return f"""
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
 <style>
@@ -555,29 +560,56 @@ def get_constituicao_cag_page_css() -> str:
         padding: 0;
         pointer-events: none;
     }}
-    /* Horizonte global já vem do shell; garantir transparência na área CAG */
+    /* Horizonte Sereno explícito na CAG: 300px sálvia 10% + restante #FAF8F5 */
+    section[data-testid="stMain"]:has(.bea-cv-cag-page-active) > div {{
+        background: linear-gradient(
+            to bottom,
+            rgba(118, 148, 125, 0.1) 0,
+            rgba(118, 148, 125, 0.1) 300px,
+            {CV_CREME} 300px,
+            {CV_CREME} 100%
+        ) !important;
+    }}
+    @media (max-width: 768px) {{
+        section[data-testid="stMain"]:has(.bea-cv-cag-page-active) > div {{
+            background: linear-gradient(
+                to bottom,
+                rgba(118, 148, 125, 0.1) 0,
+                rgba(118, 148, 125, 0.1) 150px,
+                {CV_CREME} 150px,
+                {CV_CREME} 100%
+            ) !important;
+        }}
+    }}
     section[data-testid="stMain"]:has(.bea-cv-cag-page-active) [data-testid="stAppViewContainer"],
     section[data-testid="stMain"]:has(.bea-cv-cag-page-active) [data-testid="stAppViewContainer"] > .main,
     section[data-testid="stMain"]:has(.bea-cv-cag-page-active) .main .block-container {{
         background: transparent !important;
     }}
-    /* Ilha = 1ª coluna com marcador (Template Master: branco, 20px, sombra composta, sem borda) */
+    /* Ilha Mãe: único container branco principal (flutua sobre o Horizonte) */
     section[data-testid="stMain"]:has(.bea-cv-cag-page-active)
-        [data-testid="column"]:has(.bea-cv-cag-island-mark) > div {{
-        background-color: {CV_BRANCO} !important;
-        border-radius: var(--cv-radius-isla) !important;
+        [data-testid="column"]:has(.bea-cv-cag-mother-mark) > div {{
+        background-color: #FFFFFF !important;
+        border-radius: 20px !important;
         border: none !important;
-        box-shadow: var(--cv-sombra-composta) !important;
-        padding: 24px !important;
+        box-shadow: 0 12px 40px rgba(118, 148, 125, 0.12) !important;
+        padding: 32px !important;
         margin-bottom: 0 !important;
     }}
     section[data-testid="stMain"]:has(.bea-cv-cag-page-active)
-        [data-testid="column"]:has(.bea-cv-cag-island-mark)
+        [data-testid="column"]:has(.bea-cv-cag-mother-mark)
         [data-testid="stVerticalBlockBorderWrapper"] {{
         background: transparent !important;
         border: none !important;
         box-shadow: none !important;
         padding: 0 !important;
+    }}
+    /* Cards de métricas do cliente: sem segunda sombra «Panorama»; respiro limpo */
+    section[data-testid="stMain"]:has(.bea-cv-cag-page-active)
+        [data-testid="column"]:has(.bea-cv-cag-mother-mark) .bea-cv-cag-metric-card {{
+        box-shadow: none !important;
+        background: rgba(250, 248, 245, 0.72) !important;
+        border: 1px solid rgba(118, 148, 125, 0.14) !important;
     }}
     .bea-cv-cag-h1 {{
         font-family: var(--cv-serif) !important;

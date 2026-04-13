@@ -27,16 +27,17 @@ def test_cag_metric_card_html_material_e_serif():
     assert "bea-cv-cag-metric-title" in h
 
 
-def test_cag_shell_css_ilhas_e_pagina_ativa():
+def test_cag_shell_css_ilha_mae_e_pagina_ativa():
     from src.ui.constituicao_visual_shell import (
-        cag_island_mark_html,
+        cag_mother_mark_html,
         get_constituicao_cag_page_css,
     )
 
-    assert "bea-cv-cag-island-mark" in cag_island_mark_html()
+    assert "bea-cv-cag-mother-mark" in cag_mother_mark_html()
     css = get_constituicao_cag_page_css()
     assert "bea-cv-cag-page-active" in css
-    assert "bea-cv-cag-island-mark" in css
+    assert "bea-cv-cag-mother-mark" in css
+    assert "0 12px 40px rgba(118, 148, 125, 0.12)" in css
     assert "bea-cv-cag-metric-card" in css
     assert "Material+Symbols+Outlined" in css
 

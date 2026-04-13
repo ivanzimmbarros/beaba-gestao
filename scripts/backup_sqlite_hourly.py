@@ -16,8 +16,8 @@ Cockpit Home (2026-04-12+): métricas e agenda leem apenas SQLite; cópia integr
 restaura também os dados exibidos em `page_home.py` (donuts, Panorama, Agenda). CSS/HTML
 do cockpit versionados em git — não há ficheiros extra no backup além do já coberto D1/D4.
 
-CAG Clientes+Agendamentos (2026-04-12+): Horizonte, ilhas e cards métricas em
-`constituicao_visual_shell.py` + `page_clientes_agendamentos.py`; regressão em
+CAG Clientes+Agendamentos (2026-04-12+): Horizonte Sereno, Ilha Mãe branca única e cards métricas
+do cliente em `constituicao_visual_shell.py` + `page_clientes_agendamentos.py`; regressão em
 `tests/test_cag_visual_sereno.py` e fatia E20 em `e2e_stress_test.py` — tudo em git, não no `.db`.
 """
 

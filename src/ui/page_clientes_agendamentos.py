@@ -35,7 +35,7 @@ from src.modules.telefone import normalizar_telefone_legado_ou_e164
 from src.modules.validators import email_valido, parse_data_iso
 from src.ui.telefone_widgets import ler_e164_de_widgets, preencher_session_telefone_de_e164, render_grupo_telefone
 from src.ui.theme import agenda_pagamento_dot, agenda_status_style, agenda_tipo_icon
-from src.ui.constituicao_visual_shell import cag_island_mark_html, inject_constituicao_cag_page
+from src.ui.constituicao_visual_shell import cag_mother_mark_html, inject_constituicao_cag_page
 from src.ui.fmt_euro_constituicao import fmt_euro_centavos
 from src.ui.widgets.cliente_search import CLIENTE_SEARCH_DATE_MIN, render_cliente_search_widget
 
@@ -1521,31 +1521,26 @@ def _cag_setor4_render_list_island(*, cliente_id: int, fv: int, ctx: dict[str, A
 
 
 def _render_cag_setor4_gestao_agendamentos(*, cliente_id: int, fv: int, tem_cliente: bool) -> None:
+    """Setor 4 + lista: mesma sequência de wizards/contexto (sem colunas/ilhas extra)."""
     keys = _cag_setor4_agenda_keys(cliente_id=cliente_id, fv=fv)
     _cag_setor4_run_flash_wizards_pend(cliente_id=cliente_id, fv=fv, tem_cliente=tem_cliente, keys=keys)
     ctx = _cag_setor4_try_prepare_context(cliente_id=cliente_id, fv=fv, tem_cliente=tem_cliente, keys=keys)
-    c_ag_f, = st.columns(1)
-    with c_ag_f:
-        st.markdown(cag_island_mark_html(), unsafe_allow_html=True)
-        st.markdown(_cag_section_title_html("4. Agendamentos"), unsafe_allow_html=True)
-        if ctx is None:
-            st.info(
-                "Seleccione ou **registe** um cliente na secção **3. Dados Pessoais** para criar ou alterar agendamentos."
-            )
-        else:
-            _cag_setor4_render_form_island(cliente_id=cliente_id, fv=fv, tem_cliente=tem_cliente, ctx=ctx)
+    st.markdown(_cag_section_title_html("4. Agendamentos"), unsafe_allow_html=True)
+    if ctx is None:
+        st.info(
+            "Seleccione ou **registe** um cliente na secção **3. Dados Pessoais** para criar ou alterar agendamentos."
+        )
+    else:
+        _cag_setor4_render_form_island(cliente_id=cliente_id, fv=fv, tem_cliente=tem_cliente, ctx=ctx)
     st.markdown(
         '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
         unsafe_allow_html=True,
     )
-    c_ag_l, = st.columns(1)
-    with c_ag_l:
-        st.markdown(cag_island_mark_html(), unsafe_allow_html=True)
-        st.markdown(_cag_section_title_html("Lista de agendamentos"), unsafe_allow_html=True)
-        if ctx is None:
-            st.caption("Seleccione ou registe um cliente para ver a listagem.")
-        else:
-            _cag_setor4_render_list_island(cliente_id=cliente_id, fv=fv, ctx=ctx)
+    st.markdown(_cag_section_title_html("Lista de agendamentos"), unsafe_allow_html=True)
+    if ctx is None:
+        st.caption("Seleccione ou registe um cliente para ver a listagem.")
+    else:
+        _cag_setor4_render_list_island(cliente_id=cliente_id, fv=fv, ctx=ctx)
 
 
 def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
@@ -1556,10 +1551,6 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
     render_back_and_breadcrumb(
         ["Home", "Clientes e Agendamentos", "Cadastro"],
         back_key="bea_back_clientes_agendamentos",
-    )
-    st.markdown(
-        '<h1 class="bea-cv-cag-h1">Cadastro de Clientes e Gestão de Agendamentos</h1>',
-        unsafe_allow_html=True,
     )
     st.markdown(
         '<div class="bea-cv-cag-page-active" data-testid="bea-cag-page-root"></div>',
@@ -1579,198 +1570,164 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
         st.session_state["cag_busca_tel_txt"] = ""
         st.session_state["cag_busca_docintl"] = False
 
-    st.markdown(_cag_section_title_html("1. Pesquisa de Clientes"), unsafe_allow_html=True)
-
-    c_busca, = st.columns(1)
-    with c_busca:
-        st.markdown(cag_island_mark_html(), unsafe_allow_html=True)
+    c_mom, = st.columns(1)
+    with c_mom:
+        st.markdown(cag_mother_mark_html(), unsafe_allow_html=True)
+        st.markdown(
+            '<h1 class="bea-cv-cag-h1">Cadastro de Clientes e Gestão de Agendamentos</h1>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(_cag_section_title_html("1. Pesquisa de Clientes"), unsafe_allow_html=True)
         cag_busca_clicked = render_cliente_search_widget(
             key_prefix="cag_busca",
             button_type="secondary",
             minimal=True,
         )
 
-    if cag_busca_clicked:
-        nif_s = str(st.session_state.get("cag_busca_nif", "") or "").strip()
-        em_s = str(st.session_state.get("cag_busca_email", "") or "").strip()
-        tel_raw = str(st.session_state.get("cag_busca_tel_txt", "") or "").strip()
-        use_tel = normalizar_telefone_legado_ou_e164(tel_raw) if tel_raw else ""
-        busca_doc_intl = bool(st.session_state.get("cag_busca_docintl"))
+        if cag_busca_clicked:
+            nif_s = str(st.session_state.get("cag_busca_nif", "") or "").strip()
+            em_s = str(st.session_state.get("cag_busca_email", "") or "").strip()
+            tel_raw = str(st.session_state.get("cag_busca_tel_txt", "") or "").strip()
+            use_tel = normalizar_telefone_legado_ou_e164(tel_raw) if tel_raw else ""
+            busca_doc_intl = bool(st.session_state.get("cag_busca_docintl"))
 
-        msg_err: str | None = None
-        if not nif_s and not em_s and not tel_raw:
-            msg_err = "Indique NIF, email ou telefone."
-        elif em_s and not email_valido(em_s):
-            msg_err = "❌ Email inválido para pesquisa."
-        elif tel_raw and not use_tel:
-            msg_err = "❌ Telefone inválido (ex.: +351912345678)."
-        elif nif_s:
-            ok_nf, msg_nf, _vx = normalizar_nif_armazenamento(
-                nif_s, documento_identificacao_internacional=bool(busca_doc_intl)
-            )
-            if not ok_nf:
-                msg_err = msg_nf
-        if msg_err:
-            st.error(msg_err)
-        else:
-            cands = buscar_clientes_por_nif_email_telefone(
-                nif=nif_s,
-                email=em_s,
-                telefone=use_tel,
-                documento_internacional=bool(busca_doc_intl),
-            )
-            if len(cands) == 0:
-                st.warning("Nenhum cliente encontrado com estes critérios.")
-                st.session_state.pop("cag_busca_cands", None)
-            elif len(cands) == 1:
-                cid = cands[0][0]
-                data = obter_cliente_completo(cid)
-                if not data:
-                    st.error("Cliente não encontrado.")
-                else:
-                    st.session_state.cag_edit_id = cid
-                    st.session_state.cag_form_v += 1
-                    st.session_state.pop("cag_busca_cands", None)
-                    st.session_state.cag_busca_clear_pending = True
-                    st.session_state.cag_cli_carregado_pesquisa = True
-                    st.success(f"Cliente encontrado (#{cid}). Pesquisa limpa para nova consulta.")
-                    st.rerun()
+            msg_err: str | None = None
+            if not nif_s and not em_s and not tel_raw:
+                msg_err = "Indique NIF, email ou telefone."
+            elif em_s and not email_valido(em_s):
+                msg_err = "❌ Email inválido para pesquisa."
+            elif tel_raw and not use_tel:
+                msg_err = "❌ Telefone inválido (ex.: +351912345678)."
+            elif nif_s:
+                ok_nf, msg_nf, _vx = normalizar_nif_armazenamento(
+                    nif_s, documento_identificacao_internacional=bool(busca_doc_intl)
+                )
+                if not ok_nf:
+                    msg_err = msg_nf
+            if msg_err:
+                st.error(msg_err)
             else:
-                st.session_state.cag_busca_cands = cands
-                st.rerun()
+                cands = buscar_clientes_por_nif_email_telefone(
+                    nif=nif_s,
+                    email=em_s,
+                    telefone=use_tel,
+                    documento_internacional=bool(busca_doc_intl),
+                )
+                if len(cands) == 0:
+                    st.warning("Nenhum cliente encontrado com estes critérios.")
+                    st.session_state.pop("cag_busca_cands", None)
+                elif len(cands) == 1:
+                    cid = cands[0][0]
+                    data = obter_cliente_completo(cid)
+                    if not data:
+                        st.error("Cliente não encontrado.")
+                    else:
+                        st.session_state.cag_edit_id = cid
+                        st.session_state.cag_form_v += 1
+                        st.session_state.pop("cag_busca_cands", None)
+                        st.session_state.cag_busca_clear_pending = True
+                        st.session_state.cag_cli_carregado_pesquisa = True
+                        st.success(f"Cliente encontrado (#{cid}). Pesquisa limpa para nova consulta.")
+                        st.rerun()
+                else:
+                    st.session_state.cag_busca_cands = cands
+                    st.rerun()
 
-    cands_m = st.session_state.get("cag_busca_cands")
-    if cands_m and len(cands_m) > 1:
+        cands_m = st.session_state.get("cag_busca_cands")
+        if cands_m and len(cands_m) > 1:
+            st.markdown(
+                '<div class="bea-cv-cag-h2" style="font-size:1.05rem;margin:0.6rem 0 0.35rem 0;">Resultados</div>',
+                unsafe_allow_html=True,
+            )
+            n_c = len(cands_m)
+            for row_start in range(0, n_c, 3):
+                cols = st.columns(3)
+                for i in range(3):
+                    ix = row_start + i
+                    if ix >= n_c:
+                        break
+                    cid, nome = cands_m[ix]
+                    nome_e = html.escape(str(nome))
+                    sub_e = html.escape(f"#{cid}")
+                    with cols[i]:
+                        st.markdown(
+                            _html_cli_result_card(nome_e=nome_e, sub_e=sub_e),
+                            unsafe_allow_html=True,
+                        )
+                        if st.button("Carregar ficha", key=f"cag_cand_load_{cid}", width="stretch"):
+                            data = obter_cliente_completo(cid)
+                            if not data:
+                                st.error("Cliente não encontrado.")
+                            else:
+                                st.session_state.cag_edit_id = cid
+                                st.session_state.cag_form_v += 1
+                                st.session_state.pop("cag_busca_cands", None)
+                                st.session_state.cag_busca_clear_pending = True
+                                st.session_state.cag_cli_carregado_pesquisa = True
+                                st.success(f"Cliente #{cid} selecionado. Pesquisa limpa.")
+                                st.rerun()
+
         st.markdown(
-            '<div class="bea-cv-cag-h2" style="font-size:1.05rem;margin:0.6rem 0 0.35rem 0;">Resultados</div>',
+            '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
             unsafe_allow_html=True,
         )
-        n_c = len(cands_m)
-        for row_start in range(0, n_c, 3):
-            cols = st.columns(3)
-            for i in range(3):
-                ix = row_start + i
-                if ix >= n_c:
-                    break
-                cid, nome = cands_m[ix]
-                nome_e = html.escape(str(nome))
-                sub_e = html.escape(f"#{cid}")
-                with cols[i]:
-                    st.markdown(cag_island_mark_html(), unsafe_allow_html=True)
-                    st.markdown(
-                        _html_cli_result_card(nome_e=nome_e, sub_e=sub_e),
-                        unsafe_allow_html=True,
-                    )
-                    if st.button("Carregar ficha", key=f"cag_cand_load_{cid}", width="stretch"):
-                        data = obter_cliente_completo(cid)
-                        if not data:
-                            st.error("Cliente não encontrado.")
-                        else:
-                            st.session_state.cag_edit_id = cid
-                            st.session_state.cag_form_v += 1
-                            st.session_state.pop("cag_busca_cands", None)
-                            st.session_state.cag_busca_clear_pending = True
-                            st.session_state.cag_cli_carregado_pesquisa = True
-                            st.success(f"Cliente #{cid} selecionado. Pesquisa limpa.")
-                            st.rerun()
+        st.markdown(_cag_section_title_html("2. Resumo do Cliente"), unsafe_allow_html=True)
 
-    st.markdown(
-        '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(_cag_section_title_html("2. Resumo do Cliente"), unsafe_allow_html=True)
+        eid = st.session_state.cag_edit_id
+        cli_data: dict | None = None
+        if eid is not None:
+            cli_data = obter_cliente_completo(int(eid))
+            if cli_data is None:
+                st.warning("Cliente seleccionado já não existe na base. Limpe o ecrã e pesquise novamente.")
 
-    eid = st.session_state.cag_edit_id
-    cli_data: dict | None = None
-    if eid is not None:
-        cli_data = obter_cliente_completo(int(eid))
-        if cli_data is None:
-            st.warning("Cliente seleccionado já não existe na base. Limpe o ecrã e pesquise novamente.")
+        cid_resumo = int(eid) if eid is not None else 0
+        resumo_ag = obter_resumo_agendamentos_cliente_setor2_proposta(cid_resumo)
 
-    resumo_ag = (
-        obter_resumo_agendamentos_cliente_setor2_proposta(int(eid))
-        if eid is not None
-        else obter_resumo_agendamentos_cliente_setor2_proposta(0)
-    )
-
-    c_resumo, = st.columns(1)
-    with c_resumo:
-        st.markdown(cag_island_mark_html(), unsafe_allow_html=True)
         _render_cag_setor2_dados_pessoais(cli=cli_data)
         _render_cag_setor2_resumo_agendamentos(resumo=resumo_ag)
 
-    st.markdown(
-        '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
-        unsafe_allow_html=True,
-    )
-    if st.button("Limpar Informações Apresentadas", key="cag_btn_limpar_tela", type="secondary"):
-        _reset_cag_page_state()
-        st.rerun()
+        st.markdown(
+            '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
+            unsafe_allow_html=True,
+        )
+        if st.button("Limpar Informações Apresentadas", key="cag_btn_limpar_tela", type="secondary"):
+            _reset_cag_page_state()
+            st.rerun()
 
-    fv = int(st.session_state.cag_form_v)
-    fk = f"cag_{fv}"
-    tem_cliente = eid is not None and cli_data is not None
+        fv = int(st.session_state.cag_form_v)
+        fk = f"cag_{fv}"
+        tem_cliente = eid is not None and cli_data is not None
 
-    if tem_cliente:
-        sig = (int(eid), fv)
-        if st.session_state.get("cag_ficha_loaded_sig") != sig and cli_data is not None:
-            _cag_carregar_ficha(fk, cli_data)
-            st.session_state.cag_ficha_loaded_sig = sig
-            st.session_state.cag_ag_hidr_pick = None
-            if st.session_state.get("cag_cli_carregado_pesquisa"):
-                st.session_state.cag_lib_edit = False
-                st.session_state._cag_lib_edit_prev = False
-            else:
-                st.session_state.cag_lib_edit = True
-                st.session_state._cag_lib_edit_prev = True
-    else:
-        _cag_garantir_defaults_formulario_vazio(fk)
-        st.session_state.pop("cag_ficha_loaded_sig", None)
+        if tem_cliente:
+            sig = (int(eid), fv)
+            if st.session_state.get("cag_ficha_loaded_sig") != sig and cli_data is not None:
+                _cag_carregar_ficha(fk, cli_data)
+                st.session_state.cag_ficha_loaded_sig = sig
+                st.session_state.cag_ag_hidr_pick = None
+                if st.session_state.get("cag_cli_carregado_pesquisa"):
+                    st.session_state.cag_lib_edit = False
+                    st.session_state._cag_lib_edit_prev = False
+                else:
+                    st.session_state.cag_lib_edit = True
+                    st.session_state._cag_lib_edit_prev = True
+        else:
+            _cag_garantir_defaults_formulario_vazio(fk)
+            st.session_state.pop("cag_ficha_loaded_sig", None)
 
-    cid_ag = int(eid) if tem_cliente else 0
-    keys = _cag_setor4_agenda_keys(cliente_id=cid_ag, fv=fv)
-    ctx: dict[str, Any] | None = None
+        cid_ag = int(eid) if tem_cliente else 0
 
-    st.markdown(
-        '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
-        unsafe_allow_html=True,
-    )
-    c_s3, = st.columns(1)
-    with c_s3:
-        st.markdown(cag_island_mark_html(), unsafe_allow_html=True)
+        st.markdown(
+            '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
+            unsafe_allow_html=True,
+        )
         _render_cag_setor3_dados_pessoais_completo(
             fk=fk,
             tem_cliente=tem_cliente,
             eid=int(eid) if tem_cliente else None,
         )
 
-    st.markdown(
-        '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
-        unsafe_allow_html=True,
-    )
-    c_s4, = st.columns(1)
-    with c_s4:
-        st.markdown(cag_island_mark_html(), unsafe_allow_html=True)
-        st.markdown(_cag_section_title_html("4. Agendamentos"), unsafe_allow_html=True)
-        _cag_setor4_run_flash_wizards_pend(cliente_id=cid_ag, fv=fv, tem_cliente=tem_cliente, keys=keys)
-        ctx = _cag_setor4_try_prepare_context(cliente_id=cid_ag, fv=fv, tem_cliente=tem_cliente, keys=keys)
-        if ctx is None:
-            st.info(
-                "Seleccione ou **registe** um cliente na secção **3. Dados Pessoais** "
-                "para criar ou alterar agendamentos."
-            )
-        else:
-            _cag_setor4_render_form_island(cliente_id=cid_ag, fv=fv, tem_cliente=tem_cliente, ctx=ctx)
-
-    st.markdown(
-        '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
-        unsafe_allow_html=True,
-    )
-    c_s5, = st.columns(1)
-    with c_s5:
-        st.markdown(cag_island_mark_html(), unsafe_allow_html=True)
-        st.markdown(_cag_section_title_html("Lista de agendamentos"), unsafe_allow_html=True)
-        if ctx is None:
-            st.caption("Seleccione ou registe um cliente para ver a listagem.")
-        else:
-            _cag_setor4_render_list_island(cliente_id=cid_ag, fv=fv, ctx=ctx)
+        st.markdown(
+            '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
+            unsafe_allow_html=True,
+        )
+        _render_cag_setor4_gestao_agendamentos(cliente_id=cid_ag, fv=fv, tem_cliente=tem_cliente)
