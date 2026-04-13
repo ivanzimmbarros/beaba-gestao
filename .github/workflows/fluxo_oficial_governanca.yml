@@ -23,8 +23,11 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Instalar pytest (smoke governança)
-        run: pip install pytest
+      # conftest.py importa create_tables → connection.py exige streamlit no PYTHONPATH
+      - name: Instalar dependências do projeto e pytest
+        run: |
+          pip install -r requirements.txt
+          pip install pytest
 
       - name: "Fase A — Analista + Diretor (PC1–PC2): norma, Painel, regras Cursor"
         run: |
