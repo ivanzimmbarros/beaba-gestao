@@ -54,8 +54,8 @@ def test_resolver_prioridade_edicao_sobre_linha1(fin_conn: sqlite3.Connection):
     ok, msg = resolver_salvar_formulario(
         fin_conn,
         linha1_cc="C",
-        linha1_natureza="N",
-        linha1_tipo="T2",
+        linha1_natureza="",
+        linha1_tipo="",
         linha2_centro_id=None,
         linha2_natureza_texto="",
         linha3_centro_id=obter_tipo_com_caminho(fin_conn, tid)["centro_custo_id"],
@@ -97,6 +97,28 @@ def test_tipo_com_lancamento_renomear_desactiva_e_cria_novo(fin_conn: sqlite3.Co
     rows = listar_linhas_tabela_tipos(fin_conn)
     assert len(rows) == 1
     assert rows[0]["tipo_nome"] == "Tnew"
+
+
+def test_resolver_linha1_apenas_cria_centro(fin_conn: sqlite3.Connection):
+    ok, msg = resolver_salvar_formulario(
+        fin_conn,
+        linha1_cc="  ApenasCC ",
+        linha1_natureza="",
+        linha1_tipo="",
+        linha2_centro_id=None,
+        linha2_natureza_texto="",
+        linha3_centro_id=None,
+        linha3_natureza_id=None,
+        linha3_tipo_texto="",
+        editando_tipo_id=None,
+    )
+    assert ok and not msg
+    fin_conn.commit()
+    rows = fin_conn.execute(
+        "SELECT nome FROM financeiro_centro_custo WHERE ativo = 1 AND nome = ?",
+        ("ApenasCC",),
+    ).fetchall()
+    assert len(rows) == 1
 
 
 def test_natureza_tem_lancamentos_detecta_via_tipo(fin_conn: sqlite3.Connection):

@@ -34,6 +34,8 @@ def test_render_page_financeiro_importa_inject_constituicao_fin():
     t = src.read_text(encoding="utf-8")
     assert "inject_constituicao_fin_page" in t
     assert "border=True" not in t
-    assert "fin_gxc_btn_salvar_linha1" in t
+    assert "fin_gxc_btn_salvar" in t
+    assert "SALVAR DADOS" in t
+    assert "fin_gxc_btn_salvar_linha1" not in t
     assert "Cadastramento de Novas Categorias" in t
-    assert "alinhadas à esquerda do formulário" in t
+    assert "vertical_alignment=\"center\"" in t

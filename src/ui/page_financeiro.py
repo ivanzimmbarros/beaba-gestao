@@ -63,8 +63,8 @@ def _executar_salvamento_categorias(
 ) -> tuple[bool, str]:
     """Persistência com `resolver_salvar_formulario`; sem UI."""
     l1_cc = str(st.session_state.get(f"{fk}l1_cc", "")).strip()
-    l1_nat = str(st.session_state.get(f"{fk}l1_nat", "")).strip()
-    l1_tip = str(st.session_state.get(f"{fk}l1_tip", "")).strip()
+    l1_nat = ""
+    l1_tip = ""
     l2_cc = st.session_state.get(f"{fk}l2_cc")
     l2_txt = str(st.session_state.get(f"{fk}l2_nat_txt", "")).strip()
     l3_cc = st.session_state.get(f"{fk}l3_cc")
@@ -143,26 +143,29 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
         )
 
         _h2("Cadastramento de Novas Categorias")
-        st.markdown(
-            '<p style="font-family:var(--cv-sans);font-size:0.88rem;font-weight:500;color:#2D332F;'
-            'margin:0 0 0.75rem 0;text-align:left;max-width:52rem;">'
-            "Caixas de texto e caixas de seleção — todas alinhadas à esquerda do formulário.</p>",
-            unsafe_allow_html=True,
-        )
 
         form_blk, _spacer = st.columns([2.65, 1.35])
         with form_blk:
-            # —— Linha 1: 3 entradas + botão de salvamento na mesma linha ——
-            l1c1, l1c2, l1c3, l1c4 = st.columns([1.15, 1.15, 1.15, 0.55])
-            with l1c1:
-                st.text_input("Centro de Custo", key=f"{fk}l1_cc")
-            with l1c2:
-                st.text_input("Natureza", key=f"{fk}l1_nat")
-            with l1c3:
-                st.text_input("Tipo do Gasto", key=f"{fk}l1_tip")
-            with l1c4:
-                st.markdown('<div style="height:1.55rem"></div>', unsafe_allow_html=True)
-                if st.button("Salvar", key="fin_gxc_btn_salvar_linha1"):
+            # —— Linha 1: só texto «Centro de Custo» ——
+            st.text_input("Centro de Custo", key=f"{fk}l1_cc")
+
+            # —— Linha 2: seleção CC + texto Natureza + SALVAR DADOS (mesma linha) ——
+            l2a, l2b, l2btn = st.columns([1.2, 1.2, 0.42], vertical_alignment="center")
+            with l2a:
+                if cc_ids:
+                    st.selectbox(
+                        "Centro de Custo",
+                        options=cc_ids,
+                        format_func=_fmt_cc,
+                        key=f"{fk}l2_cc",
+                    )
+                else:
+                    st.empty()
+            with l2b:
+                if cc_ids:
+                    st.text_input("Natureza", key=f"{fk}l2_nat_txt")
+            with l2btn:
+                if st.button("SALVAR DADOS", key="fin_gxc_btn_salvar", type="primary"):
                     try:
                         ok, msg = _executar_salvamento_categorias(conn, fk=fk, fv=fv, cc_ids=cc_ids)
                         if ok:
@@ -178,22 +181,7 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
                         conn.rollback()
                         st.error(f"Erro ao gravar: {e}")
 
-            # —— Linha 2: Centro (seleção) + Natureza (texto) ——
-            l2a, l2b = st.columns(2)
-            with l2a:
-                if cc_ids:
-                    st.selectbox(
-                        "Centro de Custo",
-                        options=cc_ids,
-                        format_func=_fmt_cc,
-                        key=f"{fk}l2_cc",
-                    )
-                else:
-                    st.caption("Cadastre um Centro de Custo (linha 1) para usar a linha 2.")
-            with l2b:
-                st.text_input("Natureza", key=f"{fk}l2_nat_txt")
-
-            # —— Linha 3: 2 seleções + Tipo de Gasto (texto) ——
+            # —— Linha 3: 2 seleções + texto «Tipos de gasto» ——
             l3a, l3b, l3c = st.columns(3)
             with l3a:
                 if cc_ids:
@@ -237,26 +225,7 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
                         key=f"{fk}l3_nat",
                     )
             with l3c:
-                st.text_input("Tipo de Gasto", key=f"{fk}l3_tip_txt")
-
-            # —— Salvar Dados: imediatamente abaixo da linha 3, alinhado à esquerda ——
-            sal_col, _ = st.columns([0.42, 3.0])
-            with sal_col:
-                if st.button("Salvar Dados", key="fin_gxc_btn_salvar", type="primary"):
-                    try:
-                        ok, msg = _executar_salvamento_categorias(conn, fk=fk, fv=fv, cc_ids=cc_ids)
-                        if ok:
-                            conn.commit()
-                            st.success("Dados gravados com sucesso.")
-                            st.session_state.fin_gxc_form_v = fv + 1
-                            st.session_state.fin_gxc_edit_tipo_id = None
-                            st.session_state.pop("_fin_gxc_prev_sel", None)
-                            st.rerun()
-                        else:
-                            st.warning(msg or "Não foi possível gravar.")
-                    except Exception as e:
-                        conn.rollback()
-                        st.error(f"Erro ao gravar: {e}")
+                st.text_input("Tipos de gasto", key=f"{fk}l3_tip_txt")
 
         st.markdown(
             '<div style="height:18px" aria-hidden="true"></div>',
@@ -271,8 +240,11 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
         tip_f_ids = [x[0] for x in tip_f_opts]
         tip_f_lbl = {x[0]: x[1] for x in tip_f_opts}
 
-        # Mesma linha: 3 multiselects com pesos iguais + Pesquisar + Limpar Campos
-        f1, f2, f3, f4, f5 = st.columns([1.0, 1.0, 1.0, 0.32, 0.38])
+        # Mesma linha: 3 multiselects + Pesquisar + Limpar Campos (alinhamento vertical ao centro)
+        f1, f2, f3, f4, f5 = st.columns(
+            [1.0, 1.0, 1.0, 0.32, 0.38],
+            vertical_alignment="center",
+        )
         with f1:
             st.multiselect(
                 "Centro de Custo",
@@ -295,15 +267,13 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
                 key="fin_gxc_ms_tip",
             )
         with f4:
-            st.markdown('<div style="height:1.55rem"></div>', unsafe_allow_html=True)
-            if st.button("Pesquisar", key="fin_gxc_btn_pesquisar"):
+            if st.button("PESQUISAR", key="fin_gxc_btn_pesquisar"):
                 st.session_state.fin_gxc_apl_cc = list(st.session_state.get("fin_gxc_ms_cc") or [])
                 st.session_state.fin_gxc_apl_nat = list(st.session_state.get("fin_gxc_ms_nat") or [])
                 st.session_state.fin_gxc_apl_tip = list(st.session_state.get("fin_gxc_ms_tip") or [])
                 st.rerun()
         with f5:
-            st.markdown('<div style="height:1.55rem"></div>', unsafe_allow_html=True)
-            if st.button("Limpar Campos", key="fin_gxc_btn_limpar_form"):
+            if st.button("LIMPAR CAMPOS", key="fin_gxc_btn_limpar_form"):
                 st.session_state.fin_gxc_form_v = fv + 1
                 st.session_state.fin_gxc_edit_tipo_id = None
                 st.session_state.pop("_fin_gxc_prev_sel", None)
@@ -357,8 +327,6 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
                             st.session_state.fin_gxc_form_v = fv + 1
                             st.session_state._fin_gxc_prime = {
                                 "l1_cc": path["centro_nome"],
-                                "l1_nat": path["natureza_nome"],
-                                "l1_tip": path["tipo_nome"],
                                 "l2_cc": path["centro_custo_id"],
                                 "l2_nat_txt": path["natureza_nome"],
                                 "l3_cc": path["centro_custo_id"],
@@ -375,5 +343,5 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
         if eid is not None:
             st.caption(
                 f"Linha da tabela seleccionada — Tipo de gasto **#{eid}**. "
-                "Alterações só ficam válidas após **Salvar** (linha 1) ou **Salvar Dados**."
+                "Alterações só ficam válidas após **SALVAR DADOS**."
             )

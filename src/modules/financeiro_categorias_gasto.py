@@ -245,6 +245,18 @@ def listar_linhas_tabela_tipos(
     ]
 
 
+def salvar_linha1_apenas_centro_custo(conn: sqlite3.Connection, nome_centro: str) -> tuple[bool, str]:
+    """Linha 1 só com texto «Centro de Custo»: cria ou reutiliza centro activo pelo nome."""
+    nome = (nome_centro or "").strip()
+    if not nome:
+        return False, "Indique o nome do Centro de Custo na linha 1."
+    try:
+        _obter_ou_criar_centro_ativo(conn, nome)
+        return True, ""
+    except sqlite3.IntegrityError as e:
+        return False, f"Dados em conflito: {e}"
+
+
 def salvar_linha1_tres_textos(conn: sqlite3.Connection, cc: str, nat: str, tipo: str) -> tuple[bool, str]:
     """Linha 1: cria (ou reutiliza) centro, natureza e tipo; transação única."""
     cc, nat, tipo = cc.strip(), nat.strip(), tipo.strip()
@@ -479,7 +491,8 @@ def resolver_salvar_formulario(
     editando_tipo_id: int | None,
 ) -> tuple[bool, str]:
     """
-    Prioridade: edição (tipo seleccionado) > linha 1 completa > linha 3 > linha 2.
+    Prioridade: edição (tipo seleccionado) > linha 3 > linha 2 > linha 1 só centro
+    > linha 1 legada (três textos — testes/API).
     """
     if editando_tipo_id is not None:
         if linha3_centro_id is None or linha3_natureza_id is None:
@@ -500,10 +513,6 @@ def resolver_salvar_formulario(
             linha3_tipo_texto,
         )
 
-    t1 = linha1_cc.strip() and linha1_natureza.strip() and linha1_tipo.strip()
-    if t1:
-        return salvar_linha1_tres_textos(conn, linha1_cc, linha1_natureza, linha1_tipo)
-
     if linha3_centro_id is not None and linha3_natureza_id is not None and linha3_tipo_texto.strip():
         return salvar_linha3_centro_natureza_e_tipo_texto(
             conn, int(linha3_centro_id), int(linha3_natureza_id), linha3_tipo_texto
@@ -512,9 +521,21 @@ def resolver_salvar_formulario(
     if linha2_centro_id is not None and linha2_natureza_texto.strip():
         return salvar_linha2_centro_e_natureza_texto(conn, int(linha2_centro_id), linha2_natureza_texto)
 
+    only_l1_centro = (
+        bool(linha1_cc.strip())
+        and not (linha1_natureza or "").strip()
+        and not (linha1_tipo or "").strip()
+    )
+    if only_l1_centro:
+        return salvar_linha1_apenas_centro_custo(conn, linha1_cc)
+
+    t1 = linha1_cc.strip() and linha1_natureza.strip() and linha1_tipo.strip()
+    if t1:
+        return salvar_linha1_tres_textos(conn, linha1_cc, linha1_natureza, linha1_tipo)
+
     return (
         False,
-        "Preencha a linha 1 (três campos), ou a linha 2 (centro + natureza), ou a linha 3 (centro + natureza + tipo).",
+        "Preencha a linha 1 (nome do centro), ou a linha 2 (centro + natureza), ou a linha 3 (centro + natureza + tipo).",
     )
 
 
@@ -540,8 +561,8 @@ def sincronizar_nomes_superiores_apos_edicao_por_texto_linha1(
         ok, msg = actualizar_nome_centro_custo(conn, path["centro_custo_id"], novo_cc)
         if not ok:
             errs.append(msg)
-    if novo_nat and novo_nat != path["natureza_nome"]:
-        ok, msg = actualizar_nome_natureza_se_sem_lancamentos(conn, path["natureza_id"], novo_nat)
+    if (novo_nat or "").strip() and (novo_nat or "").strip() != path["natureza_nome"]:
+        ok, msg = actualizar_nome_natureza_se_sem_lancamentos(conn, path["natureza_id"], novo_nat.strip())
         if not ok:
             errs.append(msg)
     if errs:
