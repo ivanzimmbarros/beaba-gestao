@@ -85,6 +85,30 @@ def listar_tipos_ativos_com_rotulo(conn: sqlite3.Connection) -> list[tuple[int, 
     return [(int(r[0]), str(r[1])) for r in cur.fetchall()]
 
 
+def listar_naturezas_ativas_so_nome(conn: sqlite3.Connection) -> list[tuple[int, str]]:
+    """(id, nome) — só o nome gravado na natureza (filtros sem caminho hierárquico)."""
+    cur = conn.execute(
+        """
+        SELECT id, nome FROM financeiro_natureza
+        WHERE ativo = 1
+        ORDER BY nome COLLATE NOCASE
+        """
+    )
+    return [(int(r[0]), str(r[1])) for r in cur.fetchall()]
+
+
+def listar_tipos_gasto_ativos_so_nome(conn: sqlite3.Connection) -> list[tuple[int, str]]:
+    """(id, nome) — só o nome gravado no tipo de gasto (filtros sem caminho hierárquico)."""
+    cur = conn.execute(
+        """
+        SELECT id, nome FROM financeiro_tipo_gasto
+        WHERE ativo = 1
+        ORDER BY nome COLLATE NOCASE
+        """
+    )
+    return [(int(r[0]), str(r[1])) for r in cur.fetchall()]
+
+
 def listar_centros_custo_ativos(conn: sqlite3.Connection | None = None) -> list[tuple[int, str]]:
     cx = _conn(conn)
     cur = cx.execute(

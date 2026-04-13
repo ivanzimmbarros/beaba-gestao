@@ -10,6 +10,8 @@ from src.database.connection import create_tables, get_connection
 from src.modules.financeiro_categorias_gasto import (
     atualizar_tipo_a_partir_formulario,
     listar_linhas_tabela_tipos,
+    listar_naturezas_ativas_so_nome,
+    listar_tipos_gasto_ativos_so_nome,
     natureza_tem_lancamentos,
     obter_tipo_com_caminho,
     resolver_salvar_formulario,
@@ -97,6 +99,17 @@ def test_tipo_com_lancamento_renomear_desactiva_e_cria_novo(fin_conn: sqlite3.Co
     rows = listar_linhas_tabela_tipos(fin_conn)
     assert len(rows) == 1
     assert rows[0]["tipo_nome"] == "Tnew"
+
+
+def test_filtros_so_nome_sem_rotulo_hierarquico(fin_conn: sqlite3.Connection):
+    salvar_linha1_tres_textos(fin_conn, "C1", "N1", "T1")
+    fin_conn.commit()
+    nat = listar_naturezas_ativas_so_nome(fin_conn)
+    tip = listar_tipos_gasto_ativos_so_nome(fin_conn)
+    assert any(n[1] == "N1" for n in nat)
+    assert all("—" not in n[1] for n in nat)
+    assert any(t[1] == "T1" for t in tip)
+    assert all("·" not in t[1] for t in tip)
 
 
 def test_resolver_linha1_apenas_cria_centro(fin_conn: sqlite3.Connection):

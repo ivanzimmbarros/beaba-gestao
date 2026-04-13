@@ -11,9 +11,9 @@ from src.database.connection import get_connection
 from src.modules.financeiro_categorias_gasto import (
     listar_centros_custo_ativos,
     listar_linhas_tabela_tipos,
-    listar_naturezas_ativas_com_rotulo,
+    listar_naturezas_ativas_so_nome,
     listar_naturezas_por_centro_ativas,
-    listar_tipos_ativos_com_rotulo,
+    listar_tipos_gasto_ativos_so_nome,
     obter_tipo_com_caminho,
     resolver_salvar_formulario,
 )
@@ -52,6 +52,16 @@ def _df_selected_rows(ev: object | None, session_key: str) -> list[int]:
 def _h2(text: str) -> None:
     t = html.escape(text)
     st.markdown(f'<div class="bea-cv-cag-h2">{t}</div>', unsafe_allow_html=True)
+
+
+_CAD_WIDGET_SUF = ("l1_cc", "l2_cc", "l2_nat_txt", "l3_cc", "l3_nat", "l3_tip_txt")
+
+
+def _purge_fin_gxc_cadastro_widget_keys(*form_versions: int) -> None:
+    """Remove widgets do cadastro (6 campos) para forçar repovoamento vazio após gravar/limpar."""
+    for v in form_versions:
+        for s in _CAD_WIDGET_SUF:
+            st.session_state.pop(f"fin_gxc_{int(v)}_{s}", None)
 
 
 def _executar_salvamento_categorias(
@@ -144,13 +154,13 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
 
         _h2("Cadastramento de Novas Categorias")
 
-        form_blk, _spacer = st.columns([2.65, 1.35])
-        with form_blk:
-            # —— Linha 1: só texto «Centro de Custo» ——
+        cadastro = st.container()
+        with cadastro:
+            # —— Linha 1: só texto «Centro de Custo» (largura total do bloco) ——
             st.text_input("Centro de Custo", key=f"{fk}l1_cc")
 
-            # —— Linha 2: seleção CC + texto Natureza + SALVAR DADOS (sempre visível na mesma linha) ——
-            l2a, l2b, l2btn = st.columns([1.2, 1.2, 0.42], vertical_alignment="center")
+            # —— Linha 2: caixas mais largas + SALVAR DADOS (mesma largura total que a linha 1) ——
+            l2a, l2b, l2btn = st.columns([0.46, 0.46, 0.08], vertical_alignment="center")
             with l2a:
                 if cc_ids:
                     st.selectbox(
@@ -176,7 +186,9 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
                         if ok:
                             conn.commit()
                             st.success("Dados gravados com sucesso.")
+                            _purge_fin_gxc_cadastro_widget_keys(fv)
                             st.session_state.fin_gxc_form_v = fv + 1
+                            _purge_fin_gxc_cadastro_widget_keys(fv + 1)
                             st.session_state.fin_gxc_edit_tipo_id = None
                             st.session_state.pop("_fin_gxc_prev_sel", None)
                             st.rerun()
@@ -238,12 +250,18 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
         )
         _h2("Filtros de Categorias Cadastradas")
 
-        nat_f_opts = listar_naturezas_ativas_com_rotulo(conn)
-        tip_f_opts = listar_tipos_ativos_com_rotulo(conn)
+        nat_f_opts = listar_naturezas_ativas_so_nome(conn)
+        tip_f_opts = listar_tipos_gasto_ativos_so_nome(conn)
         nat_f_ids = [x[0] for x in nat_f_opts]
         nat_f_lbl = {x[0]: x[1] for x in nat_f_opts}
         tip_f_ids = [x[0] for x in tip_f_opts]
         tip_f_lbl = {x[0]: x[1] for x in tip_f_opts}
+
+        def _fmt_nat_filtro(i: int) -> str:
+            return nat_f_lbl.get(int(i), str(i))
+
+        def _fmt_tipo_filtro(i: int) -> str:
+            return tip_f_lbl.get(int(i), str(i))
 
         # Mesma linha: 3 multiselects + Pesquisar + Limpar Campos (alinhamento vertical ao centro)
         f1, f2, f3, f4, f5 = st.columns(
@@ -261,14 +279,14 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
             st.multiselect(
                 "Natureza",
                 options=nat_f_ids,
-                format_func=lambda i: nat_f_lbl.get(int(i), str(i)),
+                format_func=_fmt_nat_filtro,
                 key="fin_gxc_ms_nat",
             )
         with f3:
             st.multiselect(
                 "Tipo de Gasto",
                 options=tip_f_ids,
-                format_func=lambda i: tip_f_lbl.get(int(i), str(i)),
+                format_func=_fmt_tipo_filtro,
                 key="fin_gxc_ms_tip",
             )
         with f4:
@@ -279,7 +297,9 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
                 st.rerun()
         with f5:
             if st.button("LIMPAR CAMPOS", key="fin_gxc_btn_limpar_form"):
+                _purge_fin_gxc_cadastro_widget_keys(fv)
                 st.session_state.fin_gxc_form_v = fv + 1
+                _purge_fin_gxc_cadastro_widget_keys(fv + 1)
                 st.session_state.fin_gxc_edit_tipo_id = None
                 st.session_state.pop("_fin_gxc_prev_sel", None)
                 st.rerun()
