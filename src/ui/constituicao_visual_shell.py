@@ -8,6 +8,7 @@ Documentação normativa: Template Master + `.cursorrules`. Injectar após
 from __future__ import annotations
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 # —— Template Master (valores literais canónicos) ——
 CV_SALVIA = "#76947D"
@@ -552,7 +553,10 @@ def get_constituicao_cag_page_css() -> str:
     return f"""
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
 <style>
-    .bea-cv-cag-page-active {{ display: none !important; }}
+    /* Slot injectado em app.py (col_main) — class + data-testid preservam :has() fiável */
+    .bea-cv-cag-slot {{
+        display: none !important;
+    }}
     .bea-cv-cag-gap {{
         min-height: 20px;
         height: 20px;
@@ -560,8 +564,13 @@ def get_constituicao_cag_page_css() -> str:
         padding: 0;
         pointer-events: none;
     }}
-    /* Horizonte Sereno explícito na CAG: 300px sálvia 10% + restante #FAF8F5 */
-    section[data-testid="stMain"]:has(.bea-cv-cag-page-active) > div {{
+    /* Horizonte Sereno: sálvia 10% no topo + creme (stMain + filho directo — Streamlit 1.3x–1.6x) */
+    section[data-testid="stMain"]:has(.bea-cv-cag-slot),
+    section[data-testid="stMain"]:has(.bea-cv-cag-slot) > div,
+    /* Fallback: :has() por vezes não bate com a árvore real; inject_cag_visual_mount() põe body.bea-cv-cag-page */
+    body.bea-cv-cag-page .stApp,
+    body.bea-cv-cag-page section[data-testid="stMain"],
+    body.bea-cv-cag-page section[data-testid="stMain"] > div {{
         background: linear-gradient(
             to bottom,
             rgba(118, 148, 125, 0.1) 0,
@@ -571,7 +580,11 @@ def get_constituicao_cag_page_css() -> str:
         ) !important;
     }}
     @media (max-width: 768px) {{
-        section[data-testid="stMain"]:has(.bea-cv-cag-page-active) > div {{
+        section[data-testid="stMain"]:has(.bea-cv-cag-slot),
+        section[data-testid="stMain"]:has(.bea-cv-cag-slot) > div,
+        body.bea-cv-cag-page .stApp,
+        body.bea-cv-cag-page section[data-testid="stMain"],
+        body.bea-cv-cag-page section[data-testid="stMain"] > div {{
             background: linear-gradient(
                 to bottom,
                 rgba(118, 148, 125, 0.1) 0,
@@ -581,18 +594,26 @@ def get_constituicao_cag_page_css() -> str:
             ) !important;
         }}
     }}
-    section[data-testid="stMain"]:has(.bea-cv-cag-page-active) [data-testid="stAppViewContainer"],
-    section[data-testid="stMain"]:has(.bea-cv-cag-page-active) [data-testid="stAppViewContainer"] > .main,
-    section[data-testid="stMain"]:has(.bea-cv-cag-page-active) .main .block-container {{
+    section[data-testid="stMain"]:has(.bea-cv-cag-slot) [data-testid="stAppViewContainer"],
+    section[data-testid="stMain"]:has(.bea-cv-cag-slot) [data-testid="stAppViewContainer"] > .main,
+    section[data-testid="stMain"]:has(.bea-cv-cag-slot) .main .block-container,
+    body.bea-cv-cag-page [data-testid="stAppViewContainer"],
+    body.bea-cv-cag-page [data-testid="stAppViewContainer"] > .main,
+    body.bea-cv-cag-page .main .block-container {{
         background: transparent !important;
     }}
     /*
-     * Ilha Mãe: o Streamlit muda a árvore interna (column > div nem sempre existe).
-     * Forçar o cartão branco no .block-container que contém o marcador — especificidade
-     * acima da regra transparent imediatamente acima.
+     * Ilha Mãe: coluna central (0.88) que contém o slot injectado em app.py.
+     * Estilo no próprio [data-testid="column"] — não depender do filho > div (varia por versão).
+     * Inclui .bea-cv-cag-mother-island (classe aplicada por inject_cag_visual_mount).
      */
-    section[data-testid="stMain"]:has(.bea-cv-cag-page-active)
-        .main .block-container:has(.bea-cv-cag-mother-mark) {{
+    section[data-testid="stMain"]:has(.bea-cv-cag-slot)
+        [data-testid="column"]:has(.bea-cv-cag-slot),
+    section[data-testid="stMain"]:has(.bea-cv-cag-slot)
+        [data-testid="column"]:has([data-testid="bea-cag-slot"]),
+    section[data-testid="stMain"]:has(.bea-cv-cag-slot) [data-testid="stColumn"]:has(.bea-cv-cag-slot),
+    body.bea-cv-cag-page [data-testid="column"].bea-cv-cag-mother-island,
+    body.bea-cv-cag-page [data-testid="stColumn"].bea-cv-cag-mother-island {{
         background-color: #FFFFFF !important;
         background: #FFFFFF !important;
         border-radius: 20px !important;
@@ -600,21 +621,18 @@ def get_constituicao_cag_page_css() -> str:
         box-shadow: {CV_SOMBRA_COMPOSTA} !important;
         padding: 32px !important;
         box-sizing: border-box !important;
-        margin-top: 0.5rem !important;
-        margin-bottom: 1.5rem !important;
+        margin-top: 0.35rem !important;
+        margin-bottom: 1.25rem !important;
     }}
-    /* Reforço: coluna/VerticalBlock com marcador (versões antigas ou DOM alternativo) */
-    section[data-testid="stMain"]:has(.bea-cv-cag-page-active)
-        [data-testid="column"]:has(.bea-cv-cag-mother-mark) > div,
-    section[data-testid="stMain"]:has(.bea-cv-cag-page-active)
-        [data-testid="stVerticalBlockBorderWrapper"]:has(.bea-cv-cag-mother-mark) {{
-        background-color: transparent !important;
-        box-shadow: none !important;
-        padding: 0 !important;
-    }}
-    /* Cards de resumo do cliente (não Panorama Home): sombra removida, título sans no bloco abaixo */
-    section[data-testid="stMain"]:has(.bea-cv-cag-page-active)
-        .main .block-container:has(.bea-cv-cag-mother-mark) .bea-cv-cag-metric-card {{
+    /* Cards métricas resumo (dentro da coluna CAG) */
+    section[data-testid="stMain"]:has(.bea-cv-cag-slot)
+        [data-testid="column"]:has(.bea-cv-cag-slot) .bea-cv-cag-metric-card,
+    section[data-testid="stMain"]:has(.bea-cv-cag-slot)
+        [data-testid="column"]:has([data-testid="bea-cag-slot"]) .bea-cv-cag-metric-card,
+    section[data-testid="stMain"]:has(.bea-cv-cag-slot)
+        [data-testid="stColumn"]:has(.bea-cv-cag-slot) .bea-cv-cag-metric-card,
+    body.bea-cv-cag-page [data-testid="column"].bea-cv-cag-mother-island .bea-cv-cag-metric-card,
+    body.bea-cv-cag-page [data-testid="stColumn"].bea-cv-cag-mother-island .bea-cv-cag-metric-card {{
         box-shadow: none !important;
         background: rgba(250, 248, 245, 0.72) !important;
         border: 1px solid rgba(118, 148, 125, 0.14) !important;
@@ -715,7 +733,8 @@ def get_constituicao_cag_page_css() -> str:
         color: {CV_TITULO};
     }}
     /* Botões na área CAG (ilhas sem wrapper nativo) */
-    section[data-testid="stMain"]:has(.bea-cv-cag-page-active) .block-container [data-testid="stButton"] > button {{
+    section[data-testid="stMain"]:has(.bea-cv-cag-slot) .block-container [data-testid="stButton"] > button,
+    body.bea-cv-cag-page section[data-testid="stMain"] .block-container [data-testid="stButton"] > button {{
         border-radius: 9999px !important;
         background: rgba(118, 148, 125, 0.15) !important;
         border: 1px solid rgba(118, 148, 125, 0.35) !important;
@@ -724,20 +743,61 @@ def get_constituicao_cag_page_css() -> str:
         font-weight: 500 !important;
         box-shadow: none !important;
     }}
-    section[data-testid="stMain"]:has(.bea-cv-cag-page-active) .block-container [data-testid="stButton"] > button:hover {{
+    section[data-testid="stMain"]:has(.bea-cv-cag-slot) .block-container [data-testid="stButton"] > button:hover,
+    body.bea-cv-cag-page section[data-testid="stMain"] .block-container [data-testid="stButton"] > button:hover {{
         background: rgba(118, 148, 125, 0.22) !important;
         border-color: rgba(118, 148, 125, 0.5) !important;
     }}
-    section[data-testid="stMain"]:has(.bea-cv-cag-page-active) .block-container [data-testid="stButton"] > button[kind="primary"] {{
+    section[data-testid="stMain"]:has(.bea-cv-cag-slot) .block-container [data-testid="stButton"] > button[kind="primary"],
+    body.bea-cv-cag-page section[data-testid="stMain"] .block-container [data-testid="stButton"] > button[kind="primary"] {{
         background: rgba(118, 148, 125, 0.22) !important;
         border-color: {CV_SALVIA} !important;
         color: #FFFFFF !important;
     }}
-    section[data-testid="stMain"]:has(.bea-cv-cag-page-active) .block-container [data-testid="stButton"] > button[kind="primary"]:hover {{
+    section[data-testid="stMain"]:has(.bea-cv-cag-slot) .block-container [data-testid="stButton"] > button[kind="primary"]:hover,
+    body.bea-cv-cag-page section[data-testid="stMain"] .block-container [data-testid="stButton"] > button[kind="primary"]:hover {{
         filter: brightness(1.05);
     }}
 </style>
 """
+
+
+def inject_cag_visual_mount() -> None:
+    """Marca body + coluna ancestral do slot (sem depender de CSS :has no pai). Executar no fim da coluna principal."""
+    components.html(
+        """
+<script>
+(function () {
+  function mount() {
+    try {
+      var doc = window.parent.document;
+      doc.body.classList.remove("bea-cv-cag-page");
+      doc.querySelectorAll(".bea-cv-cag-mother-island").forEach(function (el) {
+        el.classList.remove("bea-cv-cag-mother-island");
+      });
+      var slot = doc.querySelector(".bea-cv-cag-slot");
+      if (!slot) return;
+      doc.body.classList.add("bea-cv-cag-page");
+      var el = slot.parentElement;
+      while (el && el !== doc.body) {
+        var tid = el.getAttribute && el.getAttribute("data-testid");
+        if (tid === "column" || tid === "stColumn") {
+          el.classList.add("bea-cv-cag-mother-island");
+          break;
+        }
+        el = el.parentElement;
+      }
+    } catch (e) {}
+  }
+  mount();
+  setTimeout(mount, 30);
+  setTimeout(mount, 120);
+})();
+</script>
+        """,
+        height=0,
+        width=0,
+    )
 
 
 def inject_constituicao_cag_page() -> None:

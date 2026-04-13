@@ -18,7 +18,8 @@ do cockpit versionados em git — não há ficheiros extra no backup além do j�
 
 CAG Clientes+Agendamentos (2026-04-12+): Horizonte Sereno, Ilha Mãe branca única e cards métricas
 do cliente em `constituicao_visual_shell.py` + `page_clientes_agendamentos.py`; regressão em
-`tests/test_cag_visual_sereno.py` e fatia E20 em `e2e_stress_test.py` — tudo em git, não no `.db`.
+`tests/test_cag_visual_sereno.py`, `tests/cag_setor4_ui_contract.py` (Setor 4: lista no expander
+«Agendamentos») e fatia E20 em `e2e_stress_test.py` — tudo em git, não no `.db`.
 """
 
 from __future__ import annotations

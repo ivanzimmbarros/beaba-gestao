@@ -3,7 +3,8 @@ E17.1 — Job único de backup em GitHub Actions: prepara DB em CI, backup, encr
 Escreve gha_backup_state.json e GITHUB_OUTPUT encrypted_path.
 
 Nota 2026-04-12: UI consolidada em `page_clientes_agendamentos.py` (legado `page_clientes` /
-`page_agendamentos` removido do repositório).
+`page_agendamentos` removido do repositório). CAG Setor 4: listagem dentro do expander
+«Agendamentos» — testes `tests/cag_setor4_ui_contract.py` / `test_clientes_agendamentos_page.py`.
 """
 
 from __future__ import annotations

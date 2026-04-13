@@ -1,4 +1,8 @@
-"""E17.2 — restore_sqlite.py: trava de branch e fluxo mínimo com flag de teste."""
+"""E17.2 — restore_sqlite.py: trava de branch e fluxo mínimo com flag de teste.
+
+Pós-restore operacional: a UI CAG Setor 4 (lista no expander «Agendamentos») cobre-se com
+`tests/cag_setor4_ui_contract.py` e `generate_e17_restore_certificate.py` (pytest alargado).
+"""
 
 from __future__ import annotations
 

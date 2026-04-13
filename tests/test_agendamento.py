@@ -453,3 +453,9 @@ def test_cancelar_pre_venda():
     ok_c, msg_c = cancelar_agendamento(ag_id, devolver_ao_buffer=True)
     assert ok_c
     assert "pré-venda" in msg_c.lower()
+
+
+def test_ui_cag_setor4_lista_dentro_expander_agendamentos():
+    from tests.cag_setor4_ui_contract import assert_cag_setor4_lista_dentro_expander_agendamentos
+
+    assert_cag_setor4_lista_dentro_expander_agendamentos()

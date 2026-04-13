@@ -9,7 +9,7 @@ from __future__ import annotations
 import streamlit as st
 
 from src.database.connection import create_tables
-from src.ui.constituicao_visual_shell import inject_constituicao_shell
+from src.ui.constituicao_visual_shell import inject_cag_visual_mount, inject_constituicao_shell
 from src.ui.page_catalogo import render_page_catalogo
 from src.ui.page_clientes_agendamentos import render_page_clientes_agendamentos
 from src.ui.page_colaboradores import render_page_colaboradores
@@ -50,6 +50,11 @@ def main() -> None:
             if page == "home":
                 render_page_home()
             elif page == "clientes_agendamentos":
+                # Marcador DOM para CSS (Ilha Mãe + Horizonte): fica na coluna central, imune a sanitização do markdown interno.
+                st.markdown(
+                    '<div class="bea-cv-cag-slot" data-testid="bea-cag-slot" aria-hidden="true"></div>',
+                    unsafe_allow_html=True,
+                )
                 render_page_clientes_agendamentos(
                     render_back_and_breadcrumb=_shell_no_breadcrumb,
                 )
@@ -75,12 +80,17 @@ def main() -> None:
                 )
             elif page in ("clientes", "agendamentos"):
                 st.session_state.page = "clientes_agendamentos"
+                st.markdown(
+                    '<div class="bea-cv-cag-slot" data-testid="bea-cag-slot" aria-hidden="true"></div>',
+                    unsafe_allow_html=True,
+                )
                 render_page_clientes_agendamentos(
                     render_back_and_breadcrumb=_shell_no_breadcrumb,
                 )
             else:
                 st.session_state.page = "home"
                 render_page_home()
+            inject_cag_visual_mount()
     except Exception as err:
         st.error("Ocorreu um erro ao renderizar esta página. Detalhes abaixo.")
         st.exception(err)

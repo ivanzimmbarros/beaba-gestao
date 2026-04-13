@@ -2,9 +2,17 @@
 
 Pós-decomissionamento 2026-04-12: `page_clientes.py` e `page_agendamentos.py` foram removidos;
 esta suite cobre apenas `page_clientes_agendamentos.py`.
+
+Setor 4 (2026-04): listagem dentro do expander «Agendamentos» — ver `tests/cag_setor4_ui_contract.py`.
 """
 
+from tests.cag_setor4_ui_contract import assert_cag_setor4_lista_dentro_expander_agendamentos
+
 from src.modules.agendamento import obter_resumo_agendamentos_cliente_setor2_proposta
+
+
+def test_cag_setor4_lista_obrigatoriamente_dentro_expander_agendamentos():
+    assert_cag_setor4_lista_dentro_expander_agendamentos()
 
 
 def test_page_clientes_agendamentos_importa_e_expoe_render():

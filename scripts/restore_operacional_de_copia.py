@@ -14,6 +14,8 @@ antes de restaurar para evitar bloqueio de ficheiro no Windows.
 Arquitectura UI (2026-04-12): páginas legadas Clientes/Agendamentos substituídas por
 `page_clientes_agendamentos.py` (registo em governança). Shell Sereno CAG
 (`constituicao_visual_shell`) e testes `test_cag_visual_sereno` / E20 seguem o repo, não a cópia `.db`.
+Após recuperação, validar UI CAG Setor 4 (listagem dentro do expander «Agendamentos») com
+`tests/cag_setor4_ui_contract.py` / pytest nos ficheiros de teste CAG.
 """
 
 from __future__ import annotations

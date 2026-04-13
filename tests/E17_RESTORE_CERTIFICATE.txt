@@ -1,6 +1,6 @@
 ========================================================================
 E17 — CERTIFICADO DE RESTORE / BACKUP ENCRIPTADO (BeaBa Gestão)
-Emitido em (UTC): 2026-04-12T15:12:54Z
+Emitido em (UTC): 2026-04-13T01:03:12Z
 Repositório: C:\Users\ivanz\OneDrive\Documentos\Projetos - AI\2. Controle Geral BeaBa\beaba-gestao
 
 1) Pytest: tests/test_restore_sqlite.py + tests/test_sqlite_backup_verify.py
@@ -11,14 +11,15 @@ exit_code=0
 platform win32 -- Python 3.14.3, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\ivanz\AppData\Local\Python\pythoncore-3.14-64\python.exe
 cachedir: .pytest_cache
 rootdir: C:\Users\ivanz\OneDrive\Documentos\Projetos - AI\2. Controle Geral BeaBa\beaba-gestao
-collecting ... collected 4 items
+collecting ... collected 5 items
 
-tests/test_restore_sqlite.py::test_restore_blocks_without_allowed_branch PASSED [ 25%]
-tests/test_restore_sqlite.py::test_restore_ok_with_allow_flag_and_encrypted_file PASSED [ 50%]
-tests/test_sqlite_backup_verify.py::test_header_rejects_garbage PASSED   [ 75%]
-tests/test_sqlite_backup_verify.py::test_verify_backup_destination_on_minimal_db PASSED [100%]
+tests/test_restore_sqlite.py::test_restore_blocks_without_allowed_branch PASSED [ 20%]
+tests/test_restore_sqlite.py::test_restore_ok_with_allow_flag_and_encrypted_file PASSED [ 40%]
+tests/test_sqlite_backup_verify.py::test_header_rejects_garbage PASSED   [ 60%]
+tests/test_sqlite_backup_verify.py::test_verify_backup_destination_on_minimal_db PASSED [ 80%]
+tests/test_clientes_agendamentos_page.py::test_cag_setor4_lista_obrigatoriamente_dentro_expander_agendamentos PASSED [100%]
 
-============================== 4 passed in 2.14s ==============================
+============================== 5 passed in 2.95s ==============================
 
 --- stderr ---
 

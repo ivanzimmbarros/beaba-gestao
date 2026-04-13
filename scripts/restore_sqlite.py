@@ -12,7 +12,8 @@ SQLite reposto; UI Master (ilhas, Horizonte) acompanha o código no repositório
 
 CAG: o mesmo restore repõe dados de clientes/agendamentos no SQLite; o aspeto Sereno
 (Horizonte, ilhas, cards) vem do código (`constituicao_visual_shell`, `page_clientes_agendamentos`)
-e dos testes `test_cag_visual_sereno` / E20.
+e dos testes `test_cag_visual_sereno` / E20. Setor 4 (lista no expander «Agendamentos»):
+contrato em `tests/cag_setor4_ui_contract.py` + `test_clientes_agendamentos_page.py`.
 """
 
 from __future__ import annotations

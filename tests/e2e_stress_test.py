@@ -3,7 +3,8 @@ E20 — Fortaleza Operacional: stress & E2E (Jornada do Herói + fronteiras + co
 
 - Jornada (N iterações): cadastro → pré-venda → venda integral → associação → verificações
   → **slice CAG** (`obter_cliente_completo`, resumo setor 2, `listar_agendamentos`,
-  helpers `page_clientes_agendamentos`: identificação, HTML naturezas, ordenação).
+  helpers `page_clientes_agendamentos`: identificação, HTML naturezas, ordenação,
+  **contrato Setor 4** — listagem dentro do expander «Agendamentos», ver `cag_setor4_ui_contract`).
 - Execução completa (1000 iterações): `python tests/e2e_stress_test.py`
 - Pytest (mais leve): `pytest tests/e2e_stress_test.py` (defeito N=35; sobrescrever com
   `E2E_STRESS_HERO_ITERATIONS=1000`).
@@ -322,16 +323,13 @@ def _run_cag_consolidated_slice(cliente_id: int, ag_id: int) -> str | None:
     )
     from src.modules.cliente import obter_cliente_completo
     from src.ui import page_clientes_agendamentos as cag
-    from src.ui.constituicao_visual_shell import (
-        cag_mother_mark_html,
-        get_constituicao_cag_page_css,
-    )
+    from src.ui.constituicao_visual_shell import get_constituicao_cag_page_css
 
     css_cag = get_constituicao_cag_page_css()
-    if "bea-cv-cag-mother-mark" not in css_cag or "bea-cv-cag-metric-card" not in css_cag:
+    if "bea-cv-cag-slot" not in css_cag or "bea-cv-cag-metric-card" not in css_cag:
         return "cag: shell CSS Sereno incompleto"
-    if "bea-cv-cag-mother-mark" not in cag_mother_mark_html():
-        return "cag: marcador Ilha Mãe ausente"
+    if ':has(.bea-cv-cag-slot)' not in css_cag:
+        return "cag: CSS Ilha Mãe (:has slot) ausente"
 
     cli = obter_cliente_completo(cliente_id)
     if not cli:
@@ -377,6 +375,13 @@ def _run_cag_consolidated_slice(cliente_id: int, ag_id: int) -> str | None:
     )
     if "bea-cv-cag-metric-card" not in h_mc or "material-symbols-outlined" not in h_mc:
         return "cag: card métrica Sereno inválido"
+
+    try:
+        from tests.cag_setor4_ui_contract import assert_cag_setor4_lista_dentro_expander_agendamentos
+
+        assert_cag_setor4_lista_dentro_expander_agendamentos()
+    except AssertionError as exc:
+        return f"cag: setor4 expander/lista — {exc}"
 
     return None
 

@@ -6,7 +6,8 @@ Variáveis de ambiente (opcionais):
   BEABA_REPO_ROOT — raiz do repositório (defeito: pai de scripts/)
 
 Arquitectura UI (2026-04-12): decomissionamento de `page_clientes.py` e `page_agendamentos.py`;
-UI consolidada em `page_clientes_agendamentos.py` (PAINEL / JSON).
+UI consolidada em `page_clientes_agendamentos.py` (PAINEL / JSON). Setor 4 CAG (lista no expander
+«Agendamentos»): regressão em `tests/cag_setor4_ui_contract.py` e suites pytest associadas.
 """
 
 from __future__ import annotations

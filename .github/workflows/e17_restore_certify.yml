@@ -14,6 +14,9 @@ on:
       - "scripts/backup_sqlite_hourly.py"
       - "tests/test_restore_sqlite.py"
       - "tests/test_sqlite_backup_verify.py"
+      - "tests/cag_setor4_ui_contract.py"
+      - "tests/test_clientes_agendamentos_page.py"
+      - "src/ui/page_clientes_agendamentos.py"
       - ".github/workflows/e17_restore_certify.yml"
       - ".github/workflows/backup_encrypt_callable.yml"
       - ".github/workflows/restore_weekly.yml"
@@ -43,8 +46,11 @@ jobs:
           pip install -r requirements.txt
           pip install pytest
 
-      - name: Pytest — test_restore_sqlite + test_sqlite_backup_verify
-        run: python -m pytest tests/test_restore_sqlite.py tests/test_sqlite_backup_verify.py -v --tb=short
+      - name: Pytest — restore + verify + contrato CAG Setor 4
+        run: |
+          python -m pytest tests/test_restore_sqlite.py tests/test_sqlite_backup_verify.py \
+            tests/test_clientes_agendamentos_page.py::test_cag_setor4_lista_obrigatoriamente_dentro_expander_agendamentos \
+            -v --tb=short
 
       - name: Regenerar certificado no runner
         run: python scripts/generate_e17_restore_certificate.py
