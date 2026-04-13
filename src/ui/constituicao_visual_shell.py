@@ -8,7 +8,6 @@ Documentação normativa: Template Master + `.cursorrules`. Injectar após
 from __future__ import annotations
 
 import streamlit as st
-import streamlit.components.v1 as components
 
 # —— Template Master (valores literais canónicos) ——
 CV_SALVIA = "#76947D"
@@ -772,7 +771,7 @@ def get_constituicao_cag_page_css() -> str:
 
 def inject_area_unica_visual_mount() -> None:
     """CAG, Vendas, Colaboradores, Catálogo ou Início: `body` + coluna Ilha Mãe conforme o slot no DOM."""
-    components.html(
+    st.iframe(
         """
 <script>
 (function () {
@@ -841,8 +840,8 @@ def inject_area_unica_visual_mount() -> None:
 })();
 </script>
         """,
-        height=0,
-        width=0,
+        width=1,
+        height=1,
     )
 
 

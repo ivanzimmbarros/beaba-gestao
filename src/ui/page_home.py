@@ -240,7 +240,7 @@ def render_page_home() -> None:
                     snap.donut1_confirmados_hoje,
                     snap.donut1_previstos_semana,
                 ),
-                use_container_width=True,
+                width="stretch",
                 config=cfg,
                 key="home_donut_hoje",
             )
@@ -252,7 +252,7 @@ def render_page_home() -> None:
             st.markdown(home_island_mark_html(), unsafe_allow_html=True)
             st.plotly_chart(
                 _figure_donut_contagem_unica(snap.donut2_agendados_e_confirmados_semana),
-                use_container_width=True,
+                width="stretch",
                 config=cfg,
                 key="home_donut_semana",
             )
@@ -264,7 +264,7 @@ def render_page_home() -> None:
             st.markdown(home_island_mark_html(), unsafe_allow_html=True)
             st.plotly_chart(
                 _figure_donut_taxa_cancelamento(snap.donut3_taxa_cancelamento_pct),
-                use_container_width=True,
+                width="stretch",
                 config=cfg,
                 key="home_donut_retencao",
             )
@@ -292,7 +292,7 @@ def render_page_home() -> None:
             if st.button(
                     f"Explorar — estimativa ({m_lbl})",
                     key="home_drill_estimativa",
-                    use_container_width=True,
+                    width="stretch",
                 ):
                     _navigate_cag_drill(
                         banner=(
@@ -316,7 +316,7 @@ def render_page_home() -> None:
             if st.button(
                     f"Explorar — não confirmados ({m_lbl})",
                     key="home_drill_nao_conf",
-                    use_container_width=True,
+                    width="stretch",
                 ):
                     _navigate_cag_drill(
                         banner=(
@@ -341,7 +341,7 @@ def render_page_home() -> None:
             if st.button(
                     f"Explorar — pré-agendados ({m_lbl})",
                     key="home_drill_pre_ag",
-                    use_container_width=True,
+                    width="stretch",
                 ):
                     _navigate_cag_drill(
                         banner=(
@@ -365,7 +365,7 @@ def render_page_home() -> None:
             if st.button(
                     "Explorar — créditos em carteira",
                     key="home_drill_credito",
-                    use_container_width=True,
+                    width="stretch",
                 ):
                     _navigate_cag_drill(
                         banner=(

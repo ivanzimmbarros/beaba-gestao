@@ -36,7 +36,7 @@ def render_shell_sidebar(*, current_page: str) -> None:
             if st.button(
                 label,
                 key=f"bea_nav_{page_key}",
-                use_container_width=True,
+                width="stretch",
                 type="primary" if is_active else "secondary",
             ):
                 st.session_state.page = page_key
@@ -47,9 +47,9 @@ def render_shell_sidebar(*, current_page: str) -> None:
             '<p class="bea-sidebar-sector-title">Outros</p>',
             unsafe_allow_html=True,
         )
-        if st.button("Dashboards", key="bea_nav_dash", use_container_width=True):
+        if st.button("Dashboards", key="bea_nav_dash", width="stretch"):
             st.session_state.page = "dashboards"
             st.rerun()
-        if st.button("Relatórios", key="bea_nav_rel", use_container_width=True):
+        if st.button("Relatórios", key="bea_nav_rel", width="stretch"):
             st.session_state.page = "relatorios"
             st.rerun()
