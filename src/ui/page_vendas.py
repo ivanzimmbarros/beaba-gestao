@@ -16,6 +16,7 @@ from src.modules.cliente import (
     atualizar_cliente,
     buscar_cliente_por_whatsapp,
     buscar_clientes_por_nif_email_telefone,
+    buscar_clientes_por_prefixo_nome,
     cadastrar_cliente,
     obter_cliente_completo,
 )
@@ -714,41 +715,56 @@ def render_page_vendas(
         unsafe_allow_html=True,
     )
     st.markdown(_vnd_section_title_html("1. Pesquisa de clientes"), unsafe_allow_html=True)
+    if st.session_state.pop("vnd_busca_clear_pending", False):
+        st.session_state["vnd_busca_nome"] = ""
+        st.session_state["vnd_busca_nome_sug_list"] = []
+        st.session_state["vnd_busca_nif"] = ""
+        st.session_state["vnd_busca_email"] = ""
+        st.session_state["vnd_busca_tel_txt"] = ""
+        st.session_state.pop("vnd_busca_docintl", None)
+
     vnd_busca_clicked = render_cliente_search_widget(
         key_prefix="vnd_busca",
         button_type="secondary",
         minimal=True,
+        pesquisa_unificada=True,
     )
 
     if vnd_busca_clicked:
+        nome_s = str(st.session_state.get("vnd_busca_nome", "") or "").strip()
         nif_s = str(st.session_state.get("vnd_busca_nif", "") or "").strip()
         em_s = str(st.session_state.get("vnd_busca_email", "") or "").strip()
         tel_raw = str(st.session_state.get("vnd_busca_tel_txt", "") or "").strip()
         use_tel = normalizar_telefone_legado_ou_e164(tel_raw) if tel_raw else ""
-        busca_doc_intl = bool(st.session_state.get("vnd_busca_docintl"))
 
         msg_err: str | None = None
-        if not nif_s and not em_s and not tel_raw:
-            msg_err = "Indique NIF, email ou telefone."
+        if not nome_s and not nif_s and not em_s and not tel_raw:
+            msg_err = "Indique nome, NIF, email ou telefone."
         elif em_s and not email_valido(em_s):
             msg_err = "❌ Email inválido para pesquisa."
         elif tel_raw and not use_tel:
             msg_err = "❌ Telefone inválido (ex.: +351912345678)."
         elif nif_s:
             ok_nf, msg_nf, _vx = normalizar_nif_armazenamento(
-                nif_s, documento_identificacao_internacional=bool(busca_doc_intl)
+                nif_s, documento_identificacao_internacional=False
             )
             if not ok_nf:
                 msg_err = msg_nf
         if msg_err:
             st.error(msg_err)
         else:
-            cands = buscar_clientes_por_nif_email_telefone(
+            merged: dict[int, str] = {}
+            if nome_s:
+                for cid, nm in buscar_clientes_por_prefixo_nome(nome_s, limit=80):
+                    merged[int(cid)] = str(nm)
+            for cid, nm in buscar_clientes_por_nif_email_telefone(
                 nif=nif_s,
                 email=em_s,
                 telefone=use_tel,
-                documento_internacional=bool(busca_doc_intl),
-            )
+                documento_internacional=False,
+            ):
+                merged[int(cid)] = str(nm)
+            cands = sorted(merged.items(), key=lambda x: (x[1].lower(), x[0]))
             if len(cands) == 0:
                 st.warning(
                     "Nenhum cliente encontrado. Abra **Novo cliente** no expander abaixo."
@@ -764,6 +780,7 @@ def render_page_vendas(
                     st.session_state.venda_cliente_id = cid
                     st.session_state._vnda_prime = {"prefix": f"{fk}_vc", "data": d}
                     st.session_state.pop("vnd_busca_cands", None)
+                    st.session_state.vnd_busca_clear_pending = True
                     st.success(f"Cliente encontrado (#{cid}). Ficha carregada.")
                     st.rerun()
             else:
@@ -785,6 +802,7 @@ def render_page_vendas(
                 st.session_state.venda_cliente_id = cid_v
                 st.session_state._vnda_prime = {"prefix": f"{fk}_vc", "data": d_v}
                 st.session_state.pop("vnd_busca_cands", None)
+                st.session_state.vnd_busca_clear_pending = True
                 st.rerun()
 
     _c1, _c2 = st.columns([3, 1])
@@ -795,6 +813,7 @@ def render_page_vendas(
         ):
             st.session_state.venda_cliente_id = None
             st.session_state.pop("vnd_busca_cands", None)
+            st.session_state.vnd_busca_clear_pending = True
             st.rerun()
 
     cli_id = st.session_state.venda_cliente_id

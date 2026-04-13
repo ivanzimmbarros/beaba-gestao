@@ -1582,7 +1582,7 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
         key_prefix="cag_busca",
         button_type="secondary",
         minimal=True,
-        pesquisa_unificada_cag=True,
+        pesquisa_unificada=True,
     )
 
     if cag_busca_clicked:

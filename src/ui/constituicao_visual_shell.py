@@ -633,8 +633,8 @@ def get_constituicao_cag_page_css() -> str:
     }}
     /* Facilitador de nome (pesquisa unificada): painel com sombra Master + borda #718355 suave */
     section[data-testid="stMain"]:has(.bea-cv-cag-slot)
-        .main div[data-testid="stVerticalBlock"]:has(p[data-testid="bea-cag-nome-sug-panel"]),
-    body.bea-cv-cag-page .main div[data-testid="stVerticalBlock"]:has(p[data-testid="bea-cag-nome-sug-panel"]) {{
+        .main div[data-testid="stVerticalBlock"]:has(p[data-testid="bea-busca-nome-sug-panel"]),
+    body.bea-cv-cag-page .main div[data-testid="stVerticalBlock"]:has(p[data-testid="bea-busca-nome-sug-panel"]) {{
         border-radius: 12px !important;
         background: {CV_BRANCO} !important;
         box-shadow: {CV_SOMBRA_COMPOSTA} !important;
@@ -932,6 +932,17 @@ def get_constituicao_vnd_page_css() -> str:
         box-sizing: border-box !important;
         margin-top: 0.35rem !important;
         margin-bottom: 1.25rem !important;
+    }}
+    /* Facilitador de nome (pesquisa unificada) — paridade Master com CAG */
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot)
+        .main div[data-testid="stVerticalBlock"]:has(p[data-testid="bea-busca-nome-sug-panel"]),
+    body.bea-cv-vnd-page .main div[data-testid="stVerticalBlock"]:has(p[data-testid="bea-busca-nome-sug-panel"]) {{
+        border-radius: 12px !important;
+        background: {CV_BRANCO} !important;
+        box-shadow: {CV_SOMBRA_COMPOSTA} !important;
+        border: 1px solid rgba(113, 131, 85, 0.22) !important;
+        padding: 8px 10px 10px 10px !important;
+        margin: 4px 0 8px 0 !important;
     }}
     section[data-testid="stMain"]:has(.bea-cv-vnd-slot)
         [data-testid="column"]:has(.bea-cv-vnd-slot) .bea-cv-vnd-status-surface,

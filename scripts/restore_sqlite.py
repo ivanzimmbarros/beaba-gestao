@@ -18,7 +18,7 @@ e dos testes `test_cag_visual_sereno`, `test_vnd_visual_sereno`, `test_col_visua
 `test_clientes_agendamentos_page.py` (incl. pesquisa unificada `cag_busca_nome`); E2E em
 `tests/e2e_stress_test.py` (_run_cag_consolidated_slice) valida contrato do widget em
 `src/ui/widgets/cliente_search.py`; dados de busca por prefixo de nome: `tests/test_cliente.py`; Painel de Vendas:
-`tests/vnd_ui_contract.py`; Colaboradores:
+`tests/vnd_ui_contract.py`, `test_vnd_visual_sereno` (pesquisa unificada em `page_vendas.py`); Colaboradores:
 `tests/col_ui_contract.py`; Catálogo: `tests/cat_ui_contract.py`; Início: `tests/home_ui_contract.py`.
 """
 

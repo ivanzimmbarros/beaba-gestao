@@ -5,7 +5,7 @@ E20 — Fortaleza Operacional: stress & E2E (Jornada do Herói + fronteiras + co
   → **slice CAG** (`obter_cliente_completo`, resumo setor 2, `listar_agendamentos`,
   helpers `page_clientes_agendamentos`: identificação, HTML naturezas, ordenação,
   **contrato Setor 4** — listagem dentro do expander «Agendamentos», ver `cag_setor4_ui_contract`);
-  **pesquisa unificada CAG** — contrato estático do `cliente_search.py` (grelha rótulos/inputs+botão, sem checkbox na busca).
+  **pesquisa unificada CAG + VND** — contrato estático de `cliente_search.py` e `page_vendas.py` (grelha, sem checkbox na busca).
 - **slice Vendas (UI Sereno):** Ilha Mãe + slot — `tests/vnd_ui_contract.py`,
   `tests/test_vnd_visual_sereno.py`.
 - **slice Colaboradores (UI Sereno):** `tests/col_ui_contract.py`, `tests/test_col_visual_sereno.py`.
@@ -395,10 +395,10 @@ def _run_cag_consolidated_slice(cliente_id: int, ag_id: int) -> str | None:
     cs_path = Path(__file__).resolve().parents[1] / "src" / "ui" / "widgets" / "cliente_search.py"
     cs = cs_path.read_text(encoding="utf-8")
     try:
-        i0 = cs.index("def _render_widget_pesquisa_unificada_cag")
+        i0 = cs.index("def _render_widget_pesquisa_unificada")
         i1 = cs.index("def _render_widget_legacy", i0)
     except ValueError:
-        return "cag: cliente_search pesquisa_unificada_cag — funções ausentes"
+        return "cag: cliente_search pesquisa unificada — funções ausentes"
     chunk = cs[i0:i1]
     if 'vertical_alignment="center"' not in chunk:
         return "cag: pesquisa unificada — linha inputs+botão sem vertical_alignment center"
@@ -406,6 +406,11 @@ def _run_cag_consolidated_slice(cliente_id: int, ag_id: int) -> str | None:
         return "cag: pesquisa unificada — checkbox Doc. internacional não permitido na área de busca"
     if 'placeholder="NIF"' not in chunk:
         return "cag: pesquisa unificada — placeholder NIF ausente"
+
+    repo = Path(__file__).resolve().parents[1]
+    pv = (repo / "src" / "ui" / "page_vendas.py").read_text(encoding="utf-8")
+    if "pesquisa_unificada=True" not in pv or "vnd_busca_nome" not in pv:
+        return "vnd: Painel de Vendas sem pesquisa unificada (nome + flag)"
 
     return None
 

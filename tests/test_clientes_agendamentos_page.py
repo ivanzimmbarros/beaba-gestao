@@ -4,7 +4,7 @@ Pós-decomissionamento 2026-04-12: `page_clientes.py` e `page_agendamentos.py` f
 esta suite cobre apenas `page_clientes_agendamentos.py`.
 
 Pesquisa unificada CAG (2026-04): estado de sessão `cag_busca_nome` + widget
-`src/ui/widgets/cliente_search.py` (`pesquisa_unificada_cag`); testes de dados em `tests/test_cliente.py`.
+`src/ui/widgets/cliente_search.py` (`pesquisa_unificada`); testes de dados em `tests/test_cliente.py`.
 
 Setor 4 (2026-04): listagem dentro do expander «Agendamentos» — ver `tests/cag_setor4_ui_contract.py`.
 """
@@ -26,7 +26,7 @@ def test_cag_busca_nome_integrado_estado_sessao_na_pagina():
     """Contrato UI: pesquisa unificada lê `cag_busca_nome` (prefixo `cag_busca` + `_nome`)."""
     src = (_REPO_ROOT / "src" / "ui" / "page_clientes_agendamentos.py").read_text(encoding="utf-8")
     assert "cag_busca_nome" in src
-    assert "pesquisa_unificada_cag=True" in src
+    assert "pesquisa_unificada=True" in src
 
 
 def test_page_clientes_agendamentos_importa_e_expoe_render():

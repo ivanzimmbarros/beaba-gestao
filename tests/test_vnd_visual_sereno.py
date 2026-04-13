@@ -4,11 +4,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tests.vnd_ui_contract import assert_vnd_area_unica_shell
+from tests.vnd_ui_contract import (
+    assert_vnd_area_unica_shell,
+    assert_vnd_pesquisa_unificada_cliente_na_pagina,
+)
 
 
 def test_vnd_contract_alinhado_com_app_e_shell():
     assert_vnd_area_unica_shell()
+
+
+def test_vnd_pesquisa_unificada_contrato():
+    assert_vnd_pesquisa_unificada_cliente_na_pagina()
 
 
 def test_page_vendas_sem_border_true():
@@ -37,6 +44,7 @@ def test_vnd_shell_css_ilha_mae_e_slot():
     assert "bea-cv-vnd-mother-island" in css
     assert "0 12px 40px rgba(118, 148, 125, 0.12)" in css
     assert "0 2px 10px rgba(0, 0, 0, 0.05)" in css
+    assert "bea-busca-nome-sug-panel" in css
 
 
 def test_render_page_vendas_importa_inject_constituicao_vnd():

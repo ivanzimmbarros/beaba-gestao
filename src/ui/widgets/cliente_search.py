@@ -1,4 +1,4 @@
-"""Área de busca de cliente — layout compacto (3 campos) ou pesquisa unificada CAG (Nome | NIF | Email | Telefone)."""
+"""Área de busca de cliente — layout legado ou pesquisa unificada (Nome | NIF | Email | Telefone + Procurar)."""
 
 from __future__ import annotations
 
@@ -31,13 +31,13 @@ def _refresh_nome_suggestions(prefix: str, min_chars: int = 1) -> None:
     st.session_state[f"{prefix}_nome_sug_list"] = buscar_clientes_por_prefixo_nome(t, limit=12)
 
 
-def _render_cag_nome_facilitador(*, key_prefix: str) -> None:
+def _render_nome_facilitador(*, key_prefix: str) -> None:
     """Lista clicável (não é selectbox); texto livre mantido no `text_input`."""
     sugs: list[tuple[int, str]] = list(st.session_state.get(f"{key_prefix}_nome_sug_list") or [])
     if not sugs:
         return
     st.markdown(
-        f'<p data-testid="bea-cag-nome-sug-panel" style="margin:6px 0 4px 0;font-size:0.72rem;'
+        f'<p data-testid="bea-busca-nome-sug-panel" style="margin:6px 0 4px 0;font-size:0.72rem;'
         f"color:#718355;font-weight:600;\">Sugestões</p>",
         unsafe_allow_html=True,
     )
@@ -60,24 +60,27 @@ def render_cliente_search_widget(
     button_label: str = "Procurar",
     button_type: str = "primary",
     minimal: bool = False,
+    pesquisa_unificada: bool = False,
     pesquisa_unificada_cag: bool = False,
 ) -> bool:
     """
-    Com `pesquisa_unificada_cag=True` (Clientes e Agendamentos): rótulos numa linha; inputs + «Procurar»
-    noutra (`vertical_alignment="center"` na linha dos widgets — centra o botão à altura dos text_input).
-    Linha seguinte: sugestões de nome (col. Nome), quando existirem.
+    Com `pesquisa_unificada=True` (ou legado `pesquisa_unificada_cag=True`): rótulos numa linha; inputs +
+    «Procurar» noutra (`vertical_alignment="center"`). Linha seguinte: sugestões de nome (col. Nome).
 
-    Caso contrário: layout compacto legado (NIF+doc | email | telefone | botão), com `{prefix}_docintl`.
+    Usado em Clientes e Agendamentos, Painel de Vendas, e extensível a Colaboradores / Catálogo.
 
-    Chaves de sessão CAG: `{prefix}_nome`, `{prefix}_nome_sug_list`, `{prefix}_nif`, `{prefix}_email`,
-    `{prefix}_tel_txt`, `{prefix}_go`.
+    Caso contrário: layout legado (NIF+doc | email | telefone | botão), com `{prefix}_docintl`.
+
+    Chaves de sessão (modo unificado): `{prefix}_nome`, `{prefix}_nome_sug_list`, `{prefix}_nif`,
+    `{prefix}_email`, `{prefix}_tel_txt`, `{prefix}_go`.
 
     Retorna True se «Procurar» foi clicado neste rerun.
     """
     st.session_state.setdefault(f"{key_prefix}_nome_sug_list", [])
 
-    if pesquisa_unificada_cag:
-        return _render_widget_pesquisa_unificada_cag(
+    unified = bool(pesquisa_unificada or pesquisa_unificada_cag)
+    if unified:
+        return _render_widget_pesquisa_unificada(
             key_prefix=key_prefix,
             button_label=button_label,
             button_type=button_type,
@@ -92,7 +95,7 @@ def render_cliente_search_widget(
     )
 
 
-def _render_widget_pesquisa_unificada_cag(
+def _render_widget_pesquisa_unificada(
     *,
     key_prefix: str,
     button_label: str,
@@ -168,7 +171,7 @@ def _render_widget_pesquisa_unificada_cag(
 
     r2n, _, _, _, _ = st.columns(col_weights, gap=gap, vertical_alignment="top")
     with r2n:
-        _render_cag_nome_facilitador(key_prefix=key_prefix)
+        _render_nome_facilitador(key_prefix=key_prefix)
 
     return bool(clicked)
 
