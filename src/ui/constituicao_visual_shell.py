@@ -586,27 +586,20 @@ def get_constituicao_cag_page_css() -> str:
     section[data-testid="stMain"]:has(.bea-cv-cag-page-active) .main .block-container {{
         background: transparent !important;
     }}
-    /* Ilha Mãe: único container branco principal (flutua sobre o Horizonte) */
+    /* Ilha Mãe: st.container() (VerticalBlock) com marcador — evita coluna extra dentro de col_main */
     section[data-testid="stMain"]:has(.bea-cv-cag-page-active)
-        [data-testid="column"]:has(.bea-cv-cag-mother-mark) > div {{
+        [data-testid="stVerticalBlockBorderWrapper"]:has(.bea-cv-cag-mother-mark) {{
         background-color: #FFFFFF !important;
         border-radius: 20px !important;
         border: none !important;
-        box-shadow: 0 12px 40px rgba(118, 148, 125, 0.12) !important;
+        box-shadow: {CV_SOMBRA_COMPOSTA} !important;
         padding: 32px !important;
         margin-bottom: 0 !important;
     }}
+    /* Não neutralizar wrappers internos (expanders, colunas de calendário) — evita regressões funcionais */
+    /* Cards de resumo do cliente (não Panorama Home): sombra removida, título sans no bloco abaixo */
     section[data-testid="stMain"]:has(.bea-cv-cag-page-active)
-        [data-testid="column"]:has(.bea-cv-cag-mother-mark)
-        [data-testid="stVerticalBlockBorderWrapper"] {{
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        padding: 0 !important;
-    }}
-    /* Cards de métricas do cliente: sem segunda sombra «Panorama»; respiro limpo */
-    section[data-testid="stMain"]:has(.bea-cv-cag-page-active)
-        [data-testid="column"]:has(.bea-cv-cag-mother-mark) .bea-cv-cag-metric-card {{
+        [data-testid="stVerticalBlockBorderWrapper"]:has(.bea-cv-cag-mother-mark) .bea-cv-cag-metric-card {{
         box-shadow: none !important;
         background: rgba(250, 248, 245, 0.72) !important;
         border: 1px solid rgba(118, 148, 125, 0.14) !important;
@@ -688,13 +681,13 @@ def get_constituicao_cag_page_css() -> str:
         font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
     }}
     .bea-cv-cag-metric-title {{
-        font-family: var(--cv-serif) !important;
-        font-weight: 500 !important;
+        font-family: var(--cv-sans) !important;
+        font-weight: 600 !important;
         font-size: 0.82rem !important;
         line-height: 1.35 !important;
         color: {CV_TITULO} !important;
         margin: 0 0 8px 0 !important;
-        opacity: 0.92;
+        opacity: 0.95;
     }}
     .bea-cv-cag-metric-body {{
         font-family: var(--cv-sans) !important;

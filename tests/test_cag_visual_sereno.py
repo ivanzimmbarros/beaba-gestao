@@ -37,7 +37,9 @@ def test_cag_shell_css_ilha_mae_e_pagina_ativa():
     css = get_constituicao_cag_page_css()
     assert "bea-cv-cag-page-active" in css
     assert "bea-cv-cag-mother-mark" in css
+    assert "stVerticalBlockBorderWrapper" in css and ":has(.bea-cv-cag-mother-mark)" in css
     assert "0 12px 40px rgba(118, 148, 125, 0.12)" in css
+    assert "0 2px 10px rgba(0, 0, 0, 0.05)" in css
     assert "bea-cv-cag-metric-card" in css
     assert "Material+Symbols+Outlined" in css
 

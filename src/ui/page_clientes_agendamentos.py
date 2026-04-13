@@ -461,7 +461,7 @@ def _reset_cag_page_state() -> None:
 
 
 def _cag_metric_card_html(*, material_icon: str, title: str, body_html: str) -> str:
-    """Card métrica Setor 2 — ícone Material em círculo 15% sálvia + título serif (Template Master)."""
+    """Card métrica resumo cliente — ícone 15% sálvia; título sans e valores em negrito (CSS shell)."""
     ic = html.escape(str(material_icon).strip())
     tit_e = html.escape(str(title).strip())
     return (
@@ -479,9 +479,9 @@ def _html_linhas_natureza(rows: list[tuple[str, int]]) -> str:
     parts: list[str] = []
     for nat, q in rows:
         parts.append(
-            "<p style='margin:3px 0;font-size:0.9rem;'>"
-            f"<span style='font-weight:600;color:#2D332F;'>"
-            f"{html.escape(nat)}</span>: {int(q)}</p>"
+            "<p style='margin:3px 0;font-size:0.9rem;font-family:var(--cv-sans,Montserrat),sans-serif;'>"
+            f"<span style='font-weight:600;color:#2D332F;'>{html.escape(nat)}</span>: "
+            f"<span class='bea-cv-cag-metric-val' style='font-size:1rem'>{int(q)}</span></p>"
         )
     return "".join(parts)
 
@@ -529,11 +529,11 @@ def _render_cag_setor2_resumo_agendamentos(*, resumo: dict) -> None:
 
     r1 = st.columns(5)
     labels = (
-        "Total de Agendamentos previstos para os próximos 30 dias",
-        "Total de Agendamentos previstos para os próximos 10 dias",
-        "Qtde Total de Serviços com Pendência de Pagamento",
-        "Valor Total Acumulado de Serviços com Pendencia de Pagamento",
-        "Histórico de Cancelamento do Cliente",
+        "Agendamentos 30 dias",
+        "Agendamentos 10 dias",
+        "Pendências de Pagamento",
+        "Valor Acumulado",
+        "Histórico de Cancelamento",
     )
     bodies = (
         _html_linhas_natureza(list(c30)),
@@ -1570,8 +1570,7 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
         st.session_state["cag_busca_tel_txt"] = ""
         st.session_state["cag_busca_docintl"] = False
 
-    c_mom, = st.columns(1)
-    with c_mom:
+    with st.container():
         st.markdown(cag_mother_mark_html(), unsafe_allow_html=True)
         st.markdown(
             '<h1 class="bea-cv-cag-h1">Cadastro de Clientes e Gestão de Agendamentos</h1>',
