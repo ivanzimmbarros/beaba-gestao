@@ -162,7 +162,7 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
                 st.text_input("Tipo do Gasto", key=f"{fk}l1_tip")
             with l1c4:
                 st.markdown('<div style="height:1.55rem"></div>', unsafe_allow_html=True)
-                if st.button("Salvar", key="fin_gxc_btn_salvar_linha1", help="Grava a partir da linha 1 (três campos)."):
+                if st.button("Salvar", key="fin_gxc_btn_salvar_linha1"):
                     try:
                         ok, msg = _executar_salvamento_categorias(conn, fk=fk, fv=fv, cc_ids=cc_ids)
                         if ok:
