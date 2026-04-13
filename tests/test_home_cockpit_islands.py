@@ -39,12 +39,20 @@ def test_page_home_sem_st_container_border_true():
 
 
 def test_constituicao_cockpit_css_ilha_selector():
-    from src.ui.constituicao_visual_shell import get_constituicao_home_cockpit_extra_css
+    from src.ui.constituicao_visual_shell import (
+        get_constituicao_home_cockpit_extra_css,
+        get_constituicao_home_page_css,
+    )
 
-    css = get_constituicao_home_cockpit_extra_css()
-    assert "bea-cv-home-island-mark" in css
-    assert "Material+Symbols+Outlined" in css
-    assert "rgba(118, 148, 125, 0.12)" in css or "118, 148, 125, 0.12" in css
+    css_c = get_constituicao_home_cockpit_extra_css()
+    assert "bea-cv-home-island-mark" in css_c
+    assert "Material+Symbols+Outlined" in css_c
+    assert ":has(.bea-cv-home-slot)" in css_c
+    assert "box-shadow: none !important" in css_c
+
+    css_p = get_constituicao_home_page_css()
+    assert "bea-cv-home-mother-island" in css_p
+    assert "rgba(118, 148, 125, 0.12)" in css_p or "118, 148, 125, 0.12" in css_p
 
 
 def test_constituicao_shell_sidebar_ativo_sem_borda_esquerda():

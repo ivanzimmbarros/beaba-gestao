@@ -272,6 +272,13 @@ def get_constituicao_home_hub_css() -> str:
         background-color: #FFFFFF !important;
         border-color: {CV_SALVIA} !important;
     }}
+    /* Ilha Mãe na Início: evitar segunda caixa branca nos blocos horizontais */
+    section[data-testid="stMain"]:has(.bea-cv-home-slot) div[data-testid="stHorizontalBlock"] {{
+        background: transparent !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin-bottom: 0.75rem !important;
+    }}
 </style>
 """
 
@@ -296,17 +303,18 @@ def get_constituicao_home_cockpit_extra_css() -> str:
     section[data-testid="stMain"]:has(.bea-cv-cockpit-active) .main .block-container {{
         background: transparent !important;
     }}
-    /* Ilha flutuante por coluna (1º bloco vertical sob o marcador) — Template Master */
-    section[data-testid="stMain"]:has(.bea-cv-cockpit-active)
+    /* Ilha Mãe única (.bea-cv-home-slot + mount): sem caixa branca/sombra nas colunas filhas do cockpit */
+    section[data-testid="stMain"]:has(.bea-cv-home-slot):has(.bea-cv-cockpit-active)
         [data-testid="column"]:has(.bea-cv-home-island-mark) > div {{
-        background-color: {CV_BRANCO} !important;
-        border-radius: var(--cv-radius-isla) !important;
+        background-color: transparent !important;
+        background: transparent !important;
+        border-radius: 0 !important;
         border: none !important;
-        box-shadow: {CV_SOMBRA_COMPOSTA} !important;
-        padding: 24px !important;
-        margin-bottom: 20px !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin-bottom: 0.85rem !important;
     }}
-    section[data-testid="stMain"]:has(.bea-cv-cockpit-active)
+    section[data-testid="stMain"]:has(.bea-cv-home-slot):has(.bea-cv-cockpit-active)
         [data-testid="column"]:has(.bea-cv-home-island-mark)
         [data-testid="stVerticalBlockBorderWrapper"] {{
         background: transparent !important;
@@ -763,7 +771,7 @@ def get_constituicao_cag_page_css() -> str:
 
 
 def inject_area_unica_visual_mount() -> None:
-    """CAG, Vendas, Colaboradores ou Catálogo: `body` + coluna Ilha Mãe conforme o slot no DOM."""
+    """CAG, Vendas, Colaboradores, Catálogo ou Início: `body` + coluna Ilha Mãe conforme o slot no DOM."""
     components.html(
         """
 <script>
@@ -775,6 +783,7 @@ def inject_area_unica_visual_mount() -> None:
       doc.body.classList.remove("bea-cv-vnd-page");
       doc.body.classList.remove("bea-cv-col-page");
       doc.body.classList.remove("bea-cv-cat-page");
+      doc.body.classList.remove("bea-cv-home-page");
       doc.querySelectorAll(".bea-cv-cag-mother-island").forEach(function (el) {
         el.classList.remove("bea-cv-cag-mother-island");
       });
@@ -786,6 +795,9 @@ def inject_area_unica_visual_mount() -> None:
       });
       doc.querySelectorAll(".bea-cv-cat-mother-island").forEach(function (el) {
         el.classList.remove("bea-cv-cat-mother-island");
+      });
+      doc.querySelectorAll(".bea-cv-home-mother-island").forEach(function (el) {
+        el.classList.remove("bea-cv-home-mother-island");
       });
       var slot = doc.querySelector(".bea-cv-cag-slot");
       var bodyCls = "bea-cv-cag-page";
@@ -804,6 +816,11 @@ def inject_area_unica_visual_mount() -> None:
         slot = doc.querySelector(".bea-cv-cat-slot");
         bodyCls = "bea-cv-cat-page";
         colCls = "bea-cv-cat-mother-island";
+      }
+      if (!slot) {
+        slot = doc.querySelector(".bea-cv-home-slot");
+        bodyCls = "bea-cv-home-page";
+        colCls = "bea-cv-home-mother-island";
       }
       if (!slot) return;
       doc.body.classList.add(bodyCls);
@@ -830,7 +847,7 @@ def inject_area_unica_visual_mount() -> None:
 
 
 def inject_cag_visual_mount() -> None:
-    """Compat: mesmo que `inject_area_unica_visual_mount()` (CAG + Vendas + Colaboradores + Catálogo)."""
+    """Compat: mesmo que `inject_area_unica_visual_mount()` (CAG + Vendas + Colaboradores + Catálogo + Início)."""
     inject_area_unica_visual_mount()
 
 
@@ -1321,3 +1338,104 @@ def get_constituicao_cat_page_css() -> str:
 
 def inject_constituicao_cat_page() -> None:
     st.markdown(get_constituicao_cat_page_css(), unsafe_allow_html=True)
+
+
+def get_constituicao_home_page_css() -> str:
+    """Início (cockpit): Horizonte + Ilha Mãe (paridade CAT/COL/VND/CAG, classes `home`)."""
+    return f"""
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+<style>
+    .bea-cv-home-slot {{
+        display: none !important;
+    }}
+    .bea-cv-cag-gap {{
+        min-height: 20px;
+        height: 20px;
+        margin: 0;
+        padding: 0;
+        pointer-events: none;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-home-slot),
+    section[data-testid="stMain"]:has(.bea-cv-home-slot) > div,
+    body.bea-cv-home-page .stApp,
+    body.bea-cv-home-page section[data-testid="stMain"],
+    body.bea-cv-home-page section[data-testid="stMain"] > div {{
+        background: linear-gradient(
+            to bottom,
+            rgba(118, 148, 125, 0.1) 0,
+            rgba(118, 148, 125, 0.1) 300px,
+            {CV_CREME} 300px,
+            {CV_CREME} 100%
+        ) !important;
+    }}
+    @media (max-width: 768px) {{
+        section[data-testid="stMain"]:has(.bea-cv-home-slot),
+        section[data-testid="stMain"]:has(.bea-cv-home-slot) > div,
+        body.bea-cv-home-page .stApp,
+        body.bea-cv-home-page section[data-testid="stMain"],
+        body.bea-cv-home-page section[data-testid="stMain"] > div {{
+            background: linear-gradient(
+                to bottom,
+                rgba(118, 148, 125, 0.1) 0,
+                rgba(118, 148, 125, 0.1) 150px,
+                {CV_CREME} 150px,
+                {CV_CREME} 100%
+            ) !important;
+        }}
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-home-slot) [data-testid="stAppViewContainer"],
+    section[data-testid="stMain"]:has(.bea-cv-home-slot) [data-testid="stAppViewContainer"] > .main,
+    section[data-testid="stMain"]:has(.bea-cv-home-slot) .main .block-container,
+    body.bea-cv-home-page [data-testid="stAppViewContainer"],
+    body.bea-cv-home-page [data-testid="stAppViewContainer"] > .main,
+    body.bea-cv-home-page .main .block-container {{
+        background: transparent !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-home-slot)
+        [data-testid="column"]:has(.bea-cv-home-slot),
+    section[data-testid="stMain"]:has(.bea-cv-home-slot)
+        [data-testid="column"]:has([data-testid="bea-home-slot"]),
+    section[data-testid="stMain"]:has(.bea-cv-home-slot) [data-testid="stColumn"]:has(.bea-cv-home-slot),
+    body.bea-cv-home-page [data-testid="column"].bea-cv-home-mother-island,
+    body.bea-cv-home-page [data-testid="stColumn"].bea-cv-home-mother-island {{
+        background-color: #FFFFFF !important;
+        background: #FFFFFF !important;
+        border-radius: 20px !important;
+        border: none !important;
+        box-shadow: {CV_SOMBRA_COMPOSTA} !important;
+        padding: 32px !important;
+        box-sizing: border-box !important;
+        margin-top: 0.35rem !important;
+        margin-bottom: 1.25rem !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-home-slot) .block-container [data-testid="stButton"] > button,
+    body.bea-cv-home-page section[data-testid="stMain"] .block-container [data-testid="stButton"] > button {{
+        border-radius: 9999px !important;
+        background: rgba(118, 148, 125, 0.15) !important;
+        border: 1px solid rgba(118, 148, 125, 0.35) !important;
+        color: {CV_TITULO} !important;
+        font-family: var(--cv-sans) !important;
+        font-weight: 500 !important;
+        box-shadow: none !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-home-slot) .block-container [data-testid="stButton"] > button:hover,
+    body.bea-cv-home-page section[data-testid="stMain"] .block-container [data-testid="stButton"] > button:hover {{
+        background: rgba(118, 148, 125, 0.22) !important;
+        border-color: rgba(118, 148, 125, 0.5) !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-home-slot) .block-container [data-testid="stButton"] > button[kind="primary"],
+    body.bea-cv-home-page section[data-testid="stMain"] .block-container [data-testid="stButton"] > button[kind="primary"] {{
+        background: rgba(118, 148, 125, 0.22) !important;
+        border-color: {CV_SALVIA} !important;
+        color: #FFFFFF !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-home-slot) .block-container [data-testid="stButton"] > button[kind="primary"]:hover,
+    body.bea-cv-home-page section[data-testid="stMain"] .block-container [data-testid="stButton"] > button[kind="primary"]:hover {{
+        filter: brightness(1.05);
+    }}
+</style>
+"""
+
+
+def inject_constituicao_home_page() -> None:
+    st.markdown(get_constituicao_home_page_css(), unsafe_allow_html=True)

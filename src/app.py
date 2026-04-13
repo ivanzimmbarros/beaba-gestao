@@ -48,6 +48,10 @@ def main() -> None:
     try:
         with col_main:
             if page == "home":
+                st.markdown(
+                    '<div class="bea-cv-home-slot" data-testid="bea-home-slot" aria-hidden="true"></div>',
+                    unsafe_allow_html=True,
+                )
                 render_page_home()
             elif page == "clientes_agendamentos":
                 # Marcador DOM para CSS (Ilha Mãe + Horizonte): fica na coluna central, imune a sanitização do markdown interno.
@@ -101,6 +105,10 @@ def main() -> None:
                 )
             else:
                 st.session_state.page = "home"
+                st.markdown(
+                    '<div class="bea-cv-home-slot" data-testid="bea-home-slot" aria-hidden="true"></div>',
+                    unsafe_allow_html=True,
+                )
                 render_page_home()
             inject_cag_visual_mount()
     except Exception as err:

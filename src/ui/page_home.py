@@ -18,6 +18,7 @@ from src.modules.home_cockpit_metrics import (
 from src.ui.constituicao_visual_shell import (
     inject_constituicao_home_cockpit_extra,
     inject_constituicao_home_hub,
+    inject_constituicao_home_page,
 )
 from src.ui.home_cockpit_ui_helpers import (
     agenda_day_table_html,
@@ -183,6 +184,7 @@ def _navigate_cag_drill(*, banner: str, seed_month: tuple[int, int] | None) -> N
 
 
 def render_page_home() -> None:
+    inject_constituicao_home_page()
     inject_constituicao_home_hub()
     inject_constituicao_home_cockpit_extra()
 
