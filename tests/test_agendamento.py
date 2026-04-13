@@ -9,8 +9,10 @@ from src.modules.agendamento import (
     criar_agendamento,
     criar_agendamento_pre_venda,
     listar_buckets_credito_cliente,
+    obter_agendamento,
     saldo_bucket,
     validar_intervalo_horario,
+    validar_tipo_atendimento_e_sala,
 )
 from src.modules.catalogo import cadastrar_pacote, cadastrar_servico_fase1
 from src.modules.cliente import buscar_cliente_por_whatsapp, cadastrar_cliente
@@ -281,6 +283,8 @@ def test_schema_agendamentos_tem_modo_origem():
     conn.close()
     assert "modo_origem" in cols
     assert "preco_referencia_centavos" in cols
+    assert "tipo_atendimento" in cols
+    assert "sala_virtual_disponibilizada" in cols
 
 
 def test_pre_venda_sessao_concluir_bloqueado():
@@ -459,3 +463,84 @@ def test_ui_cag_setor4_lista_dentro_expander_agendamentos():
     from tests.cag_setor4_ui_contract import assert_cag_setor4_lista_dentro_expander_agendamentos
 
     assert_cag_setor4_lista_dentro_expander_agendamentos()
+
+
+def test_validar_tipo_atendimento_e_sala():
+    ok, _, t, s = validar_tipo_atendimento_e_sala("presencial", None)
+    assert ok and t == "presencial" and s is None
+    ok2, msg2, _, _ = validar_tipo_atendimento_e_sala("virtual", None)
+    assert not ok2 and msg2
+    ok3, _, _, s3 = validar_tipo_atendimento_e_sala("virtual", 1)
+    assert ok3 and s3 == 1
+    ok4, _, _, s4 = validar_tipo_atendimento_e_sala("virtual", 0)
+    assert ok4 and s4 == 0
+
+
+def test_pre_venda_virtual_sem_sala_falha():
+    cid = _cliente()
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão Virt X",
+        "D",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=33.0,
+    )
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Sessão Virt X",))
+    sid = int(cur.fetchone()[0])
+    conn.close()
+    ok, msg = criar_agendamento_pre_venda(
+        int(cid),
+        sid,
+        "2031-03-01",
+        "10:00",
+        "11:00",
+        [],
+        "",
+        None,
+        tipo_atendimento="virtual",
+        sala_virtual_disponibilizada=None,
+    )
+    assert not ok
+    assert "sala virtual" in msg.lower()
+
+
+def test_pre_venda_virtual_com_sala_persistido():
+    cid = _cliente()
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão Virt Y",
+        "D",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=34.0,
+    )
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Sessão Virt Y",))
+    sid = int(cur.fetchone()[0])
+    conn.close()
+    ok, msg = criar_agendamento_pre_venda(
+        int(cid),
+        sid,
+        "2031-03-02",
+        "12:00",
+        "13:00",
+        [],
+        "",
+        None,
+        tipo_atendimento="virtual",
+        sala_virtual_disponibilizada=0,
+    )
+    assert ok, msg
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM agendamentos ORDER BY id DESC LIMIT 1")
+    ag_id = int(cur.fetchone()[0])
+    conn.close()
+    ag = obter_agendamento(ag_id)
+    assert ag is not None
+    assert ag["tipo_atendimento"] == "virtual"
+    assert ag["sala_virtual_disponibilizada"] == 0

@@ -385,9 +385,13 @@ def _run_cag_consolidated_slice(cliente_id: int, ag_id: int) -> str | None:
         return "cag: card métrica Sereno inválido"
 
     try:
-        from tests.cag_setor4_ui_contract import assert_cag_setor4_lista_dentro_expander_agendamentos
+        from tests.cag_setor4_ui_contract import (
+            assert_cag_dados_agendamento_tipo_virtual_widgets,
+            assert_cag_setor4_lista_dentro_expander_agendamentos,
+        )
 
         assert_cag_setor4_lista_dentro_expander_agendamentos()
+        assert_cag_dados_agendamento_tipo_virtual_widgets()
     except AssertionError as exc:
         return f"cag: setor4 expander/lista — {exc}"
 

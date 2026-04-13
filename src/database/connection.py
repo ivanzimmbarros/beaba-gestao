@@ -818,6 +818,13 @@ def create_tables():
             preco_referencia_centavos INTEGER CHECK (
                 preco_referencia_centavos IS NULL OR preco_referencia_centavos >= 0
             ),
+            tipo_atendimento TEXT NOT NULL DEFAULT 'presencial' CHECK (
+                tipo_atendimento IN ('presencial', 'virtual')
+            ),
+            sala_virtual_disponibilizada INTEGER CHECK (
+                sala_virtual_disponibilizada IS NULL
+                OR sala_virtual_disponibilizada IN (0, 1)
+            ),
             CHECK (
                 (modo_origem = 'pre_venda' AND venda_id IS NULL AND venda_item_id IS NULL)
                 OR (
@@ -866,5 +873,17 @@ def create_tables():
         "INTEGER REFERENCES agendamentos(id) ON DELETE SET NULL",
     )
     _migrate_e18_if_needed(cursor)
+    _ensure_column(
+        cursor,
+        "agendamentos",
+        "tipo_atendimento",
+        "TEXT NOT NULL DEFAULT 'presencial'",
+    )
+    _ensure_column(
+        cursor,
+        "agendamentos",
+        "sala_virtual_disponibilizada",
+        "INTEGER",
+    )
     conn.commit()
     conn.close()

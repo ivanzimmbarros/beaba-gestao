@@ -19,6 +19,7 @@ from src.modules.agendamento import (
     listar_agendamentos,
     obter_agendamento,
     obter_resumo_agendamentos_cliente_setor2_proposta,
+    validar_tipo_atendimento_e_sala,
 )
 from src.modules.catalogo import listar_servicos_para_venda
 from src.modules.cliente import (
@@ -293,6 +294,10 @@ def _cag_ag_commit_wizard_payload(payload: dict[str, Any]) -> tuple[bool, str, s
             extra = "Saldo do cliente atualizado com sucesso."
         return ok_c, msg_c, extra
 
+    tipo_db = str(payload.get("tipo_atendimento") or "presencial")
+    sala_raw = payload.get("sala_virtual_disponibilizada")
+    sala_typed: int | None = None if sala_raw is None else int(sala_raw)
+
     ok_u, msg_u = atualizar_agendamento(
         int(aid_sel),
         data_agendamento=d_iso,
@@ -300,6 +305,8 @@ def _cag_ag_commit_wizard_payload(payload: dict[str, Any]) -> tuple[bool, str, s
         hora_fim=hf,
         colaborador_ids=colab_ids,
         observacoes=obs,
+        tipo_atendimento=tipo_db,
+        sala_virtual_disponibilizada=sala_typed,
     )
     if not ok_u:
         return False, msg_u, ""
@@ -919,6 +926,34 @@ def _cag_ag_default_colab_options(colabs: list[tuple[int, str]]) -> list[int]:
     return [colabs[0][0]]
 
 
+def _cag_sync_ag_tipo_sala_state() -> None:
+    st.session_state.setdefault("cag_ag_tipo_atendimento", "Presencial")
+    tipo = str(st.session_state.get("cag_ag_tipo_atendimento") or "Presencial")
+    if tipo != "Virtual":
+        st.session_state.cag_ag_sala_virtual = "—"
+    else:
+        sv = str(st.session_state.get("cag_ag_sala_virtual") or "")
+        if sv not in ("Sim", "Não"):
+            st.session_state.cag_ag_sala_virtual = "Não"
+
+
+def _cag_read_tipo_sala_db_from_state() -> tuple[str | None, int | None, str | None]:
+    """(tipo_db, sala_db, erro_ui)."""
+    tipo_ui = str(st.session_state.get("cag_ag_tipo_atendimento") or "Presencial")
+    if tipo_ui == "Virtual":
+        sv = str(st.session_state.get("cag_ag_sala_virtual") or "")
+        if sv not in ("Sim", "Não"):
+            return None, None, "Indique se a sala virtual já foi disponibilizada (Sim ou Não)."
+        ok, msg, tdb, sdb = validar_tipo_atendimento_e_sala("virtual", 1 if sv == "Sim" else 0)
+        if not ok:
+            return None, None, (msg or "").replace("❌ ", "").strip() or msg
+        return str(tdb or "virtual"), sdb, None
+    ok, msg, tdb, sdb = validar_tipo_atendimento_e_sala("presencial", None)
+    if not ok:
+        return None, None, (msg or "").replace("❌ ", "").strip() or msg
+    return str(tdb or "presencial"), sdb, None
+
+
 def _cag_hidratar_form_ag(ag: dict[str, Any]) -> None:
     st.session_state.cag_ag_data = datetime.strptime(str(ag["data_agendamento"])[:10], "%Y-%m-%d").date()
     st.session_state.cag_ag_hi = str(ag["hora_inicio"])
@@ -929,6 +964,13 @@ def _cag_hidratar_form_ag(ag: dict[str, Any]) -> None:
     )
     cids = list(ag.get("colaborador_ids") or [])
     st.session_state.cag_ag_colabs = cids
+    ta = str(ag.get("tipo_atendimento") or "presencial")
+    st.session_state.cag_ag_tipo_atendimento = "Virtual" if ta == "virtual" else "Presencial"
+    sv = ag.get("sala_virtual_disponibilizada")
+    if ta == "virtual" and sv is not None:
+        st.session_state.cag_ag_sala_virtual = "Sim" if int(sv) == 1 else "Não"
+    else:
+        st.session_state.cag_ag_sala_virtual = "—"
 
 
 def _cag_limpar_form_ag_novo() -> None:
@@ -937,6 +979,8 @@ def _cag_limpar_form_ag_novo() -> None:
     st.session_state.cag_ag_hf = "10:00"
     st.session_state.cag_ag_obs = ""
     st.session_state.cag_ag_natureza = "Sessão"
+    st.session_state.cag_ag_tipo_atendimento = "Presencial"
+    st.session_state.cag_ag_sala_virtual = "—"
     colabs = listar_colaboradores_resumo()
     st.session_state.cag_ag_colabs = _cag_ag_default_colab_options(colabs)
 
@@ -1267,7 +1311,11 @@ def _cag_setor4_render_form_island(
 
     all_srv = listar_servicos_para_venda()
 
-    r2c1, r2c2, r2c3, r2c4 = st.columns([1.05, 1.25, 1.45, 1.1], gap="small")
+    _cag_sync_ag_tipo_sala_state()
+
+    r2c1, r2c2, r2c3, r2c4, r2c5, r2c6 = st.columns(
+        [1.05, 1.25, 1.45, 1.1, 1.0, 1.0], gap="small"
+    )
     with r2c1:
         if modo_novo:
             naturezas_opts = list(NATUREZAS_CATALOGO_FASE3)
@@ -1319,6 +1367,25 @@ def _cag_setor4_render_form_island(
         if cur_lbl not in opts_st:
             opts_st.insert(0, cur_lbl)
         st.selectbox("Estado", opts_st, key="cag_ag_status_lbl", disabled=dis_ag)
+    with r2c5:
+        st.selectbox(
+            "Tipo de Atendimento *",
+            ["Presencial", "Virtual"],
+            key="cag_ag_tipo_atendimento",
+            disabled=dis_ag,
+        )
+    with r2c6:
+        tipo_lbl = str(st.session_state.get("cag_ag_tipo_atendimento") or "Presencial")
+        virt = tipo_lbl == "Virtual"
+        opts_sala = ["Sim", "Não"] if virt else ["—"]
+        dis_sala = dis_ag or not virt
+        st.selectbox(
+            "Sala virtual disponibilizada?",
+            opts_sala,
+            key="cag_ag_sala_virtual",
+            disabled=dis_sala,
+            help="Indique se o link ou acesso à sala virtual já foi enviado/liberado para o cliente.",
+        )
 
     if not modo_novo:
         ag_cur4 = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
@@ -1347,70 +1414,78 @@ def _cag_setor4_render_form_island(
                 st.error("Indique a data.")
             elif not colab_ids:
                 st.error("Seleccione pelo menos um colaborador.")
-            elif modo_novo:
-                esc = str(st.session_state.get("cag_ag_servico_esc") or "")
-                if "|" not in esc:
-                    st.error("Seleccione um serviço válido.")
-                else:
-                    sid = int(esc.split("|", 1)[0])
-                    d_iso = d_ag.isoformat()
-                    ok, msg = criar_agendamento_pre_venda(
-                        int(cliente_id),
-                        sid,
-                        d_iso,
-                        hi,
-                        hf,
-                        colab_ids,
-                        obs,
-                        None,
-                    )
-                    if ok:
-                        new_id = _cag_ag_parse_novo_id(msg)
-                        if new_id is not None:
-                            st.session_state.cag_ag_last_created_id = new_id
-                        st.session_state.cag_ag_flash = "Informações salvas com sucesso."
-                        st.session_state.cag_ag_pending_novo_dialog = "ask"
-                        st.session_state[offset_key] = 0
-                        st.rerun()
-                    else:
-                        st.error(msg)
             else:
-                assert aid_sel is not None
-                ag0 = obter_agendamento(int(aid_sel))
-                if not ag0:
-                    st.error("Agendamento não encontrado.")
-                else:
-                    status_lbl = str(st.session_state.get("cag_ag_status_lbl") or "")
-                    status_new = _cag_status_lbl_para_db(status_lbl)
-                    d_iso = d_ag.isoformat()
-                    dev_buf = bool(st.session_state.get("cag_ag_devolver_buffer", True))
-                    if str(ag0.get("modo_origem") or "") == "pre_venda":
-                        dev_buf = False
-                    cancel_trans = status_new == "CANCELADO" and str(ag0["status"]) != "CANCELADO"
-                    is_b = cancel_trans and _cag_pagamento_pago_ou_parcial(
-                        str(ag0.get("pagamento") or "")
-                    )
-                    base_pl: dict[str, Any] = {
-                        "cliente_id": int(cliente_id),
-                        "fv": int(fv),
-                        "pick_key": pick_key,
-                        "aid_sel": int(aid_sel),
-                        "d_iso": d_iso,
-                        "hi": hi,
-                        "hf": hf,
-                        "obs": obs,
-                        "colab_ids": colab_ids,
-                        "status_lbl": status_lbl,
-                        "status_new": status_new,
-                        "dev_buf": dev_buf,
-                        "converter_credito": False,
-                        "saldo_choice": None,
-                    }
-                    if is_b:
-                        st.session_state.cag_ag_wizard = {"step": "saldo", "payload": base_pl}
+                t_db, s_db, err_ts = _cag_read_tipo_sala_db_from_state()
+                if err_ts:
+                    st.error(err_ts)
+                elif modo_novo:
+                    esc = str(st.session_state.get("cag_ag_servico_esc") or "")
+                    if "|" not in esc:
+                        st.error("Seleccione um serviço válido.")
                     else:
-                        st.session_state.cag_ag_wizard = {"step": "edit_alert", "payload": base_pl}
-                    st.rerun()
+                        sid = int(esc.split("|", 1)[0])
+                        d_iso = d_ag.isoformat()
+                        ok, msg = criar_agendamento_pre_venda(
+                            int(cliente_id),
+                            sid,
+                            d_iso,
+                            hi,
+                            hf,
+                            colab_ids,
+                            obs,
+                            None,
+                            tipo_atendimento=t_db,
+                            sala_virtual_disponibilizada=s_db,
+                        )
+                        if ok:
+                            new_id = _cag_ag_parse_novo_id(msg)
+                            if new_id is not None:
+                                st.session_state.cag_ag_last_created_id = new_id
+                            st.session_state.cag_ag_flash = "Informações salvas com sucesso."
+                            st.session_state.cag_ag_pending_novo_dialog = "ask"
+                            st.session_state[offset_key] = 0
+                            st.rerun()
+                        else:
+                            st.error(msg)
+                else:
+                    assert aid_sel is not None
+                    ag0 = obter_agendamento(int(aid_sel))
+                    if not ag0:
+                        st.error("Agendamento não encontrado.")
+                    else:
+                        status_lbl = str(st.session_state.get("cag_ag_status_lbl") or "")
+                        status_new = _cag_status_lbl_para_db(status_lbl)
+                        d_iso = d_ag.isoformat()
+                        dev_buf = bool(st.session_state.get("cag_ag_devolver_buffer", True))
+                        if str(ag0.get("modo_origem") or "") == "pre_venda":
+                            dev_buf = False
+                        cancel_trans = status_new == "CANCELADO" and str(ag0["status"]) != "CANCELADO"
+                        is_b = cancel_trans and _cag_pagamento_pago_ou_parcial(
+                            str(ag0.get("pagamento") or "")
+                        )
+                        base_pl: dict[str, Any] = {
+                            "cliente_id": int(cliente_id),
+                            "fv": int(fv),
+                            "pick_key": pick_key,
+                            "aid_sel": int(aid_sel),
+                            "d_iso": d_iso,
+                            "hi": hi,
+                            "hf": hf,
+                            "obs": obs,
+                            "colab_ids": colab_ids,
+                            "status_lbl": status_lbl,
+                            "status_new": status_new,
+                            "dev_buf": dev_buf,
+                            "converter_credito": False,
+                            "saldo_choice": None,
+                            "tipo_atendimento": t_db,
+                            "sala_virtual_disponibilizada": s_db,
+                        }
+                        if is_b:
+                            st.session_state.cag_ag_wizard = {"step": "saldo", "payload": base_pl}
+                        else:
+                            st.session_state.cag_ag_wizard = {"step": "edit_alert", "payload": base_pl}
+                        st.rerun()
 
 
 def _cag_setor4_render_list_island(*, cliente_id: int, fv: int, ctx: dict[str, Any]) -> None:

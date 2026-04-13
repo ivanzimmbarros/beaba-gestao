@@ -55,3 +55,13 @@ def assert_cag_setor4_lista_dentro_expander_agendamentos() -> None:
         )
     if fn.find("_cag_setor4_render_list_island", 0, i_exp) != -1:
         raise AssertionError("Setor 4: listagem não pode ser chamada antes do expander")
+
+
+def assert_cag_dados_agendamento_tipo_virtual_widgets() -> None:
+    """Contrato: Dados do Agendamento — tipo presencial/virtual e sala virtual (CAG)."""
+    src = _CAG_PAGE.read_text(encoding="utf-8")
+    assert "##### Dados do Agendamento" in src
+    assert "Tipo de Atendimento *" in src
+    assert "cag_ag_tipo_atendimento" in src
+    assert "Sala virtual disponibilizada?" in src
+    assert "cag_ag_sala_virtual" in src

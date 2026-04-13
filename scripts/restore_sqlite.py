@@ -17,7 +17,8 @@ e dos testes `test_cag_visual_sereno`, `test_vnd_visual_sereno`, `test_col_visua
 (lista no expander «Agendamentos»): contrato em `tests/cag_setor4_ui_contract.py` +
 `test_clientes_agendamentos_page.py` (incl. pesquisa unificada `cag_busca_nome`); E2E em
 `tests/e2e_stress_test.py` (_run_cag_consolidated_slice) valida contrato do widget em
-`src/ui/widgets/cliente_search.py`; dados de busca por prefixo de nome: `tests/test_cliente.py`; Painel de Vendas:
+`src/ui/widgets/cliente_search.py`; tabela `agendamentos`: `tipo_atendimento` (presencial/virtual),
+`sala_virtual_disponibilizada` (NULL se presencial, 0/1 se virtual); dados de busca por prefixo de nome: `tests/test_cliente.py`; Painel de Vendas:
 `tests/vnd_ui_contract.py`, `test_vnd_visual_sereno` (pesquisa unificada; form editar cliente sem value= duplicado
 em `st.number_input` com chaves `*_vc_nem` / `*_vc_qfil` primadas por `_prime_cliente_form` em `page_vendas.py`); Colaboradores:
 `tests/col_ui_contract.py`, `test_col_visual_sereno` (pesquisa unificada + **Mapa da Equipa** em `page_colaboradores.py`);

@@ -40,6 +40,41 @@ def minutos_desde_meia_noite(hhmm: str) -> int:
     return int(h) * 60 + int(m)
 
 
+def _norm_tipo_atendimento_db(s: str) -> str | None:
+    t = (s or "").strip().lower()
+    if t == "presencial":
+        return "presencial"
+    if t == "virtual":
+        return "virtual"
+    return None
+
+
+def validar_tipo_atendimento_e_sala(
+    tipo_atendimento: str,
+    sala_virtual_disponibilizada: int | None,
+) -> tuple[bool, str, str | None, int | None]:
+    """
+    Presencial → sala_db sempre None (N/A nos indicadores).
+    Virtual → obriga sala 0 ou 1.
+    """
+    td = _norm_tipo_atendimento_db(tipo_atendimento)
+    if td is None:
+        return False, "❌ Tipo de atendimento inválido.", None, None
+    if td == "presencial":
+        return True, "", "presencial", None
+    if sala_virtual_disponibilizada is None:
+        return (
+            False,
+            "❌ Indique se a sala virtual já foi disponibilizada (Sim ou Não).",
+            None,
+            None,
+        )
+    v = int(sala_virtual_disponibilizada)
+    if v not in (0, 1):
+        return False, "❌ Valor inválido para sala virtual.", None, None
+    return True, "", "virtual", v
+
+
 def validar_intervalo_horario(hora_inicio: str, hora_fim: str) -> tuple[bool, str]:
     try:
         a = minutos_desde_meia_noite(hora_inicio)
@@ -315,6 +350,7 @@ def listar_agendamentos(
                    a.pacote_sessao_id, a.tipo_origem, a.data_agendamento, a.hora_inicio,
                    a.hora_fim, a.status, a.devolver_ao_buffer, a.observacoes,
                    a.modo_origem, a.preco_referencia_centavos,
+                   a.tipo_atendimento, a.sala_virtual_disponibilizada,
                    c.nome AS cliente_nome, s.nome AS servico_nome, s.natureza AS servico_natureza
             FROM agendamentos a
             JOIN clientes c ON c.id = a.cliente_id
@@ -374,6 +410,9 @@ def listar_agendamentos(
                 nomes.append(str(rnm[0]) if rnm else "?")
             modo_o = str(r[13])
             preco_ref = int(r[14]) if r[14] is not None else None
+            tipo_at = str(r[15] or "presencial")
+            sala_v = r[16]
+            sala_vi: int | None = int(sala_v) if sala_v is not None else None
             vid_raw = r[1]
             pag_lbl = (
                 rotulo_pagamento_venda(cur, None)
@@ -397,9 +436,11 @@ def listar_agendamentos(
                     "observacoes": str(r[12] or ""),
                     "modo_origem": modo_o,
                     "preco_referencia_centavos": preco_ref,
-                    "cliente_nome": str(r[15]),
-                    "servico_nome": str(r[16]),
-                    "servico_natureza": str(r[17]),
+                    "tipo_atendimento": tipo_at,
+                    "sala_virtual_disponibilizada": sala_vi,
+                    "cliente_nome": str(r[17]),
+                    "servico_nome": str(r[18]),
+                    "servico_natureza": str(r[19]),
                     "colaborador_ids": cids,
                     "colaboradores_nomes": nomes,
                     "pagamento": pag_lbl,
@@ -422,6 +463,7 @@ def obter_agendamento(ag_id: int) -> dict[str, Any] | None:
                    a.pacote_sessao_id, a.tipo_origem, a.data_agendamento, a.hora_inicio,
                    a.hora_fim, a.status, a.devolver_ao_buffer, a.observacoes,
                    a.modo_origem, a.preco_referencia_centavos,
+                   a.tipo_atendimento, a.sala_virtual_disponibilizada,
                    c.nome, s.nome, s.natureza
             FROM agendamentos a
             JOIN clientes c ON c.id = a.cliente_id
@@ -449,6 +491,9 @@ def obter_agendamento(ag_id: int) -> dict[str, Any] | None:
             nomes.append(str(rnm[0]) if rnm else "?")
         modo_o = str(r[13])
         preco_ref = int(r[14]) if r[14] is not None else None
+        tipo_at = str(r[15] or "presencial")
+        sala_raw = r[16]
+        sala_vi: int | None = int(sala_raw) if sala_raw is not None else None
         vid_raw = r[1]
         pag_lbl = (
             rotulo_pagamento_venda(cur, None)
@@ -471,9 +516,11 @@ def obter_agendamento(ag_id: int) -> dict[str, Any] | None:
             "observacoes": str(r[12] or ""),
             "modo_origem": modo_o,
             "preco_referencia_centavos": preco_ref,
-            "cliente_nome": str(r[15]),
-            "servico_nome": str(r[16]),
-            "servico_natureza": str(r[17]),
+            "tipo_atendimento": tipo_at,
+            "sala_virtual_disponibilizada": sala_vi,
+            "cliente_nome": str(r[17]),
+            "servico_nome": str(r[18]),
+            "servico_natureza": str(r[19]),
             "colaborador_ids": cids,
             "colaboradores_nomes": nomes,
             "pagamento": pag_lbl,
@@ -490,6 +537,9 @@ def criar_agendamento(
     hora_fim: str,
     colaborador_ids: list[int],
     observacoes: str = "",
+    *,
+    tipo_atendimento: str = "presencial",
+    sala_virtual_disponibilizada: int | None = None,
 ) -> tuple[bool, str]:
     ok_t, msg_t = validar_intervalo_horario(hora_inicio, hora_fim)
     if not ok_t:
@@ -540,15 +590,22 @@ def criar_agendamento(
             if cur.fetchone() is None:
                 return False, f"❌ Colaborador {cid} não encontrado."
 
+        ok_tv, msg_tv, tdb, sdb = validar_tipo_atendimento_e_sala(
+            tipo_atendimento, sala_virtual_disponibilizada
+        )
+        if not ok_tv:
+            return False, msg_tv
+
         cur.execute(
             """
             INSERT INTO agendamentos (
                 venda_id, venda_item_id, cliente_id, servico_id, pacote_sessao_id,
                 tipo_origem, data_agendamento, hora_inicio, hora_fim, status,
                 devolver_ao_buffer, observacoes, data_alteracao,
-                modo_origem, preco_referencia_centavos
+                modo_origem, preco_referencia_centavos,
+                tipo_atendimento, sala_virtual_disponibilizada
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'AGENDADO', 0, ?, CURRENT_TIMESTAMP,
-                'credito_venda', NULL)
+                'credito_venda', NULL, ?, ?)
             """,
             (
                 venda_id,
@@ -561,6 +618,8 @@ def criar_agendamento(
                 hi,
                 hf,
                 (observacoes or "").strip(),
+                tdb,
+                sdb,
             ),
         )
         aid = int(cur.lastrowid)
@@ -589,6 +648,8 @@ def atualizar_agendamento(
     hora_fim: str | None = None,
     colaborador_ids: list[int] | None = None,
     observacoes: str | None = None,
+    tipo_atendimento: str | None = None,
+    sala_virtual_disponibilizada: int | None = None,
 ) -> tuple[bool, str]:
     conn = get_connection()
     if not conn:
@@ -647,6 +708,22 @@ def atualizar_agendamento(
                     """,
                     (int(ag_id), int(cid), ordem),
                 )
+        if tipo_atendimento is not None:
+            ok_tv, msg_tv, tdb, sdb = validar_tipo_atendimento_e_sala(
+                tipo_atendimento,
+                sala_virtual_disponibilizada,
+            )
+            if not ok_tv:
+                return False, msg_tv
+            cur.execute(
+                """
+                UPDATE agendamentos
+                SET tipo_atendimento = ?, sala_virtual_disponibilizada = ?,
+                    data_alteracao = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (tdb, sdb, int(ag_id)),
+            )
         conn.commit()
         return True, "✅ Agendamento atualizado."
     except Exception as e:
@@ -956,6 +1033,9 @@ def criar_agendamento_pre_venda(
     colaborador_ids: list[int],
     observacoes: str = "",
     preco_referencia_centavos: int | None = None,
+    *,
+    tipo_atendimento: str = "presencial",
+    sala_virtual_disponibilizada: int | None = None,
 ) -> tuple[bool, str]:
     """MVP: só Sessão, Coworking, Evento — sem pacote (E11)."""
     ok_t, msg_t = validar_intervalo_horario(hora_inicio, hora_fim)
@@ -1003,15 +1083,22 @@ def criar_agendamento_pre_venda(
             if cur.fetchone() is None:
                 return False, f"❌ Colaborador {colab} não encontrado."
 
+        ok_tv, msg_tv, tdb, sdb = validar_tipo_atendimento_e_sala(
+            tipo_atendimento, sala_virtual_disponibilizada
+        )
+        if not ok_tv:
+            return False, msg_tv
+
         cur.execute(
             """
             INSERT INTO agendamentos (
                 venda_id, venda_item_id, cliente_id, servico_id, pacote_sessao_id,
                 tipo_origem, data_agendamento, hora_inicio, hora_fim, status,
                 devolver_ao_buffer, observacoes, data_alteracao,
-                modo_origem, preco_referencia_centavos
+                modo_origem, preco_referencia_centavos,
+                tipo_atendimento, sala_virtual_disponibilizada
             ) VALUES (NULL, NULL, ?, ?, NULL, ?, ?, ?, ?, 'AGENDADO', 0, ?, CURRENT_TIMESTAMP,
-                'pre_venda', ?)
+                'pre_venda', ?, ?, ?)
             """,
             (
                 cid,
@@ -1022,6 +1109,8 @@ def criar_agendamento_pre_venda(
                 hf,
                 (observacoes or "").strip(),
                 pr,
+                tdb,
+                sdb,
             ),
         )
         aid = int(cur.lastrowid)
@@ -1291,4 +1380,5 @@ __all__ = [
     "rotulo_pagamento_venda",
     "saldo_bucket",
     "validar_intervalo_horario",
+    "validar_tipo_atendimento_e_sala",
 ]

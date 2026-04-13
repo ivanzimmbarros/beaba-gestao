@@ -101,7 +101,9 @@ def test_run_etl_dw_tables_and_ltv_rules():
             devolver_ao_buffer INTEGER NOT NULL DEFAULT 0,
             observacoes TEXT DEFAULT '',
             modo_origem TEXT NOT NULL DEFAULT 'pre_venda',
-            preco_referencia_centavos INTEGER
+            preco_referencia_centavos INTEGER,
+            tipo_atendimento TEXT NOT NULL DEFAULT 'presencial',
+            sala_virtual_disponibilizada INTEGER
         );
         INSERT INTO agendamentos (
             venda_id, venda_item_id, cliente_id, servico_id, tipo_origem,

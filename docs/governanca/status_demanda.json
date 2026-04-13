@@ -15,7 +15,7 @@
     "projeto": "BeaBa Gestão / BeaBa Materno",
     "escopo": "Sincronização código+CI com origin/develop; mapa completo de testes; certificação backup/restore (pytest + simulação verify semanal em sandbox).",
     "pytest": {
-      "total": 157,
+      "total": 161,
       "comando": "python -m pytest tests/ -v",
       "resultado_2026_04_12": "109 passed (Home: ilhas Master sem border Streamlit, Panorama Material Symbols, sidebar ativo sem barra)",
       "resultado_2026_04_13": "124 passed — Painel de Vendas Ilha Mãe Sereno (slot vnd + inject_constituicao_vnd_page + mount unificado CAG/VND)",
@@ -24,6 +24,7 @@
       "resultado_2026_04_13_home": "139 passed — Início Ilha Mãe Sereno (slot home + inject_constituicao_home_page + mount CAG/VND/COL/CAT/HOME; ilhas cockpit sem double box)",
       "resultado_2026_04_13_col_mapa": "156 passed — Colaboradores Mapa da Equipa (filtros natureza/serviço, tabela + badges; vitrine 3×3 removida da página; testes col_ui_contract + colaborador + shell CSS)",
       "resultado_2026_04_13_vnd_nem": "157 passed — Vendas: form editar cliente sem value= duplicado em st.number_input (*_vc_nem / *_vc_qfil); contrato vnd_ui_contract + E2E test_e2e_vnd_visual_shell_contract",
+      "resultado_2026_04_13_cag_virtual": "161 passed — CAG Dados do Agendamento: tipo_atendimento + sala_virtual_disponibilizada (NULL presencial); UI + agendamento.py + migração connection",
       "e2e_incluido": "tests/e2e_stress_test.py (hero + boundary quick na suite pytest)"
     },
     "backup_restore": {
@@ -124,13 +125,17 @@
     ]
   },
   "fase_consolidacao_clientes_agendamentos": "Fase Final - Setores 3, 4 e 5",
+  "tarefa_ativa_cag_virtual": {
+    "demanda_id": "2026-04-13_CAG_atendimento_virtual_presencial",
+    "escopo": "Dados do Agendamento: Tipo Presencial/Virtual; sala virtual Sim/Não (NULL se presencial); persistência em agendamentos."
+  },
   "consolidacao_clientes_agendamentos": {
     "fase_operacional": "Fase Final - Setores 3, 4 e 5",
     "sprint_codigo": "B-correcao",
     "entrega_sprint_a": "Página `page_clientes_agendamentos.py`, item na sidebar acima de Vendas, Setor 1 pesquisa + Setor 3 limpar estado; rotas legadas `clientes` / `agendamentos` descontinuadas (ficheiros removidos 2026-04-12; redirecção em `app.py` para sessões antigas).",
     "entrega_sprint_b": "Setor 2 conforme Proposta: Dados Pessoais (3 campos B.1.1) + Resumo Geral: Agendamentos (5 cards, naturezas e estados); `obter_resumo_agendamentos_cliente_setor2_proposta`. Removido resumo por vendas/saldo.",
     "entrega_correcao_setor_4": "Setor 4 «4. Ficha do Cliente»: checkbox edição, campos disabled por defeito, Salvar Alterações #C43048, reversão ao desmarcar; ficha alinhada ao setor 2.Ficha de Clientes (sem histórico de compras nesta página).",
-    "entrega_fase_final_setores_3_4_5": "Setor 3 «3. Dados Pessoais» (Lora) + expander «Informações Detalhadas do Cliente» fechado por defeito com campos da ficha; Setor 4 só controlo de edição + Salvar; Setor 5 «Gestão de Agendamentos» — tabela 5 colunas, paginação 5, formulário (Natureza, busca serviço, colaboradores, estado), cancelamento com cancelar_agendamento e devolução ao buffer; pós-gravar modal SIM/NÃO novo agendamento.",
+    "entrega_fase_final_setores_3_4_5": "Setor 3 «3. Dados Pessoais» (Lora) + expander «Informações Detalhadas do Cliente» fechado por defeito com campos da ficha; Setor 4 só controlo de edição + Salvar; Setor 5 «Gestão de Agendamentos» — tabela 5 colunas, paginação 5, formulário (Natureza, busca serviço, colaboradores, estado, **Tipo de Atendimento** Presencial/Virtual, **Sala virtual disponibilizada?** Sim/Não desactivável se presencial; `tipo_atendimento` + `sala_virtual_disponibilizada` em SQLite), cancelamento com cancelar_agendamento e devolução ao buffer; pós-gravar modal SIM/NÃO novo agendamento.",
     "ultima_actualizacao_iso": "2026-04-12",
     "decomissionamento_total_2026_04_12": "E20/E21: ficheiros legado excluídos; sidebar e hub só área consolidada; scripts backup/restore, PAINEL, testes e e2e documentam o corte."
   },
@@ -159,14 +164,14 @@
   "pc_foco": "PC1–PC2",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "2026-04-13: Colaboradores — Mapa da Equipa entregue; pytest tests/ 156 passed (venv); pronto para commit+push develop pelo Diretor.",
+  "live_status": "2026-04-13: CAG atendimento virtual/presencial entregue — pytest 161 passed; commit+push develop.",
   "etapas_pendentes": [
     "Diretor: homologar PDV vs protótipo (semáforo visível, comanda spa). Sem OK → sem avançar módulos.",
     "E22: após OK — um único módulo seguinte (ex. Catálogo / Agendamentos).",
     "Encerramento futuro E22: `python tests/e2e_stress_test.py` (≥1000 iterações) + `tests/last_stress_report.txt` sem bloqueios (além da suite pytest).",
     "E17.1: na fila — CONFIRMO desenho lógico Cloud quando priorizado."
   ],
-  "live_actualizado_iso": "2026-04-13T19:30:00Z",
+  "live_actualizado_iso": "2026-04-13T22:00:00Z",
   "epico_cockpit_boas_vindas": {
     "status": "CONCLUÍDO",
     "data_iso": "2026-04-12",
