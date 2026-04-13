@@ -17,3 +17,6 @@ backups/logs/*.log
 gha_backup_state.json
 gha_restore_state.json
 *.beaba.enc
+
+venv/
+.venv/
