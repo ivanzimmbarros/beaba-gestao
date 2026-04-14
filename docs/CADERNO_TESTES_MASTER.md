@@ -21,7 +21,7 @@
 | `tests/test_financeiro_categorias_gasto.py` | Centro/natureza/tipo gasto operacional |
 | `tests/test_financeiro_lancamentos_gasto.py` | Lançamentos, parsing, listagem controle |
 | `tests/test_financeiro_repasses_colaboradores.py` | Consulta repasse colaboradores (CONCLUIDO / REALIZADO_PENDENTE_PGTO), filtros |
-| `tests/test_agendamento.py` | Agendamentos, buffer, máquina de estados, E11 pré-venda |
+| `tests/test_agendamento.py` | Agendamentos, buffer, máquina de estados, E11 pré-venda, `listar_agendamentos_elegiveis_associacao_linha_venda`, `pos_venda_associar_agendamentos_por_linha` |
 | `tests/test_app_governance_syntax.py` | Compilação smoke `app_governance` |
 | `tests/test_catalogo.py` | Catálogo: sessão, pacote, evento, validações |
 | `tests/test_cliente.py` | Módulo `cliente`: busca, cadastro, NIF/datas |
@@ -38,7 +38,7 @@
 | `tests/test_relatorios.py` | Relatórios, KPIs, filtros, colaborador em linha |
 | `tests/test_restore_sqlite.py` | E17.2 `restore_sqlite.py`: trava de branch + restore BEA1 com flag de teste |
 | `tests/test_sqlite_backup_verify.py` | Header SQLite + verify destino mínimo |
-| `tests/test_venda.py` | Vendas: totais, split, pendente, contexto agendamento |
+| `tests/test_venda.py` | Vendas: totais, split, pendente, contexto agendamento, `listar_venda_item_ids_em_ordem` |
 | `tests/test_view_governance.py` | `view_governance` CLI smoke |
 
 ## 3. Plano por demanda (template)
@@ -57,7 +57,7 @@ Para cada **ID de demanda**, acrescentar secção:
 ### Demanda `2026-04-06_E11_pre_venda_agenda` — pré-venda na agenda
 
 - **Objectivo:** `modo_origem` / `pre_venda`, `associar_agendamento_pre_venda_a_item`, `registrar_venda` + `agendamento_contexto_id`, UI Agendamentos + Vendas.
-- **Novos casos:** `test_schema_agendamentos_tem_modo_origem`, `test_pre_venda_sessao_concluir_bloqueado`, `test_pre_venda_associar_apos_venda`, `test_pre_venda_pacote_natureza_rejeita`, `test_cancelar_pre_venda`, `test_registrar_venda_contexto_agendamento_cliente_diferente_falha`.
+- **Novos casos:** `test_schema_agendamentos_tem_modo_origem`, `test_pre_venda_sessao_concluir_bloqueado`, `test_pre_venda_associar_apos_venda`, `test_pre_venda_pacote_natureza_rejeita`, `test_cancelar_pre_venda`, `test_registrar_venda_contexto_agendamento_cliente_diferente_falha`, `test_listar_agendamentos_elegiveis_associacao_inclui_pre_venda`, `test_pos_venda_associar_integra_pre_venda_e_conclui`, `test_pos_venda_associacao_parcial_venda_vai_para_rpp`, `test_listar_venda_item_ids_em_ordem`, contrato `assert_vnd_associacao_agendamento_por_linha`.
 - **Regressão:** `python -m pytest tests/ -v` (suite **49** testes após E11).
 - **Critérios de aceite:** alinhados ao [`04_desenho_logico.md`](governanca/demandas/2026-04-06_E11_pre_venda_agenda/04_desenho_logico.md) §8.
 

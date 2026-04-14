@@ -13,6 +13,8 @@ _REPO = Path(__file__).resolve().parents[1]
 _CAG_PAGE = _REPO / "src" / "ui" / "page_clientes_agendamentos.py"
 _SETOR4_START = "def _render_cag_setor4_gestao_agendamentos"
 _NEXT_FN = "\ndef render_page_clientes_agendamentos"
+_LIST_ISLAND_START = "def _cag_setor4_render_list_island"
+_LIST_ISLAND_NEXT = "\ndef _render_cag_setor4_gestao_agendamentos"
 
 
 def _render_setor4_source_block(src: str) -> str:
@@ -27,6 +29,20 @@ def _render_setor4_source_block(src: str) -> str:
         raise AssertionError(
             "Não foi possível delimitar _render_cag_setor4_gestao_agendamentos "
             "(próxima função render_page_clientes_agendamentos ausente)."
+        )
+    return rel[:end_off]
+
+
+def _list_island_source_block(src: str) -> str:
+    start = src.find(_LIST_ISLAND_START)
+    if start == -1:
+        raise AssertionError(f"{_LIST_ISLAND_START!r} não encontrado em page_clientes_agendamentos.py")
+    rel = src[start:]
+    end_off = rel.find(_LIST_ISLAND_NEXT)
+    if end_off == -1:
+        raise AssertionError(
+            "Não foi possível delimitar _cag_setor4_render_list_island "
+            "(próxima função _render_cag_setor4_gestao_agendamentos ausente)."
         )
     return rel[:end_off]
 
@@ -55,6 +71,16 @@ def assert_cag_setor4_lista_dentro_expander_agendamentos() -> None:
         )
     if fn.find("_cag_setor4_render_list_island", 0, i_exp) != -1:
         raise AssertionError("Setor 4: listagem não pode ser chamada antes do expander")
+    isl = _list_island_source_block(src)
+    if "Seleccionar agendamento (página actual)" in isl:
+        raise AssertionError(
+            "Setor 4: o selector legado «Seleccionar agendamento (página actual)» foi removido — "
+            "usar tabela com selecção de linha."
+        )
+    if "st.dataframe" not in isl:
+        raise AssertionError("Setor 4: listagem deve usar `st.dataframe` com selecção de linha.")
+    if "_cag_df_selected_rows" not in src:
+        raise AssertionError("Setor 4: helper `_cag_df_selected_rows` ausente em page_clientes_agendamentos.py")
 
 
 def assert_cag_dados_agendamento_tipo_virtual_widgets() -> None:
@@ -65,3 +91,4 @@ def assert_cag_dados_agendamento_tipo_virtual_widgets() -> None:
     assert "cag_ag_tipo_atendimento" in src
     assert "Sala virtual disponibilizada?" in src
     assert "cag_ag_sala_virtual" in src
+    assert "CAG_AG_STATUS_UI_KEY" in src

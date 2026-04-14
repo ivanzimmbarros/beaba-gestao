@@ -126,7 +126,9 @@ def _render_widget_pesquisa_unificada(
     clicked = False
     go_key = f"{key_prefix}_go"
     gap = "small"
-    col_weights = [1.08, 1.08, 1.02, 1.02, 0.36]
+    # Última coluna com peso semelhante às anteriores para o botão «Procurar» alinhar ao tamanho típico
+    # de botões de navegação (ex.: «Semana Anterior» no calendário CAG), sem mudar de linha.
+    col_weights = [0.95, 0.95, 0.92, 0.92, 1.0]
     lbl = _BUSCA_LBL_CAG if minimal else _BUSCA_LBL_HTML
 
     # Linha 1 — só rótulos (col. do botão: vão com a mesma altura visual da faixa de rótulo).

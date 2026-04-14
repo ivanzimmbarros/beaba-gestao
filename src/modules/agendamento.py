@@ -868,13 +868,17 @@ def alterar_status(
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT status, modo_origem, venda_id FROM agendamentos WHERE id = ?",
+            """
+            SELECT status, modo_origem, venda_id, tipo_origem
+            FROM agendamentos WHERE id = ?
+            """,
             (int(ag_id),),
         )
         row = cur.fetchone()
         if not row:
             return False, "❌ Agendamento não encontrado."
         atual, modo_o, vid_chk = str(row[0]), str(row[1]), row[2]
+        tipo_o = str(row[3] or "sessao_avulsa")
         if atual == "CANCELADO":
             return False, "❌ Já cancelado."
         if atual == "CONCLUIDO" and n != "CONCLUIDO":
@@ -882,13 +886,16 @@ def alterar_status(
         if n == atual:
             return True, "Sem alteração."
         if n == "CONFIRMADO":
-            if atual != "AGENDADO":
-                return False, "❌ Só AGENDADO passa a CONFIRMADO."
+            if atual not in ("AGENDADO", "PRE_AGENDADO"):
+                return False, "❌ Só Agendado ou Pré-agendado passam a Confirmado."
+        elif n == "AGENDADO":
+            if atual != "PRE_AGENDADO":
+                return False, "❌ Só Pré-agendado pode passar a Agendado neste fluxo."
         elif n == "REALIZADO_PENDENTE_PGTO":
-            if atual not in ("AGENDADO", "CONFIRMADO"):
-                return False, "❌ Só AGENDADO ou CONFIRMADO podem passar a REALIZADO_PENDENTE_PGTO."
+            if atual not in ("AGENDADO", "CONFIRMADO", "PRE_AGENDADO"):
+                return False, "❌ Só Agendado, Confirmado ou Pré-agendado podem passar a Realizado (pendente pagamento)."
         elif n == "CONCLUIDO":
-            if atual not in ("AGENDADO", "CONFIRMADO", "REALIZADO_PENDENTE_PGTO"):
+            if atual not in ("AGENDADO", "CONFIRMADO", "REALIZADO_PENDENTE_PGTO", "PRE_AGENDADO"):
                 return False, "❌ Estado atual não permite concluir."
             if modo_o == "pre_venda" and vid_chk is None:
                 return False, "❌ Pré-venda sem venda associada — não pode concluir."
@@ -917,15 +924,16 @@ def alterar_status(
                 )
                 _gerar_repasse_linhas(cur, int(ag_id))
                 conn.commit()
+                pac = " — venda do pacote ainda não totalmente liquidada." if tipo_o == "pacote" else ""
                 return (
                     True,
                     f"⚠️ Pagamento incompleto ({liq / 100:.2f} € de {esp / 100:.2f} € a liquidar) — "
-                    "estado REALIZADO_PENDENTE_PGTO.",
+                    f"estado REALIZADO_PENDENTE_PGTO{pac}",
                 )
         elif n == "PRE_AGENDADO":
-            return False, "❌ Transição para PRE_AGENDADO não suportada neste fluxo."
-        elif n == "AGENDADO":
-            return False, "❌ Transição para AGENDADO não suportada neste fluxo."
+            # O ecrã CAG permite «Pré-agendado» na lista de estados; antes era sempre rejeitado aqui.
+            if atual not in ("AGENDADO", "CONFIRMADO"):
+                return False, "❌ Só Agendado ou Confirmado podem voltar a Pré‑agendado neste fluxo."
         cur.execute(
             """
             UPDATE agendamentos
@@ -1189,6 +1197,110 @@ def associar_agendamento_pre_venda_a_item(
         conn.close()
 
 
+def listar_agendamentos_elegiveis_associacao_linha_venda(
+    *, cliente_id: int, servico_id: int
+) -> list[dict[str, Any]]:
+    """
+    Agendamentos que podem ser associados a uma linha de venda (pré-venda → crédito),
+    alinhado a `associar_agendamento_pre_venda_a_item` (exclui cancelado, concluído e RPP).
+    """
+    return listar_agendamentos(
+        cliente_ids=[int(cliente_id)],
+        servico_ids=[int(servico_id)],
+        status_list=["PRE_AGENDADO", "AGENDADO", "CONFIRMADO"],
+    )
+
+
+def pos_venda_associar_agendamentos_por_linha(
+    *,
+    venda_id: int,
+    cliente_id: int,
+    agendamento_ids_por_linha: list[int | None],
+) -> list[str]:
+    """
+    Após `registrar_venda`, para cada linha com `agendamento_id`:
+    associa pré-venda à linha de venda correspondente e actualiza estado do agendamento
+    (CONCLUIDO se a venda estiver totalmente liquidada; caso contrário REALIZADO_PENDENTE_PGTO).
+    """
+    from src.modules.venda import listar_venda_item_ids_em_ordem
+
+    out: list[str] = []
+    vi_ids = listar_venda_item_ids_em_ordem(int(venda_id))
+    if len(agendamento_ids_por_linha) != len(vi_ids):
+        out.append(
+            f"⚠️ Inconsistência: {len(agendamento_ids_por_linha)} linhas no plano vs "
+            f"{len(vi_ids)} itens na venda #{venda_id} — associação ignorada."
+        )
+        return out
+
+    conn = get_connection()
+    if not conn:
+        out.append("❌ Sem ligação à BD para pós-processamento da venda.")
+        return out
+    try:
+        cur = conn.cursor()
+        esp = total_esperado_liquidacao_venda_centavos(cur, int(venda_id))
+        liq = total_liquidado_venda_centavos(cur, int(venda_id))
+        venda_totalmente_paga = liq >= esp
+    finally:
+        conn.close()
+
+    for ag_id_raw, vi_id in zip(agendamento_ids_por_linha, vi_ids, strict=True):
+        if ag_id_raw is None:
+            continue
+        ag_id = int(ag_id_raw)
+        ag = obter_agendamento(ag_id)
+        if not ag:
+            out.append(f"⚠️ Agendamento #{ag_id} não encontrado — ignorado.")
+            continue
+        if int(ag["cliente_id"]) != int(cliente_id):
+            out.append(f"⚠️ Agendamento #{ag_id} não pertence ao cliente da venda — ignorado.")
+            continue
+        conn2 = get_connection()
+        if not conn2:
+            out.append("❌ Sem ligação à BD ao validar linha de venda.")
+            continue
+        try:
+            c2 = conn2.cursor()
+            c2.execute(
+                "SELECT servico_id FROM venda_itens WHERE id = ? AND venda_id = ?",
+                (int(vi_id), int(venda_id)),
+            )
+            rvi = c2.fetchone()
+            if not rvi:
+                out.append(f"⚠️ Linha de venda #{vi_id} inválida para venda #{venda_id}.")
+                continue
+            if int(rvi[0]) != int(ag["servico_id"]):
+                out.append(
+                    f"⚠️ Serviço do agendamento #{ag_id} não coincide com a linha #{vi_id} — ignorado."
+                )
+                continue
+        finally:
+            conn2.close()
+
+        modo = str(ag.get("modo_origem") or "")
+        if modo == "pre_venda":
+            ok_a, msg_a = associar_agendamento_pre_venda_a_item(ag_id, int(vi_id))
+            if not ok_a:
+                out.append(f"⚠️ Associação ag #{ag_id}: {msg_a}")
+                continue
+            out.append(f"✅ {msg_a} (ag #{ag_id})")
+        else:
+            out.append(
+                f"ℹ️ Ag #{ag_id} não está em pré-venda ({modo}) — associação automática ignorada."
+            )
+            continue
+
+        alvo: StatusAgendamento = "CONCLUIDO" if venda_totalmente_paga else "REALIZADO_PENDENTE_PGTO"
+        ok_s, msg_s = alterar_status(ag_id, alvo, actor="pos_venda")
+        if not ok_s:
+            out.append(f"⚠️ Estado pós-venda ag #{ag_id}: {msg_s}")
+        else:
+            out.append(f"✅ Ag #{ag_id}: {msg_s}")
+
+    return out
+
+
 def obter_primeiro_item_venda_por_servico(
     venda_id: int, servico_id: int
 ) -> int | None:
@@ -1372,11 +1484,13 @@ __all__ = [
     "criar_agendamento",
     "criar_agendamento_pre_venda",
     "listar_agendamentos",
+    "listar_agendamentos_elegiveis_associacao_linha_venda",
     "listar_buckets_credito_cliente",
     "minutos_desde_meia_noite",
     "obter_agendamento",
     "obter_resumo_agendamentos_cliente_setor2_proposta",
     "obter_primeiro_item_venda_por_servico",
+    "pos_venda_associar_agendamentos_por_linha",
     "rotulo_pagamento_venda",
     "saldo_bucket",
     "validar_intervalo_horario",

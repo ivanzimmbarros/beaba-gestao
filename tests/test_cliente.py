@@ -1,6 +1,7 @@
 """Testes unitários — módulo cliente (E21: busca consolidada, data nascimento titular)."""
 
 from src.modules.cliente import (
+    atualizar_cliente,
     buscar_cliente_por_whatsapp,
     buscar_clientes_por_nif_email_telefone,
     buscar_clientes_por_prefixo_nome,
@@ -166,3 +167,58 @@ def test_cadastrar_sem_data_nascimento_rejeita():
     )
     assert ok is False
     assert "nascimento" in msg.lower()
+
+
+def test_freguesia_opcional_em_cadastro_e_actualizacao():
+    tel = "+351910558881"
+    ok, msg = cadastrar_cliente(
+        nome="Cliente Freg Opcional",
+        numero_contato=tel,
+        endereco_rua="Rua A",
+        endereco_numero="1",
+        endereco_complemento="",
+        codigo_postal="4000-099",
+        concelho="Porto",
+        freguesia="",
+        distrito="",
+        pais="Portugal",
+        email="freg_opc@example.com",
+        sexo="Masculino",
+        tem_filhos=False,
+        filhos=[],
+        gravida=None,
+        data_parto_prevista=None,
+        observacoes="",
+        contatos_emergencia=[],
+        nif="INT-FREG-OPC-01",
+        documento_identificacao_internacional=True,
+        data_nascimento="1991-06-15",
+    )
+    assert ok, msg
+    cid = int(buscar_cliente_por_whatsapp(tel) or 0)
+    assert cid > 0
+    ok2, msg2 = atualizar_cliente(
+        cid,
+        nome="Cliente Freg Opcional",
+        numero_contato=tel,
+        endereco_rua="Rua B",
+        endereco_numero="2",
+        endereco_complemento="",
+        codigo_postal="4000-088",
+        concelho="Porto",
+        freguesia="",
+        distrito="",
+        pais="Portugal",
+        email="freg_opc@example.com",
+        sexo="Masculino",
+        tem_filhos=False,
+        filhos=[],
+        gravida=None,
+        data_parto_prevista=None,
+        observacoes="",
+        contatos_emergencia=[],
+        nif="INT-FREG-OPC-01",
+        documento_identificacao_internacional=True,
+        data_nascimento="1991-06-15",
+    )
+    assert ok2, msg2

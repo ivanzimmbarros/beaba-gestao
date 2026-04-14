@@ -137,8 +137,6 @@ def cadastrar_cliente(
         return False, "❌ O código postal é obrigatório (formato XXXX-XXX, ex.: 4800-123)."
     if not conc:
         return False, "❌ O concelho é obrigatório."
-    if not freg:
-        return False, "❌ A freguesia é obrigatória."
 
     email = (email or "").strip()
     if not email:
@@ -582,8 +580,6 @@ def atualizar_cliente(
         return False, "❌ O código postal é obrigatório (formato XXXX-XXX, ex.: 4800-123)."
     if not conc:
         return False, "❌ O concelho é obrigatório."
-    if not freg:
-        return False, "❌ A freguesia é obrigatória."
 
     email = (email or "").strip()
     if not email:

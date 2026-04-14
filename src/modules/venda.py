@@ -436,8 +436,29 @@ def registrar_venda(
         conn.close()
 
 
+def listar_venda_item_ids_em_ordem(venda_id: int) -> list[int]:
+    """Ids de `venda_itens` na mesma ordem de inserção de `registrar_venda` (ordem, id)."""
+    conn = get_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id FROM venda_itens
+            WHERE venda_id = ?
+            ORDER BY ordem ASC, id ASC
+            """,
+            (int(venda_id),),
+        )
+        return [int(r[0]) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
 __all__ = [
     "PCT_BASIS",
     "calcular_totais_venda",
+    "listar_venda_item_ids_em_ordem",
     "registrar_venda",
 ]

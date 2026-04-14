@@ -27,8 +27,10 @@ from src.modules.telefone import normalizar_telefone_legado_ou_e164
 from src.modules.validators import email_valido, parse_data_iso
 from src.modules.agendamento import (
     associar_agendamento_pre_venda_a_item,
+    listar_agendamentos_elegiveis_associacao_linha_venda,
     obter_agendamento,
     obter_primeiro_item_venda_por_servico,
+    pos_venda_associar_agendamentos_por_linha,
 )
 from src.modules.credito_ledger import obter_saldo_credito_cliente
 from src.modules.venda import calcular_totais_venda, registrar_venda
@@ -52,6 +54,14 @@ def _vnd_fmt_cent(c: int | None) -> str:
 def _vnd_section_title_html(title: str) -> str:
     t = html.escape(title)
     return f'<div class="bea-cv-cag-h2">{t}</div>'
+
+
+def _vnd_label_ag_para_combo(a: dict) -> str:
+    cols = ", ".join(a.get("colaboradores_nomes") or []) or "—"
+    return (
+        f"#{a['id']} · {a['data_agendamento']} {a['hora_inicio']}-{a['hora_fim']} "
+        f"· {a['status']} · {cols}"
+    )
 
 
 def _venda_slimos_from_cart(cart: list, id_to: dict) -> list[dict]:
@@ -990,6 +1000,40 @@ def render_page_vendas(
                             key=f"{fk}_col_{idx}",
                         )
                         it["colab_id"] = _sel_col[1]
+                        if cli_id and nat in ("Sessão", "Coworking", "Evento"):
+                            if int(it.get("qty", 1)) != 1:
+                                st.caption(
+                                    "Para associar um agendamento a esta linha, use **quantidade 1**."
+                                )
+                            else:
+                                ag_opts = listar_agendamentos_elegiveis_associacao_linha_venda(
+                                    cliente_id=int(cli_id),
+                                    servico_id=int(it["servico_id"]),
+                                )
+                                _vals = ["__none__"] + [str(int(a["id"])) for a in ag_opts]
+
+                                def _fmt_ag_opt(v: str) -> str:
+                                    if v == "__none__":
+                                        return "Sem agendamento"
+                                    for agx in ag_opts:
+                                        if str(int(agx["id"])) == v:
+                                            return _vnd_label_ag_para_combo(agx)
+                                    return v
+
+                                st.selectbox(
+                                    "Agendamento a associar (opcional)",
+                                    options=_vals,
+                                    format_func=_fmt_ag_opt,
+                                    key=f"{fk}_aglin_{idx}",
+                                    help="Liga esta linha da venda a um compromisso em pré-venda do mesmo serviço.",
+                                )
+                        elif nat == "Produto":
+                            st.caption("Produto: venda directa — sem associação a agendamento.")
+                        elif nat == "Pacote":
+                            st.caption(
+                                "Pacote: consumos na agenda seguem a venda do pacote; "
+                                "conclusão exige liquidação integral da venda (política restritiva)."
+                            )
                         evt_key = "adulto" if str(it.get("evt", "Adulto")) == "Adulto" else "crianca"
                         ok_r, msg_r, snap = resolver_snapshot_venda(
                             int(it["servico_id"]),
@@ -1212,6 +1256,19 @@ def render_page_vendas(
             cab_reg = min(max(0, cab_try_r), max(0, sd), tfc)
         ox = "\n".join(obs_pay_notes).strip()
         obs_fin = (str(obs or "").strip() + ("\n" + ox if ox else "")).strip()
+        ag_plan: list[int | None] = []
+        for idx, it in enumerate(cart):
+            meta_i = id_to.get(int(it["servico_id"]), {})
+            nat_i = str(meta_i.get("natureza", ""))
+            if (
+                st.session_state.venda_cliente_id
+                and nat_i in ("Sessão", "Coworking", "Evento")
+                and int(it.get("qty", 1)) == 1
+            ):
+                sel_ag = str(st.session_state.get(f"{fk}_aglin_{idx}", "__none__") or "__none__")
+                ag_plan.append(None if sel_ag == "__none__" else int(sel_ag))
+            else:
+                ag_plan.append(None)
         ok_f, msg_f, vid_new = registrar_venda(
             int(st.session_state.venda_cliente_id),
             "integral",
@@ -1225,6 +1282,21 @@ def render_page_vendas(
             credito_abatido_centavos=int(cab_reg),
         )
         if ok_f:
+            if vid_new is not None and st.session_state.venda_cliente_id:
+                msgs_pv = pos_venda_associar_agendamentos_por_linha(
+                    venda_id=int(vid_new),
+                    cliente_id=int(st.session_state.venda_cliente_id),
+                    agendamento_ids_por_linha=ag_plan,
+                )
+                for ln in msgs_pv:
+                    if not ln:
+                        continue
+                    if ln.startswith("❌"):
+                        st.error(ln)
+                    elif ln.startswith("⚠️") or ln.startswith("ℹ️"):
+                        st.warning(ln)
+                    else:
+                        st.success(ln)
             if fechar_before and vid_new is not None:
                 agd = obter_agendamento(int(fechar_before))
                 if agd and str(agd.get("modo_origem")) == "pre_venda":

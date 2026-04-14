@@ -15,7 +15,7 @@
     "projeto": "BeaBa Gestão / BeaBa Materno",
     "escopo": "Sincronização código+CI com origin/develop; mapa completo de testes; certificação backup/restore (pytest + simulação verify semanal em sandbox).",
     "pytest": {
-      "total": 170,
+      "total": 190,
       "comando": "python -m pytest tests/ -v",
       "resultado_2026_04_12": "109 passed (Home: ilhas Master sem border Streamlit, Panorama Material Symbols, sidebar ativo sem barra)",
       "resultado_2026_04_13": "124 passed — Painel de Vendas Ilha Mãe Sereno (slot vnd + inject_constituicao_vnd_page + mount unificado CAG/VND)",
@@ -26,7 +26,8 @@
       "resultado_2026_04_13_vnd_nem": "157 passed — Vendas: form editar cliente sem value= duplicado em st.number_input (*_vc_nem / *_vc_qfil); contrato vnd_ui_contract + E2E test_e2e_vnd_visual_shell_contract",
       "resultado_2026_04_13_cag_virtual": "161 passed — CAG Dados do Agendamento: tipo_atendimento + sala_virtual_disponibilizada (NULL presencial); UI + agendamento.py + migração connection",
       "resultado_2026_04_13_financeiro": "170 passed — Página Financeiro + Gastos Operacionais (tabelas financeiro_* , UI Sereno slot fin, SUBAREA1 cadastro/filtros/tabela; testes fin_ui_contract + financeiro_categorias_gasto + E2E slice)",
-      "e2e_incluido": "tests/e2e_stress_test.py (hero + boundary quick na suite pytest)"
+      "e2e_incluido": "tests/e2e_stress_test.py (hero + boundary quick na suite pytest)",
+      "resultado_2026_04_14": "190 passed — Vendas: combo associação por linha (Sessão/Coworking/Evento), pos_venda_associar_agendamentos_por_linha, listar_venda_item_ids_em_ordem; E11 herói usa pos_venda; contrato vnd_ui assert_vnd_associacao_agendamento_por_linha"
     },
     "backup_restore": {
       "nuvem_codigo": "Artefactos encriptados GHA + telemetria backup_dr_history.json — cópia integral SQLite em backup horário (.gitignore *.db intencional).",
@@ -173,7 +174,7 @@
   "pc_foco": "PC1–PC2",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "2026-04-13: Financeiro — SUBAREA1 entregue; pytest 170 passed; push origin/develop 76c1f3ba.",
+  "live_status": "2026-04-14: Vendas — associação opcional agendamento por linha + pos_venda; pacote mensagem liquidação; pytest 190 passed; commit develop pendente push.",
   "etapas_pendentes": [
     "Diretor: homologar PDV vs protótipo (semáforo visível, comanda spa). Sem OK → sem avançar módulos.",
     "E22: após OK — um único módulo seguinte (ex. Catálogo / Agendamentos).",

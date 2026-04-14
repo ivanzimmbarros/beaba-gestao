@@ -8,15 +8,17 @@ from src.modules.agendamento import (
     contar_pre_venda_futuros,
     criar_agendamento,
     criar_agendamento_pre_venda,
+    listar_agendamentos_elegiveis_associacao_linha_venda,
     listar_buckets_credito_cliente,
     obter_agendamento,
+    pos_venda_associar_agendamentos_por_linha,
     saldo_bucket,
     validar_intervalo_horario,
     validar_tipo_atendimento_e_sala,
 )
 from src.modules.catalogo import cadastrar_pacote, cadastrar_servico_fase1
 from src.modules.cliente import buscar_cliente_por_whatsapp, cadastrar_cliente
-from src.modules.venda import registrar_venda
+from src.modules.venda import listar_venda_item_ids_em_ordem, registrar_venda
 
 
 def _cliente():
@@ -272,6 +274,61 @@ def test_maquina_estados():
     assert alterar_status(ag_id, "CONFIRMADO")[0]
     assert alterar_status(ag_id, "CONCLUIDO")[0]
     assert not alterar_status(ag_id, "CONFIRMADO")[0]
+
+
+def test_alterar_status_agendado_para_pre_agendado():
+    """CAG permite «Pré-agendado» a partir de Agendado (reversão administrativa)."""
+    cid = _cliente()
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão PRE",
+        "D",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=25.0,
+    )
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Sessão PRE",))
+    sid = int(cur.fetchone()[0])
+    conn.close()
+    assert registrar_venda(
+        int(cid),
+        "integral",
+        [
+            {
+                "servico_id": sid,
+                "quantidade": 1,
+                "is_bonus": False,
+                "evento_preco": None,
+                "desconto_linha_tipo": "none",
+                "desconto_linha_valor": None,
+            }
+        ],
+        None,
+        None,
+        [("dinheiro", 2500)],
+        [],
+        "",
+    )[0]
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM venda_itens ORDER BY id DESC LIMIT 1")
+    vi_id = int(cur.fetchone()[0])
+    conn.close()
+    criar_agendamento(vi_id, None, "2026-08-01", "09:00", "10:00", [], "")
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM agendamentos ORDER BY id DESC LIMIT 1")
+    ag_id = int(cur.fetchone()[0])
+    cur.execute("SELECT status FROM agendamentos WHERE id = ?", (ag_id,))
+    assert str(cur.fetchone()[0]) == "AGENDADO"
+    conn.close()
+    ok, msg = alterar_status(ag_id, "PRE_AGENDADO")
+    assert ok, msg
+    ag = obter_agendamento(ag_id)
+    assert ag is not None
+    assert ag["status"] == "PRE_AGENDADO"
 
 
 def test_schema_agendamentos_tem_modo_origem():
@@ -544,3 +601,143 @@ def test_pre_venda_virtual_com_sala_persistido():
     assert ag is not None
     assert ag["tipo_atendimento"] == "virtual"
     assert ag["sala_virtual_disponibilizada"] == 0
+
+
+def test_listar_agendamentos_elegiveis_associacao_inclui_pre_venda():
+    cid = _cliente()
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão Eleg Combo",
+        "D",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=18.0,
+    )
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Sessão Eleg Combo",))
+    sid = int(cur.fetchone()[0])
+    conn.close()
+    ok, msg = criar_agendamento_pre_venda(
+        int(cid), sid, "2032-04-10", "08:00", "09:00", [], "", None
+    )
+    assert ok, msg
+    lst = listar_agendamentos_elegiveis_associacao_linha_venda(
+        cliente_id=int(cid), servico_id=sid
+    )
+    assert any(int(a["id"]) > 0 and str(a["modo_origem"]) == "pre_venda" for a in lst)
+
+
+def test_pos_venda_associar_integra_pre_venda_e_conclui():
+    cid = _cliente()
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão POSV",
+        "D",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=30.0,
+    )
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Sessão POSV",))
+    sid = int(cur.fetchone()[0])
+    conn.close()
+    ok, msg = criar_agendamento_pre_venda(
+        int(cid), sid, "2032-05-11", "10:00", "11:00", [], "", None
+    )
+    assert ok, msg
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM agendamentos ORDER BY id DESC LIMIT 1")
+    ag_id = int(cur.fetchone()[0])
+    conn.close()
+    ok_v, msg_v, vid = registrar_venda(
+        int(cid),
+        "integral",
+        [
+            {
+                "servico_id": sid,
+                "quantidade": 1,
+                "is_bonus": False,
+                "evento_preco": None,
+                "desconto_linha_tipo": "none",
+                "desconto_linha_valor": None,
+            }
+        ],
+        None,
+        None,
+        [("dinheiro", 3000)],
+        [],
+        "pos_venda test",
+    )
+    assert ok_v, msg_v
+    assert vid is not None
+    vi_ids = listar_venda_item_ids_em_ordem(int(vid))
+    assert len(vi_ids) == 1
+    msgs = pos_venda_associar_agendamentos_por_linha(
+        venda_id=int(vid),
+        cliente_id=int(cid),
+        agendamento_ids_por_linha=[ag_id],
+    )
+    assert any("associada" in m.lower() or "✅" in m for m in msgs)
+    ag2 = obter_agendamento(ag_id)
+    assert ag2 is not None
+    assert str(ag2.get("modo_origem")) == "credito_venda"
+    assert str(ag2.get("status")) == "CONCLUIDO"
+
+
+def test_pos_venda_associacao_parcial_venda_vai_para_rpp():
+    cid = _cliente()
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão POSV Parc",
+        "D",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=44.0,
+    )
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Sessão POSV Parc",))
+    sid = int(cur.fetchone()[0])
+    conn.close()
+    ok, msg = criar_agendamento_pre_venda(
+        int(cid), sid, "2032-06-01", "14:00", "15:00", [], "", None
+    )
+    assert ok, msg
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM agendamentos ORDER BY id DESC LIMIT 1")
+    ag_id = int(cur.fetchone()[0])
+    conn.close()
+    ok_v, msg_v, vid = registrar_venda(
+        int(cid),
+        "parcial",
+        [
+            {
+                "servico_id": sid,
+                "quantidade": 1,
+                "is_bonus": False,
+                "evento_preco": None,
+                "desconto_linha_tipo": "none",
+                "desconto_linha_valor": None,
+            }
+        ],
+        None,
+        None,
+        [("dinheiro", 2200)],
+        [("2033-01-15", 2200)],
+        "parc test",
+    )
+    assert ok_v, msg_v
+    assert vid is not None
+    msgs = pos_venda_associar_agendamentos_por_linha(
+        venda_id=int(vid),
+        cliente_id=int(cid),
+        agendamento_ids_por_linha=[ag_id],
+    )
+    assert any("associada" in m.lower() or "✅" in m for m in msgs)
+    ag2 = obter_agendamento(ag_id)
+    assert ag2 is not None
+    assert str(ag2.get("status")) == "REALIZADO_PENDENTE_PGTO"

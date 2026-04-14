@@ -29,6 +29,14 @@ def test_cag_dados_agendamento_tipo_atendimento_virtual_contrato():
     assert_cag_dados_agendamento_tipo_virtual_widgets()
 
 
+def test_cag_status_lbl_para_db_normaliza_espacos():
+    from src.ui import page_clientes_agendamentos as mod
+
+    assert mod._cag_status_lbl_para_db("  Concluído  ") == "CONCLUIDO"
+    assert mod._cag_status_lbl_para_db("concluído") == "CONCLUIDO"
+    assert mod._cag_status_lbl_para_db("") == "AGENDADO"
+
+
 def test_cag_busca_nome_integrado_estado_sessao_na_pagina():
     """Contrato UI: pesquisa unificada lê `cag_busca_nome` (prefixo `cag_busca` + `_nome`)."""
     src = (_REPO_ROOT / "src" / "ui" / "page_clientes_agendamentos.py").read_text(encoding="utf-8")

@@ -35,3 +35,12 @@ def assert_vnd_editar_cliente_number_input_sem_value_duplicado_session() -> None
     src = (root / "src" / "ui" / "page_vendas.py").read_text(encoding="utf-8")
     assert 'value=int(st.session_state.get(f"{p}_qfil"' not in src
     assert 'value=min(10, int(st.session_state.get(f"{p}_nem"' not in src
+
+
+def assert_vnd_associacao_agendamento_por_linha() -> None:
+    """Contrato: combo opcional por linha + pós-venda `pos_venda_associar_agendamentos_por_linha`."""
+    root = Path(__file__).resolve().parents[1]
+    src = (root / "src" / "ui" / "page_vendas.py").read_text(encoding="utf-8")
+    assert "Agendamento a associar (opcional)" in src
+    assert "pos_venda_associar_agendamentos_por_linha" in src
+    assert "listar_agendamentos_elegiveis_associacao_linha_venda" in src

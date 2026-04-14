@@ -353,17 +353,6 @@ def get_constituicao_home_cockpit_extra_css() -> str:
         margin: 0 !important;
         max-width: 34rem;
     }}
-    .bea-cv-cockpit-hero-ts {{
-        position: absolute;
-        right: 1.25rem;
-        bottom: 1rem;
-        font-family: var(--cv-sans) !important;
-        font-weight: 600 !important;
-        font-size: 1.35rem !important;
-        letter-spacing: 0.04em !important;
-        color: {CV_TITULO} !important;
-        opacity: 0.88 !important;
-    }}
     .bea-cv-cockpit-tier-title {{
         font-family: var(--cv-sans) !important;
         font-size: 0.72rem !important;
@@ -420,6 +409,26 @@ def get_constituicao_home_cockpit_extra_css() -> str:
         font-weight: 700 !important;
         color: {CV_TITULO} !important;
         letter-spacing: 0.02em !important;
+    }}
+    /* Panorama Global: mesma linha de base dos botões «Explorar» (títulos com alturas diferentes) */
+    section[data-testid="stMain"]:has(.bea-cv-cockpit-active) div[data-testid="stHorizontalBlock"]:has(.bea-cv-pano-card) {{
+        align-items: stretch !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-cockpit-active) div[data-testid="stHorizontalBlock"]:has(.bea-cv-pano-card) > div[data-testid="column"],
+    section[data-testid="stMain"]:has(.bea-cv-cockpit-active) div[data-testid="stHorizontalBlock"]:has(.bea-cv-pano-card) > div[data-testid="stColumn"] {{
+        display: flex !important;
+        flex-direction: column !important;
+        align-self: stretch !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-cockpit-active) div[data-testid="stHorizontalBlock"]:has(.bea-cv-pano-card) > div[data-testid="column"] > div,
+    section[data-testid="stMain"]:has(.bea-cv-cockpit-active) div[data-testid="stHorizontalBlock"]:has(.bea-cv-pano-card) > div[data-testid="stColumn"] > div {{
+        flex: 1 1 auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-cockpit-active) div[data-testid="stHorizontalBlock"]:has(.bea-cv-pano-card) [data-testid="element-container"]:has([data-testid="stButton"]) {{
+        margin-top: auto !important;
     }}
     /* Badges Master (mesmos tokens da CAG; Home não injecta CSS da Área Única) */
     .bea-cv-badge-verde {{

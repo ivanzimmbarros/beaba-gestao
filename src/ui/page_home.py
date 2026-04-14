@@ -195,7 +195,6 @@ def render_page_home() -> None:
 
     nome = html.escape(str(os.environ.get("BEABA_HOME_DISPLAY_NAME", "Lara")).strip() or "Lara")
     agora = datetime.now()
-    relogio = agora.strftime("%H:%M")
 
     with st.spinner("A carregar cockpit…"):
         snap = obter_home_cockpit_snapshot()
@@ -215,7 +214,6 @@ def render_page_home() -> None:
         <div class="bea-cv-cockpit-hero">
           <h1>Olá, {nome}. Veja como está o BeaBá hoje.</h1>
           <p class="bea-cv-cockpit-greet-sub">Cuidando de quem cuida: aqui está o resumo da sua missão hoje.</p>
-          <span class="bea-cv-cockpit-hero-ts" data-testid="bea-home-hero-clock">{relogio}</span>
         </div>
         """,
         unsafe_allow_html=True,

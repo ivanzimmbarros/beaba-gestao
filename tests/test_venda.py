@@ -6,7 +6,7 @@ from src.modules.cliente import (
     cadastrar_cliente,
 )
 from src.modules.agendamento import criar_agendamento_pre_venda
-from src.modules.venda import calcular_totais_venda, registrar_venda
+from src.modules.venda import calcular_totais_venda, listar_venda_item_ids_em_ordem, registrar_venda
 
 
 def _cliente_min():
@@ -274,3 +274,44 @@ def test_registrar_venda_contexto_agendamento_cliente_diferente_falha():
     assert not ok
     assert vid is None
     assert "coincidir" in msg.lower() or "cliente" in msg.lower()
+
+
+def test_listar_venda_item_ids_em_ordem():
+    cid = _cliente_min()
+    assert cid
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão Ord VI",
+        "D",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=15.0,
+    )
+    conn = __import__("src.database.connection", fromlist=["get_connection"]).get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Sessão Ord VI",))
+    sid = int(cur.fetchone()[0])
+    conn.close()
+    ok, msg, vid = registrar_venda(
+        int(cid),
+        "integral",
+        [
+            {
+                "servico_id": sid,
+                "quantidade": 1,
+                "is_bonus": False,
+                "evento_preco": None,
+                "desconto_linha_tipo": "none",
+                "desconto_linha_valor": None,
+            }
+        ],
+        None,
+        None,
+        [("dinheiro", 1500)],
+        [],
+        "",
+    )
+    assert ok and vid is not None
+    ids = listar_venda_item_ids_em_ordem(int(vid))
+    assert len(ids) == 1
+    assert ids[0] >= 1

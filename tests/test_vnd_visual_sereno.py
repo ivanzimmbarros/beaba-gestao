@@ -6,6 +6,7 @@ from pathlib import Path
 
 from tests.vnd_ui_contract import (
     assert_vnd_area_unica_shell,
+    assert_vnd_associacao_agendamento_por_linha,
     assert_vnd_editar_cliente_number_input_sem_value_duplicado_session,
     assert_vnd_pesquisa_unificada_cliente_na_pagina,
 )
@@ -21,6 +22,7 @@ def test_vnd_pesquisa_unificada_contrato():
 
 def test_vnd_editar_cliente_streamlit_number_input_contrato():
     assert_vnd_editar_cliente_number_input_sem_value_duplicado_session()
+    assert_vnd_associacao_agendamento_por_linha()
 
 
 def test_page_vendas_sem_border_true():

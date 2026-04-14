@@ -127,9 +127,8 @@ def _seed_stress_prereqs() -> tuple[int, int]:
 def _run_single_hero(iteration: int, servico_id: int, colaborador_id: int) -> str | None:
     """Devolve mensagem de erro ou None se OK."""
     from src.modules.agendamento import (
-        associar_agendamento_pre_venda_a_item,
         criar_agendamento_pre_venda,
-        obter_primeiro_item_venda_por_servico,
+        pos_venda_associar_agendamentos_por_linha,
     )
     from src.modules.cliente import cadastrar_cliente
     from src.modules.venda import registrar_venda
@@ -233,13 +232,14 @@ def _run_single_hero(iteration: int, servico_id: int, colaborador_id: int) -> st
     if not ok or vid is None:
         return f"venda[{iteration}]: {msg}"
 
-    vi = obter_primeiro_item_venda_por_servico(vid, servico_id)
-    if vi is None:
-        return f"sem item venda[{iteration}]"
-
-    ok, msg = associar_agendamento_pre_venda_a_item(ag_id, vi)
-    if not ok:
-        return f"associar[{iteration}]: {msg}"
+    msgs_pv = pos_venda_associar_agendamentos_por_linha(
+        venda_id=int(vid),
+        cliente_id=cliente_id,
+        agendamento_ids_por_linha=[ag_id],
+    )
+    bad = [m for m in msgs_pv if m.startswith("❌") or ("Inconsistência" in m and m.startswith("⚠️"))]
+    if bad:
+        return f"pos_venda[{iteration}]: {' | '.join(bad)}"
 
     conn = get_connection()
     try:
@@ -690,11 +690,13 @@ def test_e2e_vnd_visual_shell_contract() -> None:
     """E2E leve: evidência de que o Painel de Vendas segue o mesmo padrão de área única que CAG."""
     from tests.vnd_ui_contract import (
         assert_vnd_area_unica_shell,
+        assert_vnd_associacao_agendamento_por_linha,
         assert_vnd_editar_cliente_number_input_sem_value_duplicado_session,
     )
 
     assert_vnd_area_unica_shell()
     assert_vnd_editar_cliente_number_input_sem_value_duplicado_session()
+    assert_vnd_associacao_agendamento_por_linha()
 
 
 def test_e2e_col_visual_shell_contract() -> None:
