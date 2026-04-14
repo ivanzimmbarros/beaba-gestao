@@ -37,6 +37,20 @@ def _ensure_column(cursor, table: str, column: str, definition: str) -> None:
         cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
+def _ensure_financeiro_lancamentos_extras(cursor) -> None:
+    """Colunas para Real/Meta, competência, status e replicação mensal."""
+    tabs = {r[0] for r in cursor.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+    if "financeiro_gasto_lancamentos" not in tabs:
+        return
+    _ensure_column(cursor, "financeiro_gasto_lancamentos", "classe_lancamento", "TEXT NOT NULL DEFAULT 'real'")
+    _ensure_column(cursor, "financeiro_gasto_lancamentos", "data_competencia", "TEXT")
+    _ensure_column(cursor, "financeiro_gasto_lancamentos", "status_lancamento", "TEXT NOT NULL DEFAULT 'agendado'")
+    _ensure_column(cursor, "financeiro_gasto_lancamentos", "replica_para_outros_meses", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(cursor, "financeiro_gasto_lancamentos", "numero_meses_planeados", "INTEGER NOT NULL DEFAULT 1")
+    _ensure_column(cursor, "financeiro_gasto_lancamentos", "data_pagamento", "TEXT")
+    _ensure_column(cursor, "financeiro_gasto_lancamentos", "data_criacao_registo", "TEXT")
+
+
 def _migrate_agendamentos_e11_if_needed(cursor) -> None:
     """
     E11: `modo_origem` + `venda_id`/`venda_item_id` NULL em pré-venda.
@@ -923,6 +937,7 @@ def create_tables():
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_fin_lanc_tipo ON financeiro_gasto_lancamentos(tipo_gasto_id)"
     )
+    _ensure_financeiro_lancamentos_extras(cursor)
     _migrate_agendamentos_e11_if_needed(cursor)
     _ensure_column(
         cursor,

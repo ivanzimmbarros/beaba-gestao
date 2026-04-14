@@ -4,11 +4,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tests.fin_ui_contract import assert_fin_area_unica_shell
+from tests.fin_ui_contract import assert_fin_area_unica_shell, assert_fin_repasses_sector_na_pagina
 
 
 def test_fin_contract_alinhado_com_app_e_shell():
     assert_fin_area_unica_shell()
+
+
+def test_fin_repasses_sector_contrato():
+    assert_fin_repasses_sector_na_pagina()
 
 
 def test_fin_shell_css_ilha_mae_e_slot():
@@ -39,3 +43,6 @@ def test_render_page_financeiro_importa_inject_constituicao_fin():
     assert "fin_gxc_btn_salvar_linha1" not in t
     assert "Cadastramento de Novas Categorias" in t
     assert "vertical_alignment=\"center\"" in t
+    assert "2. Repasses" in t
+    assert "Gestão de Repasses para os Colaboradores" in t
+    assert "fin_rep_btn_pesquisar" in t

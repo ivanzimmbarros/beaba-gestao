@@ -24,6 +24,11 @@ do cliente em `constituicao_visual_shell.py` + `page_clientes_agendamentos.py`; 
 `tests/home_ui_contract.py`,
 `tests/cag_setor4_ui_contract.py` (Setor 4: lista no expander «Agendamentos»; Dados do Agendamento: tipo presencial/virtual + sala virtual) e fatia E20 em
 `e2e_stress_test.py` — tudo em git, não no `.db`.
+
+Financeiro (2026-04+): `page_financeiro.py` (gastos + sector **2. Repasses**); dados em cópia integral
+incluem `financeiro_*`, `repasse_linhas`, `agendamentos`; regressão em `tests/test_fin_visual_sereno.py`,
+`tests/fin_ui_contract.py` (`assert_fin_repasses_sector_na_pagina`), `tests/test_financeiro_*`,
+`e2e_stress_test.py::test_e2e_fin_visual_shell_contract`.
 """
 
 from __future__ import annotations

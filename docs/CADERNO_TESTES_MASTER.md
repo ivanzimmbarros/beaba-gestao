@@ -10,12 +10,17 @@
 
 ## 2. Mapa completo da suite (regressão global — não só último épico)
 
-**Total actual (auditoria 2026-04-12):** **89** testes — `python -m pytest tests/ -v`.
+**Total actual (auditoria 2026-04-13):** **183** testes — `python -m pytest tests/ -v`.
 
 | Ficheiro | Âmbito de negócio / técnico |
 |:---|:---|
 | `tests/conftest.py` | SQLite isolado por teste (`BEABA_SQLITE_PATH`); protege `data/beaba_gestao.db` local |
-| `tests/e2e_stress_test.py` | E2E herói + boundary (jornada transversal: cliente, venda, agendamento, integridade) |
+| `tests/e2e_stress_test.py` | E2E herói + boundary (jornada transversal: cliente, venda, agendamento, integridade); contratos visuais FIN incl. **2. Repasses** |
+| `tests/fin_ui_contract.py` | Contrato UI Financeiro: slot Sereno + sector **2. Repasses** (`assert_fin_repasses_sector_na_pagina`) |
+| `tests/test_fin_visual_sereno.py` | Financeiro: inject CSS Ilha Mãe + strings sector repasses |
+| `tests/test_financeiro_categorias_gasto.py` | Centro/natureza/tipo gasto operacional |
+| `tests/test_financeiro_lancamentos_gasto.py` | Lançamentos, parsing, listagem controle |
+| `tests/test_financeiro_repasses_colaboradores.py` | Consulta repasse colaboradores (CONCLUIDO / REALIZADO_PENDENTE_PGTO), filtros |
 | `tests/test_agendamento.py` | Agendamentos, buffer, máquina de estados, E11 pré-venda |
 | `tests/test_app_governance_syntax.py` | Compilação smoke `app_governance` |
 | `tests/test_catalogo.py` | Catálogo: sessão, pacote, evento, validações |
