@@ -1211,6 +1211,184 @@ def listar_agendamentos_elegiveis_associacao_linha_venda(
     )
 
 
+def listar_buckets_pacote_com_saldo_disponivel(cliente_id: int) -> list[dict[str, Any]]:
+    """Buckets `tipo_origem` pacote com saldo ≥ 1 (para UI de conversão do dia)."""
+    out: list[dict[str, Any]] = []
+    for b in listar_buckets_credito_cliente(int(cliente_id)):
+        if str(b.get("tipo_origem") or "") != "pacote":
+            continue
+        if int(b.get("saldo") or 0) < 1:
+            continue
+        if b.get("pacote_sessao_id") is None:
+            continue
+        out.append(b)
+    return out
+
+
+def agendamento_elegivel_conversao_para_pacote_hoje(
+    ag: dict[str, Any] | None,
+    *,
+    data_referencia: date | None = None,
+) -> tuple[bool, str]:
+    """
+    Regra funcional: uma sessão por operação; `data_agendamento` = hoje;
+    não `CONCLUIDO` nem `REALIZADO_PENDENTE_PGTO`; ainda não consumo de pacote.
+    """
+    ref = (data_referencia or date.today()).isoformat()[:10]
+    if not ag:
+        return False, "❌ Agendamento inexistente."
+    st = str(ag.get("status") or "")
+    if st in ("CONCLUIDO", "REALIZADO_PENDENTE_PGTO", "CANCELADO"):
+        return False, "❌ Estado não permite converter (exclui Concluído e Realizado pendente pagamento)."
+    if str(ag.get("data_agendamento") or "")[:10] != ref:
+        return False, "❌ Só é permitido converter agendamentos com data de hoje."
+    tpo = str(ag.get("tipo_origem") or "")
+    if tpo == "pacote":
+        return False, "❌ Este agendamento já é consumo de pacote."
+    if tpo not in ("sessao_avulsa", "coworking", "evento"):
+        return False, "❌ Só sessões avulsas, coworking ou evento podem ser convertidas."
+    return True, ""
+
+
+def converter_agendamento_avulso_para_consumo_pacote(
+    ag_id: int,
+    venda_item_id_pacote: int,
+    pacote_sessao_id: int,
+    *,
+    actor: str | None = None,
+) -> tuple[bool, str]:
+    """
+    Liga um agendamento avulso (hoje, estado permitido) ao crédito de uma linha de **Pacote** vendida.
+    """
+    aid = int(ag_id)
+    vi_pac = int(venda_item_id_pacote)
+    psid = int(pacote_sessao_id)
+    ag = obter_agendamento(aid)
+    ok_e, msg_e = agendamento_elegivel_conversao_para_pacote_hoje(ag)
+    if not ok_e:
+        return False, msg_e
+    if not ag:
+        return False, "❌ Agendamento não encontrado."
+
+    conn = get_connection()
+    if not conn:
+        return False, "❌ Não foi possível ligar à base de dados."
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT COUNT(*) FROM repasse_linhas
+            WHERE agendamento_id = ?
+              AND COALESCE(status_repasse, '') != 'PENDENTE_REPASSE'
+            """,
+            (aid,),
+        )
+        if int(cur.fetchone()[0] or 0) > 0:
+            return (
+                False,
+                "❌ Existem linhas de repasse já fora de «PENDENTE_REPASSE» — conversão não permitida.",
+            )
+        cur.execute(
+            """
+            DELETE FROM repasse_linhas
+            WHERE agendamento_id = ? AND status_repasse = 'PENDENTE_REPASSE'
+            """,
+            (aid,),
+        )
+        cur.execute(
+            """
+            SELECT vi.venda_id, vi.servico_id, s.natureza, v.cliente_id
+            FROM venda_itens vi
+            JOIN servicos s ON s.id = vi.servico_id
+            JOIN vendas v ON v.id = vi.venda_id
+            WHERE vi.id = ?
+            """,
+            (vi_pac,),
+        )
+        row = cur.fetchone()
+        if not row:
+            return False, "❌ Linha de venda do pacote não encontrada."
+        venda_id, sid_item, natureza, cli_v = int(row[0]), int(row[1]), str(row[2]), int(row[3])
+        if natureza != "Pacote":
+            return False, "❌ A linha seleccionada não é um pacote."
+        if int(ag["cliente_id"]) != cli_v:
+            return False, "❌ Cliente do agendamento difere do cliente da venda do pacote."
+        ok_s, msg_s, serv_occ = _servico_ocorrencia(cur, vi_pac, psid)
+        if not ok_s or serv_occ is None:
+            return False, msg_s
+        if int(ag["servico_id"]) != int(serv_occ):
+            return (
+                False,
+                "❌ O serviço do agendamento não coincide com o componente do pacote seleccionado.",
+            )
+        saldo = saldo_bucket(cur, vi_pac, psid)
+        if saldo < 1:
+            return False, "❌ Sem saldo disponível neste componente do pacote."
+
+        old_tipo = str(ag.get("tipo_origem") or "")
+        old_modo = str(ag.get("modo_origem") or "")
+        old_vid = ag.get("venda_id")
+        old_vi = ag.get("venda_item_id")
+        old_ps = ag.get("pacote_sessao_id")
+        old_srv = int(ag["servico_id"])
+
+        cur.execute(
+            """
+            UPDATE agendamentos
+            SET venda_id = ?, venda_item_id = ?, pacote_sessao_id = ?,
+                tipo_origem = 'pacote', modo_origem = 'credito_venda',
+                servico_id = ?, preco_referencia_centavos = NULL,
+                data_alteracao = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (venda_id, vi_pac, psid, int(serv_occ), aid),
+        )
+        _append_ag_hist(
+            cur,
+            aid,
+            "tipo_origem",
+            old_tipo,
+            "pacote",
+            motivo="converter_para_consumo_pacote_hoje",
+            actor=actor,
+        )
+        _append_ag_hist(
+            cur,
+            aid,
+            "venda_item_id",
+            str(old_vi) if old_vi is not None else "",
+            str(vi_pac),
+            motivo="converter_para_consumo_pacote_hoje",
+            actor=actor,
+        )
+        _append_ag_hist(
+            cur,
+            aid,
+            "modo_origem",
+            old_modo,
+            "credito_venda",
+            motivo="converter_para_consumo_pacote_hoje",
+            actor=actor,
+        )
+        if int(serv_occ) != old_srv:
+            _append_ag_hist(
+                cur,
+                aid,
+                "servico_id",
+                str(old_srv),
+                str(int(serv_occ)),
+                motivo="converter_para_consumo_pacote_hoje",
+                actor=actor,
+            )
+        conn.commit()
+        return True, f"✅ Agendamento #{aid} convertido para consumo do pacote (linha #{vi_pac})."
+    except Exception as e:
+        conn.rollback()
+        return False, f"❌ Erro ao converter: {e}"
+    finally:
+        conn.close()
+
+
 def pos_venda_associar_agendamentos_por_linha(
     *,
     venda_id: int,
@@ -1475,10 +1653,12 @@ def contar_por_status_periodo(data_de: str, data_ate: str) -> dict[str, int]:
 
 
 __all__ = [
+    "agendamento_elegivel_conversao_para_pacote_hoje",
     "alterar_status",
     "associar_agendamento_pre_venda_a_item",
     "atualizar_agendamento",
     "cancelar_agendamento",
+    "converter_agendamento_avulso_para_consumo_pacote",
     "contar_por_status_periodo",
     "contar_pre_venda_futuros",
     "criar_agendamento",
@@ -1486,6 +1666,7 @@ __all__ = [
     "listar_agendamentos",
     "listar_agendamentos_elegiveis_associacao_linha_venda",
     "listar_buckets_credito_cliente",
+    "listar_buckets_pacote_com_saldo_disponivel",
     "minutos_desde_meia_noite",
     "obter_agendamento",
     "obter_resumo_agendamentos_cliente_setor2_proposta",

@@ -13,11 +13,14 @@ import streamlit as st
 
 from src.pages.theme import get_beaba_css  # noqa: F401 — BeaBa Sereno (CSS em app.main)
 from src.modules.agendamento import (
+    agendamento_elegivel_conversao_para_pacote_hoje,
     alterar_status,
     atualizar_agendamento,
     cancelar_agendamento,
+    converter_agendamento_avulso_para_consumo_pacote,
     criar_agendamento_pre_venda,
     listar_agendamentos,
+    listar_buckets_pacote_com_saldo_disponivel,
     obter_agendamento,
     obter_resumo_agendamentos_cliente_setor2_proposta,
     validar_tipo_atendimento_e_sala,
@@ -1574,6 +1577,83 @@ def _cag_setor4_render_calendario_only(*, cliente_id: int, fv: int, ctx: dict[st
         st.markdown(f'<div class="bea-proto-scope">{cal_html}</div>', unsafe_allow_html=True)
 
 
+def _cag_render_conversao_pacote_hoje_block(
+    *, cliente_id: int, fv: int, pick_key: str, dis_ag: bool
+) -> None:
+    """Conversão avulsa → consumo de pacote (regra: data de hoje, estados permitidos)."""
+    raw_pk = str(st.session_state.get(pick_key) or "__novo__")
+    if not raw_pk.startswith("id:"):
+        return
+    try:
+        aid = int(raw_pk.split(":", 1)[1])
+    except (IndexError, ValueError):
+        return
+    ag = obter_agendamento(aid)
+    if not ag or int(ag.get("cliente_id") or 0) != int(cliente_id):
+        return
+    ok_e, _msg_ge = agendamento_elegivel_conversao_para_pacote_hoje(ag)
+    if not ok_e:
+        return
+    buckets = listar_buckets_pacote_com_saldo_disponivel(int(cliente_id))
+    if not buckets:
+        return
+    st.markdown(
+        '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
+        unsafe_allow_html=True,
+    )
+    with st.expander("Converter para consumo de pacote (hoje)", expanded=False):
+        st.caption(
+            "Uma sessão com **data de hoje**, não concluída nem em «Realizado pendente pagamento», "
+            "ligada a um componente do pacote com saldo disponível."
+        )
+        opts_vals: list[str] = []
+        lbl_map: dict[str, str] = {}
+        for b in buckets:
+            vi = int(b["venda_item_id"])
+            ps = int(b["pacote_sessao_id"])
+            vk = f"{vi}|{ps}"
+            opts_vals.append(vk)
+            lbl_map[vk] = (
+                f"{b.get('rotulo', '—')} · saldo {int(b.get('saldo', 0))} · {b.get('pagamento', '')}"
+            )
+        pick_ui = f"cag_conv_pac_pick_{cliente_id}_{fv}_{aid}"
+
+        def _fmt_pacote_bucket(v: str) -> str:
+            return lbl_map.get(str(v), str(v))
+
+        st.selectbox(
+            "Pacote / componente",
+            options=opts_vals,
+            format_func=_fmt_pacote_bucket,
+            key=pick_ui,
+        )
+        if st.button(
+            "Confirmar conversão para pacote",
+            type="secondary",
+            disabled=dis_ag,
+            key=f"cag_conv_pac_go_{cliente_id}_{fv}_{aid}",
+        ):
+            pick = str(st.session_state.get(pick_ui) or "")
+            if "|" not in pick:
+                st.error("Seleccione um pacote.")
+            else:
+                a, _, b = pick.partition("|")
+                try:
+                    vi_c = int(a)
+                    ps_c = int(b)
+                except ValueError:
+                    st.error("Opção inválida.")
+                else:
+                    ok_c, msg_c = converter_agendamento_avulso_para_consumo_pacote(
+                        aid, vi_c, ps_c, actor="cag_ui"
+                    )
+                    if ok_c:
+                        st.success(msg_c)
+                        st.rerun()
+                    else:
+                        st.error(msg_c)
+
+
 def _cag_setor4_render_dados_ag_form_e_wizards(
     *, cliente_id: int, fv: int, tem_cliente: bool, ctx: dict[str, Any], dis_ag: bool
 ) -> None:
@@ -1703,6 +1783,10 @@ def _cag_setor4_render_dados_ag_form_e_wizards(
         st.text_area("Observações", key="cag_ag_obs", height=72, disabled=dis_ag)
 
         submitted = st.form_submit_button("Salvar Agendamento", type="secondary", disabled=dis_ag)
+
+    _cag_render_conversao_pacote_hoje_block(
+        cliente_id=cliente_id, fv=fv, pick_key=pick_key, dis_ag=dis_ag
+    )
 
     if submitted:
         if not tem_cliente:

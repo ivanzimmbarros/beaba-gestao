@@ -10,7 +10,7 @@
 
 ## 2. Mapa completo da suite (regressão global — não só último épico)
 
-**Total actual (auditoria 2026-04-13):** **183** testes — `python -m pytest tests/ -v`.
+**Total actual (auditoria 2026-04-14):** **200** testes — `python -m pytest tests/ -v`.
 
 | Ficheiro | Âmbito de negócio / técnico |
 |:---|:---|
@@ -21,11 +21,12 @@
 | `tests/test_financeiro_categorias_gasto.py` | Centro/natureza/tipo gasto operacional |
 | `tests/test_financeiro_lancamentos_gasto.py` | Lançamentos, parsing, listagem controle |
 | `tests/test_financeiro_repasses_colaboradores.py` | Consulta repasse colaboradores (CONCLUIDO / REALIZADO_PENDENTE_PGTO), filtros |
-| `tests/test_agendamento.py` | Agendamentos, buffer, máquina de estados, E11 pré-venda, `listar_agendamentos_elegiveis_associacao_linha_venda`, `pos_venda_associar_agendamentos_por_linha` |
+| `tests/test_agendamento.py` | Agendamentos, buffer, máquina de estados, E11 pré-venda, `listar_agendamentos_elegiveis_associacao_linha_venda`, `pos_venda_associar_agendamentos_por_linha`, conversão avulsa→consumo pacote (`converter_agendamento_avulso_para_consumo_pacote`, repasse) |
 | `tests/test_app_governance_syntax.py` | Compilação smoke `app_governance` |
 | `tests/test_catalogo.py` | Catálogo: sessão, pacote, evento, validações |
 | `tests/test_cliente.py` | Módulo `cliente`: busca, cadastro, NIF/datas |
-| `tests/test_clientes_agendamentos_page.py` | UI consolidada CAG: import, estado, resumo setor 2, HTML naturezas |
+| `tests/cag_setor4_ui_contract.py` | Contratos CAG Setor 4: lista no expander «Agendamentos»; conversão avulsa→pacote (hoje) |
+| `tests/test_clientes_agendamentos_page.py` | UI consolidada CAG: import, estado, resumo setor 2, HTML naturezas, contratos Setor 4 |
 | `tests/test_colaborador.py` | Colaboradores, serviços, repasse, idade |
 | `tests/test_e17_backup_dr.py` | E17 backup horário, verify, rotação, corrupção |
 | `tests/test_e17_1_cloud.py` | E17.1 crypto GCM, evidências SQLite, append telemetria |
@@ -60,6 +61,13 @@ Para cada **ID de demanda**, acrescentar secção:
 - **Novos casos:** `test_schema_agendamentos_tem_modo_origem`, `test_pre_venda_sessao_concluir_bloqueado`, `test_pre_venda_associar_apos_venda`, `test_pre_venda_pacote_natureza_rejeita`, `test_cancelar_pre_venda`, `test_registrar_venda_contexto_agendamento_cliente_diferente_falha`, `test_listar_agendamentos_elegiveis_associacao_inclui_pre_venda`, `test_pos_venda_associar_integra_pre_venda_e_conclui`, `test_pos_venda_associacao_parcial_venda_vai_para_rpp`, `test_listar_venda_item_ids_em_ordem`, contrato `assert_vnd_associacao_agendamento_por_linha`.
 - **Regressão:** `python -m pytest tests/ -v` (suite **49** testes após E11).
 - **Critérios de aceite:** alinhados ao [`04_desenho_logico.md`](governanca/demandas/2026-04-06_E11_pre_venda_agenda/04_desenho_logico.md) §8.
+
+### Demanda `2026-04-14_CAG_conversao_sessao_avulsa_pacote_hoje` — conversão para consumo de pacote (data de hoje)
+
+- **Objectivo:** `converter_agendamento_avulso_para_consumo_pacote`, `listar_buckets_pacote_com_saldo_disponivel`, `agendamento_elegivel_conversao_para_pacote_hoje`; UI `_cag_render_conversao_pacote_hoje_block` após «Salvar Agendamento» no form Setor 4; regras de repasse (`PENDENTE_REPASSE` removido; bloqueio se existir linha ≠ pendente).
+- **Novos casos:** `tests/test_agendamento.py` (elegibilidade, filtro de buckets, conversão OK, serviço ≠ componente, repasse `REPASSE_PAGO`, remoção de `PENDENTE_REPASSE`); `tests/cag_setor4_ui_contract.py` (`assert_cag_conversao_pacote_hoje_no_form_dados_agendamento`); `tests/test_clientes_agendamentos_page.py`; fatia CAG em `tests/e2e_stress_test.py`.
+- **Regressão:** `python -m pytest tests/ -v` (**200** testes em 2026-04-14).
+- **Schema / backup:** sem novas tabelas ou migrações nesta entrega (tabelas `agendamentos`, `repasse_linhas`, `agendamento_historico` já existentes).
 
 ### Demanda `2026-04-07_E12_refatoracao_painel_operacional` — Painel Torre + Diário + app
 
@@ -97,6 +105,7 @@ Para cada **ID de demanda**, acrescentar secção:
 
 ## 4. Histórico
 
+- **2026-04-14:** Conversão CAG avulsa→consumo de pacote (hoje) + contrato UI + E2E; suite **200** testes (`test_agendamento`, `cag_setor4_ui_contract`, `e2e_stress_test`).
 - **2026-04-06:** Documento criado para cumprir passo 18 do percurso normal — SUCESSO (plano de testes mestre).
 - **2026-04-06:** Plano E11 (pré-venda) acrescentado; suite pytest **49** testes.
 - **2026-04-07:** Plano E12 (Painel + governança UI); suite mantém **49** testes.

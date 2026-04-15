@@ -1,15 +1,20 @@
+from datetime import date
+
 import pytest
 
 from src.database.connection import get_connection
 from src.modules.agendamento import (
+    agendamento_elegivel_conversao_para_pacote_hoje,
     alterar_status,
     associar_agendamento_pre_venda_a_item,
     cancelar_agendamento,
     contar_pre_venda_futuros,
+    converter_agendamento_avulso_para_consumo_pacote,
     criar_agendamento,
     criar_agendamento_pre_venda,
     listar_agendamentos_elegiveis_associacao_linha_venda,
     listar_buckets_credito_cliente,
+    listar_buckets_pacote_com_saldo_disponivel,
     obter_agendamento,
     pos_venda_associar_agendamentos_por_linha,
     saldo_bucket,
@@ -18,6 +23,7 @@ from src.modules.agendamento import (
 )
 from src.modules.catalogo import cadastrar_pacote, cadastrar_servico_fase1
 from src.modules.cliente import buscar_cliente_por_whatsapp, cadastrar_cliente
+from src.modules.colaborador import cadastrar_colaborador
 from src.modules.venda import listar_venda_item_ids_em_ordem, registrar_venda
 
 
@@ -522,6 +528,12 @@ def test_ui_cag_setor4_lista_dentro_expander_agendamentos():
     assert_cag_setor4_lista_dentro_expander_agendamentos()
 
 
+def test_ui_cag_conversao_pacote_hoje_no_form_dados_agendamento():
+    from tests.cag_setor4_ui_contract import assert_cag_conversao_pacote_hoje_no_form_dados_agendamento
+
+    assert_cag_conversao_pacote_hoje_no_form_dados_agendamento()
+
+
 def test_validar_tipo_atendimento_e_sala():
     ok, _, t, s = validar_tipo_atendimento_e_sala("presencial", None)
     assert ok and t == "presencial" and s is None
@@ -741,3 +753,654 @@ def test_pos_venda_associacao_parcial_venda_vai_para_rpp():
     ag2 = obter_agendamento(ag_id)
     assert ag2 is not None
     assert str(ag2.get("status")) == "REALIZADO_PENDENTE_PGTO"
+
+
+def _hoje_iso() -> str:
+    return date.today().isoformat()[:10]
+
+
+def test_elegivel_conversao_pacote_hoje_rejeita_data_nao_hoje():
+    ref = date(2026, 4, 14)
+    ag = {
+        "status": "AGENDADO",
+        "data_agendamento": "2026-04-13",
+        "tipo_origem": "sessao_avulsa",
+    }
+    ok, msg = agendamento_elegivel_conversao_para_pacote_hoje(ag, data_referencia=ref)
+    assert not ok
+    assert "hoje" in msg.lower()
+
+
+def test_elegivel_conversao_pacote_hoje_rejeita_rpp_e_concluido():
+    ref = date(2026, 5, 1)
+    ag_rpp = {
+        "status": "REALIZADO_PENDENTE_PGTO",
+        "data_agendamento": "2026-05-01",
+        "tipo_origem": "sessao_avulsa",
+    }
+    ok_r, msg_r = agendamento_elegivel_conversao_para_pacote_hoje(ag_rpp, data_referencia=ref)
+    assert not ok_r
+    assert "estado" in msg_r.lower() or "pendente" in msg_r.lower()
+
+    ag_conc = {
+        "status": "CONCLUIDO",
+        "data_agendamento": "2026-05-01",
+        "tipo_origem": "sessao_avulsa",
+    }
+    ok_x, msg_x = agendamento_elegivel_conversao_para_pacote_hoje(ag_conc, data_referencia=ref)
+    assert not ok_x
+    assert "estado" in msg_x.lower() or "concluído" in msg_x.lower()
+
+    ag_ok = {
+        "status": "AGENDADO",
+        "data_agendamento": "2026-05-01",
+        "tipo_origem": "sessao_avulsa",
+    }
+    ok_o, msg_o = agendamento_elegivel_conversao_para_pacote_hoje(ag_ok, data_referencia=ref)
+    assert ok_o, msg_o
+
+
+def test_elegivel_conversao_pacote_hoje_rejeita_ja_pacote():
+    ref = date(2026, 6, 10)
+    ag = {
+        "status": "AGENDADO",
+        "data_agendamento": "2026-06-10",
+        "tipo_origem": "pacote",
+    }
+    ok, msg = agendamento_elegivel_conversao_para_pacote_hoje(ag, data_referencia=ref)
+    assert not ok
+    assert "pacote" in msg.lower()
+
+
+def test_listar_buckets_pacote_com_saldo_disponivel_filtra():
+    cid = _cliente()
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão LstPacFil",
+        "D",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=35.0,
+    )
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Sessão LstPacFil",))
+    sid = int(cur.fetchone()[0])
+    conn.close()
+    ok_p, msg_p = cadastrar_pacote(
+        "Pacote LstPacFil",
+        "D.",
+        True,
+        [(sid, 1, None)],
+        None,
+        30.0,
+        60.0,
+    )
+    assert ok_p, msg_p
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Pacote LstPacFil",))
+    pid = int(cur.fetchone()[0])
+    cur.execute(
+        "SELECT id FROM servico_pacote_sessoes WHERE pacote_servico_id = ?",
+        (pid,),
+    )
+    psid = int(cur.fetchone()[0])
+    conn.close()
+    ok_v, msg_v, _ = registrar_venda(
+        int(cid),
+        "integral",
+        [
+            {
+                "servico_id": pid,
+                "quantidade": 1,
+                "is_bonus": False,
+                "evento_preco": None,
+                "desconto_linha_tipo": "none",
+                "desconto_linha_valor": None,
+            }
+        ],
+        None,
+        None,
+        [("dinheiro", 6000)],
+        [],
+        "",
+    )
+    assert ok_v, msg_v
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM venda_itens ORDER BY id DESC LIMIT 1")
+    vi_pac = int(cur.fetchone()[0])
+    conn.close()
+    ok_vs, msg_vs, _ = registrar_venda(
+        int(cid),
+        "integral",
+        [
+            {
+                "servico_id": sid,
+                "quantidade": 1,
+                "is_bonus": False,
+                "evento_preco": None,
+                "desconto_linha_tipo": "none",
+                "desconto_linha_valor": None,
+            }
+        ],
+        None,
+        None,
+        [("dinheiro", 3500)],
+        [],
+        "",
+    )
+    assert ok_vs, msg_vs
+    buckets = listar_buckets_pacote_com_saldo_disponivel(int(cid))
+    assert len(buckets) >= 1
+    assert all(str(b.get("tipo_origem") or "") == "pacote" for b in buckets)
+    assert all(int(b.get("saldo") or 0) >= 1 for b in buckets)
+    assert any(int(b["venda_item_id"]) == vi_pac and int(b["pacote_sessao_id"]) == psid for b in buckets)
+
+
+def test_converter_sessao_avulsa_para_pacote_hoje_ok():
+    cid = _cliente()
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão ConvPacOk",
+        "D",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=40.0,
+    )
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Sessão ConvPacOk",))
+    sid = int(cur.fetchone()[0])
+    conn.close()
+    ok_p, msg_p = cadastrar_pacote(
+        "Pacote ConvPacOk",
+        "D.",
+        True,
+        [(sid, 2, None)],
+        None,
+        50.0,
+        100.0,
+    )
+    assert ok_p, msg_p
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Pacote ConvPacOk",))
+    pid = int(cur.fetchone()[0])
+    cur.execute(
+        "SELECT id FROM servico_pacote_sessoes WHERE pacote_servico_id = ?",
+        (pid,),
+    )
+    psid = int(cur.fetchone()[0])
+    conn.close()
+
+    ok_vp, msg_vp, _ = registrar_venda(
+        int(cid),
+        "integral",
+        [
+            {
+                "servico_id": pid,
+                "quantidade": 1,
+                "is_bonus": False,
+                "evento_preco": None,
+                "desconto_linha_tipo": "none",
+                "desconto_linha_valor": None,
+            }
+        ],
+        None,
+        None,
+        [("dinheiro", 10000)],
+        [],
+        "",
+    )
+    assert ok_vp, msg_vp
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM venda_itens ORDER BY id DESC LIMIT 1")
+    vi_pac = int(cur.fetchone()[0])
+    assert saldo_bucket(cur, vi_pac, psid) == 2
+    conn.close()
+
+    ok_vs, msg_vs, _ = registrar_venda(
+        int(cid),
+        "integral",
+        [
+            {
+                "servico_id": sid,
+                "quantidade": 1,
+                "is_bonus": False,
+                "evento_preco": None,
+                "desconto_linha_tipo": "none",
+                "desconto_linha_valor": None,
+            }
+        ],
+        None,
+        None,
+        [("dinheiro", 4000)],
+        [],
+        "",
+    )
+    assert ok_vs, msg_vs
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM venda_itens ORDER BY id DESC LIMIT 1")
+    vi_sess = int(cur.fetchone()[0])
+    conn.close()
+
+    hoje = _hoje_iso()
+    ok_a, msg_a = criar_agendamento(
+        vi_sess, None, hoje, "09:00", "10:00", [], ""
+    )
+    assert ok_a, msg_a
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM agendamentos ORDER BY id DESC LIMIT 1")
+    ag_id = int(cur.fetchone()[0])
+    conn.close()
+
+    ok_c, msg_c = converter_agendamento_avulso_para_consumo_pacote(
+        ag_id, vi_pac, psid, actor="pytest"
+    )
+    assert ok_c, msg_c
+    conn = get_connection()
+    cur = conn.cursor()
+    assert saldo_bucket(cur, vi_pac, psid) == 1
+    conn.close()
+    ag2 = obter_agendamento(ag_id)
+    assert ag2 is not None
+    assert str(ag2.get("tipo_origem")) == "pacote"
+    assert str(ag2.get("modo_origem")) == "credito_venda"
+    assert int(ag2.get("venda_item_id") or 0) == vi_pac
+    assert int(ag2.get("pacote_sessao_id") or 0) == psid
+    assert ag2.get("preco_referencia_centavos") is None
+
+
+def test_converter_rejeita_servico_diferente_do_componente_pacote():
+    cid = _cliente()
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão ConvPacA",
+        "D",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=30.0,
+    )
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão ConvPacB",
+        "D",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=31.0,
+    )
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Sessão ConvPacA",))
+    sid_a = int(cur.fetchone()[0])
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Sessão ConvPacB",))
+    sid_b = int(cur.fetchone()[0])
+    conn.close()
+    ok_p, _ = cadastrar_pacote(
+        "Pacote SóA",
+        "D.",
+        True,
+        [(sid_a, 1, None)],
+        None,
+        20.0,
+        40.0,
+    )
+    assert ok_p
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Pacote SóA",))
+    pid = int(cur.fetchone()[0])
+    cur.execute(
+        "SELECT id FROM servico_pacote_sessoes WHERE pacote_servico_id = ?",
+        (pid,),
+    )
+    psid = int(cur.fetchone()[0])
+    conn.close()
+    ok_vp, msg_vp, _ = registrar_venda(
+        int(cid),
+        "integral",
+        [
+            {
+                "servico_id": pid,
+                "quantidade": 1,
+                "is_bonus": False,
+                "evento_preco": None,
+                "desconto_linha_tipo": "none",
+                "desconto_linha_valor": None,
+            }
+        ],
+        None,
+        None,
+        [("dinheiro", 4000)],
+        [],
+        "",
+    )
+    assert ok_vp, msg_vp
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM venda_itens ORDER BY id DESC LIMIT 1")
+    vi_pac = int(cur.fetchone()[0])
+    conn.close()
+    ok_vs, msg_vs, _ = registrar_venda(
+        int(cid),
+        "integral",
+        [
+            {
+                "servico_id": sid_b,
+                "quantidade": 1,
+                "is_bonus": False,
+                "evento_preco": None,
+                "desconto_linha_tipo": "none",
+                "desconto_linha_valor": None,
+            }
+        ],
+        None,
+        None,
+        [("dinheiro", 3100)],
+        [],
+        "",
+    )
+    assert ok_vs, msg_vs
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM venda_itens ORDER BY id DESC LIMIT 1")
+    vi_b = int(cur.fetchone()[0])
+    conn.close()
+    hoje = _hoje_iso()
+    ok_a, _ = criar_agendamento(vi_b, None, hoje, "11:00", "12:00", [], "")
+    assert ok_a
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM agendamentos ORDER BY id DESC LIMIT 1")
+    ag_id = int(cur.fetchone()[0])
+    conn.close()
+    ok_c, msg_c = converter_agendamento_avulso_para_consumo_pacote(ag_id, vi_pac, psid)
+    assert not ok_c
+    assert "coincide" in msg_c.lower() or "componente" in msg_c.lower()
+
+
+def test_converter_rejeita_repasse_fora_de_pendente():
+    cid = _cliente()
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão ConvPacRep",
+        "D",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=40.0,
+    )
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Sessão ConvPacRep",))
+    sid = int(cur.fetchone()[0])
+    conn.close()
+    ok_col, _ = cadastrar_colaborador(
+        nome="Colab ConvPacRep",
+        sexo="Feminino",
+        data_nascimento="1990-05-10",
+        endereco_rua="Rua R",
+        endereco_numero="1",
+        endereco_complemento="",
+        codigo_postal="4000-001",
+        concelho="Porto",
+        freguesia="Centro",
+        distrito="",
+        pais="Portugal",
+        email="colab.convpac@beaba.test",
+        numero_contato="91222222222",
+        observacoes="",
+        servicos_repasse=[(sid, 20.0, "2026-01-01")],
+    )
+    assert ok_col
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM colaboradores WHERE nome = ?", ("Colab ConvPacRep",))
+    colab_id = int(cur.fetchone()[0])
+    conn.close()
+
+    ok_p, _ = cadastrar_pacote(
+        "Pacote ConvPacRep",
+        "D.",
+        True,
+        [(sid, 1, None)],
+        None,
+        25.0,
+        50.0,
+    )
+    assert ok_p
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Pacote ConvPacRep",))
+    pid = int(cur.fetchone()[0])
+    cur.execute(
+        "SELECT id FROM servico_pacote_sessoes WHERE pacote_servico_id = ?",
+        (pid,),
+    )
+    psid = int(cur.fetchone()[0])
+    conn.close()
+    ok_vp, msg_vp, _ = registrar_venda(
+        int(cid),
+        "integral",
+        [
+            {
+                "servico_id": pid,
+                "quantidade": 1,
+                "is_bonus": False,
+                "evento_preco": None,
+                "desconto_linha_tipo": "none",
+                "desconto_linha_valor": None,
+            }
+        ],
+        None,
+        None,
+        [("dinheiro", 5000)],
+        [],
+        "",
+    )
+    assert ok_vp, msg_vp
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM venda_itens ORDER BY id DESC LIMIT 1")
+    vi_pac = int(cur.fetchone()[0])
+    conn.close()
+    ok_vs, msg_vs, _ = registrar_venda(
+        int(cid),
+        "integral",
+        [
+            {
+                "servico_id": sid,
+                "quantidade": 1,
+                "is_bonus": False,
+                "evento_preco": None,
+                "desconto_linha_tipo": "none",
+                "desconto_linha_valor": None,
+            }
+        ],
+        None,
+        None,
+        [("dinheiro", 4000)],
+        [],
+        "",
+    )
+    assert ok_vs, msg_vs
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM venda_itens ORDER BY id DESC LIMIT 1")
+    vi_sess = int(cur.fetchone()[0])
+    conn.close()
+    hoje = _hoje_iso()
+    ok_a, _ = criar_agendamento(vi_sess, None, hoje, "14:00", "15:00", [], "")
+    assert ok_a
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM agendamentos ORDER BY id DESC LIMIT 1")
+    ag_id = int(cur.fetchone()[0])
+    cur.execute(
+        """
+        INSERT INTO repasse_linhas (
+            agendamento_id, colaborador_id, base_calculo_centavos,
+            percentual_bp, valor_repasse_centavos, status_repasse
+        ) VALUES (?, ?, 4000, 2000, 800, 'REPASSE_PAGO')
+        """,
+        (ag_id, colab_id),
+    )
+    conn.commit()
+    conn.close()
+    ok_c, msg_c = converter_agendamento_avulso_para_consumo_pacote(ag_id, vi_pac, psid)
+    assert not ok_c
+    assert "repasse" in msg_c.lower()
+
+
+def test_converter_apaga_repasse_pendente_e_converte():
+    cid = _cliente()
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão ConvPacPen",
+        "D",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=40.0,
+    )
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Sessão ConvPacPen",))
+    sid = int(cur.fetchone()[0])
+    conn.close()
+    ok_col, _ = cadastrar_colaborador(
+        nome="Colab ConvPacPen",
+        sexo="Masculino",
+        data_nascimento="1991-06-11",
+        endereco_rua="Rua P",
+        endereco_numero="2",
+        endereco_complemento="",
+        codigo_postal="4100-002",
+        concelho="Porto",
+        freguesia="Paranhos",
+        distrito="",
+        pais="Portugal",
+        email="colab.pen@beaba.test",
+        numero_contato="91333333333",
+        observacoes="",
+        servicos_repasse=[(sid, 15.0, "2026-01-01")],
+    )
+    assert ok_col
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM colaboradores WHERE nome = ?", ("Colab ConvPacPen",))
+    colab_id = int(cur.fetchone()[0])
+    conn.close()
+
+    ok_p, _ = cadastrar_pacote(
+        "Pacote ConvPacPen",
+        "D.",
+        True,
+        [(sid, 1, None)],
+        None,
+        25.0,
+        50.0,
+    )
+    assert ok_p
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Pacote ConvPacPen",))
+    pid = int(cur.fetchone()[0])
+    cur.execute(
+        "SELECT id FROM servico_pacote_sessoes WHERE pacote_servico_id = ?",
+        (pid,),
+    )
+    psid = int(cur.fetchone()[0])
+    conn.close()
+    ok_vp, msg_vp, _ = registrar_venda(
+        int(cid),
+        "integral",
+        [
+            {
+                "servico_id": pid,
+                "quantidade": 1,
+                "is_bonus": False,
+                "evento_preco": None,
+                "desconto_linha_tipo": "none",
+                "desconto_linha_valor": None,
+            }
+        ],
+        None,
+        None,
+        [("dinheiro", 5000)],
+        [],
+        "",
+    )
+    assert ok_vp, msg_vp
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM venda_itens ORDER BY id DESC LIMIT 1")
+    vi_pac = int(cur.fetchone()[0])
+    conn.close()
+    ok_vs, msg_vs, _ = registrar_venda(
+        int(cid),
+        "integral",
+        [
+            {
+                "servico_id": sid,
+                "quantidade": 1,
+                "is_bonus": False,
+                "evento_preco": None,
+                "desconto_linha_tipo": "none",
+                "desconto_linha_valor": None,
+            }
+        ],
+        None,
+        None,
+        [("dinheiro", 4000)],
+        [],
+        "",
+    )
+    assert ok_vs, msg_vs
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM venda_itens ORDER BY id DESC LIMIT 1")
+    vi_sess = int(cur.fetchone()[0])
+    conn.close()
+    hoje = _hoje_iso()
+    ok_a, _ = criar_agendamento(vi_sess, None, hoje, "16:00", "17:00", [], "")
+    assert ok_a
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM agendamentos ORDER BY id DESC LIMIT 1")
+    ag_id = int(cur.fetchone()[0])
+    cur.execute(
+        """
+        INSERT INTO repasse_linhas (
+            agendamento_id, colaborador_id, base_calculo_centavos,
+            percentual_bp, valor_repasse_centavos, status_repasse
+        ) VALUES (?, ?, 4000, 1500, 600, 'PENDENTE_REPASSE')
+        """,
+        (ag_id, colab_id),
+    )
+    conn.commit()
+    assert int(
+        cur.execute(
+            "SELECT COUNT(*) FROM repasse_linhas WHERE agendamento_id = ?",
+            (ag_id,),
+        ).fetchone()[0]
+    ) == 1
+    conn.close()
+
+    ok_c, msg_c = converter_agendamento_avulso_para_consumo_pacote(ag_id, vi_pac, psid)
+    assert ok_c, msg_c
+    conn = get_connection()
+    cur = conn.cursor()
+    assert (
+        int(
+            cur.execute(
+                "SELECT COUNT(*) FROM repasse_linhas WHERE agendamento_id = ?",
+                (ag_id,),
+            ).fetchone()[0]
+        )
+        == 0
+    )
+    conn.close()

@@ -12,6 +12,7 @@ Setor 4 (2026-04): listagem dentro do expander «Agendamentos» — ver `tests/c
 from pathlib import Path
 
 from tests.cag_setor4_ui_contract import (
+    assert_cag_conversao_pacote_hoje_no_form_dados_agendamento,
     assert_cag_dados_agendamento_tipo_virtual_widgets,
     assert_cag_setor4_lista_dentro_expander_agendamentos,
 )
@@ -27,6 +28,10 @@ def test_cag_setor4_lista_obrigatoriamente_dentro_expander_agendamentos():
 
 def test_cag_dados_agendamento_tipo_atendimento_virtual_contrato():
     assert_cag_dados_agendamento_tipo_virtual_widgets()
+
+
+def test_cag_conversao_pacote_hoje_contrato_form_dados_agendamento():
+    assert_cag_conversao_pacote_hoje_no_form_dados_agendamento()
 
 
 def test_cag_status_lbl_para_db_normaliza_espacos():

@@ -15,6 +15,10 @@ _SETOR4_START = "def _render_cag_setor4_gestao_agendamentos"
 _NEXT_FN = "\ndef render_page_clientes_agendamentos"
 _LIST_ISLAND_START = "def _cag_setor4_render_list_island"
 _LIST_ISLAND_NEXT = "\ndef _render_cag_setor4_gestao_agendamentos"
+_DATOS_AG_FORM_START = "def _cag_setor4_render_dados_ag_form_e_wizards"
+_DATOS_AG_FORM_NEXT = "\ndef _cag_setor4_render_list_island"
+_CONV_PAC_START = "def _cag_render_conversao_pacote_hoje_block"
+_CONV_PAC_NEXT = "\ndef _cag_setor4_render_dados_ag_form_e_wizards"
 
 
 def _render_setor4_source_block(src: str) -> str:
@@ -81,6 +85,61 @@ def assert_cag_setor4_lista_dentro_expander_agendamentos() -> None:
         raise AssertionError("Setor 4: listagem deve usar `st.dataframe` com selecção de linha.")
     if "_cag_df_selected_rows" not in src:
         raise AssertionError("Setor 4: helper `_cag_df_selected_rows` ausente em page_clientes_agendamentos.py")
+
+
+def _conversao_pacote_hoje_source_block(src: str) -> str:
+    start = src.find(_CONV_PAC_START)
+    if start == -1:
+        raise AssertionError(
+            f"{_CONV_PAC_START!r} não encontrado em page_clientes_agendamentos.py"
+        )
+    end = src.find(_CONV_PAC_NEXT, start)
+    if end == -1:
+        raise AssertionError(
+            "Não foi possível delimitar _cag_render_conversao_pacote_hoje_block "
+            "(próxima função _cag_setor4_render_dados_ag_form_e_wizards ausente)."
+        )
+    return src[start:end]
+
+
+def _dados_ag_form_source_block(src: str) -> str:
+    start = src.find(_DATOS_AG_FORM_START)
+    if start == -1:
+        raise AssertionError(
+            f"{_DATOS_AG_FORM_START!r} não encontrado em page_clientes_agendamentos.py"
+        )
+    end = src.find(_DATOS_AG_FORM_NEXT, start)
+    if end == -1:
+        raise AssertionError(
+            "Não foi possível delimitar _cag_setor4_render_dados_ag_form_e_wizards "
+            "(próxima função _cag_setor4_render_list_island ausente)."
+        )
+    return src[start:end]
+
+
+def assert_cag_conversao_pacote_hoje_no_form_dados_agendamento() -> None:
+    """Contrato: helper de conversão + invocação após o form, antes de `if submitted:`."""
+    src = _CAG_PAGE.read_text(encoding="utf-8")
+    conv = _conversao_pacote_hoje_source_block(src)
+    if "Converter para consumo de pacote (hoje)" not in conv:
+        raise AssertionError("CAG: expander «Converter para consumo de pacote (hoje)» ausente")
+    if "converter_agendamento_avulso_para_consumo_pacote(" not in conv:
+        raise AssertionError("CAG: chamada a converter_agendamento_avulso_para_consumo_pacote ausente")
+    blk = _dados_ag_form_source_block(src)
+    if "_cag_render_conversao_pacote_hoje_block(" not in blk:
+        raise AssertionError("CAG: _cag_render_conversao_pacote_hoje_block ausente no form dados ag.")
+    i_btn = blk.find('st.form_submit_button("Salvar Agendamento"')
+    i_conv = blk.find("_cag_render_conversao_pacote_hoje_block")
+    i_sub = blk.find("if submitted:")
+    if i_btn == -1 or i_conv == -1 or i_sub == -1:
+        raise AssertionError(
+            f"CAG: ordem Salvar → conversão pacote → submitted incompleta ({i_btn}, {i_conv}, {i_sub})"
+        )
+    if not (i_btn < i_conv < i_sub):
+        raise AssertionError(
+            "CAG: obrigatório `form_submit_button` Salvar Agendamento → "
+            "_cag_render_conversao_pacote_hoje_block → `if submitted:`"
+        )
 
 
 def assert_cag_dados_agendamento_tipo_virtual_widgets() -> None:
