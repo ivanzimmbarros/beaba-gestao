@@ -18,6 +18,9 @@ def assert_cat_especialidade_form_contract() -> None:
     assert "Nova especialidade" in page and "Novo serviço" in page
     assert "_render_cat_expander_cadastro" in page
     assert "col_nat, col_esp = st.columns(2)" in page
+    assert "cat_ui_filt_esp" in page
+    assert "cat_ui_filt_nome_sel" in page
+    assert "Todas as especialidades" in page
     assert "Nova especialidade (nesta natureza)" not in page
 
 

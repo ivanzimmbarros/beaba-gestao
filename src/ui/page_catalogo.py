@@ -33,6 +33,13 @@ from src.ui.constituicao_visual_shell import inject_constituicao_cat_page
 _CAT_PICK_NONE = "— Seleccione um item para carregar na ficha —"
 _CAT_WIZ_OQ_ESP = "Nova especialidade"
 _CAT_WIZ_OQ_SRV = "Novo serviço"
+_CAT_FILT_TODAS_ESP = "Todas as especialidades"
+_CAT_FILT_TODOS_NOMES = "Todos os serviços ou produtos"
+
+
+def _cat_row_label_listagem(r: dict) -> str:
+    """Rótulo único por linha na listagem / filtros (nome + id)."""
+    return f"{r['nome']} (#{int(r['id'])})"
 
 
 def _cat_format_duration_hm_h(hours_dec: float) -> str:
@@ -808,23 +815,52 @@ def render_page_catalogo(*, render_back_and_breadcrumb) -> None:
         unsafe_allow_html=True,
     )
     st.markdown(_cat_section_title_html("Itens registados"), unsafe_allow_html=True)
-    f1, f2, f3 = st.columns([1.2, 1.8, 1])
-    with f1:
+    c_nat, c_esp, c_nom, c_stat = st.columns([1.15, 1.15, 2.0, 0.9])
+    with c_nat:
         sel_nat = st.multiselect(
             "Natureza",
             list(NATUREZAS_CATALOGO_FASE3),
             default=list(NATUREZAS_CATALOGO_FASE3),
             key="cat_ui_filt_nat",
         )
-    with f2:
-        nome_f = st.text_input("Nome (contém)", key="cat_ui_filt_nome", placeholder="Filtrar por texto…")
-    with f3:
+    por_natureza = [r for r in itens_all if (not sel_nat or r["natureza"] in sel_nat)]
+    esp_opts = [_CAT_FILT_TODAS_ESP] + sorted(
+        {str(r.get("especialidade") or "").strip() or "—" for r in por_natureza},
+        key=lambda s: (s == "—", s.lower()),
+    )
+    if st.session_state.get("cat_ui_filt_esp") not in esp_opts:
+        st.session_state["cat_ui_filt_esp"] = esp_opts[0]
+    with c_esp:
+        sel_esp = st.selectbox(
+            "Especialidades",
+            esp_opts,
+            key="cat_ui_filt_esp",
+            help="Opções conforme as naturezas seleccionadas à esquerda.",
+        )
+    por_esp = por_natureza
+    if sel_esp != _CAT_FILT_TODAS_ESP:
+        por_esp = [r for r in por_natureza if str(r.get("especialidade") or "—") == sel_esp]
+    nom_opts = [_CAT_FILT_TODOS_NOMES] + [
+        _cat_row_label_listagem(r) for r in sorted(por_esp, key=lambda x: (str(x["nome"]).lower(), int(x["id"])))
+    ]
+    if st.session_state.get("cat_ui_filt_nome_sel") not in nom_opts:
+        st.session_state["cat_ui_filt_nome_sel"] = nom_opts[0]
+    with c_nom:
+        sel_nom_lbl = st.selectbox(
+            "Nome do Serviço ou Produto",
+            nom_opts,
+            key="cat_ui_filt_nome_sel",
+            help="Itens conforme naturezas e especialidade seleccionadas.",
+        )
+    with c_stat:
         st_f = st.selectbox("Status", ["Todos", "Ativo", "Inativo"], key="cat_ui_filt_stat")
 
     def _keep(r: dict) -> bool:
         if sel_nat and r["natureza"] not in sel_nat:
             return False
-        if (nome_f or "").strip() and (nome_f.strip().lower() not in str(r["nome"]).lower()):
+        if sel_esp != _CAT_FILT_TODAS_ESP and str(r.get("especialidade") or "—") != sel_esp:
+            return False
+        if sel_nom_lbl != _CAT_FILT_TODOS_NOMES and _cat_row_label_listagem(r) != sel_nom_lbl:
             return False
         if st_f == "Ativo" and r["ativo"] != "Sim":
             return False
