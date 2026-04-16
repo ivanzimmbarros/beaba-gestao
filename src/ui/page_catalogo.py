@@ -299,23 +299,17 @@ def _render_cat_expander_cadastro(fk: str) -> None:
             del st.session_state[f"{fk}_wiz_locked"]
             st.rerun()
 
-    natureza = st.selectbox("Natureza *", NATUREZAS_CATALOGO_FASE3, key=f"{fk}_nat")
-    _ensure_cat_form_widget_defaults(fk, natureza)
-    nome = st.text_input("Nome *", key=f"{fk}_nome")
-    descritivo = st.text_area(
-        "Descritivo do serviço / produto *",
-        key=f"{fk}_desc",
-        height=88,
-        placeholder="Texto para identificação e relatórios.",
-    )
-    ativo = st.checkbox("Serviço Disponível (serviço apto para venda)", key=f"{fk}_ativo")
+    col_nat, col_esp = st.columns(2)
+    with col_nat:
+        natureza = st.selectbox("Natureza *", NATUREZAS_CATALOGO_FASE3, key=f"{fk}_nat")
+        _ensure_cat_form_widget_defaults(fk, natureza)
 
     esp_id_ui: int | None = None
+    rows_esp: list = []
     if natureza in NATUREZAS_CATALOGO_FASE1:
         rows_esp = listar_especialidades_por_natureza(natureza)
-        if not rows_esp:
-            st.warning("Sem especialidades para esta natureza — execute a migração ou contacte o suporte.")
-        else:
+    with col_esp:
+        if natureza in NATUREZAS_CATALOGO_FASE1 and rows_esp:
             id_to_label = {int(r["id"]): str(r["nome"]) for r in rows_esp}
             ids_esp = [int(r["id"]) for r in rows_esp]
             pref = st.session_state.get(f"{fk}_esp_{natureza}")
@@ -332,6 +326,17 @@ def _render_cat_expander_cadastro(fk: str) -> None:
                     help="Ligação Natureza → Especialidade → Serviço.",
                 )
             )
+    if natureza in NATUREZAS_CATALOGO_FASE1 and not rows_esp:
+        st.warning("Sem especialidades para esta natureza — execute a migração ou contacte o suporte.")
+
+    nome = st.text_input("Nome *", key=f"{fk}_nome")
+    descritivo = st.text_area(
+        "Descritivo do serviço / produto *",
+        key=f"{fk}_desc",
+        height=88,
+        placeholder="Texto para identificação e relatórios.",
+    )
+    ativo = st.checkbox("Serviço Disponível (serviço apto para venda)", key=f"{fk}_ativo")
 
     sessao_dh = 1.0
     sessao_ve = 0.0
