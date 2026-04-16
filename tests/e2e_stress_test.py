@@ -12,6 +12,7 @@ E20 — Fortaleza Operacional: stress & E2E (Jornada do Herói + fronteiras + co
 - **slice Colaboradores (UI Sereno):** `tests/col_ui_contract.py`, `tests/test_col_visual_sereno.py`
   (incl. pesquisa unificada Col).
 - **slice Catálogo (UI Sereno):** `tests/cat_ui_contract.py`, `tests/test_cat_visual_sereno.py`.
+- **slice Catálogo Especialidades (domínio, sem browser):** `tests/catalogo_especialidades_e2e_slice.py` (`run_catalogo_especialidades_domain_slice`) integrado em `_run_boundary_tests`.
 - **slice Início / Cockpit (UI Sereno):** `tests/home_ui_contract.py`, `tests/test_home_visual_sereno.py`.
 - **slice Financeiro (UI Sereno):** `tests/fin_ui_contract.py`, `tests/test_fin_visual_sereno.py` (incl. sector **2. Repasses**).
 - Execução completa (1000 iterações): `python tests/e2e_stress_test.py`
@@ -504,6 +505,12 @@ def _run_boundary_tests(db_path: Path) -> list[str]:
             out.append("fronteira: cadastro com CP inválido deveria falhar")
     finally:
         conn.close()
+
+    from tests.catalogo_especialidades_e2e_slice import run_catalogo_especialidades_domain_slice
+
+    err_esp = run_catalogo_especialidades_domain_slice()
+    if err_esp:
+        out.append(err_esp)
     return out
 
 

@@ -11,9 +11,11 @@ from src.modules.catalogo import (
     cadastrar_servico_fase1,
     listar_especialidades_por_natureza,
     listar_itens_catalogo,
+    listar_servicos_para_venda,
     obter_servico_para_formulario,
     repasse_medio_ponderado_pacote,
 )
+from src.modules.catalogo_atualizacao import atualizar_servico_fase1_existente
 from src.modules.colaborador import cadastrar_colaborador, listar_servicos
 from src.ui.page_catalogo import _cat_format_duration_hm_h, _cat_parse_duration_hm_h
 
@@ -344,3 +346,137 @@ def test_cat_parse_duration_hm_h_errors():
     assert _cat_parse_duration_hm_h("0:10h")[0] is False
     assert _cat_parse_duration_hm_h("1:60h")[0] is False
     assert _cat_parse_duration_hm_h("25:00h")[0] is False
+
+
+def test_cadastrar_servico_rejeita_especialidade_natureza_errada():
+    rows_p = listar_especialidades_por_natureza("Produto")
+    eid_prod = next(int(r["id"]) for r in rows_p if str(r.get("nome") or "") == "Geral")
+    ok, msg = cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão Edge Mau Nat",
+        "D.",
+        True,
+        especialidade_id=eid_prod,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=40.0,
+    )
+    assert ok is False
+    assert "não pertence" in msg.lower() or "natureza" in msg.lower()
+
+
+def test_cadastrar_servico_rejeita_especialidade_inativa():
+    ok_e, msg_e = cadastrar_especialidade("Sessão", "Esp Inactiva Edge Z", "", ativo=False)
+    assert ok_e, msg_e
+    cur = __import__("sqlite3").connect(os.environ["BEABA_SQLITE_PATH"])
+    row = cur.execute(
+        "SELECT id FROM especialidades WHERE nome = ?", ("Esp Inactiva Edge Z",)
+    ).fetchone()
+    cur.close()
+    assert row is not None
+    eid = int(row[0])
+    ok, msg = cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão Edge Inact Esp",
+        "D.",
+        True,
+        especialidade_id=eid,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=40.0,
+    )
+    assert ok is False
+    assert "inativa" in msg.lower()
+
+
+def test_cadastrar_especialidade_nome_duplicado_rejeita():
+    ok1, _ = cadastrar_especialidade("Coworking", "DupNomeEspEdge772", "")
+    assert ok1
+    ok2, msg2 = cadastrar_especialidade("Coworking", "DupNomeEspEdge772", "")
+    assert ok2 is False
+    assert "Já existe" in msg2 or "já existe" in msg2
+
+
+def test_listar_servicos_para_venda_inclui_campos_especialidade():
+    rows = listar_servicos_para_venda()
+    assert isinstance(rows, list)
+    for r in rows:
+        assert "especialidade_id" in r
+        assert "especialidade" in r
+
+
+def test_create_tables_idempotente_nao_duplica_geral_por_natureza():
+    from src.database.connection import create_tables
+    from src.modules.constants import NATUREZAS_CATALOGO_FASE3
+
+    create_tables()
+    create_tables()
+    cur = __import__("sqlite3").connect(os.environ["BEABA_SQLITE_PATH"])
+    n = int(
+        cur.execute("SELECT COUNT(*) FROM especialidades WHERE nome = ?", ("Geral",)).fetchone()[0]
+    )
+    cur.close()
+    assert n == len(NATUREZAS_CATALOGO_FASE3)
+
+
+def test_migrate_repreenche_especialidade_id_nulo():
+    from src.database.connection import create_tables
+
+    ok, msg = cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão Mig Null Edge",
+        "Para teste de repreenchimento.",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=44.0,
+    )
+    assert ok, msg
+    path = os.environ["BEABA_SQLITE_PATH"]
+    conn = __import__("sqlite3").connect(path)
+    conn.execute(
+        "UPDATE servicos SET especialidade_id = NULL WHERE nome = ?",
+        ("Sessão Mig Null Edge",),
+    )
+    conn.commit()
+    conn.close()
+    create_tables()
+    conn = __import__("sqlite3").connect(path)
+    row = conn.execute(
+        "SELECT especialidade_id FROM servicos WHERE nome = ?",
+        ("Sessão Mig Null Edge",),
+    ).fetchone()
+    conn.close()
+    assert row is not None and row[0] is not None
+
+
+def test_atualizar_servico_altera_especialidade():
+    ok_a, _ = cadastrar_especialidade("Sessão", "EspUpAx8831", "")
+    ok_b, _ = cadastrar_especialidade("Sessão", "EspUpBx8831", "")
+    assert ok_a and ok_b
+    rows = listar_especialidades_por_natureza("Sessão")
+    m = {str(r["nome"]): int(r["id"]) for r in rows}
+    eid_a = m["EspUpAx8831"]
+    eid_b = m["EspUpBx8831"]
+    ok, _ = cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão Troca Esp 8831",
+        "Desc.",
+        True,
+        especialidade_id=eid_a,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=50.0,
+    )
+    assert ok
+    sid = next(i["id"] for i in listar_itens_catalogo() if i["nome"] == "Sessão Troca Esp 8831")
+    ok2, msg2 = atualizar_servico_fase1_existente(
+        sid,
+        "Sessão",
+        "Sessão Troca Esp 8831",
+        "Desc.",
+        True,
+        especialidade_id=eid_b,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=51.0,
+    )
+    assert ok2, msg2
+    d = obter_servico_para_formulario(sid)
+    assert d is not None
+    assert int(d.get("especialidade_id") or 0) == eid_b

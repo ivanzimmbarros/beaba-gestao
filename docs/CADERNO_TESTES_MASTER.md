@@ -10,23 +10,23 @@
 
 ## 1.1 ETAPA 0 — Relatório de side-effects e plano de cobertura (2026-04-16)
 
-**Âmbito:** alterações recentes até 2026-04-16 (épico **Especialidades** — `especialidades` + `servicos.especialidade_id`; commits anteriores Sereno / CAG / governança). **ETAPA 1** (após aprovação formal do Diretor) expandirá testes unitários e E2E conforme listas abaixo; **ETAPA 2** executará a suite completa e registará falhas para correcção estruturada.
+**Âmbito:** alterações recentes até 2026-04-16 (épico **Especialidades** — `especialidades` + `servicos.especialidade_id`; commits anteriores Sereno / CAG / governança). **ETAPA 1** (2026-04-16) alargou testes unitários (edge em `tests/test_catalogo.py`) e a fatia E2E de domínio `run_catalogo_especialidades_domain_slice` em `_run_boundary_tests` (`tests/e2e_stress_test.py`); **ETAPA 2** mantém-se como registo formal pós-suite em CI / selo QA.
 
 ### A) Dados e migração SQLite
 
 | Risco / side-effect | Impacto | Cobertura actual | Acção ETAPA 1 (testes) |
 |:---|:---|:---|:---|
-| `servicos.especialidade_id` NULL em bases legadas antes da migração | Listagens JOIN podem expor especialidade vazia; INSERT manual sem coluna falha se NOT NULL no futuro | Migração `_migrate_especialidades_if_needed` coberta indirectamente por `conftest` + fluxos `cadastrar_*` | Teste dedicado: DB sintético com `servicos` sem `especialidade_id` → `create_tables` / migração → assert não NULL + coerência `natureza` |
-| `INSERT OR IGNORE` em especialidades «Geral» duplicado | Baixo — idempotência | Parcial (fluxo real) | Teste: dupla invocação migração sem duplicar linhas úteis (contagem por `(natureza,nome)`) |
+| `servicos.especialidade_id` NULL em bases legadas antes da migração | Listagens JOIN podem expor especialidade vazia; INSERT manual sem coluna falha se NOT NULL no futuro | `test_migrate_repreenche_especialidade_id_nulo` | — |
+| `INSERT OR IGNORE` em especialidades «Geral» duplicado | Baixo — idempotência | `test_create_tables_idempotente_nao_duplica_geral_por_natureza` | — |
 | Wipe `seed_validacao_massiva` inclui `especialidades` | Ordem de DELETE vs FK (hoje sem FK física em `especialidade_id`) | Não testado isoladamente | Smoke: script ou teste de integração mínimo que simula wipe + `create_tables` + seed parcial |
 
 ### B) Domínio catálogo e regras de negócio
 
 | Risco | Impacto | Cobertura actual | Acção ETAPA 1 |
 |:---|:---|:---|:---|
-| Especialidade inactiva (`ativo=0`) associada a serviço | `_resolver` rejeita inactivos em novos cadastros; serviços antigos podem manter referência | `cadastrar_especialidade` + uso em serviço (parcial) | Edge: desactivar especialidade com serviços dependentes (política: permitir vs bloquear — teste de contrato documentado) |
-| `especialidade_id` de natureza errada | Rejeitado no resolver | `_resolver` + `cadastrar_servico_fase1` | Edge: assert mensagem estável ao passar id de outra natureza |
-| Nome duplicado `(natureza, nome)` | IntegrityError tratado | `cadastrar_especialidade` dup | Já coberto por UNIQUE; reforçar teste de mensagem |
+| Especialidade inativa (`ativo=0`) associada a serviço | `_resolver` rejeita inativas em novos cadastros; serviços antigos podem manter referência | `test_cadastrar_servico_rejeita_especialidade_inativa` | Opcional: desactivar especialidade com serviços dependentes (política documentada) |
+| `especialidade_id` de natureza errada | Rejeitado no resolver | `test_cadastrar_servico_rejeita_especialidade_natureza_errada`; fatia E2E `run_catalogo_especialidades_domain_slice` | — |
+| Nome duplicado `(natureza, nome)` | IntegrityError tratado | `test_cadastrar_especialidade_nome_duplicado_rejeita`; fatia E2E | — |
 | Pacote/Evento sem linha «Geral» | Resolver faz INSERT OR IGNORE | Implícito nos fluxos existentes | Teste unitário explícito: base vazia só com tabelas — primeiro `cadastrar_pacote` cria cadeia |
 
 ### C) UI Streamlit (Catálogo e fluxos dependentes)
@@ -34,7 +34,7 @@
 | Risco | Impacto | Cobertura actual | Acção ETAPA 1 |
 |:---|:---|:---|:---|
 | `st.selectbox` especialidade + mudança de natureza (chave `fk_esp_{natureza}`) | Estado residual entre naturezas | Contrato estático `assert_cat_especialidade_form_contract` | Edge: ficheiro-fonte ou teste de widgets keys únicas por natureza; documentar limite (sem browser real) |
-| CAG/Vendas filtram só por `natureza` em `listar_servicos_para_venda` | `especialidade` no dict não usada na UI — confusão futura | Sem regressão funcional hoje | Contrato: `listar_servicos_para_venda` inclui chaves `especialidade_id` / `especialidade` sempre que migração OK |
+| CAG/Vendas filtram só por `natureza` em `listar_servicos_para_venda` | `especialidade` no dict não usada na UI — confusão futura | `test_listar_servicos_para_venda_inclui_campos_especialidade`; fatia E2E | — |
 | Tabela catálogo nova coluna «Especialidade» | Export/relatórios se copiarem colunas | Visual Sereno tests | Assert coluna no `page_catalogo` DataFrame keys (já parcial via listagem) |
 
 ### D) Integrações transversais (Colaboradores, Agendamentos, Vendas, Relatórios, ETL)
@@ -49,7 +49,7 @@
 
 | Constatação | Norma actual | Ajuste proposto (ETAPA 1 / governança) |
 |:---|:---|:---|
-| E2E = `tests/e2e_stress_test.py` (pytest + jornada herói + contratos UI por leitura de ficheiros) + relatório `tests/last_stress_report.txt` | E20 em `.cursorrules` / `status_demanda.json` | **Opção A:** manter stack e alargar `e2e_stress_test` com fatia «Catálogo: criar especialidade + criar sessão com especialidade não-Geral» (helpers módulo, sem browser). **Opção B (futura):** introduzir Playwright em pasta `e2e/browser/` + CI separado — requer aprovação explícita (dependências, tempo CI). |
+| E2E = `tests/e2e_stress_test.py` (pytest + jornada herói + contratos UI por leitura de ficheiros) + relatório `tests/last_stress_report.txt` | E20 em `.cursorrules` / `status_demanda.json` | **Opção A (activa):** fatia `tests/catalogo_especialidades_e2e_slice.py` chamada em `_run_boundary_tests`. **Opção B (futura):** Playwright em `e2e/browser/` — aprovação explícita. |
 | Pedido explícito «Playwright/Cypress» | Incompatível com árvore actual | CADERNO + (recomendação) parágrafo futuro em `.cursorrules` após OK do Diretor |
 
 ### F) Ficheiros normativos a alinhar após OK
@@ -58,19 +58,20 @@
 |:---|:---|
 | `docs/CADERNO_TESTES_MASTER.md` | §2 totais, mapa de ficheiros, secção demanda Especialidades, histórico — **actualizado nesta ETAPA 0** em parte; ETAPA 1 completa com IDs de testes novos. |
 | `.cursorrules` | Acrescentar nota E20/E2E: «E2E pytest `e2e_stress_test.py` + contratos estáticos; browser automation apenas se adoptada» — **pendente aprovação**. |
-| `docs/governanca/status_demanda.json` | Já reflecte 217 testes; após ETAPA 2 actualizar `live_status` com resultado. |
+| `docs/governanca/status_demanda.json` | Reflecte **224** testes e `live_status` 2026-04-16 (ETAPA 1); após ETAPA 2 manter sincronizado com CI. |
 | `docs/MODELO_ARQUITETURA.md` | Já inclui `especialidades`; manter sincronizado se schema evoluir. |
 
 ---
 
 ## 2. Mapa completo da suite (regressão global — não só último épico)
 
-**Total actual (auditoria 2026-04-16):** **217** testes — `python -m pytest tests/ -v`.
+**Total actual (auditoria 2026-04-16, pós-ETAPA 1 Especialidades):** **224** testes — `python -m pytest tests/ -v`.
 
 | Ficheiro | Âmbito de negócio / técnico |
 |:---|:---|
 | `tests/conftest.py` | SQLite isolado por teste (`BEABA_SQLITE_PATH`); protege `data/beaba_gestao.db` local |
-| `tests/e2e_stress_test.py` | E2E herói + boundary (jornada transversal: cliente, venda, agendamento, integridade); contratos visuais FIN incl. **2. Repasses** |
+| `tests/e2e_stress_test.py` | E2E herói + boundary (jornada transversal: cliente, venda, agendamento, integridade); contratos visuais FIN incl. **2. Repasses**; fatia domínio **Especialidades** (`run_catalogo_especialidades_domain_slice`) |
+| `tests/catalogo_especialidades_e2e_slice.py` | Fatia E2E pytest (sem browser): «Geral», duplicado especialidade, natureza errada, chaves `listar_servicos_para_venda` |
 | `tests/fin_ui_contract.py` | Contrato UI Financeiro: slot Sereno + sector **2. Repasses** (`assert_fin_repasses_sector_na_pagina`) |
 | `tests/test_fin_visual_sereno.py` | Financeiro: inject CSS Ilha Mãe + strings sector repasses |
 | `tests/test_financeiro_categorias_gasto.py` | Centro/natureza/tipo gasto operacional |
@@ -78,7 +79,7 @@
 | `tests/test_financeiro_repasses_colaboradores.py` | Consulta repasse colaboradores (CONCLUIDO / REALIZADO_PENDENTE_PGTO), filtros |
 | `tests/test_agendamento.py` | Agendamentos, buffer, máquina de estados, E11 pré-venda, `listar_agendamentos_elegiveis_associacao_linha_venda`, `pos_venda_associar_agendamentos_por_linha`, conversão avulsa→consumo pacote (`converter_agendamento_avulso_para_consumo_pacote`, repasse) |
 | `tests/test_app_governance_syntax.py` | Compilação smoke `app_governance` |
-| `tests/test_catalogo.py` | Catálogo: sessão, pacote, evento, validações; **Especialidades** (Geral, cadastro + serviço, coluna listagem) |
+| `tests/test_catalogo.py` | Catálogo: sessão, pacote, evento, validações; **Especialidades** (edge: inativa, natureza errada, dup nome, migração NULL, idempotência `create_tables`, `listar_servicos_para_venda`, `atualizar_servico_fase1_existente`) |
 | `tests/cat_ui_contract.py` | Contrato UI Catálogo: Ilha Sereno + **form Especialidade** (`assert_cat_especialidade_form_contract`) |
 | `tests/test_cat_visual_sereno.py` | Catálogo Sereno + **teste contrato especialidade** |
 | `tests/test_cliente.py` | Módulo `cliente`: busca, cadastro, NIF/datas |
@@ -122,10 +123,10 @@ Para cada **ID de demanda**, acrescentar secção:
 ### Demanda épico **Especialidades** (2026-04-16) — Natureza → Especialidade → Serviço
 
 - **Objectivo:** tabela `especialidades`, `servicos.especialidade_id`, migração «Geral», APIs `listar_especialidades_por_natureza` / `cadastrar_especialidade` / resolver interno; UI `page_catalogo.py` (select + expander); `listar_itens_catalogo` / `listar_servicos_para_venda` com JOIN; seed wipe inclui `especialidades`.
-- **Casos já cobertos (217):** `test_listar_especialidades_inclui_geral_sessao`, `test_cadastrar_especialidade_e_usar_em_servico`, `test_cadastrar_sessao_ok` (assert especialidade); `assert_cat_especialidade_form_contract`; `test_cat_especialidade_ui_contract`; fatia E2E `test_e2e_cat_visual_shell_contract`.
-- **Edge cases — ETAPA 1 (a implementar):** migração com `especialidade_id` NULL pré-existente; dupla migração idempotente; especialidade inactiva vs serviço activo; `especialidade_id` natureza errada (mensagens); Pacote/Evento em BD só com tabelas mínimas; regressão `atualizar_servico_fase1_existente` mudando especialidade; contrato `listar_servicos_para_venda` chaves sempre presentes pós-migração.
-- **E2E — ETAPA 1:** alargar `tests/e2e_stress_test.py` com função que simula jornada «resolver catálogo + especialidade + serviço» (sem Playwright) **ou** plano separado para Playwright se o Diretor aprovar Opção B.
-- **Regressão:** `python -m pytest tests/ -v` (meta pós-ETAPA 1: >217 com novos casos).
+- **Casos cobertos (224):** os anteriores + `test_cadastrar_servico_rejeita_especialidade_natureza_errada`, `test_cadastrar_servico_rejeita_especialidade_inativa`, `test_cadastrar_especialidade_nome_duplicado_rejeita`, `test_listar_servicos_para_venda_inclui_campos_especialidade`, `test_create_tables_idempotente_nao_duplica_geral_por_natureza`, `test_migrate_repreenche_especialidade_id_nulo`, `test_atualizar_servico_altera_especialidade`; fatia E2E domínio via `_run_boundary_tests` + `test_e2e_cat_visual_shell_contract`.
+- **Edge cases remanescentes (opcional):** Pacote/Evento em BD só com tabelas mínimas (primeiro `cadastrar_pacote` sem migração prévia); política ao desactivar especialidade com serviços dependentes.
+- **E2E — ETAPA 1:** `run_catalogo_especialidades_domain_slice` integrado em `e2e_stress_test` (boundary + `run_stress_pipeline` em `__main__`).
+- **Regressão:** `python -m pytest tests/ -v` (**224** testes).
 - **Critérios de aceite:** coerência `natureza` serviço ↔ especialidade; UI sem regressão Sereno; nenhum teste removido salvo obsolescência demonstrada.
 
 ### Demanda `2026-04-14_CAG_conversao_sessao_avulsa_pacote_hoje` — conversão para consumo de pacote (data de hoje)
@@ -172,6 +173,7 @@ Para cada **ID de demanda**, acrescentar secção:
 ## 4. Histórico
 
 - **2026-04-16:** Épico Especialidades (schema + domínio + UI Catálogo); suite **217** testes; CADERNO §1.1 ETAPA 0 (side-effects + plano ETAPA 1/2); E2E actual = pytest `e2e_stress_test` (sem Playwright/Cypress no repo).
+- **2026-04-16 (ETAPA 1):** +7 testes em `test_catalogo.py`; `catalogo_especialidades_e2e_slice.py` + chamada em `e2e_stress_test._run_boundary_tests`; suite **224** testes.
 - **2026-04-14:** Conversão CAG avulsa→consumo de pacote (hoje) + contrato UI + E2E; suite **200** testes (`test_agendamento`, `cag_setor4_ui_contract`, `e2e_stress_test`).
 - **2026-04-06:** Documento criado para cumprir passo 18 do percurso normal — SUCESSO (plano de testes mestre).
 - **2026-04-06:** Plano E11 (pré-venda) acrescentado; suite pytest **49** testes.
