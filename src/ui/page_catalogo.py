@@ -276,7 +276,7 @@ def _render_cat_expander_cadastro(fk: str) -> None:
             del st.session_state[f"{fk}_wiz_locked"]
             st.rerun()
         st.caption("Natureza e nome são obrigatórios. A especialidade fica disponível para serviços dessa natureza.")
-        nat_esp = st.selectbox("Natureza *", NATUREZAS_CATALOGO_FASE3, key=f"{fk}_esp_nat")
+        nat_esp = st.selectbox("1. Natureza *", NATUREZAS_CATALOGO_FASE3, key=f"{fk}_esp_nat")
         nome_esp = st.text_input("Nome da especialidade *", key=f"{fk}_esp_nome_txt", placeholder="Ex.: Massagem pré-natal")
         if st.button("Registar especialidade no catálogo", type="primary", key=f"{fk}_esp_submit"):
             okn, msgn = cadastrar_especialidade(nat_esp, nome_esp, "")
