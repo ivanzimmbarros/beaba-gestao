@@ -7,7 +7,8 @@ importações em falha, ou falhas capturadas por `st.exception` / `st.error`.
 **Manutenção obrigatória:** ao acrescentar `src/ui/page_*.py` ou nova entrada de navegação
 em `src/app.py` / `src/ui/shell_sidebar.py`, actualize `EXPECTED_PAGE_MODULES` e
 `SMOKE_APP_ROUTES` neste ficheiro (o teste `test_smoke_ui_page_modules_sync_with_disk` falha
-se existir divergência).
+se existir divergência). O **Monitor de Voo** (`monitor_governanca.py` na raiz do repo) tem
+smoke dedicado em `test_smoke_monitor_governanca`.
 
 Execução isolada: ``python tests/smoke_test_ui.py`` (delega em pytest neste módulo).
 Na CI / pre-push: incluído em ``python -m pytest tests/ -v`` (ficheiro em ``tests/``).
@@ -25,6 +26,7 @@ from streamlit.testing.v1 import AppTest
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _APP_PY = _REPO_ROOT / "src" / "app.py"
+_MONITOR_GOVERNANCA_PY = _REPO_ROOT / "monitor_governanca.py"
 
 
 # Módulos `src/ui/page_*.py` existentes (sem extensão). Deve coincidir com o disco.
@@ -66,7 +68,7 @@ def _discovered_page_module_stems() -> set[str]:
     return {p.stem for p in ui.glob("page_*.py")}
 
 
-def _assert_app_tree_clean(at: AppTest, *, route: str) -> None:
+def _assert_app_tree_clean(at: AppTest, *, context: str) -> None:
     """Falha com mensagem útil se Streamlit expôs exception, error ou trace na árvore."""
     problems: list[str] = []
     if len(at.exception) > 0:
@@ -79,7 +81,7 @@ def _assert_app_tree_clean(at: AppTest, *, route: str) -> None:
             problems.append(f"Sidebar: {len(sb.exception)} st.exception")
         if len(sb.get("error")) > 0:
             problems.append(f"Sidebar: {len(sb.get('error'))} st.error")
-    assert not problems, f"Rota «{route}»: " + "; ".join(problems)
+    assert not problems, f"{context}: " + "; ".join(problems)
 
 
 def _run_app_smoke(route: str, *, timeout: int) -> None:
@@ -87,7 +89,7 @@ def _run_app_smoke(route: str, *, timeout: int) -> None:
     at = AppTest.from_file(str(_APP_PY), default_timeout=timeout)
     at.session_state["page"] = route
     at.run()
-    _assert_app_tree_clean(at, route=route)
+    _assert_app_tree_clean(at, context=f"Rota «{route}»")
 
 
 @pytest.mark.parametrize("route", SMOKE_APP_ROUTES)
@@ -112,6 +114,14 @@ def test_smoke_ui_page_modules_sync_with_disk() -> None:
         "Actualize EXPECTED_PAGE_MODULES e, se houver nova página de produto, "
         "`SMOKE_APP_ROUTES` + `src/app.py` + `shell_sidebar.py` conforme aplicável."
     )
+
+
+def test_smoke_monitor_governanca() -> None:
+    """Monitor de Voo (stand-alone): boot completo sem `st.exception` / `st.error` visíveis."""
+    assert _MONITOR_GOVERNANCA_PY.is_file(), f"Em falta: {_MONITOR_GOVERNANCA_PY}"
+    at = AppTest.from_file(str(_MONITOR_GOVERNANCA_PY), default_timeout=120)
+    at.run()
+    _assert_app_tree_clean(at, context="Monitor de Voo (`monitor_governanca.py`)")
 
 
 if __name__ == "__main__":
