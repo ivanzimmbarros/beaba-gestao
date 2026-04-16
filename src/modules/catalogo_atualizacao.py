@@ -26,6 +26,7 @@ def atualizar_servico_fase1_existente(
     descritivo: str,
     ativo: bool,
     *,
+    especialidade_id: int | None = None,
     sessao_duracao_horas: float | None = None,
     sessao_valor_euros: float | None = None,
     produto_tipo: str = "",
@@ -115,10 +116,16 @@ def atualizar_servico_fase1_existente(
             return False, "❌ Serviço não encontrado."
         if str(r[0] or "") != natureza:
             return False, "❌ A natureza do registo não corresponde ao formulário."
+        import importlib
+
+        cat = importlib.import_module("src.modules.catalogo")
+        ok_e, msg_e, eid_ins = cat._resolver_especialidade_id_para_servico(cur, natureza, especialidade_id)
+        if not ok_e:
+            return False, msg_e
         cur.execute(
             """
             UPDATE servicos SET
-                nome = ?, natureza = ?, ativo = ?, descritivo = ?,
+                nome = ?, natureza = ?, ativo = ?, descritivo = ?, especialidade_id = ?,
                 sessao_duracao_horas = ?, sessao_valor_centavos = ?,
                 produto_tipo = ?, produto_descricao = ?, produto_valor_centavos = ?,
                 produto_origem = ?, produto_repasse_pct_centesimos = ?, produto_repasse_valor_centavos = ?,
@@ -130,6 +137,7 @@ def atualizar_servico_fase1_existente(
                 natureza,
                 ativo_i,
                 desc,
+                eid_ins,
                 sessao_d,
                 sessao_vc,
                 ptipo,

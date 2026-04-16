@@ -6,8 +6,118 @@ import sqlite3
 
 from src.database.connection import get_connection
 from src.modules.colaborador import media_repasse_percentual_servico
-from src.modules.constants import NATUREZAS_CATALOGO_FASE1
+from src.modules.constants import (
+    ESPECIALIDADE_PADRAO_NOME,
+    NATUREZAS_CATALOGO_FASE1,
+    NATUREZAS_CATALOGO_FASE3,
+)
 from src.modules.validators import parse_data_iso
+
+
+def _resolver_especialidade_id_para_servico(
+    cur: sqlite3.Cursor, natureza: str, especialidade_id: int | None
+) -> tuple[bool, str, int]:
+    """Garante linhas «Geral» por natureza canónica; valida ou usa especialidade explícita."""
+    pad = ESPECIALIDADE_PADRAO_NOME
+    for nat in NATUREZAS_CATALOGO_FASE3:
+        cur.execute(
+            """
+            INSERT OR IGNORE INTO especialidades (natureza, nome, descritivo, ativo, ordem)
+            VALUES (?, ?, '', 1, 0)
+            """,
+            (nat, pad),
+        )
+    if especialidade_id is None:
+        cur.execute(
+            "SELECT id FROM especialidades WHERE natureza = ? AND nome = ? LIMIT 1",
+            (natureza, pad),
+        )
+        r = cur.fetchone()
+        if not r:
+            return False, "❌ Especialidade padrão em falta para esta natureza.", 0
+        return True, "", int(r[0])
+    cur.execute(
+        "SELECT id, natureza, ativo FROM especialidades WHERE id = ?",
+        (int(especialidade_id),),
+    )
+    r = cur.fetchone()
+    if not r:
+        return False, "❌ Especialidade inválida.", 0
+    if not int(r[2] or 0):
+        return False, "❌ Especialidade inativa.", 0
+    if str(r[1]) != natureza:
+        return False, "❌ A especialidade não pertence à natureza seleccionada.", 0
+    return True, "", int(r[0])
+
+
+def listar_especialidades_por_natureza(natureza: str) -> list[dict[str, int | str | bool]]:
+    """Especialidades activas de uma natureza (ordem, nome)."""
+    nat = (natureza or "").strip()
+    if not nat:
+        return []
+    conn = get_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, nome, descritivo, ativo, ordem
+            FROM especialidades
+            WHERE natureza = ? AND ativo = 1
+            ORDER BY ordem, nome
+            """,
+            (nat,),
+        )
+        return [
+            {
+                "id": int(rid),
+                "nome": str(nm or ""),
+                "descritivo": str(ds or ""),
+                "ativo": bool(av),
+                "ordem": int(ordem or 0),
+            }
+            for rid, nm, ds, av, ordem in cur.fetchall()
+        ]
+    finally:
+        conn.close()
+
+
+def cadastrar_especialidade(
+    natureza: str, nome: str, descritivo: str = "", *, ativo: bool = True, ordem: int = 0
+) -> tuple[bool, str]:
+    """Nova especialidade sob uma natureza (nome único por natureza)."""
+    nat = (natureza or "").strip()
+    if nat not in NATUREZAS_CATALOGO_FASE3:
+        return False, "❌ Natureza inválida para especialidade."
+    nm = (nome or "").strip()
+    if not nm:
+        return False, "❌ O nome da especialidade é obrigatório."
+    desc = (descritivo or "").strip()
+    ativo_i = 1 if ativo else 0
+    ord_v = int(ordem)
+    conn = get_connection()
+    if not conn:
+        return False, "❌ Não foi possível ligar à base de dados."
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO especialidades (natureza, nome, descritivo, ativo, ordem)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (nat, nm, desc, ativo_i, ord_v),
+        )
+        conn.commit()
+        return True, "✅ Especialidade registada."
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        return False, "⚠️ Já existe uma especialidade com este nome nesta natureza."
+    except Exception as e:
+        conn.rollback()
+        return False, f"❌ Erro ao guardar: {e}"
+    finally:
+        conn.close()
 
 
 def euros_para_centavos(valor: float) -> int | None:
@@ -189,14 +299,18 @@ def cadastrar_pacote(
                 return False, msgp
             prod_row = (pid, pq)
 
+        ok_e, msg_e, eid_pac = _resolver_especialidade_id_para_servico(cur, "Pacote", None)
+        if not ok_e:
+            return False, msg_e
         cur.execute(
             """
             INSERT INTO servicos (
                 nome, natureza, ativo, descritivo,
-                pacote_valor_venda_centavos, pacote_repasse_ref_pct_centesimos
-            ) VALUES (?, 'Pacote', ?, ?, ?, ?)
+                pacote_valor_venda_centavos, pacote_repasse_ref_pct_centesimos,
+                especialidade_id
+            ) VALUES (?, 'Pacote', ?, ?, ?, ?, ?)
             """,
-            (nome, ativo_i, desc, val_c, rep_c),
+            (nome, ativo_i, desc, val_c, rep_c, eid_pac),
         )
         pid_pac = int(cur.lastrowid)
         for ordem, (sid, qty, dh_stored) in enumerate(linhas_norm, start=1):
@@ -329,16 +443,20 @@ def cadastrar_evento(
 
             linhas_db.append((tipo, colab_id, pn, rpct, rval))
 
+        ok_e, msg_e, eid_evt = _resolver_especialidade_id_para_servico(cur, "Evento", None)
+        if not ok_e:
+            return False, msg_e
         cur.execute(
             """
             INSERT INTO servicos (
                 nome, natureza, ativo, descritivo,
                 evento_data, evento_local, evento_observacoes, evento_escopo,
                 evento_preco_crianca_centavos, evento_preco_adulto_centavos,
-                evento_desconto_filho_adicional_centavos
-            ) VALUES (?, 'Evento', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                evento_desconto_filho_adicional_centavos,
+                especialidade_id
+            ) VALUES (?, 'Evento', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (nome, ativo_i, desc, d_iso, loc, obs, esc, pcc, pca, dfa),
+            (nome, ativo_i, desc, d_iso, loc, obs, esc, pcc, pca, dfa, eid_evt),
         )
         eid = int(cur.lastrowid)
         for ordem, (tipo, colab_id, pn, rpct, rval) in enumerate(linhas_db, start=1):
@@ -445,6 +563,7 @@ def cadastrar_servico_fase1(
     descritivo: str,
     ativo: bool,
     *,
+    especialidade_id: int | None = None,
     sessao_duracao_horas: float | None = None,
     sessao_valor_euros: float | None = None,
     produto_tipo: str = "",
@@ -530,21 +649,26 @@ def cadastrar_servico_fase1(
 
     try:
         cur = conn.cursor()
+        ok_e, msg_e, eid_ins = _resolver_especialidade_id_para_servico(cur, natureza, especialidade_id)
+        if not ok_e:
+            conn.rollback()
+            return False, msg_e
         cur.execute(
             """
             INSERT INTO servicos (
-                nome, natureza, ativo, descritivo,
+                nome, natureza, ativo, descritivo, especialidade_id,
                 sessao_duracao_horas, sessao_valor_centavos,
                 produto_tipo, produto_descricao, produto_valor_centavos,
                 produto_origem, produto_repasse_pct_centesimos, produto_repasse_valor_centavos,
                 cowork_sala_nome, cowork_cobranca, cowork_valor_centavos
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 nome,
                 natureza,
                 ativo_i,
                 desc,
+                eid_ins,
                 sessao_d,
                 sessao_vc,
                 ptipo,
@@ -579,17 +703,19 @@ def listar_itens_catalogo() -> list[dict[str, str | int | float | None]]:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, nome, natureza, ativo, descritivo,
-                   sessao_duracao_horas, sessao_valor_centavos,
-                   produto_tipo, produto_descricao, produto_valor_centavos,
-                   produto_origem, produto_repasse_pct_centesimos, produto_repasse_valor_centavos,
-                   cowork_sala_nome, cowork_cobranca, cowork_valor_centavos,
-                   pacote_valor_venda_centavos, pacote_repasse_ref_pct_centesimos,
-                   evento_data, evento_local, evento_observacoes, evento_escopo,
-                   evento_preco_crianca_centavos, evento_preco_adulto_centavos,
-                   evento_desconto_filho_adicional_centavos
-            FROM servicos
-            ORDER BY natureza, nome
+            SELECT s.id, s.nome, s.natureza, s.ativo, s.descritivo,
+                   COALESCE(e.nome, '') AS especialidade_nome,
+                   s.sessao_duracao_horas, s.sessao_valor_centavos,
+                   s.produto_tipo, s.produto_descricao, s.produto_valor_centavos,
+                   s.produto_origem, s.produto_repasse_pct_centesimos, s.produto_repasse_valor_centavos,
+                   s.cowork_sala_nome, s.cowork_cobranca, s.cowork_valor_centavos,
+                   s.pacote_valor_venda_centavos, s.pacote_repasse_ref_pct_centesimos,
+                   s.evento_data, s.evento_local, s.evento_observacoes, s.evento_escopo,
+                   s.evento_preco_crianca_centavos, s.evento_preco_adulto_centavos,
+                   s.evento_desconto_filho_adicional_centavos
+            FROM servicos s
+            LEFT JOIN especialidades e ON e.id = s.especialidade_id
+            ORDER BY s.natureza, e.nome, s.nome
             """
         )
         rows = cur.fetchall()
@@ -601,6 +727,7 @@ def listar_itens_catalogo() -> list[dict[str, str | int | float | None]]:
                 natureza,
                 ativo,
                 descritivo,
+                esp_nome,
                 sdh,
                 svc,
                 ptipo,
@@ -649,6 +776,7 @@ def listar_itens_catalogo() -> list[dict[str, str | int | float | None]]:
                     "id": sid,
                     "nome": nome,
                     "natureza": natureza,
+                    "especialidade": str(esp_nome or "") or "—",
                     "ativo": "Sim" if ativo else "Não",
                     "descritivo": descritivo or "—",
                     "detalhes": detalhe or "—",
@@ -729,19 +857,23 @@ def listar_servicos_para_venda() -> list[dict[str, str | int]]:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, nome, natureza, descritivo
-            FROM servicos
-            WHERE ativo = 1
-            ORDER BY natureza, nome
+            SELECT s.id, s.nome, s.natureza, s.descritivo,
+                   s.especialidade_id, COALESCE(e.nome, '') AS especialidade_nome
+            FROM servicos s
+            LEFT JOIN especialidades e ON e.id = s.especialidade_id
+            WHERE s.ativo = 1
+            ORDER BY s.natureza, e.nome, s.nome
             """
         )
-        for sid, nome, nat, desc in cur.fetchall():
+        for sid, nome, nat, desc, eid, enm in cur.fetchall():
             out.append(
                 {
                     "id": int(sid),
                     "nome": str(nome),
                     "natureza": str(nat or ""),
                     "descritivo": str(desc or ""),
+                    "especialidade_id": int(eid) if eid is not None else None,
+                    "especialidade": str(enm or ""),
                 }
             )
     finally:
@@ -860,16 +992,19 @@ def obter_servico_para_formulario(servico_id: int) -> dict | None:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, nome, natureza, ativo, descritivo,
-                   sessao_duracao_horas, sessao_valor_centavos,
-                   produto_tipo, produto_descricao, produto_valor_centavos,
-                   produto_origem, produto_repasse_pct_centesimos, produto_repasse_valor_centavos,
-                   cowork_sala_nome, cowork_cobranca, cowork_valor_centavos,
-                   pacote_valor_venda_centavos, pacote_repasse_ref_pct_centesimos,
-                   evento_data, evento_local, evento_observacoes, evento_escopo,
-                   evento_preco_crianca_centavos, evento_preco_adulto_centavos,
-                   evento_desconto_filho_adicional_centavos
-            FROM servicos WHERE id = ?
+            SELECT s.id, s.nome, s.natureza, s.ativo, s.descritivo,
+                   s.especialidade_id, COALESCE(e.nome, '') AS especialidade_nome,
+                   s.sessao_duracao_horas, s.sessao_valor_centavos,
+                   s.produto_tipo, s.produto_descricao, s.produto_valor_centavos,
+                   s.produto_origem, s.produto_repasse_pct_centesimos, s.produto_repasse_valor_centavos,
+                   s.cowork_sala_nome, s.cowork_cobranca, s.cowork_valor_centavos,
+                   s.pacote_valor_venda_centavos, s.pacote_repasse_ref_pct_centesimos,
+                   s.evento_data, s.evento_local, s.evento_observacoes, s.evento_escopo,
+                   s.evento_preco_crianca_centavos, s.evento_preco_adulto_centavos,
+                   s.evento_desconto_filho_adicional_centavos
+            FROM servicos s
+            LEFT JOIN especialidades e ON e.id = s.especialidade_id
+            WHERE s.id = ?
             """,
             (sid,),
         )
@@ -882,6 +1017,8 @@ def obter_servico_para_formulario(servico_id: int) -> dict | None:
             natureza,
             ativo,
             descritivo,
+            esp_id,
+            esp_nome,
             sdh,
             svc,
             ptipo,
@@ -910,6 +1047,8 @@ def obter_servico_para_formulario(servico_id: int) -> dict | None:
             "natureza": nat,
             "ativo": bool(ativo),
             "descritivo": str(descritivo or ""),
+            "especialidade_id": int(esp_id) if esp_id is not None else None,
+            "especialidade_nome": str(esp_nome or ""),
         }
         if nat == "Sessão":
             out["sessao_duracao_horas"] = float(sdh) if sdh is not None else 1.0
@@ -1017,11 +1156,13 @@ __all__ = [
     "atualizar_evento_existente",
     "atualizar_pacote_existente",
     "atualizar_servico_fase1_existente",
+    "cadastrar_especialidade",
     "cadastrar_evento",
     "cadastrar_pacote",
     "cadastrar_servico_fase1",
     "centavos_para_texto_euros",
     "euros_para_centavos",
+    "listar_especialidades_por_natureza",
     "listar_itens_catalogo",
     "listar_servicos_para_venda",
     "listar_sessoes_do_pacote_catalogo",

@@ -80,6 +80,7 @@ def _wipe(conn: sqlite3.Connection) -> None:
         "servico_pacote_produtos",
         "servico_pacote_sessoes",
         "servicos",
+        "especialidades",
         "cliente_contatos_emergencia",
         "cliente_filhos",
         "clientes",

@@ -23,7 +23,8 @@
 - **`cliente_contatos_emergencia`:** `cliente_id`, `ordem`, `nome`, `telefone` (E.164; opcional no negócio; 0..N registos).
 
 ### Tabelas — colaboradores e catálogo (E06 — Fases 1 a 3)
-- **`servicos`:** `nome` (UNIQUE), `natureza` (`Sessão` | `Produto` | `Coworking` | `Pacote` | `Evento`), `ativo`, `descritivo`. Colunas de detalhe por natureza (nullable quando não aplicável):
+- **`especialidades`:** camada **Natureza → Especialidade → Serviço** — `natureza` (mesmo vocabulário que `servicos.natureza`), `nome`, `descritivo`, `ativo`, `ordem`; **UNIQUE(`natureza`, `nome`)**. Especialidade padrão de migração: **«Geral»** por natureza (`constants.ESPECIALIDADE_PADRAO_NOME`).
+- **`servicos`:** `nome` (UNIQUE), `natureza` (`Sessão` | `Produto` | `Coworking` | `Pacote` | `Evento`), **`especialidade_id`** → `especialidades`, `ativo`, `descritivo`. Colunas de detalhe por natureza (nullable quando não aplicável):
   - Sessão: `sessao_duracao_horas` (REAL), `sessao_valor_centavos`.
   - Produto: `produto_tipo`, `produto_descricao`, `produto_valor_centavos`, `produto_origem` (`proprio` | `repasse`), `produto_repasse_pct_centesimos`, `produto_repasse_valor_centavos`.
   - Coworking: `cowork_sala_nome`, `cowork_cobranca` (`hora` | `dia`), `cowork_valor_centavos`.

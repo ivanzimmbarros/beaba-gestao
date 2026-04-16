@@ -12,6 +12,9 @@ NATUREZAS_CATALOGO_FASE1: tuple[str, ...] = ("Sessão", "Produto", "Coworking")
 NATUREZAS_CATALOGO_FASE2: tuple[str, ...] = (*NATUREZAS_CATALOGO_FASE1, "Pacote")
 NATUREZAS_CATALOGO_FASE3: tuple[str, ...] = (*NATUREZAS_CATALOGO_FASE2, "Evento")
 
+# Catálogo — camada Natureza → Especialidade → Serviço (épico Especialidades).
+ESPECIALIDADE_PADRAO_NOME: str = "Geral"
+
 # --- Venda: `vendas.estado_pagamento` (chaves BD em minúsculas) ---
 ESTADOS_PAGAMENTO_VENDA_BD: tuple[str, ...] = ("integral", "pendente", "parcial", "parcelado")
 
@@ -30,6 +33,7 @@ ESTADO_AGENDAMENTO_REALIZADO_PENDENTE_LABEL_PT: str = "Realizado (pendente pagam
 
 __all__ = [
     "SEXOS",
+    "ESPECIALIDADE_PADRAO_NOME",
     "NATUREZAS_CATALOGO_FASE1",
     "NATUREZAS_CATALOGO_FASE2",
     "NATUREZAS_CATALOGO_FASE3",

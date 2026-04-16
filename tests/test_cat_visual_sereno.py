@@ -4,11 +4,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tests.cat_ui_contract import assert_cat_area_unica_shell
+from tests.cat_ui_contract import assert_cat_area_unica_shell, assert_cat_especialidade_form_contract
 
 
 def test_cat_contract_alinhado_com_app_e_shell():
     assert_cat_area_unica_shell()
+
+
+def test_cat_especialidade_ui_contract():
+    assert_cat_especialidade_form_contract()
 
 
 def test_page_catalogo_sem_border_true():

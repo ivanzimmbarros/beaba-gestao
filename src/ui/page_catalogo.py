@@ -14,9 +14,11 @@ from src.modules.catalogo import (
     atualizar_evento_existente,
     atualizar_pacote_existente,
     atualizar_servico_fase1_existente,
+    cadastrar_especialidade,
     cadastrar_evento,
     cadastrar_pacote,
     cadastrar_servico_fase1,
+    listar_especialidades_por_natureza,
     listar_itens_catalogo,
     listar_servicos_produto_para_pacote,
     listar_servicos_sessao_para_pacote,
@@ -24,7 +26,7 @@ from src.modules.catalogo import (
     repasse_medio_ponderado_pacote,
 )
 from src.modules.colaborador import listar_colaboradores_resumo
-from src.modules.constants import NATUREZAS_CATALOGO_FASE3
+from src.modules.constants import NATUREZAS_CATALOGO_FASE1, NATUREZAS_CATALOGO_FASE3
 from src.modules.validators import parse_data_iso
 from src.ui.constituicao_visual_shell import inject_constituicao_cat_page
 
@@ -137,6 +139,8 @@ def _prime_cat_form(fk: str, d: dict) -> None:
     """Preenche `st.session_state` para as chaves `fk_*` antes de renderizar o expander."""
     nat = d["natureza"]
     st.session_state[f"{fk}_nat"] = nat
+    if str(nat) in NATUREZAS_CATALOGO_FASE1 and d.get("especialidade_id") is not None:
+        st.session_state[f"{fk}_esp_{nat}"] = int(d["especialidade_id"])
     st.session_state[f"{fk}_nome"] = d["nome"]
     st.session_state[f"{fk}_desc"] = d["descritivo"]
     st.session_state[f"{fk}_ativo"] = bool(d.get("ativo", True))
@@ -282,6 +286,38 @@ def render_page_catalogo(*, render_back_and_breadcrumb) -> None:
             placeholder="Texto para identificação e relatórios.",
         )
         ativo = st.checkbox("Serviço Disponível (serviço apto para venda)", key=f"{fk}_ativo")
+
+        esp_id_ui: int | None = None
+        if natureza in NATUREZAS_CATALOGO_FASE1:
+            rows_esp = listar_especialidades_por_natureza(natureza)
+            if not rows_esp:
+                st.warning("Sem especialidades para esta natureza — execute a migração ou contacte o suporte.")
+            else:
+                id_to_label = {int(r["id"]): str(r["nome"]) for r in rows_esp}
+                ids_esp = [int(r["id"]) for r in rows_esp]
+                pref = st.session_state.get(f"{fk}_esp_{natureza}")
+                default_ix = 0
+                if pref in ids_esp:
+                    default_ix = ids_esp.index(int(pref))
+                esp_id_ui = int(
+                    st.selectbox(
+                        "Especialidade *",
+                        ids_esp,
+                        index=default_ix,
+                        format_func=lambda x, _m=id_to_label: _m.get(int(x), str(x)),
+                        key=f"{fk}_esp_{natureza}",
+                        help="Ligação Natureza → Especialidade → Serviço.",
+                    )
+                )
+            with st.expander("Nova especialidade (nesta natureza)", expanded=False):
+                ne = st.text_input("Nome da especialidade", key=f"{fk}_newesp_nome")
+                if st.button("Registar especialidade", key=f"{fk}_newesp_btn"):
+                    okn, msgn = cadastrar_especialidade(natureza, ne, "")
+                    if okn:
+                        st.success(msgn)
+                        st.rerun()
+                    else:
+                        st.error(msgn)
 
         sessao_dh = 1.0
         sessao_ve = 0.0
@@ -660,6 +696,7 @@ def render_page_catalogo(*, render_back_and_breadcrumb) -> None:
                         nome,
                         descritivo,
                         ativo,
+                        especialidade_id=esp_id_ui if natureza in NATUREZAS_CATALOGO_FASE1 else None,
                         sessao_duracao_horas=sessao_dh if natureza == "Sessão" else None,
                         sessao_valor_euros=sessao_ve if natureza == "Sessão" else None,
                         produto_tipo=ptipo if natureza == "Produto" else "",
@@ -678,6 +715,7 @@ def render_page_catalogo(*, render_back_and_breadcrumb) -> None:
                         nome,
                         descritivo,
                         ativo,
+                        especialidade_id=esp_id_ui if natureza in NATUREZAS_CATALOGO_FASE1 else None,
                         sessao_duracao_horas=sessao_dh if natureza == "Sessão" else None,
                         sessao_valor_euros=sessao_ve if natureza == "Sessão" else None,
                         produto_tipo=ptipo if natureza == "Produto" else "",
@@ -779,6 +817,7 @@ def render_page_catalogo(*, render_back_and_breadcrumb) -> None:
                 "id": [r["id"] for r in itens],
                 "Nome": [r["nome"] for r in itens],
                 "Natureza": [r["natureza"] for r in itens],
+                "Especialidade": [r.get("especialidade", "—") for r in itens],
                 "Ativo": [r["ativo"] for r in itens],
                 "Descritivo": [r["descritivo"] for r in itens],
                 "Detalhes": [r["detalhes"] for r in itens],

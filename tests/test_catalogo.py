@@ -5,15 +5,44 @@ import pytest
 from datetime import date, timedelta
 
 from src.modules.catalogo import (
+    cadastrar_especialidade,
     cadastrar_evento,
     cadastrar_pacote,
     cadastrar_servico_fase1,
+    listar_especialidades_por_natureza,
     listar_itens_catalogo,
     obter_servico_para_formulario,
     repasse_medio_ponderado_pacote,
 )
 from src.modules.colaborador import cadastrar_colaborador, listar_servicos
 from src.ui.page_catalogo import _cat_format_duration_hm_h, _cat_parse_duration_hm_h
+
+
+def test_listar_especialidades_inclui_geral_sessao():
+    rows = listar_especialidades_por_natureza("Sessão")
+    assert any(str(r.get("nome") or "") == "Geral" for r in rows)
+
+
+def test_cadastrar_especialidade_e_usar_em_servico():
+    ok_e, msg_e = cadastrar_especialidade("Sessão", "Pilates Avançado", "Subgrupo teste")
+    assert ok_e, msg_e
+    esp_rows = listar_especialidades_por_natureza("Sessão")
+    eid = next(int(r["id"]) for r in esp_rows if r["nome"] == "Pilates Avançado")
+    ok, msg = cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão Com Esp Custom",
+        "Descritivo.",
+        True,
+        especialidade_id=eid,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=55.0,
+    )
+    assert ok, msg
+    d = obter_servico_para_formulario(
+        next(i["id"] for i in listar_itens_catalogo() if i["nome"] == "Sessão Com Esp Custom")
+    )
+    assert d is not None
+    assert int(d.get("especialidade_id") or 0) == eid
 
 
 def test_cadastrar_sessao_ok():
@@ -29,6 +58,7 @@ def test_cadastrar_sessao_ok():
     itens = [i for i in listar_itens_catalogo() if i["nome"] == "Sessão Teste QA"]
     assert len(itens) == 1
     assert itens[0]["natureza"] == "Sessão"
+    assert str(itens[0].get("especialidade") or "") != ""
     assert "60" in str(itens[0]["detalhes"]) and "h" in str(itens[0]["detalhes"]).lower()
 
 

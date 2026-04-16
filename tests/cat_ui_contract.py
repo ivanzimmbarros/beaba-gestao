@@ -5,6 +5,14 @@ from __future__ import annotations
 from pathlib import Path
 
 
+def assert_cat_especialidade_form_contract() -> None:
+    root = Path(__file__).resolve().parents[1]
+    page = (root / "src" / "ui" / "page_catalogo.py").read_text(encoding="utf-8")
+    assert "Especialidade *" in page
+    assert "listar_especialidades_por_natureza" in page
+    assert "cadastrar_especialidade" in page
+
+
 def assert_cat_area_unica_shell() -> None:
     root = Path(__file__).resolve().parents[1]
     app_src = (root / "src" / "app.py").read_text(encoding="utf-8")

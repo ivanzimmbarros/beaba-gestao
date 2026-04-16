@@ -152,11 +152,73 @@ def _migrate_agendamentos_e11_if_needed(cursor) -> None:
     cursor.execute("PRAGMA foreign_keys=ON")
 
 
+def _migrate_especialidades_if_needed(cursor) -> None:
+    """Garante tabela `especialidades`, coluna `servicos.especialidade_id` e backfill «Geral» por natureza."""
+    from src.modules.constants import ESPECIALIDADE_PADRAO_NOME, NATUREZAS_CATALOGO_FASE3
+
+    tabs = {r[0] for r in cursor.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+    if "especialidades" not in tabs or "servicos" not in tabs:
+        return
+    if "especialidade_id" not in _table_columns(cursor, "servicos"):
+        return
+    pad = ESPECIALIDADE_PADRAO_NOME
+    for nat in NATUREZAS_CATALOGO_FASE3:
+        cursor.execute(
+            """
+            INSERT OR IGNORE INTO especialidades (natureza, nome, descritivo, ativo, ordem)
+            VALUES (?, ?, '', 1, 0)
+            """,
+            (nat, pad),
+        )
+    cursor.execute(
+        """
+        SELECT DISTINCT TRIM(natureza) AS n
+        FROM servicos
+        WHERE IFNULL(TRIM(natureza), '') != ''
+        """
+    )
+    for (nat,) in cursor.fetchall():
+        if not nat:
+            continue
+        cursor.execute(
+            """
+            INSERT OR IGNORE INTO especialidades (natureza, nome, descritivo, ativo, ordem)
+            VALUES (?, ?, '', 1, 0)
+            """,
+            (str(nat), pad),
+        )
+    cursor.execute(
+        """
+        UPDATE servicos
+        SET especialidade_id = (
+            SELECT e.id FROM especialidades e
+            WHERE e.natureza = servicos.natureza AND e.nome = ?
+            LIMIT 1
+        )
+        WHERE especialidade_id IS NULL
+        """,
+        (pad,),
+    )
+
+
 def _seed_servicos_exemplo(cursor) -> None:
     """Serviços de exemplo até o módulo Catálogo estar completo."""
     cursor.execute("SELECT COUNT(*) FROM servicos")
     if cursor.fetchone()[0] > 0:
         return
+    cursor.execute(
+        """
+        INSERT OR IGNORE INTO especialidades (natureza, nome, descritivo, ativo, ordem)
+        VALUES ('Sessão', 'Geral', '', 1, 0)
+        """
+    )
+    cursor.execute(
+        "SELECT id FROM especialidades WHERE natureza = 'Sessão' AND nome = 'Geral' LIMIT 1"
+    )
+    row_e = cursor.fetchone()
+    if not row_e:
+        return
+    eid = int(row_e[0])
     exemplos = (
         "Massagem de relaxamento",
         "Consulta de psicologia",
@@ -166,8 +228,8 @@ def _seed_servicos_exemplo(cursor) -> None:
     )
     for nome in exemplos:
         cursor.execute(
-            "INSERT INTO servicos (nome, natureza) VALUES (?, 'Sessão')",
-            (nome,),
+            "INSERT INTO servicos (nome, natureza, especialidade_id) VALUES (?, 'Sessão', ?)",
+            (nome, eid),
         )
 
 
@@ -585,6 +647,24 @@ def create_tables():
     _ensure_column(cursor, "cliente_filhos", "data_nascimento", "TEXT")
     cursor.execute(
         """
+        CREATE TABLE IF NOT EXISTS especialidades (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            natureza TEXT NOT NULL,
+            nome TEXT NOT NULL,
+            descritivo TEXT NOT NULL DEFAULT '',
+            ativo INTEGER NOT NULL DEFAULT 1,
+            ordem INTEGER NOT NULL DEFAULT 0
+        )
+        """
+    )
+    cursor.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_especialidades_nat_nome ON especialidades(natureza, nome)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_especialidades_nat_ativo ON especialidades(natureza, ativo)"
+    )
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS servicos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT NOT NULL UNIQUE,
@@ -617,6 +697,8 @@ def create_tables():
         ("evento_desconto_filho_adicional_centavos", "INTEGER"),
     ):
         _ensure_column(cursor, "servicos", col, definition)
+    _ensure_column(cursor, "servicos", "especialidade_id", "INTEGER")
+    _migrate_especialidades_if_needed(cursor)
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS servico_pacote_sessoes (

@@ -718,9 +718,13 @@ def test_e2e_col_visual_shell_contract() -> None:
 
 def test_e2e_cat_visual_shell_contract() -> None:
     """E2E leve: Catálogo com Ilha Mãe + slot (paridade CAG/VND/COL)."""
-    from tests.cat_ui_contract import assert_cat_area_unica_shell
+    from tests.cat_ui_contract import (
+        assert_cat_area_unica_shell,
+        assert_cat_especialidade_form_contract,
+    )
 
     assert_cat_area_unica_shell()
+    assert_cat_especialidade_form_contract()
 
 
 def test_e2e_home_visual_shell_contract() -> None:
