@@ -28,11 +28,14 @@ from src.modules.financeiro_lancamentos_gasto import (
     tipos_gasto_coerentes_com_seleccao,
 )
 from src.modules.financeiro_repasses_colaboradores import (
+    REPASSE_ESP_SEM_LABEL,
+    filtra_metadados_servicos_por_especialidades,
+    filtra_metadados_servicos_por_naturezas,
     listar_anos_com_repasses,
     listar_colaboradores_para_filtro_repasse,
     listar_linhas_gestao_repasses,
     listar_naturezas_servico_para_filtro_repasse,
-    listar_servicos_para_filtro_repasse,
+    listar_servicos_metadados_para_filtro_repasse,
 )
 from src.ui.constituicao_visual_shell import inject_constituicao_fin_page
 from src.ui.fmt_euro_constituicao import fmt_euro_centavos
@@ -238,6 +241,7 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
         for _rk in (
             "fin_rep_apl_colab",
             "fin_rep_apl_nat",
+            "fin_rep_apl_esp",
             "fin_rep_apl_svc",
             "fin_rep_apl_mes",
             "fin_rep_apl_ano",
@@ -814,7 +818,7 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
     with st.expander("Gestão de Repasses para os Colaboradores", expanded=False):
         rep_colab_opts = listar_colaboradores_para_filtro_repasse(conn)
         rep_nat_opts = listar_naturezas_servico_para_filtro_repasse(conn)
-        rep_svc_opts = listar_servicos_para_filtro_repasse(conn)
+        rep_meta = listar_servicos_metadados_para_filtro_repasse(conn)
         rep_anos = listar_anos_com_repasses(conn)
         if not rep_anos:
             rep_anos = [date.today().year]
@@ -822,22 +826,55 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
         _rpv = int(st.session_state.get("fin_rep_filt_v", 0))
         _k_rep_col = f"fin_rep_f{_rpv}_ms_colab"
         _k_rep_nat = f"fin_rep_f{_rpv}_ms_nat"
+        _k_rep_esp = f"fin_rep_f{_rpv}_ms_esp"
         _k_rep_svc = f"fin_rep_f{_rpv}_ms_svc"
         _k_rep_mes = f"fin_rep_f{_rpv}_mes"
         _k_rep_ano = f"fin_rep_f{_rpv}_ano"
 
+        def _rep_label_esp_row(r: tuple[int, str, str, str]) -> str:
+            ep = str(r[3] or "").strip()
+            return REPASSE_ESP_SEM_LABEL if not ep else ep
+
+        nat_m = list(st.session_state.get(_k_rep_nat) or [])
+        rows_nat = filtra_metadados_servicos_por_naturezas(rep_meta, nat_m if nat_m else None)
+        esp_opts = sorted({_rep_label_esp_row(r) for r in rows_nat}, key=str.casefold)
+
+        esp_raw = list(st.session_state.get(_k_rep_esp) or [])
+        esp_m = [str(e) for e in esp_raw if str(e) in esp_opts]
+        if esp_m != esp_raw:
+            st.session_state[_k_rep_esp] = esp_m
+
+        if esp_m:
+            rows_esp = filtra_metadados_servicos_por_especialidades(rows_nat, esp_m)
+        else:
+            rows_esp = []
+
+        rows_esp_sorted = sorted(rows_esp, key=lambda r: (str(r[1] or "").casefold(), int(r[0])))
+        rep_svc_ids = [int(r[0]) for r in rows_esp_sorted]
+        rep_svc_lbl = {int(r[0]): str(r[1] or "") for r in rows_esp_sorted}
+        _rep_svc_id_set = set(rep_svc_ids)
+
+        sv_raw = list(st.session_state.get(_k_rep_svc) or [])
+        sv_ok = [int(x) for x in sv_raw if int(x) in _rep_svc_id_set]
+        if sv_ok != sv_raw:
+            st.session_state[_k_rep_svc] = sv_ok
+
         rep_c_ids = [c[0] for c in rep_colab_opts]
         rep_c_lbl = {c[0]: c[1] for c in rep_colab_opts}
-        rep_svc_ids = [s[0] for s in rep_svc_opts]
-        rep_svc_lbl = {s[0]: s[1] for s in rep_svc_opts}
 
         def _fmt_rep_col(i: int) -> str:
             return rep_c_lbl.get(int(i), str(i))
 
+        _rep_svc_opts_ui = rep_svc_ids if rep_svc_ids else [0]
+
         def _fmt_rep_svc(i: int) -> str:
+            if i == 0 and not rep_svc_ids:
+                return "—"
             return rep_svc_lbl.get(int(i), str(i))
 
-        rp1, rp2, rp3, rp4, rp5 = st.columns(5, vertical_alignment="top")
+        _rep_pode_servico = bool(esp_m) and bool(rep_svc_ids)
+
+        rp1, rp2, rp3, rp4, rp5, rp6 = st.columns(6, vertical_alignment="top")
         with rp1:
             if rep_c_ids:
                 st.multiselect(
@@ -858,16 +895,29 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
             else:
                 st.caption("Sem naturezas no catálogo.")
         with rp3:
-            if rep_svc_ids:
+            if esp_opts:
                 st.multiselect(
-                    "Nome do Serviço",
-                    options=rep_svc_ids,
-                    format_func=_fmt_rep_svc,
-                    key=_k_rep_svc,
+                    "Especialidades",
+                    options=esp_opts,
+                    key=_k_rep_esp,
                 )
             else:
-                st.caption("Sem serviços no catálogo.")
+                st.multiselect(
+                    "Especialidades",
+                    options=["—"],
+                    default=[],
+                    key=_k_rep_esp,
+                    disabled=True,
+                )
         with rp4:
+            st.multiselect(
+                "Nome do Serviço",
+                options=_rep_svc_opts_ui,
+                format_func=_fmt_rep_svc,
+                key=_k_rep_svc,
+                disabled=not _rep_pode_servico,
+            )
+        with rp5:
             st.selectbox(
                 "Mês",
                 options=list(range(0, 13)),
@@ -875,7 +925,7 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
                 format_func=_fmt_mes_repasse_ui,
                 key=_k_rep_mes,
             )
-        with rp5:
+        with rp6:
             st.selectbox(
                 "Ano",
                 options=[0] + list(rep_anos),
@@ -894,9 +944,27 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
                 st.session_state.fin_rep_apl_nat = (
                     list(st.session_state.get(_k_rep_nat) or []) if rep_nat_opts else []
                 )
-                st.session_state.fin_rep_apl_svc = (
-                    list(st.session_state.get(_k_rep_svc) or []) if rep_svc_ids else []
-                )
+                _pn = list(st.session_state.get(_k_rep_nat) or [])
+                _pe = list(st.session_state.get(_k_rep_esp) or [])
+                _ps = list(st.session_state.get(_k_rep_svc) or [])
+                _rn = filtra_metadados_servicos_por_naturezas(rep_meta, _pn if _pn else None)
+                _allowed = {int(r[0]) for r in _rn}
+                if _pe:
+                    _rf = filtra_metadados_servicos_por_especialidades(_rn, _pe)
+                    _allowed = {int(r[0]) for r in _rf}
+                if _ps:
+                    _ft = [int(x) for x in _ps if int(x) in _allowed]
+                    if not _ft:
+                        _ft = [-1]
+                elif _pe:
+                    _ft = list(_allowed) if _allowed else [-1]
+                else:
+                    _ft = None
+                st.session_state.fin_rep_apl_esp = list(_pe) if esp_opts else []
+                if _ft is None:
+                    st.session_state.pop("fin_rep_apl_svc", None)
+                else:
+                    st.session_state.fin_rep_apl_svc = _ft
                 _m = int(st.session_state.get(_k_rep_mes, 0) or 0)
                 st.session_state.fin_rep_apl_mes = None if _m == 0 else _m
                 _a = int(st.session_state.get(_k_rep_ano, 0) or 0)
@@ -915,7 +983,7 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
 
         _f_rc = [int(x) for x in _apl_rc] if _apl_rc else None
         _f_rn = [str(x) for x in _apl_rn] if _apl_rn else None
-        _f_rs = [int(x) for x in _apl_rs] if _apl_rs else None
+        _f_rs = None if _apl_rs is None else [int(x) for x in _apl_rs]
         _f_rm = int(_apl_rm) if _apl_rm is not None else None
         _f_ra = int(_apl_ra) if _apl_ra is not None else None
 

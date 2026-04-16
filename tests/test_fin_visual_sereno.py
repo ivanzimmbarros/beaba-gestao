@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tests.fin_ui_contract import assert_fin_area_unica_shell, assert_fin_repasses_sector_na_pagina
+from tests.fin_ui_contract import (
+    assert_fin_area_unica_shell,
+    assert_fin_repasses_filtros_cadeia_e_layout_na_pagina,
+    assert_fin_repasses_sector_na_pagina,
+)
 
 
 def test_fin_contract_alinhado_com_app_e_shell():
@@ -13,6 +17,10 @@ def test_fin_contract_alinhado_com_app_e_shell():
 
 def test_fin_repasses_sector_contrato():
     assert_fin_repasses_sector_na_pagina()
+
+
+def test_fin_repasses_filtros_cadeia_contrato():
+    assert_fin_repasses_filtros_cadeia_e_layout_na_pagina()
 
 
 def test_fin_shell_css_ilha_mae_e_slot():

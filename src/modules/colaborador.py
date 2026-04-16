@@ -8,7 +8,15 @@ from collections import OrderedDict
 from datetime import date, datetime
 
 from src.database.connection import get_connection
-from src.modules.constants import SEXOS
+from src.modules.constants import NATUREZAS_CATALOGO_FASE1, SEXOS
+from src.modules.nif import normalizar_nif_armazenamento
+from src.modules.telefone import normalizar_telefone_legado_ou_e164
+from src.modules.validators import (
+    email_valido,
+    normalizar_codigo_postal_pt,
+    parse_data_iso,
+    validar_e_limpar_telefone,
+)
 
 _NOME_COLAB_UI_SUFIXO_ID = re.compile(r"\s*\(#\d+\)\s*$", re.IGNORECASE)
 
@@ -19,14 +27,20 @@ def nome_colaborador_sem_sufixo_id_ui(nome: object) -> str:
     sem alterar o nome armazenado na base.
     """
     return _NOME_COLAB_UI_SUFIXO_ID.sub("", str(nome or "").strip()).strip()
-from src.modules.nif import normalizar_nif_armazenamento
-from src.modules.telefone import normalizar_telefone_legado_ou_e164
-from src.modules.validators import (
-    email_valido,
-    normalizar_codigo_postal_pt,
-    parse_data_iso,
-    validar_e_limpar_telefone,
-)
+
+# UI Mapa da Equipa / habilitações — serviços sem especialidade no catálogo.
+MAPA_EQUI_ESP_SEM_LABEL = "(Sem especialidade)"
+
+
+def _mapa_row_matches_especialidades(esps: list[str], esp_nome: str) -> bool:
+    esp_m = str(esp_nome or "").strip()
+    sem = MAPA_EQUI_ESP_SEM_LABEL in esps
+    reals = [e for e in esps if e != MAPA_EQUI_ESP_SEM_LABEL]
+    if sem and not esp_m:
+        return True
+    if esp_m and esp_m in reals:
+        return True
+    return False
 
 
 def _candidatos_whatsapp_colaborador_busca(raw: str) -> list[str]:
@@ -389,29 +403,21 @@ def listar_colaboradores_vitrine() -> list[tuple[int, str, str]]:
 
 
 def listar_naturezas_servicos_mapa_equipa() -> list[str]:
-    """Naturezas distintas de serviços activos elegíveis na UI Col (excl. Pacote/Evento)."""
-    conn = get_connection()
-    if not conn:
-        return []
-    try:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            SELECT DISTINCT TRIM(IFNULL(natureza, '')) AS n
-            FROM servicos
-            WHERE ativo = 1
-              AND TRIM(IFNULL(natureza, '')) NOT IN ('', 'Pacote', 'Evento')
-            ORDER BY n COLLATE NOCASE
-            """
-        )
-        return [str(r[0]) for r in cur.fetchall() if r[0]]
-    finally:
-        conn.close()
-
-
-def listar_servicos_para_mapa_equipa(naturezas: list[str] | None = None) -> list[tuple[int, str, str]]:
     """
-    (servico_id, nome, natureza) para multiselect «Serviços Registados».
+    Naturezas possíveis para o Mapa da Equipa e para habilitações na ficha (UI Col).
+
+    Usa o conjunto canónico do catálogo (Sessão, Produto, Coworking), alinhado à exclusão
+    de Pacote e Evento nas listagens de serviços do mapa — não depende de já existir
+    serviço activo com cada natureza na base.
+    """
+    return list(NATUREZAS_CATALOGO_FASE1)
+
+
+def listar_servicos_para_mapa_equipa(
+    naturezas: list[str] | None = None,
+) -> list[tuple[int, str, str, str]]:
+    """
+    (servico_id, nome, natureza, especialidade_nome) para filtros do Mapa da Equipa / ficha.
     Sem naturezas: todos os serviços elegíveis; com naturezas: só essas naturezas (trim).
     """
     nats = [str(x).strip() for x in (naturezas or []) if str(x).strip()]
@@ -421,20 +427,21 @@ def listar_servicos_para_mapa_equipa(naturezas: list[str] | None = None) -> list
     try:
         cur = conn.cursor()
         base = """
-            SELECT id, nome, TRIM(IFNULL(natureza, ''))
-            FROM servicos
-            WHERE ativo = 1
-              AND IFNULL(natureza, '') NOT IN ('Pacote', 'Evento')
+            SELECT s.id, s.nome, TRIM(IFNULL(s.natureza, '')), COALESCE(e.nome, '')
+            FROM servicos s
+            LEFT JOIN especialidades e ON e.id = s.especialidade_id
+            WHERE s.ativo = 1
+              AND IFNULL(s.natureza, '') NOT IN ('Pacote', 'Evento')
         """
         if nats:
             ph = ",".join("?" * len(nats))
             cur.execute(
-                base + f" AND TRIM(IFNULL(natureza, '')) IN ({ph}) ORDER BY nome COLLATE NOCASE",
+                base + f" AND TRIM(IFNULL(s.natureza, '')) IN ({ph}) ORDER BY s.nome COLLATE NOCASE",
                 nats,
             )
         else:
-            cur.execute(base + " ORDER BY nome COLLATE NOCASE")
-        return [(int(a), str(b), str(c)) for a, b, c in cur.fetchall()]
+            cur.execute(base + " ORDER BY s.nome COLLATE NOCASE")
+        return [(int(a), str(b), str(c), str(d or "")) for a, b, c, d in cur.fetchall()]
     finally:
         conn.close()
 
@@ -443,50 +450,39 @@ def resolver_conjunto_servicos_mapa_equipa(
     *,
     naturezas_seleccionadas: list[str],
     servico_ids_seleccionados: list[int],
+    especialidades_seleccionadas: list[str] | None = None,
 ) -> list[int]:
     """
-    Conjunto de serviço_ids para filtrar habilitações.
-    - Só naturezas: todos os serviços activos com essas naturezas.
-    - Só serviços: os ids seleccionados (se ainda elegíveis).
-    - Ambos: intersecção (serviço ∈ seleção e natureza ∈ seleção).
-    Listas ambas vazias: [].
+    Conjunto de serviço_ids para filtrar habilitações no mapa.
+    - Naturezas / especialidades / serviços combinam por intersecção (cada lista activa filtra).
+    - Listas todas vazias: [].
     """
     nats = [str(x).strip() for x in naturezas_seleccionadas if str(x).strip()]
+    esps = [str(x).strip() for x in (especialidades_seleccionadas or []) if str(x).strip()]
     sids = [int(x) for x in servico_ids_seleccionados]
 
-    conn = get_connection()
-    if not conn:
-        return []
-    try:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            SELECT id, TRIM(IFNULL(natureza, ''))
-            FROM servicos
-            WHERE ativo = 1
-              AND IFNULL(natureza, '') NOT IN ('Pacote', 'Evento')
-            """
-        )
-        id_to_nat: dict[int, str] = {int(r[0]): str(r[1]) for r in cur.fetchall()}
-    finally:
-        conn.close()
+    rows = listar_servicos_para_mapa_equipa(None)
+    id_to: dict[int, tuple[str, str]] = {
+        int(a): (str(c).strip(), str(d or "").strip()) for a, _b, c, d in rows
+    }
 
-    if not nats and not sids:
+    if not nats and not esps and not sids:
         return []
 
-    if nats and sids:
-        out = {sid for sid in sids if sid in id_to_nat and id_to_nat[sid] in nats}
-        return sorted(out)
+    cand: set[int] = set(id_to.keys())
+    if nats:
+        cand &= {i for i, (na, _ep) in id_to.items() if na in nats}
+    if esps:
+        cand &= {i for i, (_na, ep) in id_to.items() if _mapa_row_matches_especialidades(esps, ep)}
     if sids:
-        out = {sid for sid in sids if sid in id_to_nat}
-        return sorted(out)
-    return sorted(i for i, nat in id_to_nat.items() if nat in nats)
+        cand &= set(sids)
+    return sorted(int(i) for i in cand if i in id_to)
 
 
 def listar_colaboradores_mapa_equipa(servico_ids: list[int], *, limit: int = 400) -> list[dict[str, object]]:
     """
     Colaboradores com pelo menos uma habilitação em `servico_ids`.
-    Cada entrada: ``{"id": int, "nome": str, "servicos": [(nome_servico, natureza), ...]}``
+    Cada entrada: ``{"id": int, "nome": str, "servicos": [(nome_servico, natureza, especialidade), ...]}``
     (apenas habilitações cujo serviço está no conjunto), ordenado por nome.
     """
     if not servico_ids:
@@ -500,10 +496,11 @@ def listar_colaboradores_mapa_equipa(servico_ids: list[int], *, limit: int = 400
         ph = ",".join("?" * len(servico_ids))
         cur.execute(
             f"""
-            SELECT c.id, c.nome, s.nome, TRIM(IFNULL(s.natureza, ''))
+            SELECT c.id, c.nome, s.nome, TRIM(IFNULL(s.natureza, '')), COALESCE(e.nome, '')
             FROM colaboradores c
             INNER JOIN colaborador_servicos cs ON cs.colaborador_id = c.id
             INNER JOIN servicos s ON s.id = cs.servico_id AND s.ativo = 1
+            LEFT JOIN especialidades e ON e.id = s.especialidade_id
             WHERE cs.servico_id IN ({ph})
             ORDER BY c.nome COLLATE NOCASE, s.nome COLLATE NOCASE
             """,
@@ -513,12 +510,12 @@ def listar_colaboradores_mapa_equipa(servico_ids: list[int], *, limit: int = 400
     finally:
         conn.close()
 
-    by_c: "OrderedDict[int, tuple[str, list[tuple[str, str]]]]" = OrderedDict()
-    for cid, nome, snome, nat in rows:
+    by_c: "OrderedDict[int, tuple[str, list[tuple[str, str, str]]]]" = OrderedDict()
+    for cid, nome, snome, nat, esp in rows:
         cid_i = int(cid)
         if cid_i not in by_c:
             by_c[cid_i] = (str(nome), [])
-        by_c[cid_i][1].append((str(snome), str(nat)))
+        by_c[cid_i][1].append((str(snome), str(nat), str(esp or "")))
 
     out: list[dict[str, object]] = []
     for cid_i, (nome, sv) in by_c.items():

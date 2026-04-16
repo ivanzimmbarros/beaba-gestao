@@ -9,7 +9,9 @@ from datetime import date, datetime
 import streamlit as st
 
 from src.pages.theme import get_beaba_css  # noqa: F401 — BeaBa Sereno (CSS em app.main)
+from src.modules.catalogo import obter_servico_para_formulario
 from src.modules.colaborador import (
+    MAPA_EQUI_ESP_SEM_LABEL,
     atualizar_colaborador,
     buscar_colaboradores_por_nif_email_telefone,
     buscar_colaboradores_por_prefixo_nome,
@@ -17,7 +19,6 @@ from src.modules.colaborador import (
     listar_colaboradores_mapa_equipa,
     listar_colaboradores_resumo,
     listar_naturezas_servicos_mapa_equipa,
-    listar_servicos,
     listar_servicos_para_mapa_equipa,
     obter_colaborador,
     resolver_conjunto_servicos_mapa_equipa,
@@ -63,8 +64,13 @@ _LBL_FILTRO_COL_MAPA = (
     'min-height:1.35rem;line-height:1.35rem;">{}</p>'
 )
 
-_COL_MAPA_COL_W = [1.08, 1.08, 0.36]
-_COL_MAPA_TBL_W = [0.38, 0.62]
+_COL_MAPA_NAT_PH = "— Escolher natureza —"
+_COL_MAPA_ESP_PH = "— Escolher especialidade —"
+_COL_MAPA_SVC_PH = "— Escolher serviço —"
+# Placeholder interno para multiselect «Serviço» quando ainda não há ids reais (Streamlit exige opções).
+_COL_MAPA_SVC_SENTINEL = -9_000_000
+_COL_MAPA_COL_W = [0.95, 0.95, 1.05, 0.38]
+_COL_MAPA_TBL_W = [0.26, 0.16, 0.16, 0.42]
 
 
 def _col_badge_cls_natureza_servico(natureza: str) -> str:
@@ -74,6 +80,53 @@ def _col_badge_cls_natureza_servico(natureza: str) -> str:
     if n in ("Produto", "Coworking"):
         return "bea-cv-badge-terracota"
     return "bea-cv-badge-neutro"
+
+
+def _col_mapa_especialidades_opts(rows: list[tuple[int, str, str, str]]) -> list[str]:
+    nomes = sorted({str(r[3]).strip() for r in rows if str(r[3]).strip()})
+    out = list(nomes)
+    if any(not str(r[3]).strip() for r in rows):
+        out.append(MAPA_EQUI_ESP_SEM_LABEL)
+    return out
+
+
+def _col_mapa_filtra_rows_por_especialidades(
+    rows: list[tuple[int, str, str, str]], esp_sel: list[str]
+) -> list[tuple[int, str, str, str]]:
+    """Filtra por uma ou mais especialidades; `esp_sel` vazio → nenhuma linha (não «todos»)."""
+    if not esp_sel:
+        return []
+    eset = set(str(x) for x in esp_sel)
+    sem = MAPA_EQUI_ESP_SEM_LABEL in eset
+    reals = [e for e in eset if e != MAPA_EQUI_ESP_SEM_LABEL]
+    out: list[tuple[int, str, str, str]] = []
+    for r in rows:
+        ep = str(r[3] or "").strip()
+        ok = False
+        if sem and not ep:
+            ok = True
+        if ep and ep in reals:
+            ok = True
+        if ok:
+            out.append(r)
+    return out
+
+
+def _col_mapa_agg_natureza_especialidade(sv: list[tuple[str, str, str]]) -> tuple[str, str]:
+    nats = sorted({t[1].strip() for t in sv if t[1].strip()})
+    esp_parts: list[str] = []
+    seen: set[str] = set()
+    for _nome, _nat, ep in sv:
+        e = str(ep or "").strip()
+        if not e:
+            k = MAPA_EQUI_ESP_SEM_LABEL
+        else:
+            k = e
+        if k not in seen:
+            seen.add(k)
+            esp_parts.append(k)
+    esp_parts.sort(key=lambda x: (x != MAPA_EQUI_ESP_SEM_LABEL, x.casefold()))
+    return ", ".join(nats) or "—", ", ".join(esp_parts) or "—"
 
 
 def _html_col_mapa_cell_servicos(servicos: list[tuple[str, str]]) -> str:
@@ -155,7 +208,15 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
             st.session_state[f"{fk}_pais"] = d["pais"]
             st.session_state[f"{fk}_obs"] = d["observacoes"]
             for rid, ln in zip(st.session_state.col_row_ids, d["linhas"]):
-                st.session_state[f"{fk}_svc_{rid}"] = ln["nome_servico"]
+                sf = obter_servico_para_formulario(int(ln["servico_id"]))
+                if sf:
+                    st.session_state[f"{fk}_lnat_{rid}"] = str(sf.get("natureza") or "Sessão")
+                    en = str(sf.get("especialidade_nome") or "").strip()
+                    st.session_state[f"{fk}_lesp_{rid}"] = en if en else MAPA_EQUI_ESP_SEM_LABEL
+                else:
+                    st.session_state[f"{fk}_lnat_{rid}"] = _COL_MAPA_NAT_PH
+                    st.session_state[f"{fk}_lesp_{rid}"] = _COL_MAPA_ESP_PH
+                st.session_state[f"{fk}_lsvc_{rid}"] = f'{int(ln["servico_id"])}|{ln["nome_servico"]}'
                 st.session_state[f"{fk}_pct_{rid}"] = float(ln["percentual"])
                 di = (ln.get("data_insercao_linha") or "")[:10]
                 st.session_state[f"{fk}_dlin_{rid}"] = (
@@ -256,15 +317,12 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
                         _carregar_colab_para_edicao(cid)
                         st.rerun()
 
-    servicos_opts = listar_servicos()
-    if not servicos_opts:
+    all_sv_detail = listar_servicos_para_mapa_equipa(None)
+    if not all_sv_detail:
         st.error("Não há serviços ativos na base. Abra o Catálogo.")
         if st.button("Abrir Catálogo", key=f"{fk}_goto_cat_empty"):
             st.session_state.page = "catalogo"
         return
-
-    nomes_servicos = [row[1] for row in servicos_opts]
-    id_por_nome: dict[str, int] = {row[1]: row[0] for row in servicos_opts}
 
     st.markdown(
         '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
@@ -283,49 +341,102 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
     _gap_m = "small"
     r1m = st.columns(_COL_MAPA_COL_W, gap=_gap_m, vertical_alignment="top")
     with r1m[0]:
-        st.markdown(_LBL_FILTRO_COL_MAPA.format("Tipos de Serviço"), unsafe_allow_html=True)
+        st.markdown(_LBL_FILTRO_COL_MAPA.format("Natureza"), unsafe_allow_html=True)
     with r1m[1]:
-        st.markdown(_LBL_FILTRO_COL_MAPA.format("Serviços Registados"), unsafe_allow_html=True)
+        st.markdown(_LBL_FILTRO_COL_MAPA.format("Especialidades"), unsafe_allow_html=True)
     with r1m[2]:
+        st.markdown(_LBL_FILTRO_COL_MAPA.format("Serviço"), unsafe_allow_html=True)
+    with r1m[3]:
         st.markdown(
             '<div style="height:calc(1.35rem + 4px);margin:0;padding:0;" aria-hidden="true"></div>',
             unsafe_allow_html=True,
         )
 
     nat_opts = listar_naturezas_servicos_mapa_equipa()
+    nat_labels_ui = [_COL_MAPA_NAT_PH] + list(nat_opts)
+    _raw_nat_m = st.session_state.get("col_mapa_natureza")
+    if _raw_nat_m is not None and str(_raw_nat_m) not in nat_labels_ui:
+        st.session_state.pop("col_mapa_natureza", None)
+
     r2m = st.columns(_COL_MAPA_COL_W, gap=_gap_m, vertical_alignment="center")
     with r2m[0]:
-        nat_sel = st.multiselect(
-            "Tipos de Serviço",
-            options=nat_opts,
-            key="col_mapa_nat",
+        st.selectbox(
+            "Natureza",
+            options=nat_labels_ui,
+            key="col_mapa_natureza",
             label_visibility="collapsed",
-            placeholder="Naturezas…",
         )
-    svc_rows = listar_servicos_para_mapa_equipa(nat_sel if nat_sel else None)
-    avail_ids = [r[0] for r in svc_rows]
-    if "col_mapa_svc" in st.session_state:
-        st.session_state["col_mapa_svc"] = [
-            x for x in st.session_state.get("col_mapa_svc", []) if x in set(avail_ids)
-        ]
+    nat_lbl = str(st.session_state.get("col_mapa_natureza") or _COL_MAPA_NAT_PH)
+    _nat_sig = st.session_state.get("_col_mapa_nat_sig", "__unset__")
+    if _nat_sig == "__unset__":
+        st.session_state._col_mapa_nat_sig = nat_lbl
+    elif str(_nat_sig) != nat_lbl:
+        st.session_state._col_mapa_nat_sig = nat_lbl
+        st.session_state.pop("col_mapa_especialidade", None)
+        st.session_state.pop("col_mapa_svc", None)
+    nat_for_q = None if nat_lbl == _COL_MAPA_NAT_PH else [nat_lbl]
+    svc_rows_nat = listar_servicos_para_mapa_equipa(nat_for_q)
+    esp_labels_ui = [_COL_MAPA_ESP_PH] + _col_mapa_especialidades_opts(svc_rows_nat)
+    _raw_esp_m = st.session_state.get("col_mapa_especialidade")
+    if _raw_esp_m is not None and str(_raw_esp_m) not in esp_labels_ui:
+        st.session_state.pop("col_mapa_especialidade", None)
+    with r2m[1]:
+        st.selectbox(
+            "Especialidades",
+            options=esp_labels_ui,
+            key="col_mapa_especialidade",
+            label_visibility="collapsed",
+        )
+    esp_lbl = str(st.session_state.get("col_mapa_especialidade") or _COL_MAPA_ESP_PH)
+    _esp_sig = st.session_state.get("_col_mapa_esp_sig", "__unset__")
+    if _esp_sig == "__unset__":
+        st.session_state._col_mapa_esp_sig = esp_lbl
+    elif str(_esp_sig) != esp_lbl:
+        st.session_state._col_mapa_esp_sig = esp_lbl
+        st.session_state.pop("col_mapa_svc", None)
+    if esp_lbl == _COL_MAPA_ESP_PH:
+        rows_esp: list[tuple[int, str, str, str]] = []
+        avail_ids: list[int] = []
+        st.session_state.pop("col_mapa_svc", None)
+    else:
+        rows_esp = _col_mapa_filtra_rows_por_especialidades(svc_rows_nat, [esp_lbl])
+        avail_ids = [int(r[0]) for r in rows_esp]
+        if "col_mapa_svc" in st.session_state:
+            st.session_state["col_mapa_svc"] = [
+                int(x)
+                for x in st.session_state.get("col_mapa_svc", [])
+                if int(x) in set(avail_ids)
+            ]
+
+    opts_m = avail_ids if avail_ids else [_COL_MAPA_SVC_SENTINEL]
 
     def _fmt_svc_mapa(sid: int) -> str:
-        for a, b, c in svc_rows:
+        if int(sid) == _COL_MAPA_SVC_SENTINEL:
+            if esp_lbl == _COL_MAPA_ESP_PH:
+                return "— Escolher especialidade —"
+            return "— Sem serviços para esta especialidade —"
+        for a, b, c, _d in rows_esp:
             if int(a) == int(sid):
                 return f"{b} ({c})"
         return str(sid)
 
-    with r2m[1]:
+    with r2m[2]:
         svc_sel = st.multiselect(
-            "Serviços Registados",
-            options=avail_ids,
+            "Serviço",
+            options=opts_m,
             key="col_mapa_svc",
             format_func=_fmt_svc_mapa,
             label_visibility="collapsed",
             placeholder="Serviços…",
+            disabled=esp_lbl == _COL_MAPA_ESP_PH,
         )
-    with r2m[2]:
-        can_mapa_search = bool(nat_sel or svc_sel)
+    svc_ids_pesquisa = [int(x) for x in svc_sel if int(x) != _COL_MAPA_SVC_SENTINEL]
+    with r2m[3]:
+        can_mapa_search = (
+            nat_lbl != _COL_MAPA_NAT_PH
+            or esp_lbl != _COL_MAPA_ESP_PH
+            or bool(svc_ids_pesquisa)
+        )
         if st.button(
             "Pesquisar",
             key="col_mapa_pesquisar",
@@ -333,18 +444,18 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
             disabled=not can_mapa_search,
             width="stretch",
         ):
+            nats_q = [nat_lbl] if nat_lbl != _COL_MAPA_NAT_PH else []
+            esps_q = [esp_lbl] if esp_lbl != _COL_MAPA_ESP_PH else None
             cj = resolver_conjunto_servicos_mapa_equipa(
-                naturezas_seleccionadas=list(nat_sel),
-                servico_ids_seleccionados=list(svc_sel),
+                naturezas_seleccionadas=nats_q,
+                especialidades_seleccionadas=esps_q,
+                servico_ids_seleccionados=svc_ids_pesquisa,
             )
             st.session_state.col_mapa_resultado = listar_colaboradores_mapa_equipa(cj)
 
     res_mapa = st.session_state.get("col_mapa_resultado")
     if res_mapa is None:
-        st.caption(
-            "Seleccione **Tipos de Serviço** e/ou **Serviços Registados** (pelo menos um) e clique "
-            "**Pesquisar** — a tabela com *Nome completo* e *Serviços habilitados* aparece abaixo."
-        )
+        pass
     elif len(res_mapa) == 0:
         st.info("Nenhum colaborador encontrado para esta combinação.")
     else:
@@ -352,13 +463,23 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
             '<div class="bea-col-mapa-wrap" data-testid="bea-col-mapa-wrap">',
             unsafe_allow_html=True,
         )
-        th0, th1 = st.columns(_COL_MAPA_TBL_W, gap="small")
+        th0, th1, th2, th3 = st.columns(_COL_MAPA_TBL_W, gap="small")
         with th0:
             st.markdown(
                 '<div class="bea-col-mapa-th" data-testid="bea-col-mapa-th-nome">Nome completo</div>',
                 unsafe_allow_html=True,
             )
         with th1:
+            st.markdown(
+                '<div class="bea-col-mapa-th" data-testid="bea-col-mapa-th-nat">Natureza</div>',
+                unsafe_allow_html=True,
+            )
+        with th2:
+            st.markdown(
+                '<div class="bea-col-mapa-th" data-testid="bea-col-mapa-th-esp">Especialidade</div>',
+                unsafe_allow_html=True,
+            )
+        with th3:
             st.markdown(
                 '<div class="bea-col-mapa-th" data-testid="bea-col-mapa-th-svc">Serviços habilitados</div>',
                 unsafe_allow_html=True,
@@ -367,8 +488,11 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
             cid_m = int(row["id"])
             nome_m = str(row["nome"])
             sv_tuples = list(row["servicos"])
-            cell_html = _html_col_mapa_cell_servicos(sv_tuples)
-            cnm, csv = st.columns(_COL_MAPA_TBL_W, gap="small", vertical_alignment="center")
+            cell_html = _html_col_mapa_cell_servicos([(t[0], t[1]) for t in sv_tuples])
+            nat_cell, esp_cell = _col_mapa_agg_natureza_especialidade(sv_tuples)
+            nat_e = html.escape(nat_cell)
+            esp_e = html.escape(esp_cell)
+            cnm, ctn, cte, csv = st.columns(_COL_MAPA_TBL_W, gap="small", vertical_alignment="center")
             with cnm:
                 if st.button(
                     nome_m,
@@ -378,6 +502,16 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
                 ):
                     st.session_state.col_mapa_open_id = int(cid_m)
                     st.rerun()
+            with ctn:
+                st.markdown(
+                    f'<div class="bea-col-mapa-svc-cell">{nat_e}</div>',
+                    unsafe_allow_html=True,
+                )
+            with cte:
+                st.markdown(
+                    f'<div class="bea-col-mapa-svc-cell">{esp_e}</div>',
+                    unsafe_allow_html=True,
+                )
             with csv:
                 st.markdown(
                     f'<div class="bea-col-mapa-svc-cell">{cell_html}</div>',
@@ -464,11 +598,59 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
         row_ids = list(st.session_state.col_row_ids)
         for pos, row_id in enumerate(row_ids):
             st.markdown(f"**Item {pos + 1}**")
-            sc1, sc2, sc3 = st.columns([2, 1, 1])
-            with sc1:
-                nome_svc = st.selectbox("Serviço *", nomes_servicos, key=f"{fk}_svc_{row_id}")
-                sid = id_por_nome[nome_svc]
-            with sc2:
+            nat_labels_r = [_COL_MAPA_NAT_PH] + listar_naturezas_servicos_mapa_equipa()
+            rnk = f"{fk}_lnat_{row_id}"
+            rek = f"{fk}_lesp_{row_id}"
+            rsk = f"{fk}_lsvc_{row_id}"
+            if st.session_state.get(rnk) not in nat_labels_r:
+                st.session_state.pop(rnk, None)
+            rep_c0, rep_c1, rep_c2, rep_c3, rep_c4 = st.columns([0.95, 0.95, 1.15, 0.78, 1.0], gap="small")
+            with rep_c0:
+                st.selectbox("Natureza *", nat_labels_r, key=rnk)
+            nat_v = str(st.session_state.get(rnk) or _COL_MAPA_NAT_PH)
+            _pn = st.session_state.get(f"{fk}_lch_nat_{row_id}", "__unset__")
+            if _pn == "__unset__":
+                st.session_state[f"{fk}_lch_nat_{row_id}"] = nat_v
+            elif str(_pn) != nat_v:
+                st.session_state[f"{fk}_lch_nat_{row_id}"] = nat_v
+                st.session_state.pop(rek, None)
+                st.session_state.pop(rsk, None)
+            rows_nat = (
+                list(all_sv_detail)
+                if nat_v == _COL_MAPA_NAT_PH
+                else [r for r in all_sv_detail if str(r[2]).strip() == nat_v.strip()]
+            )
+            esp_lbls_r = [_COL_MAPA_ESP_PH] + _col_mapa_especialidades_opts(rows_nat)
+            if st.session_state.get(rek) not in esp_lbls_r:
+                st.session_state.pop(rek, None)
+            with rep_c1:
+                st.selectbox("Especialidades *", esp_lbls_r, key=rek)
+            esp_v = str(st.session_state.get(rek) or _COL_MAPA_ESP_PH)
+            _pe = st.session_state.get(f"{fk}_lch_esp_{row_id}", "__unset__")
+            if _pe == "__unset__":
+                st.session_state[f"{fk}_lch_esp_{row_id}"] = esp_v
+            elif str(_pe) != esp_v:
+                st.session_state[f"{fk}_lch_esp_{row_id}"] = esp_v
+                st.session_state.pop(rsk, None)
+            if esp_v == _COL_MAPA_ESP_PH:
+                rows_fin: list[tuple[int, str, str, str]] = []
+                svc_choices = [_COL_MAPA_SVC_PH]
+            else:
+                rows_fin = _col_mapa_filtra_rows_por_especialidades(rows_nat, [esp_v])
+                svc_choices = [_COL_MAPA_SVC_PH] + [f"{int(a)}|{b}" for a, b, _c, _d in rows_fin]
+            if st.session_state.get(rsk) not in svc_choices:
+                st.session_state.pop(rsk, None)
+            with rep_c2:
+                st.selectbox("Serviço *", svc_choices, key=rsk)
+            raw_svc = str(st.session_state.get(rsk) or _COL_MAPA_SVC_PH)
+            if raw_svc == _COL_MAPA_SVC_PH or "|" not in raw_svc:
+                sid = 0
+            else:
+                try:
+                    sid = int(raw_svc.split("|", 1)[0])
+                except ValueError:
+                    sid = 0
+            with rep_c3:
                 _pct_k = f"{fk}_pct_{row_id}"
                 if _pct_k not in st.session_state:
                     st.session_state[_pct_k] = 50.0
@@ -481,7 +663,7 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
                         key=_pct_k,
                     )
                 )
-            with sc3:
+            with rep_c4:
                 dlin = st.date_input(
                     "Data de Ativação do serviço",
                     key=f"{fk}_dlin_{row_id}",
@@ -493,7 +675,8 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
                 if len(row_ids) > 1 and st.button("Remover item", key=f"{fk}_rm_{row_id}"):
                     st.session_state.col_row_ids = [r for r in row_ids if r != row_id]
                     st.rerun()
-            repasse.append((sid, pct, dlin.isoformat() if dlin else ""))
+            if sid > 0:
+                repasse.append((sid, pct, dlin.isoformat() if dlin else ""))
 
         st.markdown(_col_ficha_subsec_html("Observações"), unsafe_allow_html=True)
         c_obs = st.text_area(
@@ -507,7 +690,9 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
         btn_label = "Guardar alterações" if editing else "Cadastrar colaborador"
         if st.button(btn_label, type="primary", key=f"{fk}_submit"):
             ok_t, tel_e164, err_t = ler_e164_de_widgets(f"{fk}_tel_pri")
-            if not ok_t:
+            if len(repasse) != len(row_ids):
+                st.error("Em cada item, seleccione **Natureza**, **Especialidade** e **Serviço** válidos.")
+            elif not ok_t:
                 st.error(str(err_t or "❌ Contacto inválido."))
             else:
                 dn_iso = c_dn.isoformat() if c_dn else ""

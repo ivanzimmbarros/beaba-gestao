@@ -14,6 +14,10 @@ Execução isolada: ``python tests/smoke_test_ui.py`` (delega em pytest neste m�
 Na CI / pre-push: incluído em ``python -m pytest tests/ -v`` (ficheiro em ``tests/``).
 
 Referência técnica: `streamlit.testing.v1.AppTest` (Streamlit ≥ 1.28; projeto em 1.52+).
+
+Financeiro — **2. Repasses:** `test_smoke_financeiro_repasses_multiselect_chain` confirma na árvore
+de widgets os multiselects «Natureza do Serviço», «Especialidades» e «Nome do Serviço» na ordem
+correcta (regressão da cadeia de filtros em `page_financeiro.py`).
 """
 
 from __future__ import annotations
@@ -102,6 +106,22 @@ def test_smoke_streamlit_app_route_boots(route: str) -> None:
 def test_smoke_streamlit_app_legacy_redirect_boots(legacy: str) -> None:
     """Rotas legadas redireccionadas não rebentam no primeiro render."""
     _run_app_smoke(legacy, timeout=120)
+
+
+def test_smoke_financeiro_repasses_multiselect_chain() -> None:
+    """Financeiro: multiselects do sector «2. Repasses» presentes e ordenados (Nat → Esp → Svc)."""
+    at = AppTest.from_file(str(_APP_PY), default_timeout=120)
+    at.session_state["page"] = "financeiro"
+    at.run()
+    _assert_app_tree_clean(at, context="Financeiro — repasses (multiselects)")
+    labels = [str(getattr(m, "label", "") or "") for m in at.get("multiselect")]
+    assert "Natureza do Serviço" in labels
+    assert "Especialidades" in labels
+    assert "Nome do Serviço" in labels
+    i_nat = labels.index("Natureza do Serviço")
+    i_esp = labels.index("Especialidades")
+    i_svc = labels.index("Nome do Serviço")
+    assert i_nat < i_esp < i_svc, labels
 
 
 def test_smoke_ui_page_modules_sync_with_disk() -> None:

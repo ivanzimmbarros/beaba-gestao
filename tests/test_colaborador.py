@@ -182,6 +182,7 @@ def test_mapa_equipa_servicos_e_colaborador_habilitado():
     hit = next(r for r in rows if str(r["nome"]) == "Col Mapa Equipa X")
     assert isinstance(hit.get("servicos"), list)
     assert len(hit["servicos"]) >= 1
+    assert all(len(t) == 3 for t in hit["servicos"])
 
 
 def test_buscar_colaboradores_por_prefixo_nome_vazio():

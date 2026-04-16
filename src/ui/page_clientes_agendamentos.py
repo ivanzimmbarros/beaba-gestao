@@ -32,6 +32,7 @@ from src.modules.catalogo import (
     listar_servicos_para_venda,
     listar_sessoes_do_pacote_catalogo,
     obter_duracao_referencia_agendamento_horas,
+    obter_servico_para_formulario,
 )
 from src.modules.cliente import (
     atualizar_cliente,
@@ -64,26 +65,83 @@ _CAG_NATUREZAS_AGENDA_NOVO: tuple[str, ...] = tuple(
     n for n in NATUREZAS_CATALOGO_FASE3 if n != "Produto"
 )
 
-# Linha 1 de «Dados do Agendamento»: Serviços adquiridos pendentes · Natureza · Serviço · Colaboradores · Estado.
-_CAG_DADOS_AG_L1_COL_WIDTHS: tuple[float, float, float, float, float] = (
-    1.18,
-    0.92,
-    1.12,
-    1.32,
-    0.96,
+# Linha 1 de «Dados do Agendamento»: SAP · Natureza · Especialidades · Serviço · Colaboradores · Estado.
+_CAG_ESP_PLACEHOLDER = "— Escolher especialidade —"
+_CAG_ESP_SEM_LABEL = "(Sem especialidade)"
+_CAG_SVC_PLACEHOLDER = "— Escolher serviço —"
+_CAG_DADOS_AG_L1_COL_WIDTHS: tuple[float, float, float, float, float, float] = (
+    1.08,
+    0.82,
+    0.82,
+    1.02,
+    1.22,
+    0.84,
 )
 _CAG_DADOS_AG_L1_SUM = sum(_CAG_DADOS_AG_L1_COL_WIDTHS)
-# Total + lista na mesma linha: duas colunas com o mesmo peso que «Natureza» (2.ª col. da L1); terceira absorve o resto.
+# Total + lista na mesma linha: «Total» com peso da coluna Natureza (L1); «Lista de Sessoes…» com o mesmo
+# peso que «Serviços adquiridos pendente agendamento» (1.ª col. L1); terceira absorve o resto.
 _CAG_PACOTE_PEND_L1_COL_WIDTHS: tuple[float, float, float] = (
     _CAG_DADOS_AG_L1_COL_WIDTHS[1],
-    _CAG_DADOS_AG_L1_COL_WIDTHS[1],
-    float(_CAG_DADOS_AG_L1_SUM - 2.0 * _CAG_DADOS_AG_L1_COL_WIDTHS[1]),
+    _CAG_DADOS_AG_L1_COL_WIDTHS[0],
+    float(
+        _CAG_DADOS_AG_L1_SUM
+        - _CAG_DADOS_AG_L1_COL_WIDTHS[1]
+        - _CAG_DADOS_AG_L1_COL_WIDTHS[0]
+    ),
 )
 
 
 def _cag_natureza_cmp_key(label: str) -> str:
     """Alinha rótulo da UI com `servicos.natureza` (espaços, capitalização)."""
     return " ".join(str(label or "").strip().split()).casefold()
+
+
+def _cag_ag_build_esp_labels_ui(filtrados: list[dict[str, str | int]]) -> list[str]:
+    esp_nonempty = sorted(
+        {
+            str(s.get("especialidade") or "").strip()
+            for s in filtrados
+            if str(s.get("especialidade") or "").strip()
+        }
+    )
+    esp_sem = any(not str(s.get("especialidade") or "").strip() for s in filtrados)
+    opts: list[str] = []
+    if esp_nonempty:
+        opts.extend(esp_nonempty)
+    if esp_sem:
+        opts.append(_CAG_ESP_SEM_LABEL)
+    return [_CAG_ESP_PLACEHOLDER] + opts
+
+
+def _cag_ag_filtrar_servicos_por_especialidade(
+    filtrados: list[dict[str, str | int]], esp_lbl: str
+) -> list[dict[str, str | int]]:
+    if not esp_lbl or esp_lbl.strip() == "" or esp_lbl == _CAG_ESP_PLACEHOLDER:
+        return []
+    if esp_lbl == _CAG_ESP_SEM_LABEL:
+        return [s for s in filtrados if not str(s.get("especialidade") or "").strip()]
+    return [s for s in filtrados if str(s.get("especialidade") or "").strip() == esp_lbl]
+
+
+def _cag_ag_sync_especialidade_state_de_servico_esc(esc: str) -> None:
+    """Actualiza `cag_ag_especialidade_esc` a partir de `id|nome` do catálogo (SAP / estado)."""
+    if "|" not in esc:
+        st.session_state.pop("cag_ag_especialidade_esc", None)
+        return
+    try:
+        sid = int(esc.split("|", 1)[0])
+    except ValueError:
+        st.session_state.pop("cag_ag_especialidade_esc", None)
+        return
+    if sid < 1:
+        st.session_state.pop("cag_ag_especialidade_esc", None)
+        return
+    row = obter_servico_para_formulario(int(sid))
+    if not row:
+        st.session_state.pop("cag_ag_especialidade_esc", None)
+        return
+    en = str(row.get("especialidade_nome") or "").strip()
+    st.session_state.cag_ag_especialidade_esc = en if en else _CAG_ESP_SEM_LABEL
 
 
 def _cag_df_selected_rows(ev: object | None, session_key: str) -> list[int]:
@@ -231,6 +289,9 @@ def _cag_aplicar_linha_servico_adquirido_pendente(
     if not row:
         st.session_state.pop("cag_ag_credito_vi_id", None)
         st.session_state.pop("cag_ag_credito_ps_id", None)
+        st.session_state.pop("cag_ag_especialidade_esc", None)
+        st.session_state.pop("cag_ag_chain_natureza", None)
+        st.session_state.pop("cag_ag_chain_especialidade", None)
         return
     st.session_state.cag_ag_credito_vi_id = int(row["venda_item_id"])
     ps = row.get("pacote_sessao_id")
@@ -240,6 +301,11 @@ def _cag_aplicar_linha_servico_adquirido_pendente(
         st.session_state.pop("cag_ag_credito_ps_id", None)
     st.session_state.cag_ag_natureza = str(row.get("natureza") or "Sessão")
     st.session_state.cag_ag_servico_esc = str(row.get("servico_esc") or "")
+    _cag_ag_sync_especialidade_state_de_servico_esc(str(st.session_state.cag_ag_servico_esc))
+    st.session_state.cag_ag_chain_natureza = str(st.session_state.cag_ag_natureza or "")
+    st.session_state.cag_ag_chain_especialidade = str(
+        st.session_state.get("cag_ag_especialidade_esc") or _CAG_ESP_PLACEHOLDER
+    )
     pesc = row.get("pacote_sessao_esc")
     if pesc:
         st.session_state.cag_ag_pacote_sessao_esc = str(pesc)
@@ -1418,6 +1484,10 @@ def _cag_limpar_form_ag_novo() -> None:
     st.session_state.cag_ag_hf = "10:00"
     st.session_state.cag_ag_obs = ""
     st.session_state.cag_ag_natureza = "Sessão"
+    st.session_state.pop("cag_ag_especialidade_esc", None)
+    st.session_state.pop("cag_ag_servico_esc", None)
+    st.session_state.pop("cag_ag_chain_natureza", None)
+    st.session_state.pop("cag_ag_chain_especialidade", None)
     st.session_state.pop("cag_ag_pacote_sessao_esc", None)
     st.session_state.pop("_cag_ag_pkg_sess_sig", None)
     st.session_state.cag_ag_tipo_atendimento = "Presencial"
@@ -1965,7 +2035,7 @@ def _cag_render_select_sessoes_pacote_cag(*, cliente_id: int, dis_ag: bool) -> N
     if curv not in opts:
         st.session_state.cag_ag_pacote_sessao_esc = opts[0]
 
-    # Mesma fração de largura que «Natureza» (1.05 / soma L1) para cada widget; mesma linha, ordem total → lista.
+    # Pesos: ver `_CAG_PACOTE_PEND_L1_COL_WIDTHS` (lista alinhada à largura da coluna SAP da L1).
     c_tot, c_lst, _c_sp = st.columns(_CAG_PACOTE_PEND_L1_COL_WIDTHS, gap="small")
     with c_tot:
         st.text_input(
@@ -2003,7 +2073,7 @@ def _cag_render_dados_ag_linha1_novo_fora_form(
     sap_lbl = {str(r["token"]): str(r.get("rotulo") or r["token"]) for r in sap_rows}
     sap_lbl["__none__"] = "— Nenhum neste estado —"
 
-    r1c0, r1c1, r1c2, r1c3, r1c4 = st.columns(_CAG_DADOS_AG_L1_COL_WIDTHS, gap="small")
+    r1c0, r1c1, r1c2, r1c3, r1c4, r1c5 = st.columns(_CAG_DADOS_AG_L1_COL_WIDTHS, gap="small")
     with r1c0:
         st.selectbox(
             "Serviços adquiridos pendente agendamento",
@@ -2019,23 +2089,56 @@ def _cag_render_dados_ag_linha1_novo_fora_form(
         if cur_nat not in naturezas_opts:
             st.session_state.cag_ag_natureza = naturezas_opts[0]
         st.selectbox("Natureza", naturezas_opts, key="cag_ag_natureza", disabled=dis_ag)
+    nat = str(st.session_state.get("cag_ag_natureza") or "Sessão")
+    _nat_ch = st.session_state.get("cag_ag_chain_natureza", "__unset__")
+    if _nat_ch == "__unset__":
+        st.session_state.cag_ag_chain_natureza = nat
+    elif str(_nat_ch) != nat:
+        st.session_state.cag_ag_chain_natureza = nat
+        st.session_state.pop("cag_ag_especialidade_esc", None)
+        st.session_state.pop("cag_ag_servico_esc", None)
+        st.session_state.pop("cag_ag_chain_especialidade", None)
+    nk = _cag_natureza_cmp_key(nat)
+    filtrados = [s for s in all_srv if _cag_natureza_cmp_key(str(s.get("natureza") or "")) == nk]
+    esp_labels_ui = _cag_ag_build_esp_labels_ui(filtrados)
+    _raw_esp = st.session_state.get("cag_ag_especialidade_esc")
+    if _raw_esp is not None and str(_raw_esp) not in esp_labels_ui:
+        st.session_state.pop("cag_ag_especialidade_esc", None)
     with r1c2:
-        nat = str(st.session_state.get("cag_ag_natureza") or "Sessão")
-        nk = _cag_natureza_cmp_key(nat)
-        filtrados = [s for s in all_srv if _cag_natureza_cmp_key(str(s.get("natureza") or "")) == nk]
-        choices = [f"{int(s['id'])}|{s['nome']}" for s in filtrados]
-        if not choices:
+        st.selectbox("Especialidades", options=esp_labels_ui, key="cag_ag_especialidade_esc", disabled=dis_ag)
+    _esp_lbl = str(st.session_state.get("cag_ag_especialidade_esc") or _CAG_ESP_PLACEHOLDER)
+    _esp_ch = st.session_state.get("cag_ag_chain_especialidade", "__unset__")
+    if _esp_ch == "__unset__":
+        st.session_state.cag_ag_chain_especialidade = _esp_lbl
+    elif str(_esp_ch) != _esp_lbl:
+        st.session_state.cag_ag_chain_especialidade = _esp_lbl
+        st.session_state.pop("cag_ag_servico_esc", None)
+    filtrados_esp = _cag_ag_filtrar_servicos_por_especialidade(filtrados, _esp_lbl)
+    choices_real = [f"{int(s['id'])}|{s['nome']}" for s in filtrados_esp]
+    with r1c3:
+        if not filtrados:
             st.warning(
                 f"Não há serviços **{nat}** activos no catálogo. Crie ou active um serviço em **Catálogo**."
             )
             st.session_state.cag_ag_servico_esc = ""
+        elif _esp_lbl == _CAG_ESP_PLACEHOLDER or not choices_real:
+            if "cag_ag_servico_esc" not in st.session_state or st.session_state.cag_ag_servico_esc not in (
+                _CAG_SVC_PLACEHOLDER,
+            ):
+                st.session_state.cag_ag_servico_esc = _CAG_SVC_PLACEHOLDER
+            st.selectbox(
+                "Serviço",
+                options=[_CAG_SVC_PLACEHOLDER],
+                key="cag_ag_servico_esc",
+                disabled=dis_ag,
+            )
         else:
             if "cag_ag_servico_esc" not in st.session_state or (
-                st.session_state.cag_ag_servico_esc not in choices
+                st.session_state.cag_ag_servico_esc not in choices_real
             ):
-                st.session_state.cag_ag_servico_esc = choices[0]
-            st.selectbox("Serviço", options=choices, key="cag_ag_servico_esc", disabled=dis_ag)
-    with r1c3:
+                st.session_state.cag_ag_servico_esc = choices_real[0]
+            st.selectbox("Serviço", options=choices_real, key="cag_ag_servico_esc", disabled=dis_ag)
+    with r1c4:
         st.multiselect(
             "Colaborador(es)",
             options=col_opts,
@@ -2043,7 +2146,7 @@ def _cag_render_dados_ag_linha1_novo_fora_form(
             key="cag_ag_colabs",
             disabled=dis_ag,
         )
-    with r1c4:
+    with r1c5:
         ag_cur3 = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
         opts_st = _cag_opcoes_status_edicao(str(ag_cur3["status"]) if ag_cur3 else "AGENDADO")
         cur_lbl = str(st.session_state.get(CAG_AG_STATUS_UI_KEY) or "Agendado")
@@ -2088,7 +2191,7 @@ def _cag_setor4_render_dados_ag_form_e_wizards(
 
         if not modo_novo:
             # Linha 1 (edição): mesmo leiaute que «Novo» (1.ª coluna inactiva neste modo).
-            r1c0, r1c1, r1c2, r1c3, r1c4 = st.columns(_CAG_DADOS_AG_L1_COL_WIDTHS, gap="small")
+            r1c0, r1c1, r1c2, r1c3, r1c4, r1c5 = st.columns(_CAG_DADOS_AG_L1_COL_WIDTHS, gap="small")
             with r1c0:
                 st.selectbox(
                     "Serviços adquiridos pendente agendamento",
@@ -2108,6 +2211,25 @@ def _cag_setor4_render_dados_ag_form_e_wizards(
                     key=f"cag_ag_nat_combo_{aid_sel}_{fv}",
                 )
             with r1c2:
+                ag_cur_e = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
+                esp_txt = "—"
+                if ag_cur_e:
+                    try:
+                        _sid_e = int(ag_cur_e.get("servico_id") or 0)
+                    except (TypeError, ValueError):
+                        _sid_e = 0
+                    if _sid_e > 0:
+                        sf = obter_servico_para_formulario(_sid_e)
+                        if sf:
+                            en = str(sf.get("especialidade_nome") or "").strip()
+                            esp_txt = en if en else _CAG_ESP_SEM_LABEL
+                st.selectbox(
+                    "Especialidades",
+                    [esp_txt],
+                    disabled=True,
+                    key=f"cag_ag_esp_combo_{aid_sel}_{fv}",
+                )
+            with r1c3:
                 ag_cur2 = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
                 srv_cur = str(ag_cur2.get("servico_nome") or "") if ag_cur2 else ""
                 st.selectbox(
@@ -2116,7 +2238,7 @@ def _cag_setor4_render_dados_ag_form_e_wizards(
                     disabled=True,
                     key=f"cag_ag_srv_combo_{aid_sel}_{fv}",
                 )
-            with r1c3:
+            with r1c4:
                 st.multiselect(
                     "Colaborador(es)",
                     options=col_opts,
@@ -2126,7 +2248,7 @@ def _cag_setor4_render_dados_ag_form_e_wizards(
                     key="cag_ag_colabs",
                     disabled=dis_ag,
                 )
-            with r1c4:
+            with r1c5:
                 ag_cur3 = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
                 opts_st = _cag_opcoes_status_edicao(str(ag_cur3["status"]) if ag_cur3 else "AGENDADO")
                 cur_lbl = str(st.session_state.get(CAG_AG_STATUS_UI_KEY) or "Agendado")

@@ -23,8 +23,10 @@ e dos testes `test_cag_visual_sereno`, `test_vnd_visual_sereno`, `test_col_visua
 em `st.number_input` com chaves `*_vc_nem` / `*_vc_qfil` primadas por `_prime_cliente_form` em `page_vendas.py`); Colaboradores:
 `tests/col_ui_contract.py`, `test_col_visual_sereno` (pesquisa unificada + **Mapa da Equipa** em `page_colaboradores.py`);
 prefixo de nome e filtros mapa em `tests/test_colaborador.py`; Catálogo: `tests/cat_ui_contract.py`; Início: `tests/home_ui_contract.py`;
-Financeiro: `tests/fin_ui_contract.py`, `tests/test_fin_visual_sereno.py`, `tests/test_financeiro_repasses_colaboradores.py`, fatia `e2e_stress_test.py::test_e2e_fin_visual_shell_contract`.
-Smoke UI: `tests/smoke_test_ui.py` + `pytest.ini`. Catálogo: wizard tipo→confirmação em `page_catalogo.py`.
+Financeiro: `tests/fin_ui_contract.py`, `tests/test_fin_visual_sereno.py`, `tests/test_financeiro_repasses_colaboradores.py`,
+fatia `e2e_stress_test.py::test_e2e_fin_visual_shell_contract`; sector **2. Repasses** (cadeia Natureza→Especialidades→Serviço)
+em `page_financeiro.py` + metadados em `financeiro_repasses_colaboradores.py`.
+Smoke UI: `tests/smoke_test_ui.py` (`test_smoke_financeiro_repasses_multiselect_chain`) + `pytest.ini`. Catálogo: wizard tipo→confirmação em `page_catalogo.py`.
 """
 
 from __future__ import annotations

@@ -86,6 +86,8 @@ def _vnd_section_title_html(title: str) -> str:
 
 
 _VND_NAT_PLACEHOLDER = "— Escolher natureza —"
+_VND_ESP_PLACEHOLDER = "— Escolher especialidade —"
+_VND_ESP_SEM_LABEL = "(Sem especialidade)"
 
 _VND_PAY_ADD_BTN_LABEL = "➕ Adicionar outro meio de pagamento"
 # Largura (px) só no botão «Remover», alinhada ao rótulo do «Adicionar» (o Adicionar mantém largura «content»).
@@ -1215,7 +1217,7 @@ def render_page_vendas(
                 )
         return k
 
-    _c_nat, _c_svc, _c_pend = st.columns([1.05, 1.05, 1.05], gap="small")
+    _c_nat, _c_esp, _c_svc, _c_pend = st.columns([0.95, 0.95, 1.0, 1.15], gap="small")
     with _c_nat:
         st.selectbox(
             "Selecionar Natureza do Serviço Requisitado",
@@ -1229,9 +1231,54 @@ def render_page_vendas(
         else str(_nat_raw).strip()
     )
     nat_sel = "" if _nat_lbl == _VND_NAT_PLACEHOLDER else _nat_lbl
+    _nat_chain = st.session_state.get(f"{fk}_vnd_nat_chain", "__unset__")
+    if _nat_chain == "__unset__":
+        st.session_state[f"{fk}_vnd_nat_chain"] = str(nat_sel)
+    elif str(_nat_chain) != str(nat_sel):
+        st.session_state[f"{fk}_vnd_nat_chain"] = str(nat_sel)
+        st.session_state.pop(f"{fk}_esp_req", None)
+        st.session_state.pop(f"{fk}_pick_svc", None)
+        st.session_state.pop(f"{fk}_vnd_esp_chain", None)
     cat_f = [c for c in cat if str(c.get("natureza", "")) == nat_sel] if nat_sel else []
-    labels = [f"{c['nome']} ({c['natureza']})" for c in cat_f]
-    ids_list = [int(c["id"]) for c in cat_f]
+    esp_nonempty = sorted(
+        {str(c.get("especialidade", "") or "").strip() for c in cat_f if str(c.get("especialidade", "") or "").strip()}
+    )
+    esp_sem = any(not str(c.get("especialidade", "") or "").strip() for c in cat_f)
+    esp_opts_ui: list[str] = []
+    if esp_nonempty:
+        esp_opts_ui.extend(esp_nonempty)
+    if esp_sem:
+        esp_opts_ui.append(_VND_ESP_SEM_LABEL)
+    esp_labels_ui = ([_VND_ESP_PLACEHOLDER] + esp_opts_ui) if nat_sel else [_VND_ESP_PLACEHOLDER]
+    _raw_esp = st.session_state.get(f"{fk}_esp_req")
+    if _raw_esp is not None and str(_raw_esp) not in esp_labels_ui:
+        st.session_state.pop(f"{fk}_esp_req", None)
+    with _c_esp:
+        st.selectbox("Especialidades", options=esp_labels_ui, key=f"{fk}_esp_req")
+    _esp_raw = st.session_state.get(f"{fk}_esp_req")
+    _esp_lbl = (
+        _VND_ESP_PLACEHOLDER
+        if _esp_raw is None or str(_esp_raw).strip() == ""
+        else str(_esp_raw).strip()
+    )
+    esp_sel = "" if _esp_lbl == _VND_ESP_PLACEHOLDER else _esp_lbl
+    _esp_chain = st.session_state.get(f"{fk}_vnd_esp_chain", "__unset__")
+    if _esp_chain == "__unset__":
+        st.session_state[f"{fk}_vnd_esp_chain"] = _esp_lbl
+    elif str(_esp_chain) != str(_esp_lbl):
+        st.session_state[f"{fk}_vnd_esp_chain"] = _esp_lbl
+        st.session_state.pop(f"{fk}_pick_svc", None)
+    if not esp_sel:
+        cat_svc: list[dict[str, str | int]] = []
+    elif esp_sel == _VND_ESP_SEM_LABEL:
+        cat_svc = [c for c in cat_f if not str(c.get("especialidade", "") or "").strip()]
+    else:
+        cat_svc = [c for c in cat_f if str(c.get("especialidade", "") or "").strip() == esp_sel]
+    labels = [
+        f"{c['nome']} ({str(c.get('especialidade') or '').strip() or _VND_ESP_SEM_LABEL})"
+        for c in cat_svc
+    ]
+    ids_list = [int(c["id"]) for c in cat_svc]
     labels_ui = ["— Escolher serviço —"] + labels
     ids_ui: list[int | None] = [None] + ids_list
     with _c_svc:

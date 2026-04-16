@@ -27,11 +27,15 @@ do cliente em `constituicao_visual_shell.py` + `page_clientes_agendamentos.py`; 
 `tests/cag_setor4_ui_contract.py` (Setor 4: lista no expander «Agendamentos»; Dados do Agendamento: tipo presencial/virtual + sala virtual) e fatia E20 em
 `e2e_stress_test.py` — tudo em git, não no `.db`.
 
-Financeiro (2026-04+): `page_financeiro.py` (gastos + sector **2. Repasses**); dados em cópia integral
-incluem `financeiro_*`, `repasse_linhas`, `agendamentos`; regressão em `tests/test_fin_visual_sereno.py`,
-`tests/fin_ui_contract.py` (`assert_fin_repasses_sector_na_pagina`), `tests/test_financeiro_*`,
-`e2e_stress_test.py::test_e2e_fin_visual_shell_contract`.
-Smoke UI (camada 3): `tests/smoke_test_ui.py` + `pytest.ini` — `AppTest` por rota em `src/app.py` e `test_smoke_monitor_governanca` em `monitor_governanca.py` (raiz). Catálogo: wizard «tipo → confirmação → cadastro» (`_render_cat_expander_cadastro` em `page_catalogo.py`).
+Financeiro (2026-04+): `page_financeiro.py` (gastos + sector **2. Repasses** com cadeia de filtros
+Natureza do Serviço → Especialidades → Nome do Serviço, 6 colunas + `financeiro_repasses_colaboradores.py`
+metadados `listar_servicos_metadados_para_filtro_repasse`); dados em cópia integral incluem `financeiro_*`,
+`repasse_linhas`, `agendamentos`, `especialidades`, `servicos`; regressão em `tests/test_fin_visual_sereno.py`,
+`tests/fin_ui_contract.py` (`assert_fin_repasses_sector_na_pagina`, `assert_fin_repasses_filtros_cadeia_e_layout_na_pagina`),
+`tests/test_financeiro_repasses_colaboradores.py`, `e2e_stress_test.py::test_e2e_fin_visual_shell_contract`.
+Smoke UI (camada 3): `tests/smoke_test_ui.py` + `pytest.ini` — `AppTest` por rota em `src/app.py`,
+`test_smoke_financeiro_repasses_multiselect_chain` (widgets repasses) e `test_smoke_monitor_governanca` em
+`monitor_governanca.py` (raiz). Catálogo: wizard «tipo → confirmação → cadastro» (`_render_cat_expander_cadastro` em `page_catalogo.py`).
 """
 
 from __future__ import annotations

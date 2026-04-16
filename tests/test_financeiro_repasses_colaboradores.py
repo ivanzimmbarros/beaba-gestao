@@ -142,6 +142,9 @@ def test_listar_repasses_concluido_e_filtros(rep_conn: sqlite3.Connection) -> No
     rows_s = listar_linhas_gestao_repasses(rep_conn, servico_ids=[sid])
     assert len(rows_s) == 1
 
+    rows_empty_svc = listar_linhas_gestao_repasses(rep_conn, servico_ids=[])
+    assert rows_empty_svc == []
+
 
 def test_listar_repasses_filtro_natureza(rep_conn: sqlite3.Connection) -> None:
     _cid, sid = _seed_repasse_row(rep_conn)
@@ -161,3 +164,55 @@ def test_realizado_pendente_pgto_incluido(rep_conn: sqlite3.Connection) -> None:
     rep_conn.commit()
     rows = listar_linhas_gestao_repasses(rep_conn)
     assert len(rows) == 1
+
+
+def test_metadados_servicos_repasse_nat_esp_e_sem_especialidade(rep_conn: sqlite3.Connection) -> None:
+    """Filtros em cadeia usados na UI: natureza, especialidade e «(Sem especialidade)»."""
+    from src.modules.financeiro_repasses_colaboradores import (
+        REPASSE_ESP_SEM_LABEL,
+        filtra_metadados_servicos_por_especialidades,
+        filtra_metadados_servicos_por_naturezas,
+        listar_servicos_metadados_para_filtro_repasse,
+    )
+
+    cur = rep_conn.cursor()
+    cur.execute(
+        "INSERT INTO especialidades (natureza, nome, descritivo, ativo, ordem) VALUES (?, ?, '', 1, 0)",
+        ("NMetaNat", "NMetaEspA"),
+    )
+    e1 = int(cur.lastrowid)
+    cur.execute(
+        "INSERT INTO especialidades (natureza, nome, descritivo, ativo, ordem) VALUES (?, ?, '', 1, 0)",
+        ("NMetaNat", "NMetaEspB"),
+    )
+    e2 = int(cur.lastrowid)
+    cur.execute(
+        "INSERT INTO servicos (nome, natureza, especialidade_id) VALUES (?, ?, ?)",
+        ("TMetaRep_SvA", "NMetaNat", e1),
+    )
+    id_a = int(cur.lastrowid)
+    cur.execute(
+        "INSERT INTO servicos (nome, natureza, especialidade_id) VALUES (?, ?, ?)",
+        ("TMetaRep_SvB", "NMetaNat", e2),
+    )
+    id_b = int(cur.lastrowid)
+    cur.execute(
+        "INSERT INTO servicos (nome, natureza, especialidade_id) VALUES (?, ?, ?)",
+        ("TMetaRep_SvSemEsp", "NMetaNatB", None),
+    )
+    id_c = int(cur.lastrowid)
+    rep_conn.commit()
+
+    meta = listar_servicos_metadados_para_filtro_repasse(rep_conn)
+    by_id = {int(r[0]): r for r in meta}
+    assert by_id[id_a][2] == "NMetaNat" and str(by_id[id_a][3]) == "NMetaEspA"
+
+    r_nat = filtra_metadados_servicos_por_naturezas(meta, ["NMetaNat"])
+    assert {int(r[0]) for r in r_nat} == {id_a, id_b}
+
+    r_esp = filtra_metadados_servicos_por_especialidades(r_nat, ["NMetaEspA"])
+    assert {int(r[0]) for r in r_esp} == {id_a}
+
+    r_nb = filtra_metadados_servicos_por_naturezas(meta, ["NMetaNatB"])
+    r_sem = filtra_metadados_servicos_por_especialidades(r_nb, [REPASSE_ESP_SEM_LABEL])
+    assert {int(r[0]) for r in r_sem} == {id_c}

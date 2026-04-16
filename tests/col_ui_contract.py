@@ -47,8 +47,9 @@ def assert_col_mapa_equipa_na_pagina() -> None:
     root = Path(__file__).resolve().parents[1]
     src = (root / "src" / "ui" / "page_colaboradores.py").read_text(encoding="utf-8")
     assert "Mapa da Equipa" in src
-    assert "Tipos de Serviço" in src
-    assert "Serviços Registados" in src
+    assert "col_mapa_natureza" in src
+    assert "col_mapa_especialidade" in src
+    assert "col_mapa_svc" in src
     assert "col_mapa_pesquisar" in src
     assert "listar_colaboradores_mapa_equipa" in src
     assert "resolver_conjunto_servicos_mapa_equipa" in src
