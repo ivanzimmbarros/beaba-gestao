@@ -17,7 +17,7 @@ Painel de Vendas Sereno: `tests/vnd_ui_contract.py` (contrato `assert_vnd_editar
 Colaboradores Sereno: `tests/col_ui_contract.py`, `tests/test_col_visual_sereno.py`.
 Catálogo Sereno: `tests/cat_ui_contract.py`, `tests/test_cat_visual_sereno.py`.
 Início / Cockpit Sereno: `tests/home_ui_contract.py`, `tests/test_home_visual_sereno.py`.
-Smoke UI: `tests/smoke_test_ui.py` + `pytest.ini`.
+Smoke UI: `tests/smoke_test_ui.py` + `pytest.ini`. Catálogo: wizard tipo→confirmação em `page_catalogo.py`.
 """
 
 from __future__ import annotations

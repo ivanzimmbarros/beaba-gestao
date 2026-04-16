@@ -31,7 +31,7 @@ Financeiro (2026-04+): `page_financeiro.py` (gastos + sector **2. Repasses**); d
 incluem `financeiro_*`, `repasse_linhas`, `agendamentos`; regressão em `tests/test_fin_visual_sereno.py`,
 `tests/fin_ui_contract.py` (`assert_fin_repasses_sector_na_pagina`), `tests/test_financeiro_*`,
 `e2e_stress_test.py::test_e2e_fin_visual_shell_contract`.
-Smoke UI (camada 3): `tests/smoke_test_ui.py` + `pytest.ini` — `AppTest` por rota em `src/app.py` e `test_smoke_monitor_governanca` em `monitor_governanca.py` (raiz).
+Smoke UI (camada 3): `tests/smoke_test_ui.py` + `pytest.ini` — `AppTest` por rota em `src/app.py` e `test_smoke_monitor_governanca` em `monitor_governanca.py` (raiz). Catálogo: wizard «tipo → confirmação → cadastro» (`_render_cat_expander_cadastro` em `page_catalogo.py`).
 """
 
 from __future__ import annotations

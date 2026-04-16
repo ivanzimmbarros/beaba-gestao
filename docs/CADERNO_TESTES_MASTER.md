@@ -178,6 +178,7 @@ Para cada **ID de demanda**, acrescentar secção:
 - **2026-04-16 (ETAPA 1):** +7 testes em `test_catalogo.py`; `catalogo_especialidades_e2e_slice.py` + chamada em `e2e_stress_test._run_boundary_tests`; suite **224** testes.
 - **2026-04-16 (camada 3 Smoke UI):** `tests/smoke_test_ui.py` + `pytest.ini`; `test_governanca` valida descoberta; suite **237** testes.
 - **2026-04-16 (smoke Monitor de Voo):** `test_smoke_monitor_governanca` (`AppTest` em `monitor_governanca.py` na raiz); suite **238** testes.
+- **2026-04-16 (Catálogo cadastro):** wizard «tipo → Confirmar tipo de registo → formulário» (`_render_cat_expander_cadastro`); especialidade com `NATUREZAS_CATALOGO_FASE3`; removido expander aninhado; contrato `cat_ui_contract` actualizado.
 - **2026-04-14:** Conversão CAG avulsa→consumo de pacote (hoje) + contrato UI + E2E; suite **200** testes (`test_agendamento`, `cag_setor4_ui_contract`, `e2e_stress_test`).
 - **2026-04-06:** Documento criado para cumprir passo 18 do percurso normal — SUCESSO (plano de testes mestre).
 - **2026-04-06:** Plano E11 (pré-venda) acrescentado; suite pytest **49** testes.

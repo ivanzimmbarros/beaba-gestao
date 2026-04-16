@@ -178,7 +178,7 @@
   "pc_foco": "PC1–PC2",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "2026-04-16: Smoke Monitor de Voo — `test_smoke_monitor_governanca` em `tests/smoke_test_ui.py`; suite 238 testes.",
+  "live_status": "2026-04-16: Catálogo — wizard cadastro especialidade/serviço (`page_catalogo.py`); contrato `cat_ui_contract`; scripts backup; pytest 238 passed.",
   "etapas_pendentes": [
     "Diretor: homologar PDV vs protótipo (semáforo visível, comanda spa). Sem OK → sem avançar módulos.",
     "E22: após OK — um único módulo seguinte (ex. Catálogo / Agendamentos).",
@@ -250,6 +250,7 @@
     "2026-04-16 — Épico Especialidades (Natureza→Especialidade→Serviço): tabela `especialidades`, `servicos.especialidade_id`, migração «Geral», UI Catálogo Sereno; pytest 217; seed wipe + doc backup D1.",
     "2026-04-16 — CADERNO ETAPA 1: +7 testes catálogo; `catalogo_especialidades_e2e_slice` integrado em `e2e_stress_test`; pytest 224 passed.",
     "2026-04-16 — Camada 3 Smoke UI: `tests/smoke_test_ui.py` (AppTest rotas `src/app.py`), `pytest.ini`, `.cursorrules` três camadas pre-push; `test_governanca` + scripts backup/certificado E17; pytest 237.",
-    "2026-04-16 — Smoke Monitor de Voo: `test_smoke_monitor_governanca` (`monitor_governanca.py`); pytest 238."
+    "2026-04-16 — Smoke Monitor de Voo: `test_smoke_monitor_governanca` (`monitor_governanca.py`); pytest 238.",
+    "2026-04-16 — Catálogo: wizard cadastro (Nova especialidade | Novo serviço → Confirmar tipo de registo); `NATUREZAS_CATALOGO_FASE3` para especialidade; sem expander aninhado; `cat_ui_contract` + backup scripts."
   ]
 }

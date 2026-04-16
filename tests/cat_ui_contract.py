@@ -11,6 +11,11 @@ def assert_cat_especialidade_form_contract() -> None:
     assert "Especialidade *" in page
     assert "listar_especialidades_por_natureza" in page
     assert "cadastrar_especialidade" in page
+    assert "Confirmar tipo de registo" in page
+    assert "Registar no catálogo" in page
+    assert "Nova especialidade" in page and "Novo serviço" in page
+    assert "_render_cat_expander_cadastro" in page
+    assert "Nova especialidade (nesta natureza)" not in page
 
 
 def assert_cat_area_unica_shell() -> None:
