@@ -13,6 +13,7 @@ from src.modules.catalogo import (
     repasse_medio_ponderado_pacote,
 )
 from src.modules.colaborador import cadastrar_colaborador, listar_servicos
+from src.ui.page_catalogo import _cat_format_duration_hm_h, _cat_parse_duration_hm_h
 
 
 def test_cadastrar_sessao_ok():
@@ -122,6 +123,8 @@ def test_pacote_ok_e_listagem():
         distrito="",
         pais="Portugal",
         email="pac@beaba.pt",
+        nif_ou_documento="123456789",
+        identificacao_internacional=False,
         numero_contato="11955443322",
         observacoes="",
         servicos_repasse=[(sid_a, 40.0, date.today().isoformat())],
@@ -177,6 +180,8 @@ def test_evento_ok_e_listagem():
         distrito="",
         pais="Portugal",
         email="ev@beaba.pt",
+        nif_ou_documento="123456789",
+        identificacao_internacional=False,
         numero_contato="11944332211",
         observacoes="",
         servicos_repasse=[(_sid_habilitacao(), 30.0, date.today().isoformat())],
@@ -236,6 +241,8 @@ def test_evento_colaborador_duplicado_falha():
         distrito="",
         pais="Portugal",
         email="dupev@beaba.pt",
+        nif_ou_documento="123456789",
+        identificacao_internacional=False,
         numero_contato="11933221100",
         observacoes="",
         servicos_repasse=[(_sid_habilitacao(), 40.0, date.today().isoformat())],
@@ -284,3 +291,26 @@ def test_pacote_sessao_duplicada_rejeita():
         50.0,
     )
     assert ok is False
+
+
+def test_cat_format_duration_hm_h():
+    assert _cat_format_duration_hm_h(1.5) == "1:30h"
+    assert _cat_format_duration_hm_h(1.0) == "1:00h"
+    assert _cat_format_duration_hm_h(0.25) == "0:15h"
+    assert _cat_format_duration_hm_h(24.0) == "24:00h"
+
+
+def test_cat_parse_duration_hm_h_ok():
+    ok, v, err = _cat_parse_duration_hm_h("1:30h")
+    assert ok and abs(v - 1.5) < 1e-9 and err == ""
+    ok2, v2, _ = _cat_parse_duration_hm_h("0:15")
+    assert ok2 and abs(v2 - 0.25) < 1e-9
+    ok3, v3, _ = _cat_parse_duration_hm_h("24:00h")
+    assert ok3 and abs(v3 - 24.0) < 1e-9
+
+
+def test_cat_parse_duration_hm_h_errors():
+    assert _cat_parse_duration_hm_h("")[0] is False
+    assert _cat_parse_duration_hm_h("0:10h")[0] is False
+    assert _cat_parse_duration_hm_h("1:60h")[0] is False
+    assert _cat_parse_duration_hm_h("25:00h")[0] is False

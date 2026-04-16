@@ -5,11 +5,14 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from src.database.connection import get_connection
+from src.modules.constants import ESTADO_AGENDAMENTO_REALIZADO_PENDENTE_LABEL_PT
 from src.modules.catalogo import resolver_snapshot_venda
 from src.modules.credito_ledger import (
     meio_legacy_para_tipo_linha,
+    obter_aberto_liquidacao_venda_centavos,
     registrar_uso_credito_em_venda,
     saldo_credito_cliente_centavos,
+    venda_totalmente_liquidada,
 )
 
 PCT_BASIS = 10000  # 100,00% = 10000 (centésimos de ponto percentual)
@@ -95,6 +98,7 @@ def _validar_pagamento(
     previstos: list[tuple[str, int]],
     *,
     credito_abatido_centavos: int = 0,
+    permite_parcial_sem_previsto: bool = False,
 ) -> tuple[bool, str]:
     cab = max(0, int(credito_abatido_centavos))
     pago = sum(v for _, v in pagamentos)
@@ -104,6 +108,21 @@ def _validar_pagamento(
     liquido_necessario = total_final - cab
     if liquido_necessario < 0:
         return False, "❌ Abatimento de crédito não pode exceder o total da venda."
+    if permite_parcial_sem_previsto:
+        if agend != 0:
+            return (
+                False,
+                "❌ Pagamento parcial: não utilize recebimentos previstos nesta modalidade.",
+            )
+        if pago <= 0:
+            return False, "❌ Pagamento parcial: indique um valor pago maior que zero."
+        if pago > liquido_necessario:
+            return (
+                False,
+                f"❌ Pagamento parcial: o valor pago ({pago/100:.2f} €) não pode exceder "
+                f"o total a liquidar ({liquido_necessario/100:.2f} €).",
+            )
+        return True, ""
     if pago + agend != liquido_necessario:
         return (
             False,
@@ -143,6 +162,7 @@ def registrar_venda(
     *,
     agendamento_contexto_id: int | None = None,
     credito_abatido_centavos: int = 0,
+    modo_pagamento_parcial_sem_previsto: bool = False,
 ) -> tuple[bool, str, int | None]:
     """
     `linhas_entrada`: servico_id, quantidade, is_bonus, evento_preco (adulto|crianca|None),
@@ -174,6 +194,32 @@ def registrar_venda(
         )
         if not ok_s:
             return False, f"Linha {i + 1}: {msg_s}", None
+
+        override_raw = raw.get("preco_unitario_centavos_override")
+        if override_raw is not None:
+            try:
+                unit_ov = int(override_raw)
+            except (TypeError, ValueError):
+                return False, f"❌ Linha {i + 1}: preço de liquidação inválido.", None
+            if unit_ov < 0:
+                return False, f"❌ Linha {i + 1}: preço de liquidação não pode ser negativo.", None
+            pvo = raw.get("pendente_venda_id")
+            if pvo is not None:
+                try:
+                    vid_p = int(pvo)
+                except (TypeError, ValueError):
+                    return False, f"❌ Linha {i + 1}: venda de pendência inválida.", None
+                aberto = obter_aberto_liquidacao_venda_centavos(vid_p)
+                if unit_ov > aberto:
+                    return (
+                        False,
+                        f"❌ Linha {i + 1}: valor a liquidar ({unit_ov / 100:.2f} €) "
+                        f"excede o em aberto ({aberto / 100:.2f} €) na venda #{vid_p}.",
+                        None,
+                    )
+            unit = unit_ov
+        else:
+            unit = int(snap["preco_unitario_centavos"])
 
         dt = raw.get("desconto_linha_tipo") or "none"
         if dt not in ("none", "percent", "fixed"):
@@ -211,7 +257,7 @@ def registrar_venda(
         row_d: dict[str, Any] = {
             "servico_id": sid,
             "quantidade": qty,
-            "preco_unitario_centavos": int(snap["preco_unitario_centavos"]),
+            "preco_unitario_centavos": int(unit),
             "nome_snapshot": str(snap["nome"]),
             "descricao_snapshot": str(snap["descricao"]),
             "unidade_medida_snapshot": str(snap["unidade_medida"]),
@@ -272,13 +318,22 @@ def registrar_venda(
     prev_norm = [(str(d)[:10], int(v)) for d, v in recebimentos_previstos]
 
     cab = max(0, int(credito_abatido_centavos))
+    pago_pre = sum(v for _, v in meios_norm)
+    liquido_pre = max(0, int(total_final) - cab)
+    if modo_pagamento_parcial_sem_previsto:
+        estado_efetivo: EstadoPagamento = (
+            "integral" if pago_pre >= liquido_pre and liquido_pre > 0 else "parcial"
+        )
+    else:
+        estado_efetivo = estado_pagamento
 
     ok_p, msg_p = _validar_pagamento(
-        estado_pagamento,
+        estado_efetivo,
         total_final,
         meios_norm,
         prev_norm,
         credito_abatido_centavos=cab,
+        permite_parcial_sem_previsto=modo_pagamento_parcial_sem_previsto,
     )
     if not ok_p:
         return False, msg_p, None
@@ -337,7 +392,7 @@ def registrar_venda(
             """,
             (
                 cid,
-                estado_pagamento,
+                estado_efetivo,
                 sub_bruto,
                 sub_lin,
                 gtipo,
@@ -350,6 +405,7 @@ def registrar_venda(
             ),
         )
         vid = int(cur.lastrowid)
+        marcar_parcial_itens = 1 if modo_pagamento_parcial_sem_previsto else 0
 
         for ordem, r in enumerate(resolved, start=1):
             q = int(r["quantidade"])
@@ -372,8 +428,8 @@ def registrar_venda(
                     is_bonus, evento_preco_tipo,
                     desconto_linha_tipo, desconto_linha_valor,
                     subtotal_bruto_centavos, desconto_linha_centavos, total_linha_centavos,
-                    colaborador_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    colaborador_id, pagamento_parcial
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     vid,
@@ -392,6 +448,7 @@ def registrar_venda(
                     dcent,
                     tlin,
                     r.get("colaborador_id"),
+                    marcar_parcial_itens,
                 ),
             )
 
@@ -436,6 +493,124 @@ def registrar_venda(
         conn.close()
 
 
+def reconciliar_estado_pagamento_venda(venda_id: int) -> None:
+    """
+    Se a venda estiver totalmente liquidada, passa `estado_pagamento` a `integral`
+    e limpa a marca `pagamento_parcial` nas linhas.
+    """
+    conn = get_connection()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        if not venda_totalmente_liquidada(cur, int(venda_id)):
+            return
+        cur.execute(
+            "UPDATE vendas SET estado_pagamento = 'integral' WHERE id = ?",
+            (int(venda_id),),
+        )
+        try:
+            cur.execute(
+                "UPDATE venda_itens SET pagamento_parcial = 0 WHERE venda_id = ?",
+                (int(venda_id),),
+            )
+        except Exception:
+            pass
+        conn.commit()
+    except Exception:
+        conn.rollback()
+    finally:
+        conn.close()
+
+
+def liquidar_pendencias_pos_venda_registo(
+    venda_nova_id: int,
+    cart_snapshot: list[dict[str, Any]],
+) -> list[str]:
+    f"""
+    Regista na venda de origem os valores das linhas do carrinho marcadas como liquidação
+    de pendência e invoca `alterar_status(..., CONCLUIDO)` por agendamento (o próprio fluxo
+    mantém «{ESTADO_AGENDAMENTO_REALIZADO_PENDENTE_LABEL_PT}» se a venda origem ainda não estiver totalmente liquidada).
+    """
+    from src.modules.agendamento import alterar_status
+
+    msgs: list[str] = []
+    conn = get_connection()
+    if not conn:
+        return ["❌ Sem ligação à BD na liquidação de pendências."]
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT total_linha_centavos
+            FROM venda_itens
+            WHERE venda_id = ?
+            ORDER BY ordem ASC, id ASC
+            """,
+            (int(venda_nova_id),),
+        )
+        tls = [int(r[0]) for r in cur.fetchall()]
+        if len(tls) != len(cart_snapshot):
+            msgs.append(
+                f"⚠️ Liquidação pendências: {len(tls)} linhas na venda #{venda_nova_id} vs "
+                f"{len(cart_snapshot)} itens no carrinho — sem repasse."
+            )
+            return msgs
+
+        for pos, it in enumerate(cart_snapshot):
+            ag = it.get("pendente_agendamento_id")
+            vo = it.get("pendente_venda_id")
+            if ag is None or vo is None:
+                continue
+            valor = int(tls[pos]) if pos < len(tls) else 0
+            if valor < 1:
+                continue
+            cur.execute(
+                "SELECT COALESCE(MAX(ordem), 0) FROM venda_pagamento_linhas WHERE venda_id = ?",
+                (int(vo),),
+            )
+            o_next = int(cur.fetchone()[0]) + 1
+            cur.execute(
+                """
+                INSERT INTO venda_pagamento_linhas (venda_id, ordem, tipo_meio, valor_centavos)
+                VALUES (?, ?, 'DINHEIRO_MBWAY', ?)
+                """,
+                (int(vo), o_next, valor),
+            )
+            msgs.append(
+                f"✅ Liquidados {valor / 100:.2f} € na venda origem #{int(vo)} (ag. #{int(ag)})."
+            )
+
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        return [f"❌ Erro na liquidação de pendências: {e}"]
+    finally:
+        conn.close()
+
+    vid_origens = sorted(
+        {
+            int(it["pendente_venda_id"])
+            for it in cart_snapshot
+            if it.get("pendente_venda_id") is not None
+        }
+    )
+    for vo in vid_origens:
+        reconciliar_estado_pagamento_venda(int(vo))
+
+    for it in cart_snapshot:
+        ag = it.get("pendente_agendamento_id")
+        if ag is None:
+            continue
+        _ok_s, msg_s = alterar_status(
+            int(ag),
+            "CONCLUIDO",
+            actor="pdv_liquidacao_pendencia",
+        )
+        msgs.append(msg_s)
+    return msgs
+
+
 def listar_venda_item_ids_em_ordem(venda_id: int) -> list[int]:
     """Ids de `venda_itens` na mesma ordem de inserção de `registrar_venda` (ordem, id)."""
     conn = get_connection()
@@ -459,6 +634,8 @@ def listar_venda_item_ids_em_ordem(venda_id: int) -> list[int]:
 __all__ = [
     "PCT_BASIS",
     "calcular_totais_venda",
+    "liquidar_pendencias_pos_venda_registo",
     "listar_venda_item_ids_em_ordem",
+    "reconciliar_estado_pagamento_venda",
     "registrar_venda",
 ]

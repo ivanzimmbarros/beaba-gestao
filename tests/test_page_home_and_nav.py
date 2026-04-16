@@ -1,5 +1,6 @@
 """Fase 1 épico Home: `page_home` como módulo; «Início» na posição 0 da sidebar.
 
+«Painel de Vendas» segue «Início»; «Catálogo» fica acima de «Colaboradores».
 A entrada «Clientes e Agendamentos» aponta para a página consolidada; o Setor 4 dessa página
 mantém a listagem dentro do expander «Agendamentos» (contrato em `cag_setor4_ui_contract`).
 """
@@ -28,7 +29,9 @@ def test_shell_sidebar_nav_items_inicio_posicao_zero():
 
     assert len(NAV_ITEMS) >= 1
     assert NAV_ITEMS[0] == ("home", "Início")
-    assert NAV_ITEMS[1][0] == "clientes_agendamentos"
+    assert NAV_ITEMS[1] == ("vendas", "Painel de Vendas")
+    keys = [k for k, _ in NAV_ITEMS]
+    assert keys.index("catalogo") < keys.index("colaboradores")
     assert ("financeiro", "Financeiro") in NAV_ITEMS
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+from collections import defaultdict
 from datetime import date, datetime
 
 import streamlit as st
@@ -20,20 +21,36 @@ from src.modules.cliente import (
     cadastrar_cliente,
     obter_cliente_completo,
 )
-from src.modules.colaborador import listar_colaboradores_resumo
-from src.modules.constants import SEXOS
+from src.modules.colaborador import listar_colaboradores_resumo, nome_colaborador_sem_sufixo_id_ui
+from src.modules.constants import (
+    ESTADO_AGENDAMENTO_REALIZADO_PENDENTE_LABEL_PT,
+    ESTADO_PAGAMENTO_VENDA_LABEL_PT,
+    SEXOS,
+    VENDAS_UI_MODALIDADES_PAGAMENTO_LINHA,
+)
 from src.modules.nif import normalizar_nif_armazenamento
 from src.modules.telefone import normalizar_telefone_legado_ou_e164
 from src.modules.validators import email_valido, parse_data_iso
 from src.modules.agendamento import (
     associar_agendamento_pre_venda_a_item,
     listar_agendamentos_elegiveis_associacao_linha_venda,
+    listar_agendamentos_realizado_pendente_liquidacao_cliente,
     obter_agendamento,
     obter_primeiro_item_venda_por_servico,
     pos_venda_associar_agendamentos_por_linha,
 )
-from src.modules.credito_ledger import obter_saldo_credito_cliente
-from src.modules.venda import calcular_totais_venda, registrar_venda
+from src.modules.credito_ledger import (
+    listar_pagamento_linhas_venda,
+    obter_aberto_liquidacao_venda_centavos,
+    obter_data_ultimo_pagamento_venda_dd_mm_yyyy,
+    obter_saldo_credito_cliente,
+)
+from src.modules.venda import (
+    calcular_totais_venda,
+    liquidar_pendencias_pos_venda_registo,
+    reconciliar_estado_pagamento_venda,
+    registrar_venda,
+)
 from src.ui.telefone_widgets import (
     ler_e164_de_widgets,
     preencher_session_telefone_de_e164,
@@ -43,6 +60,18 @@ from src.pages.theme import get_beaba_css  # noqa: F401 — BeaBa Sereno (CSS em
 from src.ui.constituicao_visual_shell import inject_constituicao_vnd_page
 from src.ui.fmt_euro_constituicao import fmt_euro_centavos
 from src.ui.widgets.cliente_search import CLIENTE_SEARCH_DATE_MIN, render_cliente_search_widget
+
+
+@st.cache_data(ttl=30, show_spinner=False)
+def _vnd_cached_listar_servicos_para_venda() -> list[dict[str, str | int]]:
+    """Catálogo muda pouco; evita N leituras SQLite por rerun do painel."""
+    return listar_servicos_para_venda()
+
+
+@st.cache_data(ttl=30, show_spinner=False)
+def _vnd_cached_colaboradores_resumo() -> list[tuple[int, str]]:
+    """Lista curta; reutilizada em vários `selectbox` no mesmo rerun."""
+    return listar_colaboradores_resumo()
 
 
 def _vnd_fmt_cent(c: int | None) -> str:
@@ -56,6 +85,131 @@ def _vnd_section_title_html(title: str) -> str:
     return f'<div class="bea-cv-cag-h2">{t}</div>'
 
 
+_VND_NAT_PLACEHOLDER = "— Escolher natureza —"
+
+_VND_PAY_ADD_BTN_LABEL = "➕ Adicionar outro meio de pagamento"
+# Largura (px) só no botão «Remover», alinhada ao rótulo do «Adicionar» (o Adicionar mantém largura «content»).
+_VND_PAY_REMOVE_BTN_WIDTH_PX = max(340, int(len(_VND_PAY_ADD_BTN_LABEL) * 8.0) + 88)
+
+
+def _vnd_data_ag_dd_mm_yyyy(s: object) -> str:
+    """`data_agendamento` típica ISO (YYYY-MM-DD) → dd-mm-aaaa para rótulos na UI."""
+    raw = str(s or "").strip()[:10]
+    if len(raw) == 10 and raw[4] == "-" and raw[7] == "-":
+        try:
+            d = datetime.strptime(raw, "%Y-%m-%d").date()
+            return f"{d.day:02d}-{d.month:02d}-{d.year:04d}"
+        except ValueError:
+            pass
+    return str(s or "").strip()
+
+
+def _vnd_catalogo_servico_fmt(servico_id: int) -> str | None:
+    ok, _, sn = resolver_snapshot_venda(
+        int(servico_id), evento_preco=None, is_bonus=False
+    )
+    if not ok:
+        return None
+    return _vnd_fmt_cent(int(sn["preco_unitario_centavos"]))
+
+
+def _vnd_estado_agendamento_ui(agd: dict | None) -> str:
+    if not agd:
+        return "—"
+    stt = str(agd.get("status") or "").strip().upper()
+    if stt == "REALIZADO_PENDENTE_PGTO":
+        d_exec = _vnd_data_ag_dd_mm_yyyy(agd.get("data_agendamento"))
+        return f"Realizado (Sessão realizada em: {d_exec})"
+    labels = {
+        "PRE_AGENDADO": "Pré-agendado",
+        "AGENDADO": "Agendado",
+        "CONFIRMADO": "Confirmado",
+        "CONCLUIDO": "Concluído",
+        "CANCELADO": "Cancelado",
+    }
+    if stt in labels:
+        return labels[stt]
+    raw = str(agd.get("status") or "").strip()
+    if not raw:
+        return "—"
+    return " ".join(p.capitalize() for p in raw.replace("_", " ").split())
+
+
+def _vnd_pay_state_keys(fk: str, j: int) -> tuple[str, str, str, str]:
+    return (
+        f"{fk}_pay_meio_{j}",
+        f"{fk}_pay_tipo_{j}",
+        f"{fk}_pay_nparc_{j}",
+        f"{fk}_pay_val_{j}",
+    )
+
+
+def _vnd_remove_linha_pagamento(fk: str, row_idx: int, n_lin: int) -> None:
+    """Remove a linha de pagamento `row_idx` (0-based), deslocando as seguintes."""
+    if n_lin <= 1 or row_idx < 0 or row_idx >= n_lin:
+        return
+    for j in range(row_idx, n_lin - 1):
+        for k_src, k_dst in zip(
+            _vnd_pay_state_keys(fk, j + 1),
+            _vnd_pay_state_keys(fk, j),
+            strict=True,
+        ):
+            if k_src in st.session_state:
+                st.session_state[k_dst] = st.session_state[k_src]
+            else:
+                st.session_state.pop(k_dst, None)
+    last = n_lin - 1
+    for k in _vnd_pay_state_keys(fk, last):
+        st.session_state.pop(k, None)
+
+
+def _vnd_limpar_painel_vendas_total(fk: str) -> None:
+    """Repor o Painel de Vendas: cliente, carrinho, pagamentos, widgets e pesquisa."""
+    old_fk = fk
+    old_fv = int(st.session_state.venda_fv)
+    st.session_state.venda_cliente_id = None
+    st.session_state.venda_cart = []
+    st.session_state.venda_pay_n_linhas = 1
+    st.session_state.venda_fechar_agendamento_id = None
+    st.session_state.venda_agendamento_contexto_id = None
+    st.session_state.pop("vnd_busca_cands", None)
+    st.session_state.pop("vnd_busca_pick_label", None)
+    st.session_state.pop("_vnda_prime", None)
+    pfx = old_fk + "_"
+    for k in list(st.session_state.keys()):
+        if isinstance(k, str) and k.startswith(pfx):
+            st.session_state.pop(k, None)
+    st.session_state.venda_fv = old_fv + 1
+    st.session_state.vnd_busca_clear_pending = True
+
+
+def _vnd_cart_is_pendencia(it: dict) -> bool:
+    return bool(it.get("pendente_agendamento_id"))
+
+
+def _vnd_aberto_para_linha_pendencia(cart: list, it: dict, fk: str) -> int:
+    """Em aberto na venda origem, menos o que outras linhas do carrinho já «reservam»."""
+    vid = int(it["pendente_venda_id"])
+    base = obter_aberto_liquidacao_venda_centavos(vid)
+    ag_self = int(it["pendente_agendamento_id"])
+    for it2 in cart:
+        if not it2.get("pendente_agendamento_id"):
+            continue
+        if int(it2["pendente_venda_id"]) != vid:
+            continue
+        if int(it2["pendente_agendamento_id"]) == ag_self:
+            continue
+        ag2 = int(it2["pendente_agendamento_id"])
+        ce = (
+            euros_para_centavos(
+                float(st.session_state.get(f"{fk}_pendliq_ag_{ag2}", 0.0) or 0.0)
+            )
+            or 0
+        )
+        base -= ce
+    return max(0, base)
+
+
 def _vnd_label_ag_para_combo(a: dict) -> str:
     cols = ", ".join(a.get("colaboradores_nomes") or []) or "—"
     return (
@@ -64,10 +218,25 @@ def _vnd_label_ag_para_combo(a: dict) -> str:
     )
 
 
-def _venda_slimos_from_cart(cart: list, id_to: dict) -> list[dict]:
+def _venda_slimos_from_cart(cart: list, id_to: dict, fk: str) -> list[dict]:
     """Monta linhas «slim» para `calcular_totais_venda` (paridade com o painel)."""
     slim_all: list[dict] = []
     for it in cart:
+        if _vnd_cart_is_pendencia(it):
+            agx = int(it["pendente_agendamento_id"])
+            liq_eur = float(st.session_state.get(f"{fk}_pendliq_ag_{agx}", 0.0) or 0.0)
+            cents = euros_para_centavos(liq_eur) or 0
+            if cents < 1:
+                continue
+            slim_all.append(
+                {
+                    "quantidade": 1,
+                    "preco_unitario_centavos": cents,
+                    "desconto_linha_tipo": "none",
+                    "desconto_linha_valor": None,
+                }
+            )
+            continue
         meta = id_to.get(int(it["servico_id"]), {})
         nat = str(meta.get("natureza", ""))
         evt_key = "adulto" if str(it.get("evt", "Adulto")) == "Adulto" else "crianca"
@@ -116,6 +285,103 @@ def _venda_read_global_discount_from_state(fk: str) -> tuple[str | None, int | N
     return gtipo, gval
 
 
+_LEGACY_VND_PAY_TIPO_UI: dict[str, str] = {
+    "Integral": "integral",
+    "Pagamento Parcial": "parcial",
+    "Parcelado": "parcelado",
+}
+
+
+def _vnd_normalize_modalidade_pagamento_linha(raw: object) -> str:
+    """Chave canónica `integral`|`parcial`|`parcelado`; compatível com rótulos antigos da UI."""
+    t = str(raw or "").strip()
+    if t in VENDAS_UI_MODALIDADES_PAGAMENTO_LINHA:
+        return t
+    mapped = _LEGACY_VND_PAY_TIPO_UI.get(t)
+    if mapped in VENDAS_UI_MODALIDADES_PAGAMENTO_LINHA:
+        return mapped
+    return "integral"
+
+
+def _vnd_sync_modalidade_pagamento_session(fk: str, j: int) -> None:
+    k = f"{fk}_pay_tipo_{j}"
+    st.session_state[k] = _vnd_normalize_modalidade_pagamento_linha(st.session_state.get(k))
+
+
+def _vnd_modalidades_pagamento_consistentes(fk: str, n_lin: int) -> bool:
+    """Linhas com valor > 0 não podem misturar «pagamento parcial» com outras modalidades."""
+    has_parc = False
+    has_outro_com_valor = False
+    for j in range(n_lin):
+        ve = float(st.session_state.get(f"{fk}_pay_val_{j}", 0.0) or 0.0)
+        vc = euros_para_centavos(ve) or 0
+        if vc <= 0:
+            continue
+        t = _vnd_normalize_modalidade_pagamento_linha(
+            st.session_state.get(f"{fk}_pay_tipo_{j}", "integral")
+        )
+        if t == "parcial":
+            has_parc = True
+        else:
+            has_outro_com_valor = True
+    if has_parc and has_outro_com_valor:
+        return False
+    return True
+
+
+def _vnd_somente_integral_nas_linhas_com_valor(fk: str, n_lin: int) -> bool:
+    """True se existir linha com valor > 0 e todas as linhas com valor > 0 forem «integral»."""
+    any_pos = False
+    for j in range(n_lin):
+        vc = euros_para_centavos(float(st.session_state.get(f"{fk}_pay_val_{j}", 0.0) or 0.0)) or 0
+        if vc <= 0:
+            continue
+        any_pos = True
+        t = _vnd_normalize_modalidade_pagamento_linha(
+            st.session_state.get(f"{fk}_pay_tipo_{j}", "integral")
+        )
+        if t != "integral":
+            return False
+    return any_pos
+
+
+def _vnd_integral_valor_difere_total(
+    fk: str,
+    n_lin: int,
+    *,
+    cons_modal: bool,
+    modo_parcial_sem_prev: bool,
+    snap: dict,
+) -> bool:
+    """True quando só há «integral» com valor > 0 e a soma em «Valor (€)» ≠ total a liquidar."""
+    if not cons_modal or modo_parcial_sem_prev:
+        return False
+    liq = int(snap.get("liq_cent") or 0)
+    sp = int(snap.get("sp_cent") or 0)
+    if liq < 1:
+        return False
+    if not _vnd_somente_integral_nas_linhas_com_valor(fk, n_lin):
+        return False
+    return sp != liq
+
+
+def _vnd_modo_pagamento_parcial_sem_previsto(fk: str, n_lin: int) -> bool:
+    """Todas as linhas com valor a pagar > 0 usam «pagamento parcial» (e há pelo menos uma)."""
+    ok_any = False
+    for j in range(n_lin):
+        ve = float(st.session_state.get(f"{fk}_pay_val_{j}", 0.0) or 0.0)
+        vc = euros_para_centavos(ve) or 0
+        if vc <= 0:
+            continue
+        t = _vnd_normalize_modalidade_pagamento_linha(
+            st.session_state.get(f"{fk}_pay_tipo_{j}", "integral")
+        )
+        if t != "parcial":
+            return False
+        ok_any = True
+    return ok_any
+
+
 def _venda_collect_pag_rows_from_state(
     fk: str,
     n_lin: int,
@@ -130,8 +396,10 @@ def _venda_collect_pag_rows_from_state(
             meio_code = meios_opt[meios_labels.index(lbl_m)][0]
         except ValueError:
             meio_code = meios_opt[0][0]
-        tipo_pg = str(st.session_state.get(f"{fk}_pay_tipo_{j}", "Integral") or "Integral")
-        if tipo_pg == "Parcelado":
+        tipo_pg = _vnd_normalize_modalidade_pagamento_linha(
+            st.session_state.get(f"{fk}_pay_tipo_{j}", "integral")
+        )
+        if tipo_pg == "parcelado":
             nparc = int(st.session_state.get(f"{fk}_pay_nparc_{j}", 2) or 2)
         else:
             nparc = 1
@@ -139,11 +407,29 @@ def _venda_collect_pag_rows_from_state(
         vc = euros_para_centavos(ve) or 0
         if vc > 0:
             pag_rows.append((meio_code, vc))
-            if tipo_pg == "Parcelado" and nparc >= 2:
+            if tipo_pg == "parcelado" and nparc >= 2:
                 obs_pay_notes.append(
                     f"[Pagamento] {lbl_m} em {nparc}× — total {_vnd_fmt_cent(euros_para_centavos(ve) or 0)}."
                 )
     return pag_rows, obs_pay_notes
+
+
+def _vnd_md_resumo_totais_venda(
+    *,
+    subtotal_bruto_cent: int,
+    tot_preview: dict[str, int],
+    desconto_global_cent: int,
+    total_final_cent: int,
+) -> str:
+    """Texto Markdown do resumo verde (secção 4) com desconto por linha explícito."""
+    sal_apos = int(tot_preview["subtotal_apos_descontos_linha_centavos"])
+    d_item = max(0, int(subtotal_bruto_cent) - sal_apos)
+    return (
+        f"**Subtotal (bruto):** {_vnd_fmt_cent(subtotal_bruto_cent)} · "
+        f"**Desconto por item:** {_vnd_fmt_cent(d_item)} · "
+        f"**Desconto global:** {_vnd_fmt_cent(desconto_global_cent)} · "
+        f"**Total final:** {_vnd_fmt_cent(total_final_cent)}"
+    )
 
 
 def _venda_finance_snapshot(
@@ -159,7 +445,7 @@ def _venda_finance_snapshot(
     Usado no card de status superior e na secção de pagamento.
     """
     gtipo, gval = _venda_read_global_discount_from_state(fk)
-    slim_all = _venda_slimos_from_cart(cart, id_to)
+    slim_all = _venda_slimos_from_cart(cart, id_to, fk)
     ok_t = False
     tot_preview = None
     if slim_all:
@@ -175,16 +461,19 @@ def _venda_finance_snapshot(
     liq_cent = 0
     if ok_t and tot_preview is not None:
         tf_cent = int(tot_preview["total_final_centavos"])
-        abat_cred_eur = float(st.session_state.get(f"{fk}_abat_cred", 0.0) or 0.0)
-        cab_try = euros_para_centavos(abat_cred_eur) or 0
-        if cli_id:
+        abater = str(st.session_state.get(f"{fk}_abater_saldo", "Não")) == "Sim"
+        if not abater or not cli_id:
+            cab_m = 0
+            liq_cent = tf_cent
+        else:
+            abat_cred_eur = float(st.session_state.get(f"{fk}_abat_cred", 0.0) or 0.0)
+            cab_try = euros_para_centavos(abat_cred_eur) or 0
             saldo_c2 = obter_saldo_credito_cliente(int(cli_id))
             cab_m = min(max(0, cab_try), max(0, saldo_c2), tf_cent)
-        else:
-            cab_m = 0
-        liq_cent = max(0, tf_cent - cab_m)
+            liq_cent = max(0, tf_cent - cab_m)
     sp_cent = sum(v for _, v in pag_rows)
     a_distribuir_cent = liq_cent - sp_cent
+    modo_parcial = _vnd_modo_pagamento_parcial_sem_previsto(fk, n_lin)
     return {
         "ok_t": ok_t,
         "tot_preview": tot_preview,
@@ -198,7 +487,21 @@ def _venda_finance_snapshot(
         "ad_txt": _vnd_fmt_cent(abs(a_distribuir_cent)),
         "pag_rows": pag_rows,
         "obs_pay_notes": _obs,
+        "modo_pagamento_parcial": modo_parcial,
     }
+
+
+def _vnd_natureza_badge_classes(natureza: str) -> str:
+    """Classes CSS do tag Natureza no card da linha (cores por tipo)."""
+    n = str(natureza or "").strip()
+    suf = {
+        "Sessão": "bea-com-badge--nature-sessao",
+        "Pacote": "bea-com-badge--nature-pacote",
+        "Produto": "bea-com-badge--nature-produto",
+        "Coworking": "bea-com-badge--nature-coworking",
+        "Evento": "bea-com-badge--nature-evento",
+    }.get(n, "bea-com-badge--nature-outros")
+    return f"bea-com-badge {suf}"
 
 
 _VENDA_MEIOS_OPT: list[tuple[str, str]] = [
@@ -210,11 +513,14 @@ _VENDA_MEIOS_OPT: list[tuple[str, str]] = [
 _VENDA_MEIOS_LABELS = [x[1] for x in _VENDA_MEIOS_OPT]
 
 
-def _html_comanda_item_minimal(*, nome_e: str, nat_e: str, val_e: str) -> str:
+def _html_comanda_item_minimal(
+    *, nome_e: str, nat_e: str, val_e: str, natureza_raw: str = ""
+) -> str:
     """
-    Card de linha só com nome, badge sálvia e valor bordeaux.
+    Card de linha só com nome, badge de natureza (cor por tipo) e valor bordeaux.
     Montagem por concatenação (evita f-strings que quebram `{` do CSS/HTML no Streamlit).
     """
+    badge_cls = _vnd_natureza_badge_classes(natureza_raw)
     return (
         '<div class="bea-venda-comanda-item bea-comanda-min">'
         '<div class="bea-comanda-min-row">'
@@ -222,7 +528,9 @@ def _html_comanda_item_minimal(*, nome_e: str, nat_e: str, val_e: str) -> str:
         '<span class="bea-com-nome">'
         + nome_e
         + "</span><br/>"
-        '<span class="bea-com-badge">'
+        '<span class="'
+        + badge_cls
+        + '">'
         + nat_e
         + "</span>"
         "</div>"
@@ -693,6 +1001,12 @@ def render_page_vendas(
         st.session_state.venda_fv = 0
     fv = st.session_state.venda_fv
     fk = f"vnd_{fv}"
+    st.session_state.setdefault(f"{fk}_abater_saldo", "Não")
+    st.session_state.setdefault(f"{fk}_abat_cred", 0.0)
+
+    if st.session_state.pop("vnd_busca_clear_click", False):
+        _vnd_limpar_painel_vendas_total(fk)
+        st.rerun()
 
     if "venda_cliente_id" not in st.session_state:
         st.session_state.venda_cliente_id = None
@@ -705,11 +1019,24 @@ def render_page_vendas(
     if "venda_agendamento_contexto_id" not in st.session_state:
         st.session_state.venda_agendamento_contexto_id = None
 
+    pend_rm = st.session_state.pop(f"{fk}_pay_remove_pending", None)
+    if pend_rm is not None:
+        try:
+            r0_del = int(pend_rm[0])
+            n_old = int(pend_rm[1])
+        except (TypeError, ValueError, IndexError):
+            r0_del, n_old = -1, 0
+        if n_old > 1 and 0 <= r0_del < n_old:
+            _vnd_remove_linha_pagamento(fk, r0_del, n_old)
+            st.session_state.venda_pay_n_linhas = n_old - 1
+        st.session_state.pop(f"{fk}_pay_remove_idx", None)
+
     sug_vnd = st.session_state.pop("vnd_busca_suggestion_apply_id", None)
     if sug_vnd is not None:
         _vnd_tratar_sugestao_nome_clicada(int(sug_vnd), fk)
 
-    cat = listar_servicos_para_venda()
+    cat = _vnd_cached_listar_servicos_para_venda()
+    colab_resumo = _vnd_cached_colaboradores_resumo()
     id_to = {int(c["id"]): c for c in cat} if cat else {}
 
     if "_vnda_prime" in st.session_state:
@@ -756,6 +1083,8 @@ def render_page_vendas(
         button_type="secondary",
         minimal=True,
         pesquisa_unificada=True,
+        pesquisa_linha_procurar_limpar=True,
+        clear_session_flag_key="vnd_busca_clear_click",
     )
 
     if vnd_busca_clicked:
@@ -833,24 +1162,9 @@ def render_page_vendas(
                 st.session_state.vnd_busca_clear_pending = True
                 st.rerun()
 
-    _c1, _c2 = st.columns([3, 1])
-    with _c2:
-        st.write("")
-        if st.session_state.venda_cliente_id and st.button(
-            "Limpar seleção", key=f"{fk}_clr_cli"
-        ):
-            st.session_state.venda_cliente_id = None
-            st.session_state.pop("vnd_busca_cands", None)
-            st.session_state.vnd_busca_clear_pending = True
-            st.rerun()
-
     cli_id = st.session_state.venda_cliente_id
 
     if cli_id:
-        saldo_loja = obter_saldo_credito_cliente(int(cli_id))
-        st.info(
-            f"**#{cli_id}** · crédito de loja: **{_vnd_fmt_cent(saldo_loja)}**."
-        )
         with st.expander("Editar ficha do cliente", expanded=False):
             _render_venda_editar_cliente_form(int(cli_id), fk)
     else:
@@ -865,26 +1179,152 @@ def render_page_vendas(
     if not cat:
         st.error("Sem serviços ativos. Abra o Catálogo.")
         return
-    labels = [f"{c['nome']} ({c['natureza']})" for c in cat]
-    ids_list = [int(c["id"]) for c in cat]
+    nat_opts = sorted({str(c["natureza"]) for c in cat})
+    if not nat_opts:
+        st.error("Sem naturezas no catálogo.")
+        return
+    nat_labels_ui = [_VND_NAT_PLACEHOLDER] + nat_opts
+    _raw_nat = st.session_state.get(f"{fk}_nat_req")
+    if _raw_nat is not None and str(_raw_nat) not in nat_labels_ui:
+        st.session_state.pop(f"{fk}_nat_req", None)
 
-    pick_lbl = st.selectbox("Adicionar serviço", labels, key=f"{fk}_pick_svc")
-    if st.button("➕ Adicionar à venda", key=f"{fk}_add_svc"):
-        idx = labels.index(pick_lbl)
-        sid = ids_list[idx]
-        st.session_state.venda_cart.append(
-            {
-                "servico_id": sid,
-                "qty": 1,
-                "bonus": False,
-                "disc_t": "Nenhum",
-                "disc_pct": 0.01,
-                "disc_eur": 0.0,
-                "evt": "Adulto",
-                "colab_id": None,
-            }
+    if st.session_state.pop(f"{fk}_reset_pick_pend", False):
+        st.session_state[f"{fk}_pick_pend"] = "__none__"
+
+    st.session_state.setdefault(f"{fk}_pick_pend", "__none__")
+    pend_rows = (
+        listar_agendamentos_realizado_pendente_liquidacao_cliente(int(cli_id))
+        if cli_id
+        else []
+    )
+    pend_keys = ["__none__"] + [str(int(r["agendamento_id"])) for r in pend_rows]
+    _pk = str(st.session_state.get(f"{fk}_pick_pend", "__none__") or "__none__")
+    if _pk not in pend_keys:
+        st.session_state[f"{fk}_pick_pend"] = "__none__"
+
+    def _pend_label(k: str) -> str:
+        if k == "__none__":
+            return "— Nenhum —"
+        for r in pend_rows:
+            if str(int(r["agendamento_id"])) == k:
+                cat_s = _vnd_catalogo_servico_fmt(int(r["servico_id"]))
+                cat_part = f" (Catálogo: {cat_s})" if cat_s else ""
+                return (
+                    f"{r['servico_nome']} · {_vnd_data_ag_dd_mm_yyyy(r['data_agendamento'])} · "
+                    f"em aberto {_vnd_fmt_cent(int(r['aberto_venda_centavos']))}{cat_part}"
+                )
+        return k
+
+    _c_nat, _c_svc, _c_pend = st.columns([1.05, 1.05, 1.05], gap="small")
+    with _c_nat:
+        st.selectbox(
+            "Selecionar Natureza do Serviço Requisitado",
+            options=nat_labels_ui,
+            key=f"{fk}_nat_req",
         )
-        st.rerun()
+    _nat_raw = st.session_state.get(f"{fk}_nat_req")
+    _nat_lbl = (
+        _VND_NAT_PLACEHOLDER
+        if _nat_raw is None or str(_nat_raw).strip() == ""
+        else str(_nat_raw).strip()
+    )
+    nat_sel = "" if _nat_lbl == _VND_NAT_PLACEHOLDER else _nat_lbl
+    cat_f = [c for c in cat if str(c.get("natureza", "")) == nat_sel] if nat_sel else []
+    labels = [f"{c['nome']} ({c['natureza']})" for c in cat_f]
+    ids_list = [int(c["id"]) for c in cat_f]
+    labels_ui = ["— Escolher serviço —"] + labels
+    ids_ui: list[int | None] = [None] + ids_list
+    with _c_svc:
+        if f"{fk}_pick_svc" in st.session_state and st.session_state[f"{fk}_pick_svc"] not in labels_ui:
+            del st.session_state[f"{fk}_pick_svc"]
+        st.selectbox("Adicionar serviço", labels_ui, key=f"{fk}_pick_svc")
+    pick_lbl = str(st.session_state.get(f"{fk}_pick_svc", labels_ui[0]) or labels_ui[0])
+    catalog_chosen = bool(labels) and pick_lbl != labels_ui[0]
+
+    with _c_pend:
+        st.selectbox(
+            "Serviços realizados com pagamento pendente",
+            pend_keys,
+            key=f"{fk}_pick_pend",
+            format_func=_pend_label,
+            disabled=not bool(cli_id),
+            help=f"Inclui «{ESTADO_AGENDAMENTO_REALIZADO_PENDENTE_LABEL_PT}» e atendimentos «Concluído» com linha "
+            "marcada como pagamento parcial ou venda ainda parcial/pendente, desde que exista "
+            "valor em aberto na venda; exclui vendas com pagamento parcelado planeado.",
+        )
+    pend_sel = str(st.session_state.get(f"{fk}_pick_pend", "__none__") or "__none__")
+    conflito_pend_catalogo = pend_sel != "__none__" and catalog_chosen
+    if conflito_pend_catalogo:
+        st.warning(
+            "Proibido selecionar Novos Serviços e Serviços com Pendência de Pagamento simultaneamente"
+        )
+
+    if st.button("➕ Adicionar à venda", key=f"{fk}_add_svc"):
+        if conflito_pend_catalogo:
+            st.warning(
+                "Proibido selecionar Novos Serviços e Serviços com Pendência de Pagamento simultaneamente"
+            )
+        elif pend_sel != "__none__":
+            ag_id = int(pend_sel)
+            if any(
+                int(it.get("pendente_agendamento_id") or 0) == ag_id
+                for it in st.session_state.venda_cart
+            ):
+                st.warning("Este agendamento já está no carrinho.")
+            else:
+                row = next((r for r in pend_rows if int(r["agendamento_id"]) == ag_id), None)
+                if not row:
+                    st.error("Linha de pendência inválida.")
+                else:
+                    sid = int(row["servico_id"])
+                    bruto0 = int(row["valor_linha_venda_centavos"] or 0)
+                    ab0 = int(row["aberto_venda_centavos"])
+                    ok0, _, sn0 = resolver_snapshot_venda(sid, evento_preco=None, is_bonus=False)
+                    unit_cat = int(sn0["preco_unitario_centavos"]) if ok0 else ab0
+                    pc = min(ab0, unit_cat if unit_cat > 0 else ab0)
+                    if bruto0 > 0:
+                        pc = min(pc, bruto0)
+                    pc = max(1, min(ab0, pc))
+                    st.session_state.venda_cart.append(
+                        {
+                            "servico_id": sid,
+                            "qty": 1,
+                            "bonus": False,
+                            "disc_t": "Nenhum",
+                            "disc_pct": 0.01,
+                            "disc_eur": 0.0,
+                            "evt": "Adulto",
+                            "colab_id": None,
+                            "pendente_agendamento_id": ag_id,
+                            "pendente_venda_id": int(row["venda_id"]),
+                            "pendente_venda_item_id": row.get("venda_item_id"),
+                            "pend_valor_linha_ref_cent": bruto0,
+                        }
+                    )
+                    st.session_state[f"{fk}_pendliq_ag_{ag_id}"] = pc / 100.0
+                    st.session_state[f"{fk}_reset_pick_pend"] = True
+                    st.rerun()
+        elif catalog_chosen:
+            ix = labels_ui.index(pick_lbl)
+            sid = ids_ui[ix]
+            if sid is None:
+                st.warning("Seleccione um serviço na lista ou um item com pendência.")
+            else:
+                st.session_state.venda_cart.append(
+                    {
+                        "servico_id": sid,
+                        "qty": 1,
+                        "bonus": False,
+                        "disc_t": "Nenhum",
+                        "disc_pct": 0.01,
+                        "disc_eur": 0.0,
+                        "evt": "Adulto",
+                        "colab_id": None,
+                    }
+                )
+                st.rerun()
+        else:
+            st.warning("Seleccione um serviço na lista ou um item com pendência.")
 
     cart = st.session_state.venda_cart
     if not cart:
@@ -905,20 +1345,40 @@ def render_page_vendas(
                     nome_svc = str(meta.get("nome", "?"))
                     q0 = int(it.get("qty", 1))
                     evt_key0 = "adulto" if str(it.get("evt", "Adulto")) == "Adulto" else "crianca"
-                    ok_hdr, _msg_hdr, snap_hdr = resolver_snapshot_venda(
-                        int(it["servico_id"]),
-                        evento_preco=evt_key0 if nat == "Evento" else None,
-                        is_bonus=bool(it.get("bonus", False)),
-                    )
+                    if _vnd_cart_is_pendencia(it):
+                        ok_hdr = True
+                        snap_hdr = {"preco_unitario_centavos": 0}
+                    else:
+                        ok_hdr, _msg_hdr, snap_hdr = resolver_snapshot_venda(
+                            int(it["servico_id"]),
+                            evento_preco=evt_key0 if nat == "Evento" else None,
+                            is_bonus=bool(it.get("bonus", False)),
+                        )
                     if ok_hdr:
-                        bruto_hdr = q0 * int(snap_hdr["preco_unitario_centavos"])
+                        if _vnd_cart_is_pendencia(it):
+                            bruto_hdr = int(
+                                euros_para_centavos(
+                                    float(
+                                        st.session_state.get(
+                                            f"{fk}_pendliq_ag_{int(it['pendente_agendamento_id'])}",
+                                            0.0,
+                                        )
+                                        or 0.0
+                                    )
+                                )
+                                or 0
+                            )
+                        else:
+                            bruto_hdr = q0 * int(snap_hdr["preco_unitario_centavos"])
                         valor_card = _vnd_fmt_cent(bruto_hdr)
                     else:
                         valor_card = "—"
                     nome_e = html.escape(nome_svc)
                     nat_e = html.escape(nat) if nat else "—"
                     val_e = html.escape(valor_card)
-                    row_html = _html_comanda_item_minimal(nome_e=nome_e, nat_e=nat_e, val_e=val_e)
+                    row_html = _html_comanda_item_minimal(
+                        nome_e=nome_e, nat_e=nat_e, val_e=val_e, natureza_raw=nat
+                    )
 
                     h_left, h_x = st.columns([5, 1])
                     with h_left:
@@ -929,127 +1389,223 @@ def render_page_vendas(
                             to_remove = idx
 
                     with st.expander(f"⋯ Item {idx + 1}", expanded=False):
-                        c_a, c_c = st.columns([1, 2])
-                        with c_a:
-                            st.caption("Quantidade")
-                            it["qty"] = int(
-                                st.number_input(
-                                    "qty",
-                                    min_value=1,
-                                    max_value=999,
-                                    value=int(it.get("qty", 1)),
-                                    key=f"{fk}_q_{idx}",
-                                    label_visibility="collapsed",
-                                )
+                        if _vnd_cart_is_pendencia(it):
+                            it["qty"] = 1
+                            agp = int(it["pendente_agendamento_id"])
+                            vidp = int(it["pendente_venda_id"])
+                            agd = obter_agendamento(agp)
+                            kliq = f"{fk}_pendliq_ag_{agp}"
+                            aberto_vis = obter_aberto_liquidacao_venda_centavos(vidp)
+                            mx_cent = _vnd_aberto_para_linha_pendencia(cart, it, fk)
+                            vl_ref = int(it.get("pend_valor_linha_ref_cent") or 0)
+                            mx_eur = max(0.01, mx_cent / 100.0)
+                            def_eur = min(
+                                mx_eur,
+                                max(0.01, (vl_ref / 100.0) if vl_ref > 0 else mx_eur),
                             )
-                        with c_c:
-                            cc1, cc2 = st.columns(2)
-                            with cc1:
-                                st.session_state.setdefault(f"{fk}_bon_{idx}", bool(it.get("bonus")))
-                                it["bonus"] = st.checkbox(
-                                    "Bónus (preço 0)",
-                                    key=f"{fk}_bon_{idx}",
+                            st.session_state[kliq] = def_eur
+                            nome_h = html.escape(str(nome_svc))
+                            evt_snap = (
+                                "adulto"
+                                if str(it.get("evt", "Adulto")) == "Adulto"
+                                else "crianca"
+                            )
+                            ok_cat, _, snap_cat = resolver_snapshot_venda(
+                                int(it["servico_id"]),
+                                evento_preco=evt_snap if nat == "Evento" else None,
+                                is_bonus=False,
+                            )
+                            cat_cent = (
+                                int(snap_cat["preco_unitario_centavos"])
+                                if ok_cat
+                                else 0
+                            )
+                            cat_fmt = _vnd_fmt_cent(cat_cent) if ok_cat and cat_cent > 0 else "—"
+                            d_ult_pg = obter_data_ultimo_pagamento_venda_dd_mm_yyyy(vidp)
+                            data_ult_pg_h = html.escape(d_ult_pg if d_ult_pg else "—")
+                            estado_h = html.escape(_vnd_estado_agendamento_ui(agd))
+                            pag_rows = listar_pagamento_linhas_venda(vidp)
+                            pag_md_parts: list[str] = [
+                                f"**Nome do serviço:** {nome_h}  \n"
+                                f"**Data do último pagamento referente a este serviço:** {data_ult_pg_h}  \n"
+                                f"**Estado Atual do Agendamento:** {estado_h}  \n"
+                                f"**Valor de catálogo do serviço:** {cat_fmt}  \n"
+                            ]
+                            _had_parcial_linha = False
+                            for pl in pag_rows:
+                                vc = int(pl.get("valor_centavos") or 0)
+                                if vc < 1:
+                                    continue
+                                d_pl = _vnd_data_ag_dd_mm_yyyy(
+                                    str(pl.get("criado_em") or "")[:10]
                                 )
-                            with cc2:
-                                if nat == "Evento":
-                                    it["evt"] = st.radio(
-                                        "Preço evento",
-                                        ["Adulto", "Criança"],
-                                        horizontal=True,
-                                        key=f"{fk}_evt_{idx}",
+                                _had_parcial_linha = True
+                                pag_md_parts.append(
+                                    f"**Pagamento Parcial Realizado:** EUR {vc / 100:.2f} ({d_pl})  \n"
+                                )
+                            if _had_parcial_linha:
+                                pag_md_parts.append("  \n")
+                            pag_md_parts.append(
+                                f"**Valor pendente referente ao serviço contratado:** {_vnd_fmt_cent(aberto_vis)}"
+                            )
+                            st.markdown("".join(pag_md_parts), unsafe_allow_html=True)
+                            _cs_ids_p = [int(cid) for cid, _ in colab_resumo]
+                            if not _cs_ids_p:
+                                st.warning(
+                                    "Não existem colaboradores registados. É necessário um colaborador "
+                                    "para liquidar pendências e calcular repasses."
+                                )
+                                it["colab_id"] = None
+                            else:
+                                _ix_p = 0
+                                if it.get("colab_id") is not None and int(
+                                    it["colab_id"]
+                                ) in _cs_ids_p:
+                                    _ix_p = _cs_ids_p.index(int(it["colab_id"]))
+                                _sel_col_id = st.selectbox(
+                                    "Colaborador *",
+                                    options=_cs_ids_p,
+                                    index=_ix_p,
+                                    format_func=lambda i: nome_colaborador_sem_sufixo_id_ui(
+                                        next(
+                                            nome
+                                            for c, nome in colab_resumo
+                                            if int(c) == int(i)
+                                        )
                                     )
-                        _dopts = ["Nenhum", "Percentagem", "Valor (€)"]
-                        it["disc_t"] = st.selectbox(
-                            "Desconto nesta linha",
-                            _dopts,
-                            index=_dopts.index(it["disc_t"])
-                            if it.get("disc_t") in _dopts
-                            else 0,
-                            key=f"{fk}_dt_{idx}",
-                        )
-                        if it["disc_t"] == "Percentagem":
-                            it["disc_pct"] = float(
-                                st.number_input(
-                                    "% desconto",
-                                    min_value=0.01,
-                                    max_value=100.0,
-                                    value=float(it.get("disc_pct", 0.01)),
-                                    step=0.01,
-                                    key=f"{fk}_dp_{idx}",
+                                    or "—",
+                                    key=f"{fk}_col_{idx}",
+                                    help="Obrigatório para o cálculo correcto do repasse.",
                                 )
-                            )
-                        elif it["disc_t"] == "Valor (€)":
-                            it["disc_eur"] = float(
-                                st.number_input(
-                                    "Valor desconto (€)",
-                                    min_value=0.01,
-                                    value=float(it.get("disc_eur", 0.01)),
-                                    step=0.01,
-                                    key=f"{fk}_de_{idx}",
+                                it["colab_id"] = int(_sel_col_id)
+                        else:
+                            c_a, c_c = st.columns([1, 2])
+                            with c_a:
+                                st.caption("Quantidade")
+                                it["qty"] = int(
+                                    st.number_input(
+                                        "qty",
+                                        min_value=1,
+                                        max_value=999,
+                                        value=int(it.get("qty", 1)),
+                                        key=f"{fk}_q_{idx}",
+                                        label_visibility="collapsed",
+                                    )
                                 )
+                            with c_c:
+                                cc1, cc2 = st.columns([7, 5])
+                                with cc1:
+                                    st.session_state.setdefault(
+                                        f"{fk}_bon_{idx}", bool(it.get("bonus"))
+                                    )
+                                    it["bonus"] = st.checkbox(
+                                        "Bónus\u00a0(serviço\u00a0gratuito)",
+                                        key=f"{fk}_bon_{idx}",
+                                    )
+                                with cc2:
+                                    if nat == "Evento":
+                                        it["evt"] = st.radio(
+                                            "Preço evento",
+                                            ["Adulto", "Criança"],
+                                            horizontal=True,
+                                            key=f"{fk}_evt_{idx}",
+                                        )
+                            _dopts = ["Nenhum", "Percentagem", "Valor (€)"]
+                            it["disc_t"] = st.selectbox(
+                                "Desconto nesta linha",
+                                _dopts,
+                                index=_dopts.index(it["disc_t"])
+                                if it.get("disc_t") in _dopts
+                                else 0,
+                                key=f"{fk}_dt_{idx}",
                             )
-                        _colab_opts: list[tuple[str, int | None]] = [("— Nenhum —", None)]
-                        _colab_opts.extend(
-                            (f"{nome} (#{cid})", int(cid))
-                            for cid, nome in listar_colaboradores_resumo()
-                        )
-                        _sel_col = st.selectbox(
-                            "Colaborador (opcional)",
-                            options=_colab_opts,
-                            format_func=lambda x: x[0],
-                            key=f"{fk}_col_{idx}",
-                        )
-                        it["colab_id"] = _sel_col[1]
-                        if cli_id and nat in ("Sessão", "Coworking", "Evento"):
-                            if int(it.get("qty", 1)) != 1:
+                            if it["disc_t"] == "Percentagem":
+                                it["disc_pct"] = float(
+                                    st.number_input(
+                                        "% desconto",
+                                        min_value=0.01,
+                                        max_value=100.0,
+                                        value=float(it.get("disc_pct", 0.01)),
+                                        step=0.01,
+                                        key=f"{fk}_dp_{idx}",
+                                    )
+                                )
+                            elif it["disc_t"] == "Valor (€)":
+                                it["disc_eur"] = float(
+                                    st.number_input(
+                                        "Valor desconto (€)",
+                                        min_value=0.01,
+                                        value=float(it.get("disc_eur", 0.01)),
+                                        step=0.01,
+                                        key=f"{fk}_de_{idx}",
+                                    )
+                                )
+                            _colab_opts: list[tuple[str, int | None]] = [("— Nenhum —", None)]
+                            _colab_opts.extend(
+                                (nome_colaborador_sem_sufixo_id_ui(nome) or "—", int(cid))
+                                for cid, nome in colab_resumo
+                            )
+                            _sel_col = st.selectbox(
+                                "Colaborador (opcional)",
+                                options=_colab_opts,
+                                format_func=lambda x: x[0],
+                                key=f"{fk}_col_{idx}",
+                            )
+                            it["colab_id"] = _sel_col[1]
+                            if cli_id and nat in ("Sessão", "Coworking", "Evento"):
+                                if int(it.get("qty", 1)) != 1:
+                                    st.caption(
+                                        "Para associar um agendamento a esta linha, use **quantidade 1**."
+                                    )
+                                else:
+                                    ag_opts = listar_agendamentos_elegiveis_associacao_linha_venda(
+                                        cliente_id=int(cli_id),
+                                        servico_id=int(it["servico_id"]),
+                                    )
+                                    _vals = ["__none__"] + [str(int(a["id"])) for a in ag_opts]
+
+                                    def _fmt_ag_opt(v: str) -> str:
+                                        if v == "__none__":
+                                            return "Sem agendamento"
+                                        for agx in ag_opts:
+                                            if str(int(agx["id"])) == v:
+                                                return _vnd_label_ag_para_combo(agx)
+                                        return v
+
+                                    st.selectbox(
+                                        "Agendamento a associar (opcional)",
+                                        options=_vals,
+                                        format_func=_fmt_ag_opt,
+                                        key=f"{fk}_aglin_{idx}",
+                                        help="Liga esta linha da venda a um compromisso em pré-venda do mesmo serviço.",
+                                    )
+                            elif nat == "Produto":
                                 st.caption(
-                                    "Para associar um agendamento a esta linha, use **quantidade 1**."
+                                    "Produto: venda directa — sem associação a agendamento."
+                                )
+                            elif nat == "Pacote":
+                                st.caption(
+                                    "Pacote: consumos na agenda seguem a venda do pacote; "
+                                    "conclusão exige liquidação integral da venda (política restritiva)."
+                                )
+                            evt_key = (
+                                "adulto" if str(it.get("evt", "Adulto")) == "Adulto" else "crianca"
+                            )
+                            ok_r, msg_r, snap = resolver_snapshot_venda(
+                                int(it["servico_id"]),
+                                evento_preco=evt_key if nat == "Evento" else None,
+                                is_bonus=bool(it["bonus"]),
+                            )
+                            if ok_r:
+                                q = int(it["qty"])
+                                unit = int(snap["preco_unitario_centavos"])
+                                bruto = q * unit
+                                st.markdown(
+                                    f"**Cálculo:** {snap['unidade_medida']} × {q} → subtotal bruto "
+                                    f"**{_vnd_fmt_cent(bruto)}**"
                                 )
                             else:
-                                ag_opts = listar_agendamentos_elegiveis_associacao_linha_venda(
-                                    cliente_id=int(cli_id),
-                                    servico_id=int(it["servico_id"]),
-                                )
-                                _vals = ["__none__"] + [str(int(a["id"])) for a in ag_opts]
-
-                                def _fmt_ag_opt(v: str) -> str:
-                                    if v == "__none__":
-                                        return "Sem agendamento"
-                                    for agx in ag_opts:
-                                        if str(int(agx["id"])) == v:
-                                            return _vnd_label_ag_para_combo(agx)
-                                    return v
-
-                                st.selectbox(
-                                    "Agendamento a associar (opcional)",
-                                    options=_vals,
-                                    format_func=_fmt_ag_opt,
-                                    key=f"{fk}_aglin_{idx}",
-                                    help="Liga esta linha da venda a um compromisso em pré-venda do mesmo serviço.",
-                                )
-                        elif nat == "Produto":
-                            st.caption("Produto: venda directa — sem associação a agendamento.")
-                        elif nat == "Pacote":
-                            st.caption(
-                                "Pacote: consumos na agenda seguem a venda do pacote; "
-                                "conclusão exige liquidação integral da venda (política restritiva)."
-                            )
-                        evt_key = "adulto" if str(it.get("evt", "Adulto")) == "Adulto" else "crianca"
-                        ok_r, msg_r, snap = resolver_snapshot_venda(
-                            int(it["servico_id"]),
-                            evento_preco=evt_key if nat == "Evento" else None,
-                            is_bonus=bool(it["bonus"]),
-                        )
-                        if ok_r:
-                            q = int(it["qty"])
-                            unit = int(snap["preco_unitario_centavos"])
-                            bruto = q * unit
-                            st.markdown(
-                                f"**Cálculo:** {snap['unidade_medida']} × {q} → subtotal bruto "
-                                f"**{_vnd_fmt_cent(bruto)}**"
-                            )
-                        else:
-                            st.warning(msg_r)
+                                st.warning(msg_r)
         if to_remove is not None:
             st.session_state.venda_cart.pop(to_remove)
             st.rerun()
@@ -1058,7 +1614,53 @@ def render_page_vendas(
         '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
         unsafe_allow_html=True,
     )
-    st.markdown(_vnd_section_title_html("3. Desconto sobre o total"), unsafe_allow_html=True)
+    st.markdown(_vnd_section_title_html("3. Crédito Disponível do Cliente"), unsafe_allow_html=True)
+    saldo_cent_display = int(obter_saldo_credito_cliente(int(cli_id))) if cli_id else 0
+    c_saldo, c_abater, c_val_ab = st.columns([1.55, 1.05, 1.4], gap="small")
+    with c_saldo:
+        st.text_input(
+            "Saldo disponível do cliente para utilização em serviços",
+            str(saldo_cent_display),
+            key=f"{fk}_saldo_ro_{cli_id or 0}_{saldo_cent_display}",
+            disabled=True,
+            help="Somente leitura: saldo em centavos (não editável).",
+        )
+    with c_abater:
+        st.radio(
+            "Abater Saldo do Cliente?",
+            ["Não", "Sim"],
+            horizontal=True,
+            key=f"{fk}_abater_saldo",
+            disabled=not bool(cli_id),
+        )
+    abater_sim_ui = bool(cli_id) and str(st.session_state.get(f"{fk}_abater_saldo", "Não")) == "Sim"
+    k_ab = f"{fk}_abat_cred"
+    with c_val_ab:
+        if abater_sim_ui:
+            saldo_ab_cents = int(obter_saldo_credito_cliente(int(cli_id)))
+            max_abat_eur = max(0.0, saldo_ab_cents / 100.0)
+            _cur_ab = float(st.session_state.get(k_ab, 0.0) or 0.0)
+            if _cur_ab > max_abat_eur:
+                st.session_state[k_ab] = max_abat_eur
+            st.number_input(
+                "Valor a ser abatido do crédito do cliente",
+                min_value=0.0,
+                max_value=max_abat_eur,
+                step=0.01,
+                key=k_ab,
+                help=f"Máximo: {max_abat_eur:.2f} € (saldo disponível).",
+            )
+        else:
+            st.empty()
+    abat_cred_eur = (
+        float(st.session_state.get(k_ab, 0.0) or 0.0) if abater_sim_ui else 0.0
+    )
+
+    st.markdown(
+        '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(_vnd_section_title_html("4. Desconto sobre o total"), unsafe_allow_html=True)
     g_opt = st.radio(
         "Desconto global",
         ["Nenhum", "Percentagem", "Valor (€)"],
@@ -1082,19 +1684,40 @@ def render_page_vendas(
     ok_t = False
     tot_preview = None
     if cart:
-        slim_all = _venda_slimos_from_cart(cart, id_to)
+        slim_all = _venda_slimos_from_cart(cart, id_to, fk)
         ok_t, msg_t, tot_preview = calcular_totais_venda(
             slim_all,
             desconto_global_tipo=gtipo,
             desconto_global_valor=gval,
         )
         if ok_t and tot_preview:
-            st.success(
-                f"**Subtotal (bruto):** {_vnd_fmt_cent(tot_preview['subtotal_bruto_centavos'])} · "
-                f"**Após linhas:** {_vnd_fmt_cent(tot_preview['subtotal_apos_descontos_linha_centavos'])} · "
-                f"**Desconto global:** {_vnd_fmt_cent(tot_preview['desconto_global_centavos_aplicado'])} · "
-                f"**Total final:** {_vnd_fmt_cent(tot_preview['total_final_centavos'])}"
-            )
+            abater_linha = str(st.session_state.get(f"{fk}_abater_saldo", "Não")) == "Sim" and bool(cli_id)
+            sb = int(tot_preview["subtotal_bruto_centavos"])
+            dg = int(tot_preview["desconto_global_centavos_aplicado"])
+            tf = int(tot_preview["total_final_centavos"])
+            if abater_linha:
+                abat_try_d = euros_para_centavos(float(st.session_state.get(f"{fk}_abat_cred", 0.0) or 0.0)) or 0
+                saldo_ok_d = obter_saldo_credito_cliente(int(cli_id))
+                cab_d = min(max(0, abat_try_d), max(0, saldo_ok_d), tf)
+                liq_d = max(0, tf - cab_d)
+                sal_apos = int(tot_preview["subtotal_apos_descontos_linha_centavos"])
+                d_it = max(0, sb - sal_apos)
+                st.success(
+                    f"**Subtotal (bruto):** {_vnd_fmt_cent(sb)} · "
+                    f"**Desconto por item:** {_vnd_fmt_cent(d_it)} · "
+                    f"**Saldo Abatido do Cliente:** {_vnd_fmt_cent(cab_d)} · "
+                    f"**Desconto global:** {_vnd_fmt_cent(dg)} · "
+                    f"**Total final:** {_vnd_fmt_cent(liq_d)}"
+                )
+            else:
+                st.success(
+                    _vnd_md_resumo_totais_venda(
+                        subtotal_bruto_cent=sb,
+                        tot_preview=tot_preview,
+                        desconto_global_cent=dg,
+                        total_final_cent=tf,
+                    )
+                )
         elif not ok_t:
             st.error(msg_t)
 
@@ -1102,27 +1725,18 @@ def render_page_vendas(
         '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
         unsafe_allow_html=True,
     )
-    st.markdown(_vnd_section_title_html("4. Pagamento"), unsafe_allow_html=True)
-
-    abat_cred_eur = 0.0
-    if cli_id:
-        saldo_ab = obter_saldo_credito_cliente(int(cli_id))
-        abat_cred_eur = float(
-            st.number_input(
-                "Abatimento de crédito de loja (€)",
-                min_value=0.0,
-                value=0.0,
-                step=0.01,
-                key=f"{fk}_abat_cred",
-                help=f"Máximo sugerido: saldo {_vnd_fmt_cent(saldo_ab)}.",
-            )
-        )
+    st.markdown(_vnd_section_title_html("5. Pagamento"), unsafe_allow_html=True)
+    st.caption(
+        f"Modalidades alinhadas ao estado de pagamento da venda ({', '.join(ESTADO_PAGAMENTO_VENDA_LABEL_PT[k] for k in VENDAS_UI_MODALIDADES_PAGAMENTO_LINHA)}). "
+        f"«{ESTADO_PAGAMENTO_VENDA_LABEL_PT['pendente']}» (só recebimentos previstos) não é configurável neste ecrã."
+    )
 
     meios_labels = _VENDA_MEIOS_LABELS
 
     n_lin = max(1, min(10, int(st.session_state.venda_pay_n_linhas)))
 
     for j in range(n_lin):
+        _vnd_sync_modalidade_pagamento_session(fk, j)
         r1, r2, r3, r4 = st.columns([1.55, 1.05, 0.95, 1.1])
         lv = "visible" if j == 0 else "collapsed"
         with r1:
@@ -1135,12 +1749,13 @@ def render_page_vendas(
         with r2:
             tipo_pg = st.selectbox(
                 "Modalidade de Pagamento",
-                ["Integral", "Parcelado"],
+                list(VENDAS_UI_MODALIDADES_PAGAMENTO_LINHA),
+                format_func=lambda k, _m=ESTADO_PAGAMENTO_VENDA_LABEL_PT: _m[str(k)],
                 key=f"{fk}_pay_tipo_{j}",
                 label_visibility=lv,
             )
         with r3:
-            if tipo_pg == "Parcelado":
+            if tipo_pg == "parcelado":
                 nparc = int(
                     st.number_input(
                         "Qtd parcelas",
@@ -1172,13 +1787,46 @@ def render_page_vendas(
     pag_rows = snap_fin["pag_rows"]
     obs_pay_notes = snap_fin["obs_pay_notes"]
 
-    if st.button(
-        "➕ Adicionar outro meio de pagamento",
-        type="secondary",
-        key=f"{fk}_pay_add",
-    ):
-        st.session_state.venda_pay_n_linhas = min(10, n_lin + 1)
-        st.rerun()
+    if n_lin > 1:
+        opts_rm = list(range(2, n_lin + 1))
+        k_rm_sel = f"{fk}_pay_remove_idx"
+        if k_rm_sel in st.session_state and st.session_state[k_rm_sel] not in opts_rm:
+            st.session_state.pop(k_rm_sel, None)
+        st.selectbox(
+            "Linha de pagamento a remover",
+            options=opts_rm,
+            key=k_rm_sel,
+            format_func=lambda x: f"Linha {int(x)}",
+            help="Só é possível remover a partir da **2.ª** linha (a 1.ª permanece).",
+        )
+        c_pay_add, c_pay_rem, _c_pay_rest = st.columns([10, 9, 25], gap="small")
+        with c_pay_add:
+            if st.button(
+                _VND_PAY_ADD_BTN_LABEL,
+                type="secondary",
+                key=f"{fk}_pay_add",
+            ):
+                st.session_state.venda_pay_n_linhas = min(10, n_lin + 1)
+                st.rerun()
+        with c_pay_rem:
+            if st.button(
+                "Remover Forma de Pagamento",
+                type="secondary",
+                key=f"{fk}_pay_remove_btn",
+                width=_VND_PAY_REMOVE_BTN_WIDTH_PX,
+            ):
+                r1 = int(st.session_state.get(f"{fk}_pay_remove_idx", 2) or 2)
+                r0 = max(0, min(n_lin - 1, r1 - 1))
+                st.session_state[f"{fk}_pay_remove_pending"] = (r0, n_lin)
+                st.rerun()
+    else:
+        if st.button(
+            _VND_PAY_ADD_BTN_LABEL,
+            type="secondary",
+            key=f"{fk}_pay_add",
+        ):
+            st.session_state.venda_pay_n_linhas = min(10, n_lin + 1)
+            st.rerun()
 
     if cli_id and int(snap_fin.get("cab_m", 0) or 0) > 0:
         st.caption(
@@ -1186,23 +1834,79 @@ def render_page_vendas(
             f"Crédito abatido: **{_vnd_fmt_cent(int(snap_fin['cab_m']))}**"
         )
 
+    if st.session_state.pop("bea_vnd_venda_concluida_ok", False):
+        st.success("Venda concluída com sucesso.")
+
     if a_distribuir_cent < 0:
         st.warning(
             f"A soma dos meios excede o total a liquidar em **{_vnd_fmt_cent(-a_distribuir_cent)}**."
         )
 
+    cons_modal = _vnd_modalidades_pagamento_consistentes(fk, n_lin)
+    has_linha_com_valor = any(
+        (euros_para_centavos(float(st.session_state.get(f"{fk}_pay_val_{jx}", 0.0) or 0.0)) or 0) > 0
+        for jx in range(n_lin)
+    )
+    if not cons_modal and has_linha_com_valor:
+        st.warning(
+            "Todas as linhas com **valor > 0** devem usar a mesma modalidade: ou "
+            f"**{ESTADO_PAGAMENTO_VENDA_LABEL_PT['parcial']}** em todas, ou "
+            f"**{ESTADO_PAGAMENTO_VENDA_LABEL_PT['integral']}** / **{ESTADO_PAGAMENTO_VENDA_LABEL_PT['parcelado']}** "
+            f"— não misture **{ESTADO_PAGAMENTO_VENDA_LABEL_PT['parcial']}** com as outras."
+        )
+    modo_p_ui = bool(snap_fin.get("modo_pagamento_parcial")) and cons_modal
+    integral_valor_difere = _vnd_integral_valor_difere_total(
+        fk,
+        n_lin,
+        cons_modal=cons_modal,
+        modo_parcial_sem_prev=modo_p_ui,
+        snap=snap_fin,
+    )
+    if modo_p_ui and a_distribuir_cent > 0:
+        st.caption(
+            f"**{ESTADO_PAGAMENTO_VENDA_LABEL_PT['parcial']}:** em aberto **{_vnd_fmt_cent(a_distribuir_cent)}** "
+            "(pode finalizar a venda; o restante ficará por liquidar)."
+        )
+
     obs = st.text_area("Observações da venda", key=f"{fk}_obs_v")
 
-    pode_finalizar = (
-        bool(ok_t)
-        and tot_preview is not None
-        and bool(st.session_state.venda_cliente_id)
-        and bool(cart)
-        and a_distribuir_cent == 0
+    _pend_colab_ok = all(
+        (not _vnd_cart_is_pendencia(it))
+        or (bool(colab_resumo) and it.get("colab_id") is not None)
+        for it in cart
     )
 
+    if not cons_modal:
+        pode_finalizar = False
+    elif modo_p_ui:
+        liqc_pf = int(snap_fin["liq_cent"])
+        spc_pf = int(snap_fin["sp_cent"])
+        pode_finalizar = (
+            bool(ok_t)
+            and tot_preview is not None
+            and bool(st.session_state.venda_cliente_id)
+            and bool(cart)
+            and 0 < spc_pf <= liqc_pf
+            and _pend_colab_ok
+        )
+    else:
+        pode_finalizar = (
+            bool(ok_t)
+            and tot_preview is not None
+            and bool(st.session_state.venda_cliente_id)
+            and bool(cart)
+            and a_distribuir_cent == 0
+            and _pend_colab_ok
+        )
+
+    if integral_valor_difere and has_linha_com_valor:
+        st.info(
+            f"**Pagamento integral:** a soma dos valores em **Valor (€)** deve igualar "
+            f"**{_vnd_fmt_cent(int(snap_fin['liq_cent']))}** (total a liquidar)."
+        )
+
     if st.button(
-        "FINALIZAR VENDA",
+        "Finalizar Venda",
         type="primary",
         key=f"{fk}_submit",
         disabled=not pode_finalizar,
@@ -1213,9 +1917,72 @@ def render_page_vendas(
         if not cart:
             st.error("Adicione pelo menos um item.")
             return
+        cart_snap = list(cart)
+        for _itp in cart_snap:
+            if not _vnd_cart_is_pendencia(_itp):
+                continue
+            if not _itp.get("colab_id"):
+                st.error(
+                    "Em cada item de liquidação de pendência, seleccione o **Colaborador** "
+                    "(campo obrigatório para o repasse)."
+                )
+                return
+        acc_pend: defaultdict[int, int] = defaultdict(int)
+        for it in cart_snap:
+            if not _vnd_cart_is_pendencia(it):
+                continue
+            agid = int(it["pendente_agendamento_id"])
+            ce = (
+                euros_para_centavos(
+                    float(st.session_state.get(f"{fk}_pendliq_ag_{agid}", 0.0) or 0.0)
+                )
+                or 0
+            )
+            acc_pend[int(it["pendente_venda_id"])] += ce
+        for vidv, soma in acc_pend.items():
+            ab = obter_aberto_liquidacao_venda_centavos(int(vidv))
+            if soma > ab:
+                st.error(
+                    f"A soma das liquidações ({soma / 100:.2f} €) excede o em aberto "
+                    f"({ab / 100:.2f} €) na venda #{vidv}."
+                )
+                return
+        if not _vnd_modalidades_pagamento_consistentes(fk, n_lin):
+            st.error(
+                "Modalidades de pagamento inconsistentes: nas linhas com valor > 0, não misture "
+                f"«{ESTADO_PAGAMENTO_VENDA_LABEL_PT['parcial']}» com «{ESTADO_PAGAMENTO_VENDA_LABEL_PT['integral']}» "
+                f"ou «{ESTADO_PAGAMENTO_VENDA_LABEL_PT['parcelado']}»."
+            )
+            return
+        modo_p_submit = _vnd_modo_pagamento_parcial_sem_previsto(fk, n_lin)
         # rebuild linhas_reg for backend
         linhas_b: list[dict] = []
-        for it in cart:
+        for it in cart_snap:
+            if _vnd_cart_is_pendencia(it):
+                agid = int(it["pendente_agendamento_id"])
+                liq_c = (
+                    euros_para_centavos(
+                        float(st.session_state.get(f"{fk}_pendliq_ag_{agid}", 0.0) or 0.0)
+                    )
+                    or 0
+                )
+                meta_p = id_to.get(int(it["servico_id"]), {})
+                nat_p = str(meta_p.get("natureza", ""))
+                evt_p = "adulto" if str(it.get("evt", "Adulto")) == "Adulto" else "crianca"
+                linhas_b.append(
+                    {
+                        "servico_id": int(it["servico_id"]),
+                        "quantidade": 1,
+                        "is_bonus": False,
+                        "evento_preco": evt_p if nat_p == "Evento" else None,
+                        "desconto_linha_tipo": "none",
+                        "desconto_linha_valor": None,
+                        "colaborador_id": it.get("colab_id"),
+                        "preco_unitario_centavos_override": int(liq_c),
+                        "pendente_venda_id": int(it["pendente_venda_id"]),
+                    }
+                )
+                continue
             meta = id_to.get(int(it["servico_id"]), {})
             nat = str(meta.get("natureza", ""))
             evt_key = "adulto" if str(it.get("evt", "Adulto")) == "Adulto" else "crianca"
@@ -1249,6 +2016,7 @@ def render_page_vendas(
             st.session_state.venda_cliente_id
             and ok_t
             and tot_preview is not None
+            and str(st.session_state.get(f"{fk}_abater_saldo", "Não")) == "Sim"
         ):
             tfc = int(tot_preview["total_final_centavos"])
             cab_try_r = euros_para_centavos(float(abat_cred_eur)) or 0
@@ -1257,7 +2025,10 @@ def render_page_vendas(
         ox = "\n".join(obs_pay_notes).strip()
         obs_fin = (str(obs or "").strip() + ("\n" + ox if ox else "")).strip()
         ag_plan: list[int | None] = []
-        for idx, it in enumerate(cart):
+        for idx, it in enumerate(cart_snap):
+            if _vnd_cart_is_pendencia(it):
+                ag_plan.append(None)
+                continue
             meta_i = id_to.get(int(it["servico_id"]), {})
             nat_i = str(meta_i.get("natureza", ""))
             if (
@@ -1280,7 +2051,10 @@ def render_page_vendas(
             obs_fin,
             agendamento_contexto_id=int(ctx_arg) if ctx_arg else None,
             credito_abatido_centavos=int(cab_reg),
+            modo_pagamento_parcial_sem_previsto=modo_p_submit,
         )
+        if ok_f and vid_new is not None:
+            reconciliar_estado_pagamento_venda(int(vid_new))
         if ok_f:
             if vid_new is not None and st.session_state.venda_cliente_id:
                 msgs_pv = pos_venda_associar_agendamentos_por_linha(
@@ -1294,6 +2068,16 @@ def render_page_vendas(
                     if ln.startswith("❌"):
                         st.error(ln)
                     elif ln.startswith("⚠️") or ln.startswith("ℹ️"):
+                        st.warning(ln)
+                    else:
+                        st.success(ln)
+            if vid_new is not None and any(_vnd_cart_is_pendencia(x) for x in cart_snap):
+                for ln in liquidar_pendencias_pos_venda_registo(int(vid_new), cart_snap):
+                    if not ln:
+                        continue
+                    if ln.startswith("❌"):
+                        st.error(ln)
+                    elif ln.startswith("⚠️"):
                         st.warning(ln)
                     else:
                         st.success(ln)
@@ -1322,7 +2106,7 @@ def render_page_vendas(
             st.session_state.venda_fv += 1
             st.session_state.venda_fechar_agendamento_id = None
             st.session_state.venda_agendamento_contexto_id = None
-            st.success(msg_f)
+            st.session_state["bea_vnd_venda_concluida_ok"] = True
             st.balloons()
             st.rerun()
         else:

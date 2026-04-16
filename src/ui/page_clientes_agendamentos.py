@@ -15,17 +15,24 @@ from src.pages.theme import get_beaba_css  # noqa: F401 — BeaBa Sereno (CSS em
 from src.modules.agendamento import (
     agendamento_elegivel_conversao_para_pacote_hoje,
     alterar_status,
+    analisar_sessoes_pacote_pendentes_cag,
     atualizar_agendamento,
     cancelar_agendamento,
     converter_agendamento_avulso_para_consumo_pacote,
+    criar_agendamento,
     criar_agendamento_pre_venda,
     listar_agendamentos,
     listar_buckets_pacote_com_saldo_disponivel,
+    listar_opcoes_servicos_adquiridos_pendente_pre_agendamento,
     obter_agendamento,
     obter_resumo_agendamentos_cliente_setor2_proposta,
     validar_tipo_atendimento_e_sala,
 )
-from src.modules.catalogo import listar_servicos_para_venda
+from src.modules.catalogo import (
+    listar_servicos_para_venda,
+    listar_sessoes_do_pacote_catalogo,
+    obter_duracao_referencia_agendamento_horas,
+)
 from src.modules.cliente import (
     atualizar_cliente,
     buscar_cliente_por_whatsapp,
@@ -34,8 +41,12 @@ from src.modules.cliente import (
     cadastrar_cliente,
     obter_cliente_completo,
 )
-from src.modules.colaborador import listar_colaboradores_resumo
-from src.modules.constants import NATUREZAS_CATALOGO_FASE3, SEXOS
+from src.modules.colaborador import listar_colaboradores_resumo, nome_colaborador_sem_sufixo_id_ui
+from src.modules.constants import (
+    ESTADO_AGENDAMENTO_REALIZADO_PENDENTE_LABEL_PT,
+    NATUREZAS_CATALOGO_FASE3,
+    SEXOS,
+)
 from src.modules.nif import normalizar_nif_armazenamento
 from src.modules.telefone import normalizar_telefone_legado_ou_e164
 from src.modules.validators import email_valido, parse_data_iso
@@ -46,10 +57,27 @@ from src.ui.fmt_euro_constituicao import fmt_euro_centavos
 from src.ui.widgets.cliente_search import CLIENTE_SEARCH_DATE_MIN, render_cliente_search_widget
 
 _CAG_PREFIX = "cag_"
+_CAG_FICHA_FLASH_KEY = "cag_ficha_save_flash"
 
 # Novo agendamento (pré-venda) neste ecrã: todas as naturezas excepto Produto.
 _CAG_NATUREZAS_AGENDA_NOVO: tuple[str, ...] = tuple(
     n for n in NATUREZAS_CATALOGO_FASE3 if n != "Produto"
+)
+
+# Linha 1 de «Dados do Agendamento»: Serviços adquiridos pendentes · Natureza · Serviço · Colaboradores · Estado.
+_CAG_DADOS_AG_L1_COL_WIDTHS: tuple[float, float, float, float, float] = (
+    1.18,
+    0.92,
+    1.12,
+    1.32,
+    0.96,
+)
+_CAG_DADOS_AG_L1_SUM = sum(_CAG_DADOS_AG_L1_COL_WIDTHS)
+# Total + lista na mesma linha: duas colunas com o mesmo peso que «Natureza» (2.ª col. da L1); terceira absorve o resto.
+_CAG_PACOTE_PEND_L1_COL_WIDTHS: tuple[float, float, float] = (
+    _CAG_DADOS_AG_L1_COL_WIDTHS[1],
+    _CAG_DADOS_AG_L1_COL_WIDTHS[1],
+    float(_CAG_DADOS_AG_L1_SUM - 2.0 * _CAG_DADOS_AG_L1_COL_WIDTHS[1]),
 )
 
 
@@ -113,10 +141,23 @@ _CAG_STATUS_DB_TO_LBL: dict[str, str] = {
     "PRE_AGENDADO": "Pré-agendado",
     "AGENDADO": "Agendado",
     "CONFIRMADO": "Confirmado",
-    "REALIZADO_PENDENTE_PGTO": "Realizado (pendente pagamento)",
+    "REALIZADO_PENDENTE_PGTO": ESTADO_AGENDAMENTO_REALIZADO_PENDENTE_LABEL_PT,
     "CONCLUIDO": "Concluído",
     "CANCELADO": "Cancelado",
 }
+
+_CAG_AG_LIST_COL_DATA = "Data do Agendamento"
+_CAG_AG_LIST_COL_PAGAMENTO = "Status do Pagamento"
+_CAG_AG_LIST_COL_COLABORADOR = "Colaborador"
+_CAG_AG_LIST_SORT_LEGACY_DATA = "Data"
+
+
+def _cag_normalize_sort_col_ag_list(col: object) -> str:
+    s = str(col or "").strip()
+    if s == _CAG_AG_LIST_SORT_LEGACY_DATA:
+        return _CAG_AG_LIST_COL_DATA
+    return s if s else _CAG_AG_LIST_COL_DATA
+
 
 # Uma única chave para o select «Estado» no formulário. Chaves por `aid` faziam o utilizador
 # editar `cag_ag_status_lbl_novo` (modo novo) enquanto o «Salvar» lia `cag_ag_status_lbl_{id}`
@@ -182,17 +223,136 @@ def _cag_pagamento_pago_ou_parcial(rotulo: str) -> bool:
     return r.startswith("Pago") or "Parcialmente" in r
 
 
+def _cag_aplicar_linha_servico_adquirido_pendente(
+    rows: list[dict[str, Any]], token: str
+) -> None:
+    """Preenche Natureza / Serviço / pacote a partir da opção «Serviços adquiridos…»."""
+    row = next((x for x in rows if x.get("token") == token), None)
+    if not row:
+        st.session_state.pop("cag_ag_credito_vi_id", None)
+        st.session_state.pop("cag_ag_credito_ps_id", None)
+        return
+    st.session_state.cag_ag_credito_vi_id = int(row["venda_item_id"])
+    ps = row.get("pacote_sessao_id")
+    if ps is not None:
+        st.session_state.cag_ag_credito_ps_id = int(ps)
+    else:
+        st.session_state.pop("cag_ag_credito_ps_id", None)
+    st.session_state.cag_ag_natureza = str(row.get("natureza") or "Sessão")
+    st.session_state.cag_ag_servico_esc = str(row.get("servico_esc") or "")
+    pesc = row.get("pacote_sessao_esc")
+    if pesc:
+        st.session_state.cag_ag_pacote_sessao_esc = str(pesc)
+    else:
+        st.session_state.pop("cag_ag_pacote_sessao_esc", None)
+
+
+def _cag_sincronizar_servicos_adquiridos_pendente(cliente_id: int) -> list[dict[str, Any]]:
+    """Mantém `cag_ag_sap_sel` válido e aplica crédito de venda quando o token muda."""
+    rows = listar_opcoes_servicos_adquiridos_pendente_pre_agendamento(int(cliente_id))
+    st.session_state["_cag_ag_sap_rows_flat"] = rows
+    if not rows:
+        st.session_state.pop("cag_ag_credito_vi_id", None)
+        st.session_state.pop("cag_ag_credito_ps_id", None)
+        st.session_state.cag_ag_sap_sel = "__none__"
+        st.session_state.pop("_cag_ag_sap_last_applied_tok", None)
+        return rows
+    toks = [str(r["token"]) for r in rows]
+    cur = str(st.session_state.get("cag_ag_sap_sel") or "")
+    if cur not in toks:
+        cur = toks[0]
+        st.session_state.cag_ag_sap_sel = cur
+    prev = str(st.session_state.get("_cag_ag_sap_last_applied_tok") or "")
+    if cur != prev:
+        st.session_state._cag_ag_sap_last_applied_tok = cur
+        _cag_aplicar_linha_servico_adquirido_pendente(rows, cur)
+    return rows
+
+
+def _cag_opt_pos_int(v: object) -> int | None:
+    if v is None:
+        return None
+    try:
+        n = int(v)
+    except (TypeError, ValueError):
+        return None
+    return n if n > 0 else None
+
+
+def _cag_credito_venda_item_ainda_pendente_na_lista(
+    cliente_id: int,
+    vi_id: int,
+    ps_id: int | None,
+    ss: Any,
+) -> bool:
+    esc = str(ss.get("cag_ag_servico_esc") or "")
+    pesc = str(ss.get("cag_ag_pacote_sessao_esc") or "")
+    for op in listar_opcoes_servicos_adquiridos_pendente_pre_agendamento(int(cliente_id)):
+        if int(op["venda_item_id"]) != int(vi_id):
+            continue
+        op_ps = op.get("pacote_sessao_id")
+        if (int(op_ps) if op_ps is not None else None) != (
+            int(ps_id) if ps_id is not None else None
+        ):
+            continue
+        if esc != str(op.get("servico_esc") or ""):
+            continue
+        if op.get("pacote_sessao_esc"):
+            if pesc != str(op.get("pacote_sessao_esc") or ""):
+                continue
+        else:
+            if pesc:
+                continue
+        return True
+    return False
+
+
+def _cag_colaboradores_lista_texto(ag: dict[str, Any]) -> str:
+    """Nomes dos colaboradores do agendamento, só texto (sem identificadores internos)."""
+    nomes = [
+        nome_colaborador_sem_sufixo_id_ui(n)
+        for n in (ag.get("colaboradores_nomes") or [])
+        if str(n).strip()
+    ]
+    nomes = [n for n in nomes if n]
+    return ", ".join(nomes) if nomes else "—"
+
+
+def _cag_colab_multiselect_label(col_lbl: dict[int, str], opt_id: int) -> str:
+    """Rótulo do multiselect: apenas o nome vindo do catálogo de colaboradores."""
+    return nome_colaborador_sem_sufixo_id_ui(col_lbl.get(int(opt_id))) or "—"
+
+
+def _cag_tipo_atendimento_lista_label(db_val: str | None) -> str:
+    t = str(db_val or "").strip().lower()
+    if t == "virtual":
+        return "Virtual"
+    if t == "presencial":
+        return "Presencial"
+    s = str(db_val or "").strip()
+    return s if s else "—"
+
+
 def _cag_sort_ag_rows(
     rows: list[dict[str, Any]], *, col: str, asc: bool
 ) -> list[dict[str, Any]]:
+    col = _cag_normalize_sort_col_ag_list(col)
     key_map = {
-        "Data": lambda x: str(x.get("data_agendamento") or ""),
+        _CAG_AG_LIST_COL_DATA: lambda x: str(x.get("data_agendamento") or ""),
+        _CAG_AG_LIST_COL_PAGAMENTO: lambda x: str(x.get("pagamento") or "").casefold(),
+        "Nome do Cliente": lambda x: str(x.get("cliente_nome") or "").casefold(),
         "Início": lambda x: str(x.get("hora_inicio") or ""),
         "Fim": lambda x: str(x.get("hora_fim") or ""),
+        "Natureza": lambda x: str(x.get("servico_natureza") or "").casefold(),
         "Serviço": lambda x: str(x.get("servico_nome") or "").lower(),
+        _CAG_AG_LIST_COL_COLABORADOR: lambda x: _cag_colaboradores_lista_texto(
+            x
+        ).casefold(),
+        "Nome do Pacote": lambda x: str(x.get("nome_do_pacote") or "").casefold(),
         "Estado": lambda x: str(x.get("status") or ""),
+        "Tipo de Atendimento": lambda x: str(x.get("tipo_atendimento") or "").casefold(),
     }
-    fn = key_map.get(col, key_map["Data"])
+    fn = key_map.get(col, key_map[_CAG_AG_LIST_COL_DATA])
     out = sorted(rows, key=fn, reverse=not asc)
     return out
 
@@ -207,7 +367,9 @@ def _cag_list_offset_para_agendamento(
 ) -> int:
     """`offset_key` da página da tabela que contém o agendamento (mesma ordenação que a listagem)."""
     todos = listar_agendamentos(cliente_ids=[int(cliente_id)])
-    sort_col = str(st.session_state.get(sort_col_k) or "Data")
+    sort_col = _cag_normalize_sort_col_ag_list(
+        st.session_state.get(sort_col_k) or _CAG_AG_LIST_COL_DATA
+    )
     asc = str(st.session_state.get(sort_dir_k) or "Ascendente") == "Ascendente"
     ordered = _cag_sort_ag_rows(todos, col=sort_col, asc=asc)
     ps = max(1, int(page_size))
@@ -406,7 +568,7 @@ def _cag_ag_commit_wizard_payload(payload: dict[str, Any]) -> tuple[bool, str, s
             )
             extra_rev = f" ({msg_rev})" if not ok_rev and msg_rev else ""
             return False, f"{msg_s} Alterações aos dados revertidas.{extra_rev}", ""
-        if "⚠️" in msg_s or "REALIZADO" in msg_s:
+        if "⚠️" in msg_s or "REALIZADO_PENDENTE_PGTO" in msg_s:
             return True, msg_u, msg_s
     return True, msg_u, ""
 
@@ -721,7 +883,7 @@ def _cag_executar_gravacao_ficha(*, eid: int | None, fk: str, tem_cliente: bool)
 
     ok_t, tel_e164, err_t = ler_e164_de_widgets(f"{fk}_tel_pri")
     if not ok_t:
-        st.error(err_t)
+        _cag_ficha_set_flash("error", str(err_t or "Contacto inválido."))
         return
     emerg_l: list[tuple[str, str]] = []
     em_err = False
@@ -732,7 +894,7 @@ def _cag_executar_gravacao_ficha(*, eid: int | None, fk: str, tem_cliente: bool)
             if not en and not ok_e:
                 continue
             if not en or not ok_e:
-                st.error(err_e or "❌ Contacto de emergência incompleto.")
+                _cag_ficha_set_flash("error", str(err_e or "❌ Contacto de emergência incompleto."))
                 em_err = True
                 break
             emerg_l.append((en, e164_e))
@@ -772,10 +934,10 @@ def _cag_executar_gravacao_ficha(*, eid: int | None, fk: str, tem_cliente: bool)
             )
             # Recarregar ficha no próximo rerun (antes dos widgets): aqui `cag_*_nome` etc. já estão ligados a widgets.
             st.session_state["_cag_reload_ficha_after_save"] = (fk, int(eid))
-            st.success(msg)
+            _cag_ficha_set_flash("success", str(msg))
             st.rerun()
         else:
-            st.error(msg)
+            _cag_ficha_set_flash("error", str(msg))
         return
 
     ok, msg = cadastrar_cliente(
@@ -802,7 +964,7 @@ def _cag_executar_gravacao_ficha(*, eid: int | None, fk: str, tem_cliente: bool)
         data_nascimento=data_nasc_iso or None,
     )
     if not ok:
-        st.error(msg)
+        _cag_ficha_set_flash("error", str(msg))
         return
     cid_new = buscar_cliente_por_whatsapp(tel_e164)
     if cid_new:
@@ -811,9 +973,9 @@ def _cag_executar_gravacao_ficha(*, eid: int | None, fk: str, tem_cliente: bool)
         st.session_state.cag_ficha_loaded_sig = None
         st.session_state.cag_ag_hidr_pick = None
         st.session_state.cag_cli_carregado_pesquisa = False
-        st.success(msg + f" Cliente #{cid_new} seleccionado.")
+        _cag_ficha_set_flash("success", str(msg) + f" Cliente #{cid_new} seleccionado.")
         st.rerun()
-    st.success(msg)
+    _cag_ficha_set_flash("success", str(msg))
 
 
 def _render_cag_setor3_dados_pessoais_completo(*, fk: str, tem_cliente: bool, eid: int | None) -> None:
@@ -930,9 +1092,8 @@ def _render_cag_setor3_dados_pessoais_completo(*, fk: str, tem_cliente: bool, ei
             unsafe_allow_html=True,
         )
         _temf = str(st.session_state.get(fk_temf, "Não"))
-        # Segunda coluna mínima quando «Não»: sem `number_input` (some da UI). Com «Sim»: campo ao lado do rádio.
-        _cw = [2.2, 0.65] if _temf == "Sim" else [1.0, 0.02]
-        c_pf_rad, c_pf_qtd = st.columns(_cw, gap="small", vertical_alignment="center")
+        # Coluna estreita para o rádio, coluna estreita para a quantidade (só com «Sim»); o resto não absorve largura.
+        c_pf_rad, c_pf_qtd, _c_pf_pad = st.columns([0.52, 0.28, 3.2], gap="small", vertical_alignment="center")
         with c_pf_rad:
             st.radio(
                 "Possui Filhos?",
@@ -943,7 +1104,7 @@ def _render_cag_setor3_dados_pessoais_completo(*, fk: str, tem_cliente: bool, ei
                 label_visibility="collapsed",
             )
         with c_pf_qtd:
-            if str(st.session_state.get(fk_temf, "Não")) == "Sim":
+            if _temf == "Sim":
                 st.number_input(
                     "Quantos filhos?",
                     min_value=1,
@@ -1029,6 +1190,13 @@ def _render_cag_setor3_dados_pessoais_completo(*, fk: str, tem_cliente: bool, ei
             disabled=tem_cliente and dis,
         ):
             _cag_executar_gravacao_ficha(eid=eid, fk=fk, tem_cliente=tem_cliente)
+        _ficha_flash = st.session_state.pop(_CAG_FICHA_FLASH_KEY, None)
+        if isinstance(_ficha_flash, tuple) and len(_ficha_flash) == 2:
+            _fk, _fm = _ficha_flash
+            if _fk == "success":
+                st.success(_fm)
+            elif _fk == "error":
+                st.error(_fm)
 
 
 def _cag_coletar_filhos_do_form(fk: str, tem_filhos: bool, qtd: int) -> list[tuple[str, int, str] | tuple[str, int, str, str]]:
@@ -1066,6 +1234,95 @@ def _cag_sync_ag_tipo_sala_state() -> None:
         sv = str(st.session_state.get("cag_ag_sala_virtual") or "")
         if sv not in ("Sim", "Não"):
             st.session_state.cag_ag_sala_virtual = "Não"
+
+
+def _cag_ficha_set_flash(kind: Literal["success", "error"], msg: str) -> None:
+    st.session_state[_CAG_FICHA_FLASH_KEY] = (kind, str(msg).strip())
+
+
+def _cag_format_duracao_catalogo_horas(h: float) -> str:
+    """Formato de duração do catálogo («Duração (HH:MM) *», ex.: 1:30h)."""
+    x = round(max(0.25, min(24.0, float(h))) / 0.25) * 0.25
+    s = f"{x:.2f}".replace(".", ",").rstrip("0").rstrip(",")
+    return f"{s} h" if s else "0,25 h"
+
+
+def _cag_parse_hhmm(s: str) -> tuple[int, int] | None:
+    m = re.match(r"^\s*(\d{1,2}):(\d{2})\s*$", s or "")
+    if not m:
+        return None
+    hh, mm = int(m.group(1)), int(m.group(2))
+    if not (0 <= hh <= 23 and 0 <= mm <= 59):
+        return None
+    return hh, mm
+
+
+def _cag_add_hours_to_hhmm(hi: str, hours: float) -> str:
+    t = _cag_parse_hhmm(hi)
+    if t is None:
+        return ""
+    hh, mm = t
+    base = datetime(2000, 1, 1, hh, mm)
+    end = base + timedelta(hours=float(hours))
+    return end.strftime("%H:%M")
+
+
+def _cag_ag_ui_natureza_e_pacote() -> bool:
+    nat = str(st.session_state.get("cag_ag_natureza") or "")
+    return _cag_natureza_cmp_key(nat) == _cag_natureza_cmp_key("Pacote")
+
+
+def _cag_parse_pacote_sessao_esc_val(raw: str) -> tuple[int | None, int | None]:
+    """Extrai `pacote_sessao_id` e `sessao_servico_id` de `psid|sid` ou `psid|sid|u{k}`."""
+    s = str(raw or "").strip()
+    parts = s.split("|")
+    if len(parts) < 2:
+        return None, None
+    try:
+        return int(parts[0]), int(parts[1])
+    except ValueError:
+        return None, None
+
+
+def _cag_ag_servico_id_para_duracao(*, modo_novo: bool, aid_sel: int | None) -> int | None:
+    if not modo_novo and aid_sel is not None:
+        ag = obter_agendamento(int(aid_sel))
+        if not ag:
+            return None
+        try:
+            sid = int(ag.get("servico_id") or 0)
+        except (TypeError, ValueError):
+            return None
+        return sid if sid > 0 else None
+    if modo_novo:
+        if _cag_ag_ui_natureza_e_pacote():
+            pesc = str(st.session_state.get("cag_ag_pacote_sessao_esc") or "")
+            _ps, sid = _cag_parse_pacote_sessao_esc_val(pesc)
+            if sid is None or int(sid) <= 0:
+                return None
+            return int(sid)
+        esc = str(st.session_state.get("cag_ag_servico_esc") or "")
+        if "|" not in esc:
+            return None
+        try:
+            sid = int(esc.split("|", 1)[0])
+        except ValueError:
+            return None
+        return sid if sid > 0 else None
+    return None
+
+
+def _cag_ag_duracao_label_e_hf_para_state(*, modo_novo: bool, aid_sel: int | None) -> tuple[str, int | None]:
+    """Actualiza `cag_ag_hf` (somente leitura na UI) a partir da hora início + duração do catálogo."""
+    sid = _cag_ag_servico_id_para_duracao(modo_novo=modo_novo, aid_sel=aid_sel)
+    if sid is None:
+        st.session_state.cag_ag_hf = ""
+        return "—", None
+    dur = obter_duracao_referencia_agendamento_horas(int(sid))
+    lbl = _cag_format_duracao_catalogo_horas(dur)
+    hi = str(st.session_state.get("cag_ag_hi") or "").strip()
+    st.session_state.cag_ag_hf = _cag_add_hours_to_hhmm(hi, dur) if hi else ""
+    return lbl, sid
 
 
 def _cag_read_tipo_sala_db_from_state() -> tuple[str | None, int | None, str | None]:
@@ -1109,6 +1366,23 @@ def _cag_hidratar_form_ag(ag: dict[str, Any]) -> None:
         st.session_state.cag_ag_sala_virtual = "Sim" if int(sv) == 1 else "Não"
     else:
         st.session_state.cag_ag_sala_virtual = "—"
+    st.session_state.pop("cag_ag_pacote_sessao_esc", None)
+    st.session_state.pop("_cag_ag_pkg_sess_sig", None)
+    psid = ag.get("pacote_sessao_id")
+    pkg_cat = ag.get("pacote_servico_catalogo_id")
+    nome_pkg = str(ag.get("nome_do_pacote") or "").strip()
+    if psid and pkg_cat:
+        st.session_state.cag_ag_natureza = "Pacote"
+        st.session_state.cag_ag_servico_esc = f"{int(pkg_cat)}|{nome_pkg or 'Pacote'}"
+        cid_h = int(ag.get("cliente_id") or 0)
+        _tot_h, _opts_h = analisar_sessoes_pacote_pendentes_cag(cid_h, int(pkg_cat))
+        _vals_h = [v for v, _ in _opts_h]
+        _pref = f"{int(psid)}|{int(ag['servico_id'])}|"
+        _hit = next((v for v in _vals_h if v.startswith(_pref)), None)
+        st.session_state.cag_ag_pacote_sessao_esc = _hit or (_vals_h[0] if _vals_h else f"{int(psid)}|{int(ag['servico_id'])}|u1")
+        st.session_state._cag_ag_pkg_sess_sig = f"{int(pkg_cat)}:{cid_h}"
+    else:
+        st.session_state.cag_ag_natureza = str(ag.get("servico_natureza") or "Sessão")
 
 
 _CAG_PENDING_HIDRATAR_AG_ID_KEY = "_cag_pending_hidratar_ag_id"
@@ -1144,6 +1418,8 @@ def _cag_limpar_form_ag_novo() -> None:
     st.session_state.cag_ag_hf = "10:00"
     st.session_state.cag_ag_obs = ""
     st.session_state.cag_ag_natureza = "Sessão"
+    st.session_state.pop("cag_ag_pacote_sessao_esc", None)
+    st.session_state.pop("_cag_ag_pkg_sess_sig", None)
     st.session_state.cag_ag_tipo_atendimento = "Presencial"
     st.session_state.cag_ag_sala_virtual = "—"
     st.session_state[CAG_AG_STATUS_UI_KEY] = "Agendado"
@@ -1268,14 +1544,14 @@ def _cag_setor4_run_flash_wizards_pend(
             with _spL:
                 st.empty()
             with b1:
-                if st.button("Sim", key=f"cag_wz_saldo_y_{fv}", use_container_width=True):
+                if st.button("Sim", key=f"cag_wz_saldo_y_{fv}", width="stretch"):
                     st.session_state.cag_ag_wizard = {
                         "step": "edit_alert",
                         "payload": {**pl, "converter_credito": True, "saldo_choice": "sim"},
                     }
                     st.rerun()
             with b2:
-                if st.button("Não", key=f"cag_wz_saldo_n_{fv}", use_container_width=True):
+                if st.button("Não", key=f"cag_wz_saldo_n_{fv}", width="stretch"):
                     st.session_state.cag_ag_wizard = {
                         "step": "edit_alert",
                         "payload": {**pl, "converter_credito": False, "saldo_choice": "nao"},
@@ -1292,7 +1568,7 @@ def _cag_setor4_run_flash_wizards_pend(
             with _spL:
                 st.empty()
             with b1:
-                if st.button("Sim", key=f"cag_wz_ed_y_{fv}", use_container_width=True):
+                if st.button("Sim", key=f"cag_wz_ed_y_{fv}", width="stretch"):
                     ok_c, msg_c, xtra = _cag_ag_commit_wizard_payload(pl)
                     if not ok_c:
                         st.error(msg_c)
@@ -1326,7 +1602,7 @@ def _cag_setor4_run_flash_wizards_pend(
                         )
                         st.rerun()
             with b2:
-                if st.button("Não", key=f"cag_wz_ed_n_{fv}", use_container_width=True):
+                if st.button("Não", key=f"cag_wz_ed_n_{fv}", width="stretch"):
                     _discard_wizard()
             with _spR:
                 st.empty()
@@ -1341,7 +1617,7 @@ def _cag_setor4_run_flash_wizards_pend(
         with _spL:
             st.empty()
         with b1:
-            if st.button("Sim", key=f"cag_novo_ag_sim_{fv}", type="primary", use_container_width=True):
+            if st.button("Sim", key=f"cag_novo_ag_sim_{fv}", type="primary", width="stretch"):
                 st.session_state.pop("cag_ag_pending_novo_dialog", None)
                 st.session_state.pop("cag_ag_last_created_id", None)
                 st.session_state[pick_key] = "__novo__"
@@ -1350,7 +1626,7 @@ def _cag_setor4_run_flash_wizards_pend(
                 _cag_schedule_lib_ag_edit(True)
                 st.rerun()
         with b2:
-            if st.button("Não", key=f"cag_novo_ag_nao_{fv}", use_container_width=True):
+            if st.button("Não", key=f"cag_novo_ag_nao_{fv}", width="stretch"):
                 st.session_state.pop("cag_ag_pending_novo_dialog", None)
                 last_id = st.session_state.pop("cag_ag_last_created_id", None)
                 if last_id is not None:
@@ -1603,7 +1879,7 @@ def _cag_render_conversao_pacote_hoje_block(
     )
     with st.expander("Converter para consumo de pacote (hoje)", expanded=False):
         st.caption(
-            "Uma sessão com **data de hoje**, não concluída nem em «Realizado pendente pagamento», "
+            f"Uma sessão com **data de hoje**, não concluída nem em «{ESTADO_AGENDAMENTO_REALIZADO_PENDENTE_LABEL_PT}», "
             "ligada a um componente do pacote com saldo disponível."
         )
         opts_vals: list[str] = []
@@ -1654,6 +1930,133 @@ def _cag_render_conversao_pacote_hoje_block(
                         st.error(msg_c)
 
 
+def _cag_render_select_sessoes_pacote_cag(*, cliente_id: int, dis_ag: bool) -> None:
+    """Só com Natureza = Pacote: total + lista na mesma linha, cada um com a largura da coluna «Natureza»."""
+    if not _cag_ag_ui_natureza_e_pacote():
+        return
+    esc = str(st.session_state.get("cag_ag_servico_esc") or "")
+    if "|" not in esc:
+        return
+    try:
+        pid = int(esc.split("|", 1)[0])
+    except ValueError:
+        return
+    if not listar_sessoes_do_pacote_catalogo(pid):
+        st.warning("Este pacote não tem sessões configuradas no catálogo.")
+        st.session_state.pop("cag_ag_pacote_sessao_esc", None)
+        return
+
+    total, opcoes = analisar_sessoes_pacote_pendentes_cag(int(cliente_id), pid)
+    if int(total) == 0:
+        st.warning(
+            "Todas as sessões deste pacote para este cliente já foram devidamente agendadas."
+        )
+        st.session_state.pop("cag_ag_pacote_sessao_esc", None)
+        return
+
+    opts = [v for v, _ in opcoes]
+    lbl_map = {v: lab for v, lab in opcoes}
+
+    pkg_sig = f"{pid}:{int(cliente_id)}"
+    if st.session_state.get("_cag_ag_pkg_sess_sig") != pkg_sig:
+        st.session_state._cag_ag_pkg_sess_sig = pkg_sig
+        st.session_state.pop("cag_ag_pacote_sessao_esc", None)
+    curv = str(st.session_state.get("cag_ag_pacote_sessao_esc") or "")
+    if curv not in opts:
+        st.session_state.cag_ag_pacote_sessao_esc = opts[0]
+
+    # Mesma fração de largura que «Natureza» (1.05 / soma L1) para cada widget; mesma linha, ordem total → lista.
+    c_tot, c_lst, _c_sp = st.columns(_CAG_PACOTE_PEND_L1_COL_WIDTHS, gap="small")
+    with c_tot:
+        st.text_input(
+            "Total de Agendamentos pendentes do Pacote",
+            value=str(int(total)),
+            key=f"cag_ag_pacote_pend_tot_{int(cliente_id)}_{pid}_{int(total)}",
+            disabled=True,
+        )
+    with c_lst:
+        st.selectbox(
+            "Lista de Sessoes do Pacote Pendente Agendamento",
+            options=opts,
+            format_func=lambda v, _m=lbl_map: _m.get(str(v), str(v)),
+            key="cag_ag_pacote_sessao_esc",
+            disabled=dis_ag,
+        )
+
+
+def _cag_render_dados_ag_linha1_novo_fora_form(
+    *,
+    cliente_id: int,
+    all_srv: list[dict[str, str | int]],
+    col_opts: list[int],
+    col_lbl: dict[int, str],
+    dis_ag: bool,
+    aid_sel: int | None,
+) -> None:
+    """Serviços adquiridos pendentes + Natureza + Serviço + colaboradores + estado **fora** do `st.form`.
+
+    Sem isto, o Streamlit atrasa `session_state` dos widgets do form até ao submit e o «Serviço»
+    não reflecte a «Natureza» escolhida no mesmo rerun.
+    """
+    sap_rows = _cag_sincronizar_servicos_adquiridos_pendente(int(cliente_id))
+    sap_toks = [str(r["token"]) for r in sap_rows] if sap_rows else ["__none__"]
+    sap_lbl = {str(r["token"]): str(r.get("rotulo") or r["token"]) for r in sap_rows}
+    sap_lbl["__none__"] = "— Nenhum neste estado —"
+
+    r1c0, r1c1, r1c2, r1c3, r1c4 = st.columns(_CAG_DADOS_AG_L1_COL_WIDTHS, gap="small")
+    with r1c0:
+        st.selectbox(
+            "Serviços adquiridos pendente agendamento",
+            options=sap_toks,
+            format_func=lambda t, _m=sap_lbl: _m.get(str(t), str(t)),
+            key="cag_ag_sap_sel",
+            disabled=dis_ag or (not sap_rows),
+            help="Campo Ordenado por Data de Contratação",
+        )
+    with r1c1:
+        naturezas_opts = list(_CAG_NATUREZAS_AGENDA_NOVO)
+        cur_nat = str(st.session_state.get("cag_ag_natureza") or "").strip()
+        if cur_nat not in naturezas_opts:
+            st.session_state.cag_ag_natureza = naturezas_opts[0]
+        st.selectbox("Natureza", naturezas_opts, key="cag_ag_natureza", disabled=dis_ag)
+    with r1c2:
+        nat = str(st.session_state.get("cag_ag_natureza") or "Sessão")
+        nk = _cag_natureza_cmp_key(nat)
+        filtrados = [s for s in all_srv if _cag_natureza_cmp_key(str(s.get("natureza") or "")) == nk]
+        choices = [f"{int(s['id'])}|{s['nome']}" for s in filtrados]
+        if not choices:
+            st.warning(
+                f"Não há serviços **{nat}** activos no catálogo. Crie ou active um serviço em **Catálogo**."
+            )
+            st.session_state.cag_ag_servico_esc = ""
+        else:
+            if "cag_ag_servico_esc" not in st.session_state or (
+                st.session_state.cag_ag_servico_esc not in choices
+            ):
+                st.session_state.cag_ag_servico_esc = choices[0]
+            st.selectbox("Serviço", options=choices, key="cag_ag_servico_esc", disabled=dis_ag)
+    with r1c3:
+        st.multiselect(
+            "Colaborador(es)",
+            options=col_opts,
+            format_func=lambda i, _m=col_lbl: _cag_colab_multiselect_label(_m, int(i)),
+            key="cag_ag_colabs",
+            disabled=dis_ag,
+        )
+    with r1c4:
+        ag_cur3 = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
+        opts_st = _cag_opcoes_status_edicao(str(ag_cur3["status"]) if ag_cur3 else "AGENDADO")
+        cur_lbl = str(st.session_state.get(CAG_AG_STATUS_UI_KEY) or "Agendado")
+        if cur_lbl not in opts_st:
+            opts_st.insert(0, cur_lbl)
+        opts_st = list(dict.fromkeys(opts_st))
+        st.selectbox("Estado", opts_st, key=CAG_AG_STATUS_UI_KEY, disabled=dis_ag)
+    nat_f = str(st.session_state.get("cag_ag_natureza") or "Sessão")
+    if _cag_natureza_cmp_key(nat_f) != _cag_natureza_cmp_key("Pacote"):
+        st.session_state.pop("cag_ag_pacote_sessao_esc", None)
+        st.session_state.pop("_cag_ag_pkg_sess_sig", None)
+
+
 def _cag_setor4_render_dados_ag_form_e_wizards(
     *, cliente_id: int, fv: int, tem_cliente: bool, ctx: dict[str, Any], dis_ag: bool
 ) -> None:
@@ -1664,39 +2067,38 @@ def _cag_setor4_render_dados_ag_form_e_wizards(
 
     st.markdown("##### Dados do Agendamento")
 
+    all_srv = listar_servicos_para_venda()
+    colabs_all = listar_colaboradores_resumo()
+    col_opts = [c[0] for c in colabs_all]
+    col_lbl = {c[0]: c[1] for c in colabs_all}
+
+    if modo_novo:
+        _cag_render_dados_ag_linha1_novo_fora_form(
+            cliente_id=int(cliente_id),
+            all_srv=all_srv,
+            col_opts=col_opts,
+            col_lbl=col_lbl,
+            dis_ag=dis_ag,
+            aid_sel=aid_sel,
+        )
+        _cag_render_select_sessoes_pacote_cag(cliente_id=int(cliente_id), dis_ag=dis_ag)
+
     with st.form(f"cag_ag_dados_form_{cliente_id}_{fv}", clear_on_submit=False):
-        colabs_all = listar_colaboradores_resumo()
-        col_opts = [c[0] for c in colabs_all]
-        col_lbl = {c[0]: c[1] for c in colabs_all}
-
-        r1c1, r1c2, r1c3 = st.columns(3)
-        with r1c1:
-            st.date_input(
-                "Data (dd/mm/aaaa)",
-                key="cag_ag_data",
-                format="DD/MM/YYYY",
-                disabled=dis_ag,
-            )
-        with r1c2:
-            st.text_input("Hora início (HH:MM)", key="cag_ag_hi", disabled=dis_ag, placeholder="09:00")
-        with r1c3:
-            st.text_input("Hora fim (HH:MM)", key="cag_ag_hf", disabled=dis_ag, placeholder="10:00")
-
-        all_srv = listar_servicos_para_venda()
-
         _cag_sync_ag_tipo_sala_state()
 
-        r2c1, r2c2, r2c3, r2c4, r2c5, r2c6 = st.columns(
-            [1.05, 1.25, 1.45, 1.1, 1.0, 1.0], gap="small"
-        )
-        with r2c1:
-            if modo_novo:
-                naturezas_opts = list(_CAG_NATUREZAS_AGENDA_NOVO)
-                cur_nat = str(st.session_state.get("cag_ag_natureza") or "").strip()
-                if cur_nat not in naturezas_opts:
-                    st.session_state.cag_ag_natureza = naturezas_opts[0]
-                st.selectbox("Natureza", naturezas_opts, key="cag_ag_natureza", disabled=dis_ag)
-            else:
+        if not modo_novo:
+            # Linha 1 (edição): mesmo leiaute que «Novo» (1.ª coluna inactiva neste modo).
+            r1c0, r1c1, r1c2, r1c3, r1c4 = st.columns(_CAG_DADOS_AG_L1_COL_WIDTHS, gap="small")
+            with r1c0:
+                st.selectbox(
+                    "Serviços adquiridos pendente agendamento",
+                    ["—"],
+                    index=0,
+                    key=f"cag_ag_sap_dis_edit_{aid_sel}_{fv}",
+                    disabled=True,
+                    help="Seleccionável em modo «Novo agendamento».",
+                )
+            with r1c1:
                 ag_cur = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
                 nat_cur = str(ag_cur.get("servico_natureza") or "") if ag_cur else ""
                 st.selectbox(
@@ -1705,26 +2107,7 @@ def _cag_setor4_render_dados_ag_form_e_wizards(
                     disabled=True,
                     key=f"cag_ag_nat_combo_{aid_sel}_{fv}",
                 )
-        with r2c2:
-            if modo_novo:
-                nat = str(st.session_state.get("cag_ag_natureza") or "Sessão")
-                nk = _cag_natureza_cmp_key(nat)
-                filtrados = [
-                    s for s in all_srv if _cag_natureza_cmp_key(str(s.get("natureza") or "")) == nk
-                ]
-                choices = [f"{int(s['id'])}|{s['nome']}" for s in filtrados]
-                if not choices:
-                    st.warning(
-                        f"Não há serviços **{nat}** activos no catálogo. Crie ou active um serviço em **Catálogo**."
-                    )
-                    st.session_state.cag_ag_servico_esc = ""
-                else:
-                    if "cag_ag_servico_esc" not in st.session_state or (
-                        st.session_state.cag_ag_servico_esc not in choices
-                    ):
-                        st.session_state.cag_ag_servico_esc = choices[0]
-                    st.selectbox("Serviço", options=choices, key="cag_ag_servico_esc", disabled=dis_ag)
-            else:
+            with r1c2:
                 ag_cur2 = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
                 srv_cur = str(ag_cur2.get("servico_nome") or "") if ag_cur2 else ""
                 st.selectbox(
@@ -1733,22 +2116,64 @@ def _cag_setor4_render_dados_ag_form_e_wizards(
                     disabled=True,
                     key=f"cag_ag_srv_combo_{aid_sel}_{fv}",
                 )
-        with r2c3:
-            st.multiselect(
-                "Colaborador(es)",
-                options=col_opts,
-                format_func=lambda i: col_lbl.get(int(i), str(i)),
-                key="cag_ag_colabs",
+            with r1c3:
+                st.multiselect(
+                    "Colaborador(es)",
+                    options=col_opts,
+                    format_func=lambda i, _m=col_lbl: _cag_colab_multiselect_label(
+                        _m, int(i)
+                    ),
+                    key="cag_ag_colabs",
+                    disabled=dis_ag,
+                )
+            with r1c4:
+                ag_cur3 = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
+                opts_st = _cag_opcoes_status_edicao(str(ag_cur3["status"]) if ag_cur3 else "AGENDADO")
+                cur_lbl = str(st.session_state.get(CAG_AG_STATUS_UI_KEY) or "Agendado")
+                if cur_lbl not in opts_st:
+                    opts_st.insert(0, cur_lbl)
+                opts_st = list(dict.fromkeys(opts_st))
+                st.selectbox("Estado", opts_st, key=CAG_AG_STATUS_UI_KEY, disabled=dis_ag)
+
+        # Linha 2: Data · Hora início · Duração (catálogo, só leitura) · Hora fim (calculada) · Tipo · Sala virtual
+        # Nota: `text_input` da hora início vem antes do sync para, no mesmo rerun, actualizar `cag_ag_hf`.
+        r2c1, r2c2, r2c3, r2c4, r2c5, r2c6 = st.columns(
+            [1.05, 0.92, 1.0, 0.92, 1.02, 1.05], gap="small"
+        )
+        with r2c1:
+            st.date_input(
+                "Data (dd/mm/aaaa)",
+                key="cag_ag_data",
+                format="DD/MM/YYYY",
                 disabled=dis_ag,
             )
+        with r2c2:
+            st.text_input("Hora início (HH:MM)", key="cag_ag_hi", disabled=dis_ag, placeholder="09:00")
+
+        dur_lbl, sid_dur = _cag_ag_duracao_label_e_hf_para_state(modo_novo=modo_novo, aid_sel=aid_sel)
+        _dur_sig = f"{sid_dur}:{dur_lbl}"
+        if st.session_state.get("_cag_ag_dur_ro_sig") != _dur_sig:
+            st.session_state._cag_ag_dur_ro_sig = _dur_sig
+            st.session_state.cag_ag_dur_ro_v = int(st.session_state.get("cag_ag_dur_ro_v", 0)) + 1
+        _dur_ro_v = int(st.session_state.get("cag_ag_dur_ro_v", 0))
+
+        with r2c3:
+            st.selectbox(
+                "Duração",
+                [dur_lbl],
+                index=0,
+                key=f"cag_ag_dur_ro_{_dur_ro_v}",
+                disabled=True,
+                help="Valor definido no catálogo para o serviço seleccionado (como «Duração (HH:MM) *»).",
+            )
         with r2c4:
-            ag_cur3 = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
-            opts_st = _cag_opcoes_status_edicao(str(ag_cur3["status"]) if ag_cur3 else "AGENDADO")
-            cur_lbl = str(st.session_state.get(CAG_AG_STATUS_UI_KEY) or "Agendado")
-            if cur_lbl not in opts_st:
-                opts_st.insert(0, cur_lbl)
-            opts_st = list(dict.fromkeys(opts_st))
-            st.selectbox("Estado", opts_st, key=CAG_AG_STATUS_UI_KEY, disabled=dis_ag)
+            st.text_input(
+                "Hora fim (HH:MM)",
+                key="cag_ag_hf",
+                disabled=True,
+                placeholder="—",
+                help="Calculada automaticamente: hora início + duração do serviço no catálogo.",
+            )
         with r2c5:
             st.selectbox(
                 "Tipo de Atendimento *",
@@ -1794,7 +2219,6 @@ def _cag_setor4_render_dados_ag_form_e_wizards(
         else:
             d_ag = st.session_state.get("cag_ag_data")
             hi = str(st.session_state.get("cag_ag_hi") or "").strip()
-            hf = str(st.session_state.get("cag_ag_hf") or "").strip()
             obs = str(st.session_state.get("cag_ag_obs") or "").strip()
             colab_ids = [int(x) for x in (st.session_state.get("cag_ag_colabs") or [])]
 
@@ -1829,88 +2253,248 @@ def _cag_setor4_render_dados_ag_form_e_wizards(
                         st.session_state[pick_key] = f"id:{int(aid_edit)}"
                         st.session_state["cag_ag_sticky_aid"] = int(aid_edit)
 
+                    sid_sub: int | None = None
+                    if ag_pick is not None:
+                        try:
+                            _xs = int(ag_pick.get("servico_id") or 0)
+                            sid_sub = _xs if _xs > 0 else None
+                        except (TypeError, ValueError):
+                            sid_sub = None
+                    elif modo_novo:
+                        nat_ui = str(st.session_state.get("cag_ag_natureza") or "")
+                        es_pac = _cag_natureza_cmp_key(nat_ui) == _cag_natureza_cmp_key("Pacote")
+                        sid_sub = None
+                        if es_pac:
+                            pesc = str(st.session_state.get("cag_ag_pacote_sessao_esc") or "")
+                            _ps_u, sid_u = _cag_parse_pacote_sessao_esc_val(pesc)
+                            sid_sub = sid_u if sid_u and int(sid_u) > 0 else None
+                        else:
+                            esc0 = str(st.session_state.get("cag_ag_servico_esc") or "")
+                            if "|" in esc0:
+                                try:
+                                    sid_sub = int(esc0.split("|", 1)[0])
+                                except ValueError:
+                                    sid_sub = None
+                    hf_save = ""
+                    if sid_sub is not None:
+                        hf_save = _cag_add_hours_to_hhmm(
+                            hi, obter_duracao_referencia_agendamento_horas(int(sid_sub))
+                        )
+
                     # Sempre gravar como EDIÇÃO se `pick_key` aponta para um agendamento real,
                     # mesmo que `ctx.modo_novo` esteja True (evita duplicar com `criar_agendamento_pre_venda`).
                     if ag_pick is not None:
-                        ag0 = ag_pick
-                        status_lbl = str(
-                            st.session_state.get(CAG_AG_STATUS_UI_KEY)
-                            or st.session_state.get(_cag_ag_status_widget_key(int(aid_edit)))
-                            or ""
-                        ).strip()
-                        status_new = _cag_status_lbl_para_db(status_lbl)
-                        d_iso = d_ag.isoformat()
-                        dev_buf = bool(st.session_state.get("cag_ag_devolver_buffer", True))
-                        if str(ag0.get("modo_origem") or "") == "pre_venda":
-                            dev_buf = False
-                        cancel_trans = status_new == "CANCELADO" and str(ag0["status"]) != "CANCELADO"
-                        is_b = cancel_trans and _cag_pagamento_pago_ou_parcial(
-                            str(ag0.get("pagamento") or "")
-                        )
-                        base_pl: dict[str, Any] = {
-                            "cliente_id": int(cliente_id),
-                            "fv": int(fv),
-                            "pick_key": pick_key,
-                            "aid_sel": int(aid_edit),
-                            "d_iso": d_iso,
-                            "hi": hi,
-                            "hf": hf,
-                            "obs": obs,
-                            "colab_ids": colab_ids,
-                            "status_lbl": status_lbl,
-                            "status_new": status_new,
-                            "dev_buf": dev_buf,
-                            "converter_credito": False,
-                            "saldo_choice": None,
-                            "tipo_atendimento": t_db,
-                            "sala_virtual_disponibilizada": s_db,
-                        }
-                        if is_b:
-                            st.session_state.cag_ag_wizard = {"step": "saldo", "payload": base_pl}
+                        if sid_sub and not hf_save:
+                            st.error("Hora início inválida (use HH:MM).")
                         else:
-                            st.session_state.cag_ag_wizard = {"step": "edit_alert", "payload": base_pl}
-                        st.rerun()
+                            ag0 = ag_pick
+                            status_lbl = str(
+                                st.session_state.get(CAG_AG_STATUS_UI_KEY)
+                                or st.session_state.get(_cag_ag_status_widget_key(int(aid_edit)))
+                                or ""
+                            ).strip()
+                            status_new = _cag_status_lbl_para_db(status_lbl)
+                            d_iso = d_ag.isoformat()
+                            dev_buf = bool(st.session_state.get("cag_ag_devolver_buffer", True))
+                            if str(ag0.get("modo_origem") or "") == "pre_venda":
+                                dev_buf = False
+                            cancel_trans = status_new == "CANCELADO" and str(ag0["status"]) != "CANCELADO"
+                            is_b = cancel_trans and _cag_pagamento_pago_ou_parcial(
+                                str(ag0.get("pagamento") or "")
+                            )
+                            base_pl: dict[str, Any] = {
+                                "cliente_id": int(cliente_id),
+                                "fv": int(fv),
+                                "pick_key": pick_key,
+                                "aid_sel": int(aid_edit),
+                                "d_iso": d_iso,
+                                "hi": hi,
+                                "hf": hf_save,
+                                "obs": obs,
+                                "colab_ids": colab_ids,
+                                "status_lbl": status_lbl,
+                                "status_new": status_new,
+                                "dev_buf": dev_buf,
+                                "converter_credito": False,
+                                "saldo_choice": None,
+                                "tipo_atendimento": t_db,
+                                "sala_virtual_disponibilizada": s_db,
+                            }
+                            if is_b:
+                                st.session_state.cag_ag_wizard = {"step": "saldo", "payload": base_pl}
+                            else:
+                                st.session_state.cag_ag_wizard = {"step": "edit_alert", "payload": base_pl}
+                            st.rerun()
                     elif modo_novo:
                         esc = str(st.session_state.get("cag_ag_servico_esc") or "")
-                        if "|" not in esc:
-                            st.error("Seleccione um serviço válido.")
-                        else:
-                            sid = int(esc.split("|", 1)[0])
-                            d_iso = d_ag.isoformat()
-                            ok, msg = criar_agendamento_pre_venda(
-                                int(cliente_id),
-                                sid,
-                                d_iso,
-                                hi,
-                                hf,
-                                colab_ids,
-                                obs,
-                                None,
-                                tipo_atendimento=t_db,
-                                sala_virtual_disponibilizada=s_db,
-                            )
-                            if ok:
-                                new_id = _cag_ag_parse_novo_id(msg)
-                                if new_id is not None:
-                                    st.session_state.cag_ag_last_created_id = new_id
-                                    # Sem isto `pick_key` fica em __novo__: cada «Salvar» voltava a chamar
-                                    # `criar_agendamento_pre_venda` e duplicava linhas sempre AGENDADO.
-                                    st.session_state[pick_key] = f"id:{int(new_id)}"
-                                    st.session_state["cag_ag_sticky_aid"] = int(new_id)
-                                    st.session_state.cag_ag_hidr_pick = None
-                                    st.session_state[offset_key] = _cag_list_offset_para_agendamento(
-                                        cliente_id=int(cliente_id),
-                                        aid=int(new_id),
-                                        sort_col_k=ctx["sort_col_k"],
-                                        sort_dir_k=ctx["sort_dir_k"],
+                        nat_ui = str(st.session_state.get("cag_ag_natureza") or "")
+                        es_pac = _cag_natureza_cmp_key(nat_ui) == _cag_natureza_cmp_key("Pacote")
+                        vi_star = _cag_opt_pos_int(st.session_state.get("cag_ag_credito_vi_id"))
+                        ps_use = _cag_opt_pos_int(st.session_state.get("cag_ag_credito_ps_id"))
+                        ok_cred = vi_star is not None and _cag_credito_venda_item_ainda_pendente_na_lista(
+                            int(cliente_id),
+                            int(vi_star),
+                            ps_use,
+                            st.session_state,
+                        )
+                        if ok_cred:
+                            err_cred: str | None = None
+                            ps_arg: int | None = None
+                            if "|" not in esc:
+                                err_cred = "Seleccione um serviço válido."
+                            elif not hf_save:
+                                err_cred = "Hora início inválida (use HH:MM)."
+                            elif es_pac:
+                                pesc = str(st.session_state.get("cag_ag_pacote_sessao_esc") or "")
+                                if "|" not in pesc:
+                                    err_cred = (
+                                        "Seleccione uma sessão em «Lista de Sessoes do Pacote Pendente "
+                                        "Agendamento»."
                                     )
                                 else:
-                                    st.session_state[offset_key] = 0
-                                st.session_state.cag_ag_flash = "Informações salvas com sucesso."
-                                st.session_state.cag_ag_pending_novo_dialog = "ask"
-                                st.rerun()
+                                    ps_row, sid_sess = _cag_parse_pacote_sessao_esc_val(pesc)
+                                    if ps_row is None or sid_sess is None:
+                                        err_cred = "Opção de sessão do pacote inválida."
+                                    elif ps_use is None or int(ps_row) != int(ps_use):
+                                        err_cred = (
+                                            "A sessão do pacote não corresponde à opção "
+                                            "«Serviços adquiridos pendente agendamento»."
+                                        )
+                                    else:
+                                        ps_arg = int(ps_use)
+                            if err_cred:
+                                st.error(err_cred)
                             else:
-                                st.error(msg)
+                                d_iso = d_ag.isoformat()
+                                ok, msg = criar_agendamento(
+                                    int(vi_star),
+                                    ps_arg,
+                                    d_iso,
+                                    hi,
+                                    hf_save,
+                                    colab_ids,
+                                    obs,
+                                    tipo_atendimento=t_db,
+                                    sala_virtual_disponibilizada=s_db,
+                                )
+                                if ok:
+                                    new_id = _cag_ag_parse_novo_id(msg)
+                                    if new_id is not None:
+                                        st.session_state.cag_ag_last_created_id = new_id
+                                        st.session_state[pick_key] = f"id:{int(new_id)}"
+                                        st.session_state["cag_ag_sticky_aid"] = int(new_id)
+                                        st.session_state.cag_ag_hidr_pick = None
+                                        st.session_state[offset_key] = (
+                                            _cag_list_offset_para_agendamento(
+                                                cliente_id=int(cliente_id),
+                                                aid=int(new_id),
+                                                sort_col_k=ctx["sort_col_k"],
+                                                sort_dir_k=ctx["sort_dir_k"],
+                                            )
+                                        )
+                                    else:
+                                        st.session_state[offset_key] = 0
+                                    st.session_state.cag_ag_flash = "Informações salvas com sucesso."
+                                    st.session_state.cag_ag_pending_novo_dialog = "ask"
+                                    st.rerun()
+                                else:
+                                    st.error(msg)
+                        else:
+                            st.session_state.pop("cag_ag_credito_vi_id", None)
+                            st.session_state.pop("cag_ag_credito_ps_id", None)
+                            if "|" not in esc:
+                                st.error("Seleccione um serviço válido.")
+                            elif es_pac:
+                                pesc = str(st.session_state.get("cag_ag_pacote_sessao_esc") or "")
+                                if "|" not in pesc:
+                                    st.error(
+                                        "Seleccione uma sessão em «Lista de Sessoes do Pacote Pendente "
+                                        "Agendamento»."
+                                    )
+                                elif not hf_save:
+                                    st.error("Hora início inválida (use HH:MM).")
+                                else:
+                                    ps_row, sid_sess = _cag_parse_pacote_sessao_esc_val(pesc)
+                                    if ps_row is None or sid_sess is None:
+                                        st.error("Opção de sessão do pacote inválida.")
+                                    else:
+                                        d_iso = d_ag.isoformat()
+                                        ok, msg = criar_agendamento_pre_venda(
+                                            int(cliente_id),
+                                            sid_sess,
+                                            d_iso,
+                                            hi,
+                                            hf_save,
+                                            colab_ids,
+                                            obs,
+                                            None,
+                                            tipo_atendimento=t_db,
+                                            sala_virtual_disponibilizada=s_db,
+                                            pacote_sessao_id=ps_row,
+                                        )
+                                        if ok:
+                                            new_id = _cag_ag_parse_novo_id(msg)
+                                            if new_id is not None:
+                                                st.session_state.cag_ag_last_created_id = new_id
+                                                st.session_state[pick_key] = f"id:{int(new_id)}"
+                                                st.session_state["cag_ag_sticky_aid"] = int(new_id)
+                                                st.session_state.cag_ag_hidr_pick = None
+                                                st.session_state[offset_key] = (
+                                                    _cag_list_offset_para_agendamento(
+                                                        cliente_id=int(cliente_id),
+                                                        aid=int(new_id),
+                                                        sort_col_k=ctx["sort_col_k"],
+                                                        sort_dir_k=ctx["sort_dir_k"],
+                                                    )
+                                                )
+                                            else:
+                                                st.session_state[offset_key] = 0
+                                            st.session_state.cag_ag_flash = (
+                                                "Informações salvas com sucesso."
+                                            )
+                                            st.session_state.cag_ag_pending_novo_dialog = "ask"
+                                            st.rerun()
+                                        else:
+                                            st.error(msg)
+                            elif not hf_save:
+                                st.error("Hora início inválida (use HH:MM).")
+                            else:
+                                sid = int(esc.split("|", 1)[0])
+                                d_iso = d_ag.isoformat()
+                                ok, msg = criar_agendamento_pre_venda(
+                                    int(cliente_id),
+                                    sid,
+                                    d_iso,
+                                    hi,
+                                    hf_save,
+                                    colab_ids,
+                                    obs,
+                                    None,
+                                    tipo_atendimento=t_db,
+                                    sala_virtual_disponibilizada=s_db,
+                                )
+                                if ok:
+                                    new_id = _cag_ag_parse_novo_id(msg)
+                                    if new_id is not None:
+                                        st.session_state.cag_ag_last_created_id = new_id
+                                        st.session_state[pick_key] = f"id:{int(new_id)}"
+                                        st.session_state["cag_ag_sticky_aid"] = int(new_id)
+                                        st.session_state.cag_ag_hidr_pick = None
+                                        st.session_state[offset_key] = (
+                                            _cag_list_offset_para_agendamento(
+                                                cliente_id=int(cliente_id),
+                                                aid=int(new_id),
+                                                sort_col_k=ctx["sort_col_k"],
+                                                sort_dir_k=ctx["sort_dir_k"],
+                                            )
+                                        )
+                                    else:
+                                        st.session_state[offset_key] = 0
+                                    st.session_state.cag_ag_flash = "Informações salvas com sucesso."
+                                    st.session_state.cag_ag_pending_novo_dialog = "ask"
+                                    st.rerun()
+                                else:
+                                    st.error(msg)
                     else:
                         st.error(
                             "Seleccione um agendamento na tabela (linha) ou use **Novo agendamento** "
@@ -1950,11 +2534,25 @@ def _cag_setor4_render_list_island(*, cliente_id: int, fv: int, ctx: dict[str, A
         "(ex.: mudar a data pode mudar a ordem e a página)."
     )
 
-    st.session_state.setdefault(sort_col_k, "Data")
+    st.session_state.setdefault(sort_col_k, _CAG_AG_LIST_COL_DATA)
+    if st.session_state.get(sort_col_k) == _CAG_AG_LIST_SORT_LEGACY_DATA:
+        st.session_state[sort_col_k] = _CAG_AG_LIST_COL_DATA
     st.session_state.setdefault(sort_dir_k, "Ascendente")
     st.selectbox(
         "Ordenar por coluna",
-        ["Data", "Início", "Fim", "Serviço", "Estado"],
+        [
+            _CAG_AG_LIST_COL_DATA,
+            _CAG_AG_LIST_COL_PAGAMENTO,
+            "Nome do Cliente",
+            "Início",
+            "Fim",
+            "Natureza",
+            "Serviço",
+            _CAG_AG_LIST_COL_COLABORADOR,
+            "Nome do Pacote",
+            "Estado",
+            "Tipo de Atendimento",
+        ],
         key=sort_col_k,
     )
     sort_dir = st.radio(
@@ -1963,7 +2561,9 @@ def _cag_setor4_render_list_island(*, cliente_id: int, fv: int, ctx: dict[str, A
         horizontal=True,
         key=sort_dir_k,
     )
-    sort_col = str(st.session_state.get(sort_col_k) or "Data")
+    sort_col = _cag_normalize_sort_col_ag_list(
+        st.session_state.get(sort_col_k) or _CAG_AG_LIST_COL_DATA
+    )
     sort_asc = sort_dir == "Ascendente"
     sig_now = (sort_col, sort_dir)
     if st.session_state.get(sort_sig_k) != sig_now:
@@ -2005,7 +2605,7 @@ def _cag_setor4_render_list_island(*, cliente_id: int, fv: int, ctx: dict[str, A
             "◀ Anterior (lista)",
             key=f"cag_ag_prev_{fv}",
             disabled=off <= 0,
-            use_container_width=True,
+            width="stretch",
         ):
             st.session_state[offset_key] = max(0, off - page_size)
             st.session_state[tbl_df_v_k] = int(st.session_state.get(tbl_df_v_k, 0)) + 1
@@ -2017,7 +2617,7 @@ def _cag_setor4_render_list_island(*, cliente_id: int, fv: int, ctx: dict[str, A
             "Seguinte (lista) ▶",
             key=f"cag_ag_next_{fv}",
             disabled=off + page_size >= n,
-            use_container_width=True,
+            width="stretch",
         ):
             st.session_state[offset_key] = min(max(0, n - page_size), off + page_size)
             st.session_state[tbl_df_v_k] = int(st.session_state.get(tbl_df_v_k, 0)) + 1
@@ -2027,12 +2627,29 @@ def _cag_setor4_render_list_island(*, cliente_id: int, fv: int, ctx: dict[str, A
         row_ids = [int(a["id"]) for a in chunk]
         df_ag = pd.DataFrame(
             {
-                "Data": [_cag_format_data_pt(str(a["data_agendamento"])) for a in chunk],
+                _CAG_AG_LIST_COL_DATA: [
+                    _cag_format_data_pt(str(a["data_agendamento"])) for a in chunk
+                ],
+                _CAG_AG_LIST_COL_PAGAMENTO: [
+                    (str(a.get("pagamento") or "").strip() or "—") for a in chunk
+                ],
+                "Nome do Cliente": [str(a.get("cliente_nome") or "").strip() for a in chunk],
                 "Início": [str(a["hora_inicio"]) for a in chunk],
                 "Fim": [str(a["hora_fim"]) for a in chunk],
+                "Natureza": [str(a.get("servico_natureza") or "").strip() for a in chunk],
                 "Serviço": [str(a["servico_nome"]) for a in chunk],
+                _CAG_AG_LIST_COL_COLABORADOR: [
+                    _cag_colaboradores_lista_texto(a) for a in chunk
+                ],
+                "Nome do Pacote": [
+                    (str(a.get("nome_do_pacote") or "").strip() or "-") for a in chunk
+                ],
                 "Estado": [
                     _CAG_STATUS_DB_TO_LBL.get(str(a["status"]), str(a["status"])) for a in chunk
+                ],
+                "Tipo de Atendimento": [
+                    _cag_tipo_atendimento_lista_label(str(a.get("tipo_atendimento") or ""))
+                    for a in chunk
                 ],
             }
         )

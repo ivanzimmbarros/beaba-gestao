@@ -45,6 +45,8 @@ def _colab(**kw):
         distrito="",
         pais="Portugal",
         email="prof@beaba.pt",
+        nif_ou_documento="123456789",
+        identificacao_internacional=False,
         numero_contato="11999887766",
         observacoes="",
         servicos_repasse=[_linha_svc(_primeiro_servico_id(), 12.34)],
@@ -61,6 +63,40 @@ def test_listar_servicos_seed():
 def test_cadastro_colaborador_ok():
     ok, msg = _colab()
     assert ok is True
+
+
+def test_freguesia_opcional_em_cadastro_colaborador():
+    ok, msg = _colab(
+        nome="Col Freg Opcional",
+        email="col_freg_opcional@example.com",
+        freguesia="",
+    )
+    assert ok is True
+
+
+def test_nif_obrigatorio_em_cadastro_colaborador():
+    sid = _primeiro_servico_id()
+    ok, msg = cadastrar_colaborador(
+        nome="Sem NIF",
+        sexo="Masculino",
+        data_nascimento=_adult_dob(),
+        endereco_rua="Rua A",
+        endereco_numero="1",
+        endereco_complemento="",
+        codigo_postal="4800-100",
+        concelho="Guimarães",
+        freguesia="Selho",
+        distrito="",
+        pais="Portugal",
+        email="sem_nif_col@example.com",
+        nif_ou_documento="",
+        identificacao_internacional=False,
+        numero_contato="11988776600",
+        observacoes="",
+        servicos_repasse=[_linha_svc(sid, 10.0)],
+    )
+    assert ok is False
+    assert "identificação" in msg.lower() or "nif" in msg.lower()
 
 
 def test_contacto_duplicado():
@@ -103,6 +139,8 @@ def test_data_linha_obrigatoria():
         distrito="",
         pais="Portugal",
         email="x@b.pt",
+        nif_ou_documento="123456789",
+        identificacao_internacional=False,
         numero_contato="11977665544",
         observacoes="",
         servicos_repasse=[(sid, 50.0, "")],
@@ -230,6 +268,8 @@ def test_atualizar_colaborador_e_media_repasse():
         distrito=cur["distrito"],
         pais=cur["pais"],
         email=cur["email"],
+        nif_ou_documento=str(cur.get("nif_ou_documento") or "123456789"),
+        identificacao_internacional=bool(cur.get("identificacao_internacional")),
         numero_contato=cur["whatsapp"],
         observacoes=cur["observacoes"],
         servicos_repasse=[

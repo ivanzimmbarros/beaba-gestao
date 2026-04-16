@@ -49,6 +49,14 @@ def test_cag_busca_nome_integrado_estado_sessao_na_pagina():
     assert "pesquisa_unificada=True" in src
 
 
+def test_cag_servicos_adquiridos_pendentes_help_ordem_contratacao():
+    """Contrato UI: tooltip do selectbox SAP (novo agendamento) = ordenação por data de contratação."""
+    src = (_REPO_ROOT / "src" / "ui" / "page_clientes_agendamentos.py").read_text(encoding="utf-8")
+    needle = 'help="Campo Ordenado por Data de Contratação"'
+    assert needle in src
+    assert src.count(needle) == 1
+
+
 def test_page_clientes_agendamentos_importa_e_expoe_render():
     from src.ui import page_clientes_agendamentos as mod
 

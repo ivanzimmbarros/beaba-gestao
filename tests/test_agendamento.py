@@ -6,15 +6,19 @@ from src.database.connection import get_connection
 from src.modules.agendamento import (
     agendamento_elegivel_conversao_para_pacote_hoje,
     alterar_status,
+    analisar_sessoes_pacote_pendentes_cag,
     associar_agendamento_pre_venda_a_item,
     cancelar_agendamento,
     contar_pre_venda_futuros,
+    contar_total_sessoes_pacote_pendentes_agendamento,
     converter_agendamento_avulso_para_consumo_pacote,
     criar_agendamento,
     criar_agendamento_pre_venda,
     listar_agendamentos_elegiveis_associacao_linha_venda,
+    listar_agendamentos_realizado_pendente_liquidacao_cliente,
     listar_buckets_credito_cliente,
     listar_buckets_pacote_com_saldo_disponivel,
+    listar_opcoes_servicos_adquiridos_pendente_pre_agendamento,
     obter_agendamento,
     pos_venda_associar_agendamentos_por_linha,
     saldo_bucket,
@@ -755,6 +759,128 @@ def test_pos_venda_associacao_parcial_venda_vai_para_rpp():
     assert str(ag2.get("status")) == "REALIZADO_PENDENTE_PGTO"
 
 
+def test_listar_pendente_liquidacao_inclui_modo_pagamento_parcial_sem_previsto():
+    cid = _cliente()
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão Lista Pend ModoParc",
+        "D",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=60.0,
+    )
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Sessão Lista Pend ModoParc",))
+    sid = int(cur.fetchone()[0])
+    conn.close()
+    ok, msg = criar_agendamento_pre_venda(
+        int(cid), sid, "2033-03-10", "09:00", "10:00", [], "", None
+    )
+    assert ok, msg
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM agendamentos ORDER BY id DESC LIMIT 1")
+    ag_id = int(cur.fetchone()[0])
+    conn.close()
+    ok_v, msg_v, vid = registrar_venda(
+        int(cid),
+        "integral",
+        [
+            {
+                "servico_id": sid,
+                "quantidade": 1,
+                "is_bonus": False,
+                "evento_preco": None,
+                "desconto_linha_tipo": "none",
+                "desconto_linha_valor": None,
+            }
+        ],
+        None,
+        None,
+        [("dinheiro", 3000)],
+        [],
+        "lista pend modo parc",
+        modo_pagamento_parcial_sem_previsto=True,
+    )
+    assert ok_v, msg_v
+    assert vid is not None
+    msgs = pos_venda_associar_agendamentos_por_linha(
+        venda_id=int(vid),
+        cliente_id=int(cid),
+        agendamento_ids_por_linha=[ag_id],
+    )
+    assert any("associada" in m.lower() or "✅" in m for m in msgs)
+    pend = listar_agendamentos_realizado_pendente_liquidacao_cliente(int(cid))
+    ids = {int(p["agendamento_id"]) for p in pend}
+    assert ag_id in ids
+    assert any(int(p["aberto_venda_centavos"]) > 0 for p in pend if int(p["agendamento_id"]) == ag_id)
+
+
+def test_listar_pendente_liquidacao_inclui_concluido_com_linha_pagamento_parcial():
+    cid = _cliente()
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão Lista Pend Conc",
+        "D",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=50.0,
+    )
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Sessão Lista Pend Conc",))
+    sid = int(cur.fetchone()[0])
+    conn.close()
+    ok, msg = criar_agendamento_pre_venda(
+        int(cid), sid, "2033-04-05", "11:00", "12:00", [], "", None
+    )
+    assert ok, msg
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM agendamentos ORDER BY id DESC LIMIT 1")
+    ag_id = int(cur.fetchone()[0])
+    conn.close()
+    ok_v, msg_v, vid = registrar_venda(
+        int(cid),
+        "integral",
+        [
+            {
+                "servico_id": sid,
+                "quantidade": 1,
+                "is_bonus": False,
+                "evento_preco": None,
+                "desconto_linha_tipo": "none",
+                "desconto_linha_valor": None,
+            }
+        ],
+        None,
+        None,
+        [("dinheiro", 2000)],
+        [],
+        "lista conc parc",
+        modo_pagamento_parcial_sem_previsto=True,
+    )
+    assert ok_v, msg_v
+    assert vid is not None
+    pos_venda_associar_agendamentos_por_linha(
+        venda_id=int(vid),
+        cliente_id=int(cid),
+        agendamento_ids_por_linha=[ag_id],
+    )
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE agendamentos SET status = 'CONCLUIDO', data_alteracao = CURRENT_TIMESTAMP WHERE id = ?",
+        (int(ag_id),),
+    )
+    conn.commit()
+    conn.close()
+    pend = listar_agendamentos_realizado_pendente_liquidacao_cliente(int(cid))
+    ids = {int(p["agendamento_id"]) for p in pend}
+    assert ag_id in ids
+
+
 def _hoje_iso() -> str:
     return date.today().isoformat()[:10]
 
@@ -1152,6 +1278,8 @@ def test_converter_rejeita_repasse_fora_de_pendente():
         distrito="",
         pais="Portugal",
         email="colab.convpac@beaba.test",
+        nif_ou_documento="123456789",
+        identificacao_internacional=False,
         numero_contato="91222222222",
         observacoes="",
         servicos_repasse=[(sid, 20.0, "2026-01-01")],
@@ -1284,6 +1412,8 @@ def test_converter_apaga_repasse_pendente_e_converte():
         distrito="",
         pais="Portugal",
         email="colab.pen@beaba.test",
+        nif_ou_documento="123456789",
+        identificacao_internacional=False,
         numero_contato="91333333333",
         observacoes="",
         servicos_repasse=[(sid, 15.0, "2026-01-01")],
@@ -1404,3 +1534,82 @@ def test_converter_apaga_repasse_pendente_e_converte():
         == 0
     )
     conn.close()
+
+
+def test_analisar_sessoes_pacote_pendentes_cag_quatro_unidades_e_cancelamento():
+    """Uma opção por unidade (sem «×4»); cancelamento repõe pendência."""
+    cid = _cliente()
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão Psy CAG Pend",
+        "d",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=40.0,
+    )
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Sessão Psy CAG Pend",))
+    s1 = int(cur.fetchone()[0])
+    conn.close()
+    ok_p, msg_p = cadastrar_pacote(
+        "Pacote Psy 4x CAG",
+        "d",
+        True,
+        [(s1, 4, None)],
+        None,
+        40.0,
+        200.0,
+    )
+    assert ok_p, msg_p
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Pacote Psy 4x CAG",))
+    pid = int(cur.fetchone()[0])
+    cur.execute("SELECT id FROM servico_pacote_sessoes WHERE pacote_servico_id = ?", (pid,))
+    psid = int(cur.fetchone()[0])
+    conn.close()
+
+    tot, opts = analisar_sessoes_pacote_pendentes_cag(int(cid), pid)
+    assert tot == 4
+    assert len(opts) == 4
+    assert all(lab == "Sessão Psy CAG Pend" for _v, lab in opts)
+    assert contar_total_sessoes_pacote_pendentes_agendamento(int(cid), pid) == 4
+
+    ok, msg = criar_agendamento_pre_venda(
+        int(cid),
+        s1,
+        "2031-03-10",
+        "09:00",
+        "10:00",
+        [],
+        "",
+        None,
+        tipo_atendimento="presencial",
+        sala_virtual_disponibilizada=None,
+        pacote_sessao_id=psid,
+    )
+    assert ok, msg
+    tot2, opts2 = analisar_sessoes_pacote_pendentes_cag(int(cid), pid)
+    assert tot2 == 3
+    assert len(opts2) == 3
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM agendamentos ORDER BY id DESC LIMIT 1")
+    ag = int(cur.fetchone()[0])
+    conn.close()
+    ok_c, _ = cancelar_agendamento(ag, devolver_ao_buffer=False)
+    assert ok_c
+    tot3, opts3 = analisar_sessoes_pacote_pendentes_cag(int(cid), pid)
+    assert tot3 == 4
+    assert len(opts3) == 4
+
+
+def test_listar_opcoes_servicos_adquiridos_pendente_pre_agendamento_smoke():
+    cid = _cliente()
+    assert cid is not None
+    opts = listar_opcoes_servicos_adquiridos_pendente_pre_agendamento(int(cid))
+    assert isinstance(opts, list)
+    for row in opts:
+        assert "token" in row and "rotulo" in row and "venda_item_id" in row

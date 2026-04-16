@@ -1,3 +1,23 @@
-# Tema claro por defeito — evita área principal escura com “dark mode” do sistema.
+# Tema claro + cores explícitas (incl. sidebar) — evita avisos no consola do browser:
+# "Invalid color passed for primaryColor/textColor in theme.sidebar: \"\""
+# quando o front-end recebe overrides vazios.
 [theme]
 base = "light"
+primaryColor = "#76947D"
+backgroundColor = "#FAF8F5"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#2D332F"
+
+# Sidebar alinhada à Sálvia Sereno; todos os valores têm de ser cores válidas (nunca "").
+[theme.sidebar]
+primaryColor = "#FAF8F5"
+textColor = "#FAF8F5"
+backgroundColor = "#76947D"
+secondaryBackgroundColor = "#5E7865"
+
+[runner]
+# Reruns mais rápidos quando só widgets mudam (menos trabalho por interacção).
+fastReruns = true
+
+[browser]
+gatherUsageStats = false

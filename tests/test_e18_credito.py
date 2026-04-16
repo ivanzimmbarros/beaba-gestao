@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import sqlite3
 
+from src.database.connection import create_tables, get_connection
 from src.modules.credito_ledger import (
+    listar_pagamento_linhas_venda,
     meio_legacy_para_tipo_linha,
+    obter_data_ultimo_pagamento_venda_dd_mm_yyyy,
     registrar_credito_por_cancelamento_agendamento,
     saldo_credito_cliente_centavos,
     total_esperado_liquidacao_venda_centavos,
@@ -90,3 +93,48 @@ def test_gate_total_liquidado_vs_esperado():
     )
     assert total_esperado_liquidacao_venda_centavos(cur, 1) == 7500
     assert total_liquidado_venda_centavos(cur, 1) == 7500
+
+
+def test_listar_pagamento_linhas_e_data_ultimo(tmp_path, monkeypatch):
+    db = tmp_path / "e18_lij.db"
+    monkeypatch.setenv("BEABA_SQLITE_PATH", str(db))
+    create_tables()
+    conn = get_connection()
+    assert conn is not None
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO clientes (nome, whatsapp) VALUES (?, ?)",
+            ("Cli Lij", "+351910000001"),
+        )
+        cid = int(cur.lastrowid)
+        cur.execute(
+            """
+            INSERT INTO vendas (
+                cliente_id, estado_pagamento,
+                subtotal_bruto_centavos, subtotal_apos_descontos_linha_centavos,
+                desconto_global_centavos_aplicado, total_final_centavos, observacoes
+            ) VALUES (?, 'parcial', 5000, 5000, 0, 5000, '')
+            """,
+            (cid,),
+        )
+        vid = int(cur.lastrowid)
+        cur.execute(
+            """
+            INSERT INTO venda_pagamento_linhas
+                (venda_id, ordem, tipo_meio, valor_centavos, criado_em)
+            VALUES
+                (?, 1, 'DINHEIRO_MBWAY', 2000, '2026-03-19 10:00:00'),
+                (?, 2, 'DINHEIRO_MBWAY', 2000, '2026-03-20 15:30:00')
+            """,
+            (vid, vid),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    rows = listar_pagamento_linhas_venda(vid)
+    assert len(rows) == 2
+    assert rows[0]["valor_centavos"] == 2000
+    assert rows[1]["valor_centavos"] == 2000
+    assert obter_data_ultimo_pagamento_venda_dd_mm_yyyy(vid) == "20-03-2026"

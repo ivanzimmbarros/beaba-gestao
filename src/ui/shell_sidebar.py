@@ -12,10 +12,10 @@ import streamlit as st
 # Ordem e chaves alinhadas a `src.app` (Streamlit). Posição 0 = Início (home).
 NAV_ITEMS: list[tuple[str, str]] = [
     ("home", "Início"),
-    ("clientes_agendamentos", "Clientes e Agendamentos"),
     ("vendas", "Painel de Vendas"),
-    ("colaboradores", "Colaboradores"),
+    ("clientes_agendamentos", "Clientes e Agendamentos"),
     ("catalogo", "Catálogo"),
+    ("colaboradores", "Colaboradores"),
     ("financeiro", "Financeiro"),
 ]
 

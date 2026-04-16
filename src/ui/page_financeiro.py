@@ -884,7 +884,7 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
                 key=_k_rep_ano,
             )
 
-        # Largura intrínseca ao texto (como «GRAVAR LANÇAMENTO(S)» — sem use_container_width).
+        # Largura ao conteúdo (default `width='content'` nos botões).
         rb1, rb2, _rb_rest = st.columns([2.2, 3.2, 22], gap="small", vertical_alignment="center")
         with rb1:
             if st.button("PESQUISAR", key="fin_rep_btn_pesquisar"):

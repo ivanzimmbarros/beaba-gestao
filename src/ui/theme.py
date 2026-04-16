@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import streamlit as st
 
+from src.modules.constants import ESTADO_AGENDAMENTO_REALIZADO_PENDENTE_LABEL_PT
+
 COLORS = {
     "primary": "#97C9C5",
     "bg": "#FFFFFF",
@@ -39,7 +41,11 @@ AGENDA_STATUS_STYLES: dict[str, dict[str, str]] = {
     "PRE_AGENDADO": {"bg": "#F0F4FF", "border": "#7B9BD4", "label": "Pré-agendado"},
     "AGENDADO": {"bg": "#E8F4F3", "border": "#97C9C5", "label": "Agendado"},
     "CONFIRMADO": {"bg": "#D4EDDA", "border": "#5CB85C", "label": "Confirmado"},
-    "REALIZADO_PENDENTE_PGTO": {"bg": "#FFF3CD", "border": "#E0A800", "label": "Realizado · pgto pendente"},
+    "REALIZADO_PENDENTE_PGTO": {
+        "bg": "#FFF3CD",
+        "border": "#E0A800",
+        "label": ESTADO_AGENDAMENTO_REALIZADO_PENDENTE_LABEL_PT,
+    },
     "CONCLUIDO": {"bg": "#E2E3E5", "border": "#6C757D", "label": "Concluído"},
     "CANCELADO": {"bg": "#FCE8E8", "border": "#DC3545", "label": "Cancelado"},
 }

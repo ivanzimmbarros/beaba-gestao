@@ -94,7 +94,12 @@ def get_constituicao_shell_css() -> str:
         border-right: none !important;
         box-shadow: none !important;
     }}
-    [data-testid="stSidebar"] * {{
+    /* Não usar `*` aqui: versões recentes do Streamlit envolvem botões/controlo em
+       camadas extra; texto branco forçado + fundo branco do widget = navegação “vazia”. */
+    [data-testid="stSidebar"] .stMarkdown,
+    [data-testid="stSidebar"] .stMarkdown p,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] small {{
         color: #FFFFFF !important;
     }}
     [data-testid="stSidebar"] .bea-sidebar-app-title,
@@ -108,7 +113,7 @@ def get_constituicao_shell_css() -> str:
         border-color: rgba(255, 255, 255, 0.22) !important;
     }}
     /* Itens não seleccionados: leve contraste sobre sálvia */
-    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="secondary"] {{
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="secondary"] {{
         background: rgba(255, 255, 255, 0.08) !important;
         color: #FFFFFF !important;
         border: 1px solid rgba(255, 255, 255, 0.28) !important;
@@ -118,16 +123,16 @@ def get_constituicao_shell_css() -> str:
         font-weight: 500 !important;
         box-shadow: none !important;
     }}
-    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="secondary"]:hover {{
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="secondary"]:hover {{
         background: rgba(255, 255, 255, 0.18) !important;
         border-color: rgba(255, 255, 255, 0.45) !important;
     }}
-    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="secondary"] *,
-    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="secondary"] span {{
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="secondary"] *,
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="secondary"] span {{
         color: #FFFFFF !important;
     }}
     /* Activo: só fundo branco ~15% + raio 12px — sem contorno nem barra lateral */
-    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"] {{
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"] {{
         background: rgba(255, 255, 255, 0.15) !important;
         color: #FFFFFF !important;
         border: none !important;
@@ -138,19 +143,19 @@ def get_constituicao_shell_css() -> str:
         font-weight: 600 !important;
         box-shadow: none !important;
     }}
-    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"]:hover {{
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"]:hover {{
         background: rgba(255, 255, 255, 0.24) !important;
     }}
-    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"]:focus {{
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"]:focus {{
         outline: none !important;
         box-shadow: none !important;
     }}
-    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"]:focus-visible {{
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"]:focus-visible {{
         outline: 2px solid rgba(255, 255, 255, 0.45) !important;
         outline-offset: 2px !important;
     }}
-    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"] *,
-    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"] span {{
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"] *,
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"] span {{
         color: #FFFFFF !important;
     }}
 </style>
@@ -983,6 +988,37 @@ def get_constituicao_vnd_page_css() -> str:
         border: 1px solid rgba(118, 148, 125, 0.12) !important;
         border-radius: 16px !important;
     }}
+    /* Tag Natureza por tipo (linhas de serviço — PDV) */
+    body.bea-cv-vnd-page .bea-venda-comanda-item .bea-com-badge.bea-com-badge--nature-sessao {{
+        background: rgba(220, 38, 38, 0.22) !important;
+        border: 1px solid rgba(185, 28, 28, 0.5) !important;
+        color: #7f1d1d !important;
+    }}
+    body.bea-cv-vnd-page .bea-venda-comanda-item .bea-com-badge.bea-com-badge--nature-pacote {{
+        background: rgba(22, 163, 74, 0.22) !important;
+        border: 1px solid rgba(21, 128, 61, 0.45) !important;
+        color: #14532d !important;
+    }}
+    body.bea-cv-vnd-page .bea-venda-comanda-item .bea-com-badge.bea-com-badge--nature-produto {{
+        background: rgba(37, 99, 235, 0.2) !important;
+        border: 1px solid rgba(29, 78, 216, 0.45) !important;
+        color: #1e3a8a !important;
+    }}
+    body.bea-cv-vnd-page .bea-venda-comanda-item .bea-com-badge.bea-com-badge--nature-coworking {{
+        background: rgba(124, 58, 237, 0.18) !important;
+        border: 1px solid rgba(109, 40, 217, 0.4) !important;
+        color: #5b21b6 !important;
+    }}
+    body.bea-cv-vnd-page .bea-venda-comanda-item .bea-com-badge.bea-com-badge--nature-evento {{
+        background: rgba(234, 88, 12, 0.2) !important;
+        border: 1px solid rgba(194, 65, 12, 0.45) !important;
+        color: #9a3412 !important;
+    }}
+    body.bea-cv-vnd-page .bea-venda-comanda-item .bea-com-badge.bea-com-badge--nature-outros {{
+        background: rgba(118, 148, 125, 0.22) !important;
+        border: 1px solid rgba(118, 148, 125, 0.4) !important;
+        color: #064e3b !important;
+    }}
     .bea-cv-cag-h1 {{
         font-family: var(--cv-serif) !important;
         font-weight: 500 !important;
@@ -1058,6 +1094,59 @@ def get_constituicao_vnd_page_css() -> str:
     section[data-testid="stMain"]:has(.bea-cv-vnd-slot) .block-container [data-testid="stButton"] > button[kind="primary"]:hover,
     body.bea-cv-vnd-page section[data-testid="stMain"] .block-container [data-testid="stButton"] > button[kind="primary"]:hover {{
         filter: brightness(1.05);
+    }}
+    /* Item (expander): rótulo do bónus numa única linha, sem partir «gratuito)» */
+    body.bea-cv-vnd-page div[class*="st-key-"][class*="_bon_"] [data-testid="stCheckbox"],
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot) div[class*="st-key-"][class*="_bon_"] [data-testid="stCheckbox"] {{
+        flex-wrap: nowrap !important;
+    }}
+    body.bea-cv-vnd-page div[class*="st-key-"][class*="_bon_"] [data-testid="stCheckbox"] label[data-testid="stWidgetLabel"],
+    body.bea-cv-vnd-page div[class*="st-key-"][class*="_bon_"] [data-testid="stCheckbox"] label[data-testid="stWidgetLabel"] *,
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot) div[class*="st-key-"][class*="_bon_"] [data-testid="stCheckbox"] label[data-testid="stWidgetLabel"],
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot) div[class*="st-key-"][class*="_bon_"] [data-testid="stCheckbox"] label[data-testid="stWidgetLabel"] * {{
+        white-space: nowrap !important;
+        word-break: keep-all !important;
+        overflow-wrap: normal !important;
+        hyphens: manual !important;
+        flex-shrink: 0 !important;
+    }}
+    /* Pagamento — Adicionar: largura ao conteúdo; «Remover» usa width em px no Python */
+    body.bea-cv-vnd-page div[class*="st-key-"][class*="_pay_add"] [data-testid="stButton"] > button,
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot) div[class*="st-key-"][class*="_pay_add"] [data-testid="stButton"] > button {{
+        width: fit-content !important;
+        max-width: 100% !important;
+        min-width: unset !important;
+        white-space: nowrap !important;
+        box-sizing: border-box !important;
+    }}
+    body.bea-cv-vnd-page div[class*="st-key-"][class*="_pay_add"] [data-testid="stButton"],
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot) div[class*="st-key-"][class*="_pay_add"] [data-testid="stButton"] {{
+        width: fit-content !important;
+        align-self: flex-start !important;
+    }}
+    body.bea-cv-vnd-page div[class*="st-key-"][class*="pay_remove_btn"] [data-testid="stButton"] > button,
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot) div[class*="st-key-"][class*="pay_remove_btn"] [data-testid="stButton"] > button {{
+        white-space: nowrap !important;
+        box-sizing: border-box !important;
+        justify-content: center !important;
+    }}
+    body.bea-cv-vnd-page div[class*="st-key-"][class*="pay_remove_btn"] [data-testid="stButton"],
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot) div[class*="st-key-"][class*="pay_remove_btn"] [data-testid="stButton"] {{
+        width: auto !important;
+        max-width: none !important;
+        align-self: flex-start !important;
+    }}
+    /* «−» vermelho antes de «Remover…» (paridade visual com o ➕ do Adicionar) */
+    body.bea-cv-vnd-page div[class*="st-key-"][class*="pay_remove_btn"] [data-testid="stButton"] > button::before,
+    section[data-testid="stMain"]:has(.bea-cv-vnd-slot) div[class*="st-key-"][class*="pay_remove_btn"] [data-testid="stButton"] > button::before {{
+        content: "−";
+        color: #b91c1c;
+        font-weight: 700;
+        font-size: 1.08em;
+        line-height: 1;
+        margin-right: 0.3em;
+        display: inline-block;
+        vertical-align: -0.06em;
     }}
 </style>
 """

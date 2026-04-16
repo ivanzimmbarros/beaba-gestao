@@ -9,6 +9,16 @@ from datetime import date, datetime
 
 from src.database.connection import get_connection
 from src.modules.constants import SEXOS
+
+_NOME_COLAB_UI_SUFIXO_ID = re.compile(r"\s*\(#\d+\)\s*$", re.IGNORECASE)
+
+
+def nome_colaborador_sem_sufixo_id_ui(nome: object) -> str:
+    """
+    Remove sufixo « (#n) » que algumas UIs acrescentavam ao rótulo (ex.: selectboxes),
+    sem alterar o nome armazenado na base.
+    """
+    return _NOME_COLAB_UI_SUFIXO_ID.sub("", str(nome or "").strip()).strip()
 from src.modules.nif import normalizar_nif_armazenamento
 from src.modules.telefone import normalizar_telefone_legado_ou_e164
 from src.modules.validators import (
@@ -228,8 +238,6 @@ def cadastrar_colaborador(
         return False, "❌ O código postal é obrigatório (formato XXXX-XXX)."
     if not conc:
         return False, "❌ O concelho é obrigatório."
-    if not freg:
-        return False, "❌ A freguesia é obrigatória."
 
     email = (email or "").strip()
     if not email:
@@ -238,20 +246,21 @@ def cadastrar_colaborador(
         return False, "❌ Indique um email válido."
 
     nif_raw = (nif_ou_documento or "").strip()
-    nif_store: str | None = None
-    intl_i = 0
-    if nif_raw:
-        ok_n, msg_n, nif_v = normalizar_nif_armazenamento(
-            nif_raw, documento_identificacao_internacional=bool(identificacao_internacional)
-        )
-        if not ok_n:
-            return False, msg_n
-        nif_store = nif_v
-        intl_i = 1 if identificacao_internacional else 0
+    if not nif_raw:
+        return False, "❌ O NIF ou documento de identificação é obrigatório."
+    ok_n, msg_n, nif_v = normalizar_nif_armazenamento(
+        nif_raw, documento_identificacao_internacional=bool(identificacao_internacional)
+    )
+    if not ok_n:
+        return False, msg_n
+    nif_store = nif_v
+    intl_i = 1 if identificacao_internacional else 0
 
-    tel = validar_e_limpar_telefone(numero_contato)
+    tel = normalizar_telefone_legado_ou_e164(numero_contato)
     if not tel:
-        return False, "❌ O número de contacto deve ter 11 dígitos numéricos."
+        return False, (
+            "❌ Número de contacto inválido. Use país + número no formulário ou formato internacional (+…)."
+        )
 
     if not servicos_repasse:
         return False, "❌ Indique pelo menos um serviço habilitado com o respetivo percentual."
@@ -340,7 +349,9 @@ def listar_colaboradores_resumo() -> list[tuple[int, str]]:
     try:
         cur = conn.cursor()
         cur.execute("SELECT id, nome FROM colaboradores ORDER BY nome COLLATE NOCASE")
-        return list(cur.fetchall())
+        return [
+            (int(r[0]), nome_colaborador_sem_sufixo_id_ui(r[1])) for r in cur.fetchall()
+        ]
     finally:
         conn.close()
 
@@ -637,8 +648,6 @@ def atualizar_colaborador(
         return False, "❌ O código postal é obrigatório (formato XXXX-XXX)."
     if not conc:
         return False, "❌ O concelho é obrigatório."
-    if not freg:
-        return False, "❌ A freguesia é obrigatória."
 
     email = (email or "").strip()
     if not email:
@@ -647,20 +656,21 @@ def atualizar_colaborador(
         return False, "❌ Indique um email válido."
 
     nif_raw = (nif_ou_documento or "").strip()
-    nif_store: str | None = None
-    intl_i = 0
-    if nif_raw:
-        ok_n, msg_n, nif_v = normalizar_nif_armazenamento(
-            nif_raw, documento_identificacao_internacional=bool(identificacao_internacional)
-        )
-        if not ok_n:
-            return False, msg_n
-        nif_store = nif_v
-        intl_i = 1 if identificacao_internacional else 0
+    if not nif_raw:
+        return False, "❌ O NIF ou documento de identificação é obrigatório."
+    ok_n, msg_n, nif_v = normalizar_nif_armazenamento(
+        nif_raw, documento_identificacao_internacional=bool(identificacao_internacional)
+    )
+    if not ok_n:
+        return False, msg_n
+    nif_store = nif_v
+    intl_i = 1 if identificacao_internacional else 0
 
-    tel = validar_e_limpar_telefone(numero_contato)
+    tel = normalizar_telefone_legado_ou_e164(numero_contato)
     if not tel:
-        return False, "❌ O número de contacto deve ter 11 dígitos numéricos."
+        return False, (
+            "❌ Número de contacto inválido. Use país + número no formulário ou formato internacional (+…)."
+        )
 
     if not servicos_repasse:
         return False, "❌ Indique pelo menos um serviço habilitado com o respetivo percentual."

@@ -659,6 +659,66 @@ def listar_itens_catalogo() -> list[dict[str, str | int | float | None]]:
     return out
 
 
+def obter_duracao_referencia_agendamento_horas(servico_id: int) -> float:
+    """
+    Duração em horas definida no catálogo para cálculo de hora fim (CAG / agendamentos).
+    Usa `sessao_duracao_horas` quando preenchida; caso contrário 1,0 h (mínimo 0,25 h, máximo 24 h).
+    """
+    sid = int(servico_id)
+    conn = get_connection()
+    if not conn:
+        return 1.0
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT sessao_duracao_horas FROM servicos WHERE id = ? AND ativo = 1",
+            (sid,),
+        )
+        row = cur.fetchone()
+        if not row or row[0] is None:
+            return 1.0
+        h = float(row[0])
+        if h <= 0:
+            return 1.0
+        return max(0.25, min(24.0, h))
+    finally:
+        conn.close()
+
+
+def listar_sessoes_do_pacote_catalogo(pacote_servico_id: int) -> list[dict[str, str | int]]:
+    """Sessões componentes definidas no catálogo para o serviço Pacote `pacote_servico_id`."""
+    pid = int(pacote_servico_id)
+    conn = get_connection()
+    if not conn:
+        return []
+    out: list[dict[str, str | int]] = []
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT sps.id, sps.sessao_servico_id, sps.ordem, sps.quantidade, sv.nome AS sessao_nome
+            FROM servico_pacote_sessoes sps
+            JOIN servicos sv ON sv.id = sps.sessao_servico_id
+            WHERE sps.pacote_servico_id = ?
+            ORDER BY sps.ordem, sps.id
+            """,
+            (pid,),
+        )
+        for rid, ssid, ordem, qty, snm in cur.fetchall():
+            out.append(
+                {
+                    "pacote_sessao_id": int(rid),
+                    "sessao_servico_id": int(ssid),
+                    "ordem": int(ordem),
+                    "quantidade": int(qty),
+                    "sessao_nome": str(snm or ""),
+                }
+            )
+    finally:
+        conn.close()
+    return out
+
+
 def listar_servicos_para_venda() -> list[dict[str, str | int]]:
     """Serviços ativos de todas as naturezas (inclui Pacote e Evento) para o Painel de Vendas."""
     conn = get_connection()
@@ -964,6 +1024,8 @@ __all__ = [
     "euros_para_centavos",
     "listar_itens_catalogo",
     "listar_servicos_para_venda",
+    "listar_sessoes_do_pacote_catalogo",
+    "obter_duracao_referencia_agendamento_horas",
     "listar_servicos_produto_para_pacote",
     "listar_servicos_sessao_para_pacote",
     "obter_servico_para_formulario",

@@ -31,6 +31,52 @@ from src.ui.constituicao_visual_shell import inject_constituicao_cat_page
 _CAT_PICK_NONE = "— Seleccione um item para carregar na ficha —"
 
 
+def _cat_format_duration_hm_h(hours_dec: float) -> str:
+    """Apresentação «H:MMh» a partir de horas decimais (valor interno do catálogo)."""
+    h = float(hours_dec)
+    if h < 0:
+        h = 0.0
+    total_min = int(round(h * 60))
+    total_min = max(0, min(total_min, 24 * 60))
+    hp, mp = divmod(total_min, 60)
+    return f"{int(hp)}:{int(mp):02d}h"
+
+
+def _cat_parse_duration_hm_h(text: str) -> tuple[bool, float, str]:
+    """
+    Aceita «H:MMh» ou «H:MM» (ex.: 1:30h, 0:15).
+    Devolve (ok, horas_decimais, mensagem_erro). Mínimo 0:15h; máximo 24:00h.
+    """
+    raw = (text or "").strip().replace(" ", "")
+    low = raw.lower()
+    if low.endswith("h"):
+        low = low[:-1]
+    if not low or ":" not in low:
+        return (
+            False,
+            0.0,
+            "Indique a duração no formato horas:minutos terminado em «h» (ex.: 1:30h).",
+        )
+    parts = low.split(":", 1)
+    if len(parts) != 2 or not parts[0].strip() or not parts[1].strip():
+        return False, 0.0, "Formato inválido. Exemplo: 1:30h."
+    try:
+        hp = int(parts[0].strip())
+        mp = int(parts[1].strip())
+    except ValueError:
+        return False, 0.0, "Horas e minutos devem ser números inteiros (ex.: 1:30h)."
+    if mp < 0 or mp > 59:
+        return False, 0.0, "Os minutos devem estar entre 0 e 59."
+    if hp < 0 or hp > 24 or (hp == 24 and mp > 0):
+        return False, 0.0, "A duração máxima é 24:00h."
+    total_min = hp * 60 + mp
+    if total_min < 15:
+        return False, 0.0, "A duração mínima é 0:15h (15 minutos)."
+    if total_min > 24 * 60:
+        return False, 0.0, "A duração máxima é 24:00h."
+    return True, total_min / 60.0, ""
+
+
 def _cat_section_title_html(title: str) -> str:
     t = html.escape(title)
     return f'<div class="bea-cv-cag-h2">{t}</div>'
@@ -96,7 +142,7 @@ def _prime_cat_form(fk: str, d: dict) -> None:
     st.session_state[f"{fk}_ativo"] = bool(d.get("ativo", True))
 
     if nat == "Sessão":
-        st.session_state[f"{fk}_sdh"] = float(d.get("sessao_duracao_horas", 1.0))
+        st.session_state[f"{fk}_sdh_disp"] = _cat_format_duration_hm_h(float(d.get("sessao_duracao_horas", 1.0)))
         st.session_state[f"{fk}_sve"] = float(d.get("sessao_valor_euros", 45.0))
     elif nat == "Produto":
         st.session_state[f"{fk}_ptipo"] = d.get("produto_tipo", "")
@@ -172,7 +218,7 @@ def _ensure_cat_form_widget_defaults(fk: str, natureza: str) -> None:
     """Preenche defaults no session_state para widgets com `key` sem usar `value=` (evita conflito com prime)."""
     st.session_state.setdefault(f"{fk}_ativo", True)
     if natureza == "Sessão":
-        st.session_state.setdefault(f"{fk}_sdh", 1.0)
+        st.session_state.setdefault(f"{fk}_sdh_disp", "1:00h")
         st.session_state.setdefault(f"{fk}_sve", 45.0)
     elif natureza == "Produto":
         st.session_state.setdefault(f"{fk}_pve", 10.0)
@@ -264,9 +310,13 @@ def render_page_catalogo(*, render_back_and_breadcrumb) -> None:
         evt_pdf = 0.0
 
         if natureza == "Sessão":
-            sessao_dh = float(
-                st.number_input("Duração (horas) *", min_value=0.25, max_value=24.0, step=0.25, key=f"{fk}_sdh")
+            st.text_input(
+                "Duração (HH:MM) *",
+                key=f"{fk}_sdh_disp",
+                placeholder="Ex.: 1:30h",
+                help="Horas e minutos, separados por «:», terminados em «h» (ex.: 1:30h = 1h30).",
             )
+            st.caption("Formato **H:MMh** — entre **0:15h** e **24:00h** (ex.: **1:30h**).")
             sessao_ve = float(st.number_input("Valor por sessão (€) *", min_value=0.01, step=0.5, key=f"{fk}_sve"))
         elif natureza == "Produto":
             ptipo = st.text_input("Tipo do produto *", key=f"{fk}_ptipo", placeholder="Ex.: cosmética, suplemento")
@@ -505,7 +555,18 @@ def render_page_catalogo(*, render_back_and_breadcrumb) -> None:
         edit_id = st.session_state.get("cat_edit_id")
         btn_label = "Actualizar no catálogo" if edit_id else "Registar no catálogo"
         if st.button(btn_label, type="primary", key=f"{fk}_submit"):
-            if natureza == "Pacote":
+            skip_submit = False
+            if natureza == "Sessão":
+                raw_sdh = str(st.session_state.get(f"{fk}_sdh_disp", "") or "").strip()
+                ok_sdh, sdh_val, err_sdh = _cat_parse_duration_hm_h(raw_sdh)
+                if not ok_sdh:
+                    st.error(err_sdh)
+                    skip_submit = True
+                else:
+                    sessao_dh = sdh_val
+            if skip_submit:
+                pass
+            elif natureza == "Pacote":
                 if not pac_el:
                     st.error("Defina a composição do pacote (sessões).")
                 else:

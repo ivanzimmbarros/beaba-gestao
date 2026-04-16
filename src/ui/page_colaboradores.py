@@ -27,6 +27,7 @@ from src.modules.nif import normalizar_nif_armazenamento
 from src.modules.telefone import normalizar_telefone_legado_ou_e164
 from src.modules.validators import email_valido, parse_data_iso
 from src.ui.constituicao_visual_shell import inject_constituicao_col_page
+from src.ui.telefone_widgets import ler_e164_de_widgets, preencher_session_telefone_de_e164, render_grupo_telefone
 from src.ui.widgets.cliente_search import render_cliente_search_widget
 
 
@@ -143,7 +144,7 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
             st.session_state[f"{fk}_email"] = d["email"]
             st.session_state[f"{fk}_docintl"] = bool(d.get("identificacao_internacional"))
             st.session_state[f"{fk}_nif"] = str(d.get("nif_ou_documento") or "")
-            st.session_state[f"{fk}_num"] = d["whatsapp"]
+            preencher_session_telefone_de_e164(f"{fk}_tel_pri", str(d.get("whatsapp") or ""))
             st.session_state[f"{fk}_rua"] = d["endereco_rua"]
             st.session_state[f"{fk}_numero"] = d["endereco_numero"]
             st.session_state[f"{fk}_comp"] = d["endereco_complemento"]
@@ -419,9 +420,13 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
         )
         c_email = st.text_input("Email *", key=f"{fk}_email")
         c_docintl = st.checkbox("Documento de identificação internacional (opcional)", key=f"{fk}_docintl")
-        ph_doc = "Documento internacional" if st.session_state.get(f"{fk}_docintl") else "NIF PT (opcional)"
-        c_nif = st.text_input("NIF / documento (opcional)", key=f"{fk}_nif", placeholder=ph_doc)
-        c_num = st.text_input("Número de contacto *", key=f"{fk}_num", placeholder="DDD + número (11 dígitos)")
+        ph_doc = (
+            "Documento internacional (3–40 caracteres)"
+            if bool(st.session_state.get(f"{fk}_docintl"))
+            else "9 dígitos (NIF PT)"
+        )
+        c_nif = st.text_input("NIF ou documento de identificação *", key=f"{fk}_nif", placeholder=ph_doc)
+        render_grupo_telefone(st, prefix=f"{fk}_tel_pri", label="Contacto principal *", disabled=False)
 
         st.markdown(_col_ficha_subsec_html("Morada"), unsafe_allow_html=True)
         r1c1, r1c2 = st.columns(2)
@@ -436,7 +441,7 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
         with r2c2:
             c_conc = st.text_input("Concelho *", key=f"{fk}_conc")
         with r2c3:
-            c_freg = st.text_input("Freguesia *", key=f"{fk}_freg")
+            c_freg = st.text_input("Freguesia", key=f"{fk}_freg")
         r3c1, r3c2 = st.columns(2)
         with r3c1:
             c_dist = st.text_input("Distrito (opcional)", key=f"{fk}_dist")
@@ -501,35 +506,39 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
         editing = st.session_state.col_edit_id is not None
         btn_label = "Guardar alterações" if editing else "Cadastrar colaborador"
         if st.button(btn_label, type="primary", key=f"{fk}_submit"):
-            dn_iso = c_dn.isoformat() if c_dn else ""
-            common = dict(
-                nome=c_nome,
-                sexo=c_sexo,
-                data_nascimento=dn_iso,
-                endereco_rua=c_rua,
-                endereco_numero=c_numero,
-                endereco_complemento=c_comp,
-                codigo_postal=c_cp,
-                concelho=c_conc,
-                freguesia=c_freg,
-                distrito=c_dist,
-                pais=c_pais,
-                email=c_email,
-                numero_contato=c_num,
-                observacoes=c_obs or "",
-                servicos_repasse=repasse,
-                nif_ou_documento=c_nif or "",
-                identificacao_internacional=bool(c_docintl),
-            )
-            if editing:
-                ok, msg = atualizar_colaborador(int(st.session_state.col_edit_id), **common)
+            ok_t, tel_e164, err_t = ler_e164_de_widgets(f"{fk}_tel_pri")
+            if not ok_t:
+                st.error(str(err_t or "❌ Contacto inválido."))
             else:
-                ok, msg = cadastrar_colaborador(**common)
-            if ok:
-                st.session_state.col_form_v += 1
-                st.session_state.col_edit_id = None
-                st.session_state.col_edit_nome = ""
-                st.session_state.col_row_ids = [uuid.uuid4().hex[:12]]
-                st.success(msg)
-            else:
-                st.error(msg)
+                dn_iso = c_dn.isoformat() if c_dn else ""
+                common = dict(
+                    nome=c_nome,
+                    sexo=c_sexo,
+                    data_nascimento=dn_iso,
+                    endereco_rua=c_rua,
+                    endereco_numero=c_numero,
+                    endereco_complemento=c_comp,
+                    codigo_postal=c_cp,
+                    concelho=c_conc,
+                    freguesia=c_freg,
+                    distrito=c_dist,
+                    pais=c_pais,
+                    email=c_email,
+                    numero_contato=tel_e164,
+                    observacoes=c_obs or "",
+                    servicos_repasse=repasse,
+                    nif_ou_documento=c_nif or "",
+                    identificacao_internacional=bool(c_docintl),
+                )
+                if editing:
+                    ok, msg = atualizar_colaborador(int(st.session_state.col_edit_id), **common)
+                else:
+                    ok, msg = cadastrar_colaborador(**common)
+                if ok:
+                    st.session_state.col_form_v += 1
+                    st.session_state.col_edit_id = None
+                    st.session_state.col_edit_nome = ""
+                    st.session_state.col_row_ids = [uuid.uuid4().hex[:12]]
+                    st.success(msg)
+                else:
+                    st.error(msg)

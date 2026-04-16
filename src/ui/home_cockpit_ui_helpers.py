@@ -7,6 +7,8 @@ import re
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
+from src.modules.constants import ESTADO_AGENDAMENTO_REALIZADO_PENDENTE_LABEL_PT
+
 # Marcador para CSS :has() — ilha = 1ª coluna com este nó (Template Master)
 HOME_ISLAND_MARK_CLASS = "bea-cv-home-island-mark"
 
@@ -91,10 +93,11 @@ def status_badge_html(status: str) -> tuple[str, str]:
             '<span class="bea-cv-badge-verde">Confirmado</span>',
             "Confirmado",
         )
-    if st in ("REALIZADO_PENDENTE_PGTO", "REALIZADO"):
+    if st == "REALIZADO_PENDENTE_PGTO":
+        lbl_esc = html.escape(ESTADO_AGENDAMENTO_REALIZADO_PENDENTE_LABEL_PT)
         return (
-            '<span class="bea-cv-badge-terracota">Em atendimento</span>',
-            "Em atendimento",
+            f'<span class="bea-cv-badge-terracota">{lbl_esc}</span>',
+            ESTADO_AGENDAMENTO_REALIZADO_PENDENTE_LABEL_PT,
         )
     if st == "PRE_AGENDADO":
         return (

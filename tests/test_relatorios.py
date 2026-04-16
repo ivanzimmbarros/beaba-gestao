@@ -99,6 +99,8 @@ def test_relatorio_apos_venda_e_filtro_colaborador():
         distrito="",
         pais="Portugal",
         email="colabdash@example.com",
+        nif_ou_documento="123456789",
+        identificacao_internacional=False,
         numero_contato="91444444440",
         observacoes="",
         servicos_repasse=[(prod_id, 15.0, date.today().isoformat())],

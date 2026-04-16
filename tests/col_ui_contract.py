@@ -32,6 +32,16 @@ def assert_col_pesquisa_unificada_na_pagina() -> None:
     assert 'entidade_nome="colaborador"' in src
 
 
+def assert_col_ficha_contacto_grupo_telefone() -> None:
+    """Ficha: mesmo bloco telefónico que Clientes e Agendamentos (`telefone_widgets`)."""
+    root = Path(__file__).resolve().parents[1]
+    src = (root / "src" / "ui" / "page_colaboradores.py").read_text(encoding="utf-8")
+    assert "render_grupo_telefone" in src
+    assert "ler_e164_de_widgets" in src
+    assert "preencher_session_telefone_de_e164" in src
+    assert "Contacto principal *" in src
+
+
 def assert_col_mapa_equipa_na_pagina() -> None:
     """Contrato: vitrine 3×3 substituída por Mapa da Equipa (filtros + tabela + módulo)."""
     root = Path(__file__).resolve().parents[1]

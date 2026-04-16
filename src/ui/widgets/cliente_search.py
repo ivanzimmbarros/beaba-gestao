@@ -76,6 +76,9 @@ def render_cliente_search_widget(
     pesquisa_unificada_cag: bool = False,
     nome_placeholder: str = "Nome do cliente",
     entidade_nome: Literal["cliente", "colaborador"] = "cliente",
+    pesquisa_linha_procurar_limpar: bool = False,
+    clear_session_flag_key: str | None = None,
+    clear_button_label: str = "Limpar seleção",
 ) -> bool:
     """
     Com `pesquisa_unificada=True` (ou legado `pesquisa_unificada_cag=True`): rótulos numa linha; inputs +
@@ -91,6 +94,9 @@ def render_cliente_search_widget(
     antes de instanciar o widget e carregar ficha + barra), `{prefix}_nif`, `{prefix}_email`,
     `{prefix}_tel_txt`, `{prefix}_go`.
 
+    Com `pesquisa_linha_procurar_limpar=True`: mesma linha dos inputs para «Procurar» e (se
+    `clear_session_flag_key`) «Limpar seleção» — a página deve tratar a chave com `pop` + limpeza.
+
     Retorna True se «Procurar» foi clicado neste rerun.
     """
     st.session_state.setdefault(f"{key_prefix}_nome_sug_list", [])
@@ -104,6 +110,9 @@ def render_cliente_search_widget(
             minimal=minimal,
             nome_placeholder=nome_placeholder,
             entidade_nome=entidade_nome,
+            pesquisa_linha_procurar_limpar=pesquisa_linha_procurar_limpar,
+            clear_session_flag_key=clear_session_flag_key,
+            clear_button_label=clear_button_label,
         )
 
     return _render_widget_legacy(
@@ -122,14 +131,99 @@ def _render_widget_pesquisa_unificada(
     minimal: bool,
     nome_placeholder: str,
     entidade_nome: Literal["cliente", "colaborador"],
+    pesquisa_linha_procurar_limpar: bool = False,
+    clear_session_flag_key: str | None = None,
+    clear_button_label: str = "Limpar seleção",
 ) -> bool:
     clicked = False
     go_key = f"{key_prefix}_go"
     gap = "small"
+    lbl = _BUSCA_LBL_CAG if minimal else _BUSCA_LBL_HTML
+
+    if pesquisa_linha_procurar_limpar:
+        # Grelha mais estreita nos campos para «Procurar» + «Limpar seleção» na mesma linha (rótulos numa linha).
+        col_weights = [0.86, 0.86, 0.82, 0.82, 0.72, 0.72]
+        ln, lf, le, lt, lb1, lb2 = st.columns(col_weights, gap=gap, vertical_alignment="top")
+        with ln:
+            st.markdown(lbl.format("Nome"), unsafe_allow_html=True)
+        with lf:
+            st.markdown(lbl.format("NIF"), unsafe_allow_html=True)
+        with le:
+            st.markdown(lbl.format("Email"), unsafe_allow_html=True)
+        with lt:
+            st.markdown(lbl.format("Telefone"), unsafe_allow_html=True)
+        with lb1:
+            st.markdown(
+                '<div style="height:calc(1.35rem + 4px);margin:0;padding:0;" aria-hidden="true"></div>',
+                unsafe_allow_html=True,
+            )
+        with lb2:
+            st.markdown(
+                '<div style="height:calc(1.35rem + 4px);margin:0;padding:0;" aria-hidden="true"></div>',
+                unsafe_allow_html=True,
+            )
+
+        cn, cf, ce, ct, cb_go, cb_clr = st.columns(col_weights, gap=gap, vertical_alignment="center")
+
+        def _on_nome_change() -> None:
+            _refresh_nome_suggestions(key_prefix, entidade=entidade_nome)
+
+        with cn:
+            st.text_input(
+                nome_placeholder,
+                key=f"{key_prefix}_nome",
+                label_visibility="collapsed",
+                placeholder=nome_placeholder,
+                on_change=_on_nome_change,
+            )
+            _refresh_nome_suggestions(key_prefix, entidade=entidade_nome)
+        with cf:
+            st.text_input(
+                "NIF",
+                key=f"{key_prefix}_nif",
+                label_visibility="collapsed",
+                placeholder="NIF",
+            )
+        with ce:
+            st.text_input(
+                "Email",
+                key=f"{key_prefix}_email",
+                label_visibility="collapsed",
+                placeholder="email@exemplo.com",
+            )
+        with ct:
+            st.text_input(
+                "Telefone",
+                key=f"{key_prefix}_tel_txt",
+                label_visibility="collapsed",
+                placeholder="+351 912 345 678",
+            )
+        with cb_go:
+            clicked = st.button(
+                button_label.replace(" ", "\u00a0"),
+                type=button_type,
+                key=go_key,
+                width="stretch",
+            )
+        with cb_clr:
+            if clear_session_flag_key:
+                if st.button(
+                    clear_button_label.replace(" ", "\u00a0"),
+                    type="secondary",
+                    key=f"{key_prefix}_clr_inline",
+                    width="stretch",
+                ):
+                    st.session_state[clear_session_flag_key] = True
+                    st.rerun()
+
+        r2n, _, _, _, _, _ = st.columns(col_weights, gap=gap, vertical_alignment="top")
+        with r2n:
+            _render_nome_facilitador(key_prefix=key_prefix)
+        return bool(clicked)
+
     # Última coluna com peso semelhante às anteriores para o botão «Procurar» alinhar ao tamanho típico
     # de botões de navegação (ex.: «Semana Anterior» no calendário CAG), sem mudar de linha.
     col_weights = [0.95, 0.95, 0.92, 0.92, 1.0]
-    lbl = _BUSCA_LBL_CAG if minimal else _BUSCA_LBL_HTML
 
     # Linha 1 — só rótulos (col. do botão: vão com a mesma altura visual da faixa de rótulo).
     ln, lf, le, lt, lb = st.columns(col_weights, gap=gap, vertical_alignment="top")
@@ -149,6 +243,7 @@ def _render_widget_pesquisa_unificada(
 
     # Linha 2 — só inputs + botão; «center» alinha verticalmente o botão mais baixo ao meio dos text_input.
     cn, cf, ce, ct, cb = st.columns(col_weights, gap=gap, vertical_alignment="center")
+
     def _on_nome_change() -> None:
         _refresh_nome_suggestions(key_prefix, entidade=entidade_nome)
 

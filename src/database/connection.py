@@ -225,17 +225,22 @@ def _migrate_e18_if_needed(cursor) -> None:
         "CREATE INDEX IF NOT EXISTS idx_venda_pagamento_linhas_v ON venda_pagamento_linhas(venda_id)"
     )
 
+    cursor.execute("DROP VIEW IF EXISTS main.vw_cliente_saldo_credito")
     cursor.execute("DROP VIEW IF EXISTS vw_cliente_saldo_credito")
-    cursor.execute(
-        """
-        CREATE VIEW vw_cliente_saldo_credito AS
-        SELECT
-            cliente_id,
-            COALESCE(SUM(valor_centavos), 0) AS saldo_credito_centavos
-        FROM credito_movimentos
-        GROUP BY cliente_id
-        """
-    )
+    try:
+        cursor.execute(
+            """
+            CREATE VIEW vw_cliente_saldo_credito AS
+            SELECT
+                cliente_id,
+                COALESCE(SUM(valor_centavos), 0) AS saldo_credito_centavos
+            FROM credito_movimentos
+            GROUP BY cliente_id
+            """
+        )
+    except sqlite3.OperationalError as exc:
+        if "already exists" not in str(exc).lower():
+            raise
 
     _ensure_column(
         cursor,
@@ -762,6 +767,12 @@ def create_tables():
         """
     )
     _ensure_column(cursor, "venda_itens", "colaborador_id", "INTEGER")
+    _ensure_column(
+        cursor,
+        "venda_itens",
+        "pagamento_parcial",
+        "INTEGER NOT NULL DEFAULT 0 CHECK (pagamento_parcial IN (0, 1))",
+    )
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_vendas_data_registo ON vendas(data_registo)"
     )

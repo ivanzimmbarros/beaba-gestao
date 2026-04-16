@@ -43,6 +43,8 @@ def _seed_repasse_row(conn: sqlite3.Connection) -> tuple[int, int]:
         distrito="",
         pais="Portugal",
         email="colab.rep.fin@beaba.test",
+        nif_ou_documento="123456789",
+        identificacao_internacional=False,
         numero_contato="11977665544",
         observacoes="",
         servicos_repasse=[(sid, 25.0, "2026-01-01")],

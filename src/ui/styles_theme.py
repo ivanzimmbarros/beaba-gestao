@@ -181,8 +181,11 @@ def get_beaba_css() -> str:
         border-color: rgba(22, 101, 52, 0.18) !important;
         margin: 0.85rem 0 !important;
     }}
-    /* Texto corpo na sidebar: floresta suave */
-    [data-testid="stSidebar"] * {{
+    /* Texto corpo na sidebar: floresta suave (sem `*`: quebra controlos nativos app/theme). */
+    [data-testid="stSidebar"] .stMarkdown,
+    [data-testid="stSidebar"] .stMarkdown p,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] small {{
         color: {highlight} !important;
     }}
     [data-testid="stSidebar"] .bea-sidebar-app-title {{
@@ -204,8 +207,8 @@ def get_beaba_css() -> str:
         margin: 0 0 0.5rem 0 !important;
         line-height: 1.35 !important;
     }}
-    /* Itens em repouso: cartão branco suave */
-    [data-testid="stSidebar"] [data-testid="stButton"] > button {{
+    /* Itens em repouso: cartão branco suave (descendente: DOM do botão pode ter wrappers) */
+    [data-testid="stSidebar"] [data-testid="stButton"] button {{
         background: rgba(255, 255, 255, 0.92) !important;
         color: {highlight} !important;
         border: 1px solid rgba(22, 101, 52, 0.14) !important;
@@ -216,12 +219,12 @@ def get_beaba_css() -> str:
         font-family: var(--bea-vs-sans) !important;
         box-shadow: {sh} !important;
     }}
-    [data-testid="stSidebar"] [data-testid="stButton"] > button:hover {{
+    [data-testid="stSidebar"] [data-testid="stButton"] button:hover {{
         background: #FFFFFF !important;
         border-color: rgba(22, 101, 52, 0.28) !important;
     }}
     /* Seleccionado: Sálvia Suave + texto/ícone Floresta Escuro (contraste legível) */
-    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"] {{
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"] {{
         background: #A7F3D0 !important;
         color: #064E3B !important;
         border: 1px solid rgba(6, 78, 59, 0.35) !important;
@@ -231,21 +234,21 @@ def get_beaba_css() -> str:
         font-family: var(--bea-vs-sans) !important;
         box-shadow: {sh} !important;
     }}
-    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"] *,
-    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"] span,
-    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"] svg,
-    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"] path {{
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"] *,
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"] span,
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"] svg,
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"] path {{
         color: #064E3B !important;
         fill: #064E3B !important;
     }}
-    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"]:hover {{
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"]:hover {{
         background: #6EE7B7 !important;
         color: #022C22 !important;
         border-color: rgba(6, 78, 59, 0.45) !important;
     }}
-    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"]:hover *,
-    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"]:hover svg,
-    [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"]:hover path {{
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"]:hover *,
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"]:hover svg,
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"]:hover path {{
         color: #022C22 !important;
         fill: #022C22 !important;
     }}

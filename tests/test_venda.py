@@ -6,7 +6,12 @@ from src.modules.cliente import (
     cadastrar_cliente,
 )
 from src.modules.agendamento import criar_agendamento_pre_venda
-from src.modules.venda import calcular_totais_venda, listar_venda_item_ids_em_ordem, registrar_venda
+from src.modules.venda import (
+    calcular_totais_venda,
+    listar_venda_item_ids_em_ordem,
+    reconciliar_estado_pagamento_venda,
+    registrar_venda,
+)
 
 
 def _cliente_min():
@@ -198,6 +203,113 @@ def test_integral_soma_errada_falha():
     )
     assert ok is False
     assert "Soma" in msg or "igualar" in msg
+
+
+def test_registrar_modo_pagamento_parcial_sem_previsto_marca_itens_e_estado():
+    cid = _cliente_min()
+    cadastrar_servico_fase1(
+        "Produto",
+        "Produto Parcial UI",
+        "Item.",
+        True,
+        produto_tipo="x",
+        produto_descricao="",
+        produto_valor_euros=100.0,
+        produto_origem="proprio",
+    )
+    conn = __import__("src.database.connection", fromlist=["get_connection"]).get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Produto Parcial UI",))
+    sid = int(cur.fetchone()[0])
+    conn.close()
+
+    ok, msg, vid = registrar_venda(
+        int(cid),
+        "integral",
+        [
+            {
+                "servico_id": sid,
+                "quantidade": 1,
+                "is_bonus": False,
+                "evento_preco": None,
+                "desconto_linha_tipo": "none",
+                "desconto_linha_valor": None,
+            }
+        ],
+        None,
+        None,
+        [("dinheiro", 5000)],
+        [],
+        "",
+        modo_pagamento_parcial_sem_previsto=True,
+    )
+    assert ok, msg
+    assert vid is not None
+
+    conn = __import__("src.database.connection", fromlist=["get_connection"]).get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT estado_pagamento FROM vendas WHERE id = ?", (int(vid),))
+    assert cur.fetchone()[0] == "parcial"
+    cur.execute(
+        "SELECT COUNT(*) FROM venda_itens WHERE venda_id = ? AND pagamento_parcial = 1",
+        (int(vid),),
+    )
+    assert int(cur.fetchone()[0]) == 1
+    conn.close()
+
+
+def test_reconciliar_pos_pagamento_total_limpa_parcial():
+    cid = _cliente_min()
+    cadastrar_servico_fase1(
+        "Produto",
+        "Produto Parcial Full",
+        "Item.",
+        True,
+        produto_tipo="x",
+        produto_descricao="",
+        produto_valor_euros=80.0,
+        produto_origem="proprio",
+    )
+    conn = __import__("src.database.connection", fromlist=["get_connection"]).get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Produto Parcial Full",))
+    sid = int(cur.fetchone()[0])
+    conn.close()
+
+    ok, msg, vid = registrar_venda(
+        int(cid),
+        "integral",
+        [
+            {
+                "servico_id": sid,
+                "quantidade": 1,
+                "is_bonus": False,
+                "evento_preco": None,
+                "desconto_linha_tipo": "none",
+                "desconto_linha_valor": None,
+            }
+        ],
+        None,
+        None,
+        [("dinheiro", 8000)],
+        [],
+        "",
+        modo_pagamento_parcial_sem_previsto=True,
+    )
+    assert ok, msg
+    assert vid is not None
+    reconciliar_estado_pagamento_venda(int(vid))
+
+    conn = __import__("src.database.connection", fromlist=["get_connection"]).get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT estado_pagamento FROM vendas WHERE id = ?", (int(vid),))
+    assert cur.fetchone()[0] == "integral"
+    cur.execute(
+        "SELECT COUNT(*) FROM venda_itens WHERE venda_id = ? AND pagamento_parcial = 0",
+        (int(vid),),
+    )
+    assert int(cur.fetchone()[0]) == 1
+    conn.close()
 
 
 def test_registrar_venda_contexto_agendamento_cliente_diferente_falha():

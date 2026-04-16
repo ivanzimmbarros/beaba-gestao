@@ -7,7 +7,10 @@ from datetime import date, timedelta
 from typing import Any, Literal
 
 from src.database.connection import get_connection
+from src.modules.colaborador import nome_colaborador_sem_sufixo_id_ui
+from src.modules.constants import ESTADO_AGENDAMENTO_REALIZADO_PENDENTE_LABEL_PT
 from src.modules.credito_ledger import (
+    obter_aberto_liquidacao_venda_centavos,
     registrar_credito_por_cancelamento_agendamento,
     total_esperado_liquidacao_venda_centavos,
     total_liquidado_venda_centavos,
@@ -245,7 +248,10 @@ def rotulo_pagamento_venda(cur, venda_id: int | None) -> str:
     if pago >= esperado_liq and esperado_liq > 0:
         return "Pago"
     if pago > 0 and pago < esperado_liq:
-        return f"Parcialmente pago ({pago/100:.2f}/{esperado_liq/100:.2f} € · {est})"
+        return (
+            "Parcialmente pago (Valor Pago: EUR "
+            f"{pago/100:.2f} - Valor Catalogo: EUR {esperado_liq/100:.2f})"
+        )
     if atrasado > 0:
         return f"Em aberto / atrasado ({est})"
     return f"Em aberto ({est})"
@@ -329,6 +335,255 @@ def listar_buckets_credito_cliente(cliente_id: int) -> list[dict[str, Any]]:
         conn.close()
 
 
+def analisar_sessoes_pacote_pendentes_cag(
+    cliente_id: int, pacote_servico_id: int
+) -> tuple[int, list[tuple[str, str]]]:
+    """
+    Para o pacote de catálogo `pacote_servico_id` e o cliente:
+    - `total` = unidades de sessão (soma das quantidades das linhas do pacote) ainda **sem**
+      agendamento com estado diferente de CANCELADO.
+    - `opções` = uma entrada por unidade pendente: valor `pacote_sessao_id|sessao_servico_id|u{k}`
+      (rótulo = nome da sessão, sem «×N»).
+    Serve à UI CAG e a indicadores (usar `total` ou `len(opções)`).
+    """
+    cid = int(cliente_id)
+    pid = int(pacote_servico_id)
+    conn = get_connection()
+    if not conn:
+        return 0, []
+    out: list[tuple[str, str]] = []
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, sessao_servico_id, quantidade, ordem
+            FROM servico_pacote_sessoes
+            WHERE pacote_servico_id = ?
+            ORDER BY ordem, id
+            """,
+            (pid,),
+        )
+        for psid, ssid, qty, _ord in cur.fetchall():
+            cur.execute(
+                """
+                SELECT COUNT(*) FROM agendamentos
+                WHERE cliente_id = ? AND pacote_sessao_id = ?
+                  AND IFNULL(UPPER(TRIM(status)), '') != 'CANCELADO'
+                """,
+                (cid, int(psid)),
+            )
+            usados = int(cur.fetchone()[0])
+            pend = max(0, int(qty) - usados)
+            cur.execute("SELECT nome FROM servicos WHERE id = ?", (int(ssid),))
+            rnm = cur.fetchone()
+            nm = str(rnm[0]) if rnm else "Sessão"
+            for k in range(1, pend + 1):
+                out.append((f"{int(psid)}|{int(ssid)}|u{k}", nm))
+        return len(out), out
+    finally:
+        conn.close()
+
+
+def contar_total_sessoes_pacote_pendentes_agendamento(cliente_id: int, pacote_servico_id: int) -> int:
+    """Total de unidades de sessão do pacote ainda pendentes de agendamento (≠ cancelado) — indicadores / relatórios."""
+    tot, _ = analisar_sessoes_pacote_pendentes_cag(int(cliente_id), int(pacote_servico_id))
+    return int(tot)
+
+
+_STATUS_AGENDAMENTO_ATINGE_PRE: tuple[str, ...] = (
+    "PRE_AGENDADO",
+    "AGENDADO",
+    "CONFIRMADO",
+    "REALIZADO_PENDENTE_PGTO",
+    "CONCLUIDO",
+)
+
+
+def _count_agendamentos_pos_compra_com_marco_pre_agendamento(
+    cur,
+    venda_item_id: int,
+    pacote_sessao_id: int | None,
+) -> int:
+    """Agendamentos `credito_venda` já em estado ≥ Pré-agendado (exclui `CANCELADO`)."""
+    ph = ",".join("?" * len(_STATUS_AGENDAMENTO_ATINGE_PRE))
+    if pacote_sessao_id is None:
+        cur.execute(
+            f"""
+            SELECT COUNT(*) FROM agendamentos
+            WHERE venda_item_id = ?
+              AND modo_origem = 'credito_venda'
+              AND IFNULL(UPPER(TRIM(status)), '') IN ({ph})
+            """,
+            (int(venda_item_id), *_STATUS_AGENDAMENTO_ATINGE_PRE),
+        )
+    else:
+        cur.execute(
+            f"""
+            SELECT COUNT(*) FROM agendamentos
+            WHERE venda_item_id = ?
+              AND modo_origem = 'credito_venda'
+              AND pacote_sessao_id = ?
+              AND IFNULL(UPPER(TRIM(status)), '') IN ({ph})
+            """,
+            (int(venda_item_id), int(pacote_sessao_id), *_STATUS_AGENDAMENTO_ATINGE_PRE),
+        )
+    return int(cur.fetchone()[0])
+
+
+def _sap_fmt_data_contratacao_dd_mm_yyyy(iso_date: str | None) -> str:
+    """`YYYY-MM-DD` → `dd-mm-aaaa` para rótulos «Serviços adquiridos…»."""
+    s = str(iso_date or "").strip()[:10]
+    if len(s) == 10 and s[4] == "-" and s[7] == "-":
+        try:
+            y, m, d = int(s[0:4]), int(s[5:7]), int(s[8:10])
+            return f"{d:02d}-{m:02d}-{y:04d}"
+        except ValueError:
+            pass
+    return s if s else "—"
+
+
+def listar_opcoes_servicos_adquiridos_pendente_pre_agendamento(
+    cliente_id: int,
+) -> list[dict[str, Any]]:
+    """
+    Linhas de venda pagas (integral ou parcial) com unidade ainda **sem** agendamento
+    `credito_venda` em estado ≥ «Pré-agendado» (cancelamentos não contam; o registo volta
+    a aparecer para nova marcação).
+    """
+    cid = int(cliente_id)
+    conn = get_connection()
+    if not conn:
+        return []
+    out: list[dict[str, Any]] = []
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT vi.id, vi.venda_id, vi.servico_id, vi.quantidade, vi.nome_snapshot,
+                   s.natureza, s.nome AS nome_catalogo,
+                   COALESCE(
+                       (
+                           SELECT MIN(date(vpl.criado_em))
+                           FROM venda_pagamento_linhas vpl
+                           WHERE vpl.venda_id = v.id
+                             AND COALESCE(vpl.valor_centavos, 0) > 0
+                       ),
+                       date(v.data_registo)
+                   ) AS data_contr_iso
+            FROM venda_itens vi
+            JOIN vendas v ON v.id = vi.venda_id
+            JOIN servicos s ON s.id = vi.servico_id
+            WHERE v.cliente_id = ?
+              AND IFNULL(LOWER(TRIM(v.estado_pagamento)), '') IN ('integral', 'parcial')
+              AND IFNULL(s.natureza, '') != 'Produto'
+            ORDER BY v.id ASC, vi.ordem, vi.id
+            """,
+            (cid,),
+        )
+        for vi_id, vid, sid_cat, qty, nome_snap, nat, nome_cat, data_contr_iso in cur.fetchall():
+            vi_id_i = int(vi_id)
+            vid_i = int(vid)
+            sid_i = int(sid_cat)
+            qty_i = max(1, int(qty or 1))
+            nat_s = str(nat or "").strip()
+            nome_snap_s = str(nome_snap or nome_cat or "").strip() or str(nome_cat or "—")
+            nome_cat_s = str(nome_cat or "").strip()
+            dd_mm = _sap_fmt_data_contratacao_dd_mm_yyyy(
+                str(data_contr_iso).strip()[:10] if data_contr_iso is not None else None
+            )
+
+            if nat_s == "Pacote":
+                cur.execute(
+                    """
+                    SELECT sps.id, sps.sessao_servico_id, sps.quantidade, se.nome
+                    FROM servico_pacote_sessoes sps
+                    JOIN servicos se ON se.id = sps.sessao_servico_id
+                    WHERE sps.pacote_servico_id = ?
+                    ORDER BY sps.ordem, sps.id
+                    """,
+                    (sid_i,),
+                )
+                sps_rows = cur.fetchall()
+                if not sps_rows:
+                    continue
+                synth = " & ".join(
+                    f"{max(1, int(pq or 1))}x {str(sn or '').strip()}"
+                    for _ps, _ss, pq, sn in sps_rows
+                )
+                pendencias: list[tuple[int, int, str, int]] = []
+                for psid, ssid, pq_cat, snome in sps_rows:
+                    psid_i = int(psid)
+                    ssid_i = int(ssid)
+                    snome_t = str(snome or "").strip() or "Sessão"
+                    total_u = max(0, int(pq_cat or 0) * qty_i)
+                    if total_u < 1:
+                        continue
+                    usados = _count_agendamentos_pos_compra_com_marco_pre_agendamento(
+                        cur, vi_id_i, psid_i
+                    )
+                    pend = max(0, total_u - usados)
+                    if pend > 0:
+                        pendencias.append((psid_i, ssid_i, snome_t, pend))
+                total_opts_pac = sum(p for *_, p in pendencias)
+                for psid_i, ssid_i, snome_t, pend in pendencias:
+                    for k in range(1, pend + 1):
+                        tok = f"sap|{vi_id_i}|pkg|{psid_i}|{ssid_i}|u{k}"
+                        pesc = f"{psid_i}|{ssid_i}|u{k}"
+                        rot = f"(Pacote - {dd_mm}) {nome_snap_s} - {synth}"
+                        if total_opts_pac > 1:
+                            rot += f" — {snome_t}"
+                        if pend > 1:
+                            rot += f" · {k}/{pend}"
+                        out.append(
+                            {
+                                "token": tok,
+                                "rotulo": rot,
+                                "natureza": "Pacote",
+                                "servico_esc": f"{sid_i}|{nome_snap_s}",
+                                "pacote_sessao_esc": pesc,
+                                "venda_item_id": vi_id_i,
+                                "venda_id": vid_i,
+                                "servico_catalog_id": ssid_i,
+                                "pacote_sessao_id": psid_i,
+                            }
+                        )
+                continue
+
+            if nat_s not in ("Sessão", "Coworking", "Evento"):
+                continue
+            total_u = qty_i
+            usados = _count_agendamentos_pos_compra_com_marco_pre_agendamento(cur, vi_id_i, None)
+            pend = max(0, total_u - usados)
+            esc_srv = f"{sid_i}|{nome_cat_s}"
+            for k in range(1, pend + 1):
+                tok = f"sap|{vi_id_i}|u{k}"
+                rot = f"({nat_s} - {dd_mm}) {nome_snap_s}"
+                if pend > 1:
+                    rot += f" · {k}/{pend}"
+                out.append(
+                    {
+                        "token": tok,
+                        "rotulo": rot,
+                        "natureza": nat_s,
+                        "servico_esc": esc_srv,
+                        "pacote_sessao_esc": None,
+                        "venda_item_id": vi_id_i,
+                        "venda_id": vid_i,
+                        "servico_catalog_id": sid_i,
+                        "pacote_sessao_id": None,
+                    }
+                )
+        out.sort(
+            key=lambda r: (
+                str(r.get("rotulo") or "").casefold(),
+                str(r.get("token") or ""),
+            )
+        )
+        return out
+    finally:
+        conn.close()
+
+
 def listar_agendamentos(
     *,
     data_de: str | None = None,
@@ -351,10 +606,13 @@ def listar_agendamentos(
                    a.hora_fim, a.status, a.devolver_ao_buffer, a.observacoes,
                    a.modo_origem, a.preco_referencia_centavos,
                    a.tipo_atendimento, a.sala_virtual_disponibilizada,
-                   c.nome AS cliente_nome, s.nome AS servico_nome, s.natureza AS servico_natureza
+                   c.nome AS cliente_nome, s.nome AS servico_nome, s.natureza AS servico_natureza,
+                   spac.nome AS nome_do_pacote
             FROM agendamentos a
             JOIN clientes c ON c.id = a.cliente_id
             JOIN servicos s ON s.id = a.servico_id
+            LEFT JOIN servico_pacote_sessoes sps ON sps.id = a.pacote_sessao_id
+            LEFT JOIN servicos spac ON spac.id = sps.pacote_servico_id
         """
         joins = []
         where = ["1=1"]
@@ -407,7 +665,10 @@ def listar_agendamentos(
             for cid in cids:
                 cur.execute("SELECT nome FROM colaboradores WHERE id = ?", (cid,))
                 rnm = cur.fetchone()
-                nomes.append(str(rnm[0]) if rnm else "?")
+                nomes.append(
+                    nome_colaborador_sem_sufixo_id_ui(str(rnm[0]) if rnm else "?")
+                    or "?"
+                )
             modo_o = str(r[13])
             preco_ref = int(r[14]) if r[14] is not None else None
             tipo_at = str(r[15] or "presencial")
@@ -441,6 +702,7 @@ def listar_agendamentos(
                     "cliente_nome": str(r[17]),
                     "servico_nome": str(r[18]),
                     "servico_natureza": str(r[19]),
+                    "nome_do_pacote": str(r[20] or "").strip(),
                     "colaborador_ids": cids,
                     "colaboradores_nomes": nomes,
                     "pagamento": pag_lbl,
@@ -464,10 +726,13 @@ def obter_agendamento(ag_id: int) -> dict[str, Any] | None:
                    a.hora_fim, a.status, a.devolver_ao_buffer, a.observacoes,
                    a.modo_origem, a.preco_referencia_centavos,
                    a.tipo_atendimento, a.sala_virtual_disponibilizada,
-                   c.nome, s.nome, s.natureza
+                   c.nome, s.nome, s.natureza,
+                   spac.nome AS nome_pacote_cat, sps.pacote_servico_id AS pacote_servico_cat_id
             FROM agendamentos a
             JOIN clientes c ON c.id = a.cliente_id
             JOIN servicos s ON s.id = a.servico_id
+            LEFT JOIN servico_pacote_sessoes sps ON sps.id = a.pacote_sessao_id
+            LEFT JOIN servicos spac ON spac.id = sps.pacote_servico_id
             WHERE a.id = ?
             """,
             (int(ag_id),),
@@ -488,7 +753,9 @@ def obter_agendamento(ag_id: int) -> dict[str, Any] | None:
         for cid in cids:
             cur.execute("SELECT nome FROM colaboradores WHERE id = ?", (cid,))
             rnm = cur.fetchone()
-            nomes.append(str(rnm[0]) if rnm else "?")
+            nomes.append(
+                nome_colaborador_sem_sufixo_id_ui(str(rnm[0]) if rnm else "?") or "?"
+            )
         modo_o = str(r[13])
         preco_ref = int(r[14]) if r[14] is not None else None
         tipo_at = str(r[15] or "presencial")
@@ -521,6 +788,8 @@ def obter_agendamento(ag_id: int) -> dict[str, Any] | None:
             "cliente_nome": str(r[17]),
             "servico_nome": str(r[18]),
             "servico_natureza": str(r[19]),
+            "nome_do_pacote": str(r[20] or "").strip(),
+            "pacote_servico_catalogo_id": int(r[21]) if r[21] is not None else None,
             "colaborador_ids": cids,
             "colaboradores_nomes": nomes,
             "pagamento": pag_lbl,
@@ -893,7 +1162,10 @@ def alterar_status(
                 return False, "❌ Só Pré-agendado pode passar a Agendado neste fluxo."
         elif n == "REALIZADO_PENDENTE_PGTO":
             if atual not in ("AGENDADO", "CONFIRMADO", "PRE_AGENDADO"):
-                return False, "❌ Só Agendado, Confirmado ou Pré-agendado podem passar a Realizado (pendente pagamento)."
+                return (
+                    False,
+                    f"❌ Só Agendado, Confirmado ou Pré-agendado podem passar a {ESTADO_AGENDAMENTO_REALIZADO_PENDENTE_LABEL_PT}.",
+                )
         elif n == "CONCLUIDO":
             if atual not in ("AGENDADO", "CONFIRMADO", "REALIZADO_PENDENTE_PGTO", "PRE_AGENDADO"):
                 return False, "❌ Estado atual não permite concluir."
@@ -1044,8 +1316,9 @@ def criar_agendamento_pre_venda(
     *,
     tipo_atendimento: str = "presencial",
     sala_virtual_disponibilizada: int | None = None,
+    pacote_sessao_id: int | None = None,
 ) -> tuple[bool, str]:
-    """MVP: só Sessão, Coworking, Evento — sem pacote (E11)."""
+    """Pré-venda: Sessão, Coworking, Evento; ou **componente de Pacote** (`servico_id` = sessão, `pacote_sessao_id` definido)."""
     ok_t, msg_t = validar_intervalo_horario(hora_inicio, hora_fim)
     if not ok_t:
         return False, msg_t
@@ -1060,6 +1333,7 @@ def criar_agendamento_pre_venda(
     pr = preco_referencia_centavos
     if pr is not None and int(pr) < 0:
         return False, "❌ Preço de referência inválido."
+    p_psid: int | None = int(pacote_sessao_id) if pacote_sessao_id is not None else None
 
     conn = get_connection()
     if not conn:
@@ -1069,20 +1343,41 @@ def criar_agendamento_pre_venda(
         cur.execute("SELECT id FROM clientes WHERE id = ?", (cid,))
         if cur.fetchone() is None:
             return False, "❌ Cliente não encontrado."
-        cur.execute("SELECT natureza FROM servicos WHERE id = ?", (sid,))
-        rnat = cur.fetchone()
-        if not rnat:
-            return False, "❌ Serviço não encontrado."
-        natureza = str(rnat[0])
-        if natureza not in ("Sessão", "Coworking", "Evento"):
-            if natureza in ("Produto", "Pacote"):
-                return (
-                    False,
-                    "❌ Neste ecrã a pré-venda só é suportada para Sessão, Coworking e Evento. "
-                    "Para Produto ou Pacote, utilize o Painel de Vendas.",
-                )
-            return False, "❌ Pré-venda (MVP) só para Sessão, Coworking ou Evento."
-        ok_o, msg_o, tipo = _tipo_origem_para_natureza(natureza, None)
+        if p_psid is not None:
+            cur.execute(
+                """
+                SELECT sps.sessao_servico_id, sps.pacote_servico_id, sv.natureza
+                FROM servico_pacote_sessoes sps
+                JOIN servicos sv ON sv.id = sps.sessao_servico_id
+                WHERE sps.id = ?
+                """,
+                (int(p_psid),),
+            )
+            rps = cur.fetchone()
+            if not rps:
+                return False, "❌ Linha de sessão do pacote inválida."
+            sess_sid, _pkg_id, snat = int(rps[0]), int(rps[1]), str(rps[2])
+            if sess_sid != sid:
+                return False, "❌ O serviço seleccionado não corresponde à sessão do pacote."
+            if snat != "Sessão":
+                return False, "❌ O componente do pacote deve ser uma sessão."
+            natureza = "Sessão"
+        else:
+            cur.execute("SELECT natureza FROM servicos WHERE id = ?", (sid,))
+            rnat = cur.fetchone()
+            if not rnat:
+                return False, "❌ Serviço não encontrado."
+            natureza = str(rnat[0])
+            if natureza not in ("Sessão", "Coworking", "Evento"):
+                if natureza in ("Produto", "Pacote"):
+                    return (
+                        False,
+                        "❌ Neste ecrã a pré-venda só é suportada para Sessão, Coworking e Evento, "
+                        "ou para uma **sessão de um Pacote** (indique a linha do pacote no catálogo). "
+                        "Para Produto ou venda directa de Pacote, utilize o Painel de Vendas.",
+                    )
+                return False, "❌ Pré-venda só para Sessão, Coworking ou Evento."
+        ok_o, msg_o, tipo = _tipo_origem_para_natureza(natureza, p_psid)
         if not ok_o or tipo is None:
             return False, msg_o
 
@@ -1105,12 +1400,13 @@ def criar_agendamento_pre_venda(
                 devolver_ao_buffer, observacoes, data_alteracao,
                 modo_origem, preco_referencia_centavos,
                 tipo_atendimento, sala_virtual_disponibilizada
-            ) VALUES (NULL, NULL, ?, ?, NULL, ?, ?, ?, ?, 'AGENDADO', 0, ?, CURRENT_TIMESTAMP,
+            ) VALUES (NULL, NULL, ?, ?, ?, ?, ?, ?, ?, 'AGENDADO', 0, ?, CURRENT_TIMESTAMP,
                 'pre_venda', ?, ?, ?)
             """,
             (
                 cid,
                 sid,
+                p_psid,
                 tipo,
                 d,
                 hi,
@@ -1239,7 +1535,10 @@ def agendamento_elegivel_conversao_para_pacote_hoje(
         return False, "❌ Agendamento inexistente."
     st = str(ag.get("status") or "")
     if st in ("CONCLUIDO", "REALIZADO_PENDENTE_PGTO", "CANCELADO"):
-        return False, "❌ Estado não permite converter (exclui Concluído e Realizado pendente pagamento)."
+        return (
+            False,
+            f"❌ Estado não permite converter (exclui Concluído e «{ESTADO_AGENDAMENTO_REALIZADO_PENDENTE_LABEL_PT}»).",
+        )
     if str(ag.get("data_agendamento") or "")[:10] != ref:
         return False, "❌ Só é permitido converter agendamentos com data de hoje."
     tpo = str(ag.get("tipo_origem") or "")
@@ -1633,6 +1932,89 @@ def obter_resumo_agendamentos_cliente_setor2_proposta(cliente_id: int) -> dict[s
         conn.close()
 
 
+def listar_agendamentos_realizado_pendente_liquidacao_cliente(
+    cliente_id: int,
+) -> list[dict[str, Any]]:
+    """
+    Atendimentos com dívida em aberto na venda associada, para liquidação no PDV.
+
+    Inclui:
+    - `REALIZADO_PENDENTE_PGTO` (fluxo clássico);
+    - `CONCLUIDO` quando a linha está marcada como pagamento parcial (`pagamento_parcial`)
+      ou a venda ainda está `parcial` / `pendente` — cobre desalinhamentos e o modo
+      «Pagamento Parcial» sem recebimentos previstos.
+
+    Não inclui vendas com `estado_pagamento = 'parcelado'` (pagamento parcelado planeado).
+    """
+    cid = int(cliente_id)
+    if cid < 1:
+        return []
+    conn = get_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT
+                a.id,
+                a.venda_id,
+                a.venda_item_id,
+                a.servico_id,
+                s.nome AS servico_nome,
+                a.data_agendamento,
+                COALESCE(vi.total_linha_centavos, 0) AS total_linha_centavos
+            FROM agendamentos a
+            JOIN vendas v ON v.id = a.venda_id
+            JOIN servicos s ON s.id = a.servico_id
+            LEFT JOIN venda_itens vi ON vi.id = a.venda_item_id
+            WHERE a.cliente_id = ?
+              AND a.modo_origem = 'credito_venda'
+              AND a.venda_id IS NOT NULL
+              AND v.estado_pagamento != 'parcelado'
+              AND (
+                    a.status = 'REALIZADO_PENDENTE_PGTO'
+                 OR (
+                      a.status = 'CONCLUIDO'
+                      AND (
+                          COALESCE(vi.pagamento_parcial, 0) = 1
+                          OR v.estado_pagamento IN ('parcial', 'pendente')
+                      )
+                   )
+              )
+            ORDER BY a.data_agendamento DESC, a.id DESC
+            """,
+            (cid,),
+        )
+        out: list[dict[str, Any]] = []
+        for r in cur.fetchall():
+            ag_id = int(r[0])
+            vid = int(r[1])
+            vi_id = int(r[2]) if r[2] is not None else None
+            sid = int(r[3])
+            nome = str(r[4] or "")
+            d_ag = str(r[5] or "")
+            tlin = int(r[6] or 0)
+            aberto = obter_aberto_liquidacao_venda_centavos(vid)
+            if aberto < 1:
+                continue
+            out.append(
+                {
+                    "agendamento_id": ag_id,
+                    "venda_id": vid,
+                    "venda_item_id": vi_id,
+                    "servico_id": sid,
+                    "servico_nome": nome,
+                    "data_agendamento": d_ag,
+                    "valor_linha_venda_centavos": tlin,
+                    "aberto_venda_centavos": aberto,
+                }
+            )
+        return out
+    finally:
+        conn.close()
+
+
 def contar_por_status_periodo(data_de: str, data_ate: str) -> dict[str, int]:
     conn = get_connection()
     if not conn:
@@ -1659,12 +2041,16 @@ __all__ = [
     "atualizar_agendamento",
     "cancelar_agendamento",
     "converter_agendamento_avulso_para_consumo_pacote",
+    "analisar_sessoes_pacote_pendentes_cag",
     "contar_por_status_periodo",
     "contar_pre_venda_futuros",
+    "contar_total_sessoes_pacote_pendentes_agendamento",
     "criar_agendamento",
     "criar_agendamento_pre_venda",
     "listar_agendamentos",
     "listar_agendamentos_elegiveis_associacao_linha_venda",
+    "listar_agendamentos_realizado_pendente_liquidacao_cliente",
+    "listar_opcoes_servicos_adquiridos_pendente_pre_agendamento",
     "listar_buckets_credito_cliente",
     "listar_buckets_pacote_com_saldo_disponivel",
     "minutos_desde_meia_noite",

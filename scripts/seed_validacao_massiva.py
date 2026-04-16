@@ -327,6 +327,8 @@ def main() -> int:
             distrito="Porto",
             pais="Portugal",
             email=f"colab.seed{i + 1}@validacao.beaba.local",
+            nif_ou_documento=f"COL-SEED-{i:05d}",
+            identificacao_internacional=True,
             numero_contato=tel,
             observacoes="Seed massivo",
             servicos_repasse=linhas,
