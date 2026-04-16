@@ -57,7 +57,7 @@ Toda e qualquer alteração no projeto deve respeitar a estrutura de backup defi
 Sempre que criar ou modificar ficheiros, verifique a inclusão nestas 4 dimensões:
 * **D1: User Data (Crítico):** Bases SQLite (`*.db`), ficheiros `.env` (estrutura, não valores) e uploads. **E18:** o ledger (`credito_movimentos`), `repasse_linhas` e `venda_pagamento_linhas` são dados críticos; o script `scripts/e17_1_sqlite_evidence.py` inclui contagens destas tabelas no conjunto `critical`. **Seed de validação:** `scripts/seed_validacao_massiva.py` repõe dados de teste; uso em `data/beaba_gestao.db` exige `--wipe-live-confirm` (**apaga** o conteúdo actual). O backup horário (`scripts/backup_sqlite_hourly.py` / GHA) continua a copiar o ficheiro **integral** — sem novo caminho.
 * **D2: Telemetria:** Arquivos de log de auditoria (`backup_dr_history.json`).
-* **D3: Infraestrutura e Regras:** Workflows em `.github/workflows/`, ficheiro .cursorrules e configurações de ambiente. **`pytest`:** `tests/conftest.py` define `BEABA_SQLITE_PATH` por teste (`tmp_path`); **não** apagar `data/beaba_gestao.db` nos testes — preserva a base local do Diretor após carga de seed.
+* **D3: Infraestrutura e Regras:** Workflows em `.github/workflows/`, ficheiro .cursorrules, `pytest.ini` (descoberta do smoke UI) e configurações de ambiente. **`pytest`:** `tests/conftest.py` define `BEABA_SQLITE_PATH` por teste (`tmp_path`); **não** apagar `data/beaba_gestao.db` nos testes — preserva a base local do Diretor após carga de seed. **Smoke UI (camada 3):** `tests/smoke_test_ui.py` (Streamlit `AppTest` sobre `src/app.py`); inventário `page_*.py` sincronizado — actualizar após novas páginas.
 * **D4: Scripts de Recuperação:** Scripts Python de backup/restore e suas dependências.
 
 ### 2. Regras de Compliance para o Desenvolvedor/IA
@@ -103,6 +103,18 @@ Antes de finalizar qualquer tarefa, responda:
 **Percurso de correção (FALHA):** revalidação das etapas afectadas; repetir pontos de controlo (Git + Painel); pareceres negativos documentados pela **EQUIPE**. Redesenho funcional ⇒ nova confirmação do Diretor **no chat** + registo pela EQUIPE + fluxo desde o passo **1**.
 
 **BLOQUEIO DE SEGURANÇA:** é proibido **PUSH** ou declarar etapa concluída se **GitHub Actions** estiver a **falhar**. Validar CI antes de reportar ao Diretor. No ramo **`develop`**, as workflows **FLUXO OFICIAL DE GOVERNANCA** (artefactos + `test_governanca.py`) e **Validador Maestro V2** (suite `pytest` completa) devem ficar **verdes**.
+
+### ETAPAS OBRIGATÓRIAS — Suíte de testes completa (pre-Commit / Push)
+
+Antes de qualquer **Commit** ou **Push**, é obrigatória a execução da **Suíte de Testes Completa:** **(1) Unitários**, **(2) E2E de Lógica** e **(3) Smoke Test de UI**. **O Push só é permitido com 100% PASS em todas as camadas.**
+
+Implementação no repositório (ordem lógica; um único comando cobre (1)+(3) na pasta `tests/`):
+
+1. **Unitários e integração** — `python -m pytest tests/ -v` (toda a suite em `tests/`, incluindo módulos `test_*.py` e ficheiros extra declarados em `pytest.ini`).
+2. **E2E de lógica e contratos** — mesma suite: `tests/e2e_stress_test.py`, `*_ui_contract.py`, domínio transversal; **portão E20 pesado** (opcional fora do PR diário): `python tests/e2e_stress_test.py` com iterações conforme protocolo / PC13.
+3. **Smoke Test de UI** — `tests/smoke_test_ui.py` (Streamlit `AppTest` sobre `src/app.py`; descoberta garantida por `pytest.ini`).
+
+A **EQUIPE** mantém `tests/smoke_test_ui.py` e `pytest.ini` alinhados a `src/ui/page_*.py`, `src/app.py` e `shell_sidebar.py` sempre que surgir nova página ou navegação.
 
 ---
 

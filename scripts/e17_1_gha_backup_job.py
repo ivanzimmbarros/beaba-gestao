@@ -9,6 +9,7 @@ CAG `agendamentos`: colunas `tipo_atendimento`, `sala_virtual_disponibilizada` (
 `tests/col_ui_contract.py` / `test_col_visual_sereno.py`; Catálogo —
 `tests/cat_ui_contract.py` / `test_cat_visual_sereno.py`; Início / Cockpit —
 `tests/home_ui_contract.py` / `test_home_visual_sereno.py`.
+Smoke UI: `tests/smoke_test_ui.py` + `pytest.ini`.
 """
 
 from __future__ import annotations

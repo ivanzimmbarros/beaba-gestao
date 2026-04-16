@@ -51,6 +51,17 @@ def test_caderno_testes_master_existe():
     assert p.is_file()
 
 
+def test_pytest_ini_declares_smoke_ui_module():
+    """Camada 3: `smoke_test_ui.py` não segue o padrão `test_*.py`; `pytest.ini` garante descoberta."""
+    root = Path(__file__).resolve().parents[1]
+    ini = root / "pytest.ini"
+    smoke = root / "tests" / "smoke_test_ui.py"
+    assert ini.is_file(), "pytest.ini em falta — necessário para colectar tests/smoke_test_ui.py"
+    assert smoke.is_file()
+    text = ini.read_text(encoding="utf-8")
+    assert "smoke_test_ui.py" in text
+
+
 def test_monitor_governanca_script_existe_e_compila():
     root = Path(__file__).resolve().parents[1]
     p = root / "monitor_governanca.py"

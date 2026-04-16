@@ -58,18 +58,20 @@
 |:---|:---|
 | `docs/CADERNO_TESTES_MASTER.md` | §2 totais, mapa de ficheiros, secção demanda Especialidades, histórico — **actualizado nesta ETAPA 0** em parte; ETAPA 1 completa com IDs de testes novos. |
 | `.cursorrules` | Acrescentar nota E20/E2E: «E2E pytest `e2e_stress_test.py` + contratos estáticos; browser automation apenas se adoptada» — **pendente aprovação**. |
-| `docs/governanca/status_demanda.json` | Reflecte **224** testes e `live_status` 2026-04-16 (ETAPA 1); após ETAPA 2 manter sincronizado com CI. |
+| `docs/governanca/status_demanda.json` | Reflecte totais de pytest + `live_status`; manter sincronizado com CI após mudanças na suite. |
 | `docs/MODELO_ARQUITETURA.md` | Já inclui `especialidades`; manter sincronizado se schema evoluir. |
 
 ---
 
 ## 2. Mapa completo da suite (regressão global — não só último épico)
 
-**Total actual (auditoria 2026-04-16, pós-ETAPA 1 Especialidades):** **224** testes — `python -m pytest tests/ -v`.
+**Total actual (auditoria 2026-04-16, camada 3 Smoke UI):** **237** testes — `python -m pytest tests/ -v` (requer `pytest.ini` para colectar `smoke_test_ui.py`).
 
 | Ficheiro | Âmbito de negócio / técnico |
 |:---|:---|
+| `pytest.ini` | Descoberta pytest: inclui `smoke_test_ui.py` (camada 3) além de `test_*.py` / `*_test.py` |
 | `tests/conftest.py` | SQLite isolado por teste (`BEABA_SQLITE_PATH`); protege `data/beaba_gestao.db` local |
+| `tests/smoke_test_ui.py` | **Smoke UI (camada 3):** `streamlit.testing.v1.AppTest` sobre `src/app.py` por rota; inventário `src/ui/page_*.py` |
 | `tests/e2e_stress_test.py` | E2E herói + boundary (jornada transversal: cliente, venda, agendamento, integridade); contratos visuais FIN incl. **2. Repasses**; fatia domínio **Especialidades** (`run_catalogo_especialidades_domain_slice`) |
 | `tests/catalogo_especialidades_e2e_slice.py` | Fatia E2E pytest (sem browser): «Geral», duplicado especialidade, natureza errada, chaves `listar_servicos_para_venda` |
 | `tests/fin_ui_contract.py` | Contrato UI Financeiro: slot Sereno + sector **2. Repasses** (`assert_fin_repasses_sector_na_pagina`) |
@@ -123,10 +125,10 @@ Para cada **ID de demanda**, acrescentar secção:
 ### Demanda épico **Especialidades** (2026-04-16) — Natureza → Especialidade → Serviço
 
 - **Objectivo:** tabela `especialidades`, `servicos.especialidade_id`, migração «Geral», APIs `listar_especialidades_por_natureza` / `cadastrar_especialidade` / resolver interno; UI `page_catalogo.py` (select + expander); `listar_itens_catalogo` / `listar_servicos_para_venda` com JOIN; seed wipe inclui `especialidades`.
-- **Casos cobertos (224):** os anteriores + `test_cadastrar_servico_rejeita_especialidade_natureza_errada`, `test_cadastrar_servico_rejeita_especialidade_inativa`, `test_cadastrar_especialidade_nome_duplicado_rejeita`, `test_listar_servicos_para_venda_inclui_campos_especialidade`, `test_create_tables_idempotente_nao_duplica_geral_por_natureza`, `test_migrate_repreenche_especialidade_id_nulo`, `test_atualizar_servico_altera_especialidade`; fatia E2E domínio via `_run_boundary_tests` + `test_e2e_cat_visual_shell_contract`.
+- **Casos cobertos (suite global 237):** os anteriores + `test_cadastrar_servico_rejeita_especialidade_natureza_errada`, `test_cadastrar_servico_rejeita_especialidade_inativa`, `test_cadastrar_especialidade_nome_duplicado_rejeita`, `test_listar_servicos_para_venda_inclui_campos_especialidade`, `test_create_tables_idempotente_nao_duplica_geral_por_natureza`, `test_migrate_repreenche_especialidade_id_nulo`, `test_atualizar_servico_altera_especialidade`; fatia E2E domínio via `_run_boundary_tests` + `test_e2e_cat_visual_shell_contract`; smoke UI `tests/smoke_test_ui.py` (boot `src/app.py`).
 - **Edge cases remanescentes (opcional):** Pacote/Evento em BD só com tabelas mínimas (primeiro `cadastrar_pacote` sem migração prévia); política ao desactivar especialidade com serviços dependentes.
 - **E2E — ETAPA 1:** `run_catalogo_especialidades_domain_slice` integrado em `e2e_stress_test` (boundary + `run_stress_pipeline` em `__main__`).
-- **Regressão:** `python -m pytest tests/ -v` (**224** testes).
+- **Regressão:** `python -m pytest tests/ -v` (**237** testes; inclui camada 3).
 - **Critérios de aceite:** coerência `natureza` serviço ↔ especialidade; UI sem regressão Sereno; nenhum teste removido salvo obsolescência demonstrada.
 
 ### Demanda `2026-04-14_CAG_conversao_sessao_avulsa_pacote_hoje` — conversão para consumo de pacote (data de hoje)
@@ -174,6 +176,7 @@ Para cada **ID de demanda**, acrescentar secção:
 
 - **2026-04-16:** Épico Especialidades (schema + domínio + UI Catálogo); suite **217** testes; CADERNO §1.1 ETAPA 0 (side-effects + plano ETAPA 1/2); E2E actual = pytest `e2e_stress_test` (sem Playwright/Cypress no repo).
 - **2026-04-16 (ETAPA 1):** +7 testes em `test_catalogo.py`; `catalogo_especialidades_e2e_slice.py` + chamada em `e2e_stress_test._run_boundary_tests`; suite **224** testes.
+- **2026-04-16 (camada 3 Smoke UI):** `tests/smoke_test_ui.py` + `pytest.ini`; `test_governanca` valida descoberta; suite **237** testes.
 - **2026-04-14:** Conversão CAG avulsa→consumo de pacote (hoje) + contrato UI + E2E; suite **200** testes (`test_agendamento`, `cag_setor4_ui_contract`, `e2e_stress_test`).
 - **2026-04-06:** Documento criado para cumprir passo 18 do percurso normal — SUCESSO (plano de testes mestre).
 - **2026-04-06:** Plano E11 (pré-venda) acrescentado; suite pytest **49** testes.

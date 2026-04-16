@@ -19,6 +19,7 @@ Após recuperação, validar UI CAG Setor 4 (listagem dentro do expander «Agend
 `tests/cag_setor4_ui_contract.py` / pytest nos ficheiros de teste CAG; Vendas `tests/vnd_ui_contract.py`;
 Colaboradores `tests/col_ui_contract.py`; Catálogo `tests/cat_ui_contract.py`; Início `tests/home_ui_contract.py`;
 Financeiro `tests/fin_ui_contract.py`, `tests/test_fin_visual_sereno.py`, `tests/test_financeiro_repasses_colaboradores.py`.
+Smoke UI: `tests/smoke_test_ui.py` + `pytest.ini`.
 """
 
 from __future__ import annotations

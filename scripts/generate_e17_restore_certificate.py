@@ -4,7 +4,7 @@ E17 — Gera `tests/E17_RESTORE_CERTIFICATE.txt`: saída de pytest (restore + ve
 e prova roundtrip backup SQLite → BEA1 (AES-GCM) → decrypt → PRAGMA integrity_check.
 
 Inclui o teste de contrato CAG Setor 4 (listagem dentro do expander «Agendamentos») para
-alinhamento pós-recuperação com a UI versionada em git.
+alinhamento pós-recuperação com a UI versionada em git. Inclui smoke UI (`tests/smoke_test_ui.py`).
 
 Uso (na raiz do repo): python scripts/generate_e17_restore_certificate.py
 """
@@ -36,6 +36,7 @@ def _pytest_block() -> str:
             "tests/test_restore_sqlite.py",
             "tests/test_sqlite_backup_verify.py",
             "tests/test_clientes_agendamentos_page.py::test_cag_setor4_lista_obrigatoriamente_dentro_expander_agendamentos",
+            "tests/smoke_test_ui.py",
             "-v",
             "--tb=short",
         ],

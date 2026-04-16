@@ -15,7 +15,7 @@
     "projeto": "BeaBa Gestão / BeaBa Materno",
     "escopo": "Sincronização código+CI com origin/develop; mapa completo de testes; certificação backup/restore (pytest + simulação verify semanal em sandbox).",
     "pytest": {
-      "total": 224,
+      "total": 237,
       "comando": "python -m pytest tests/ -v",
       "resultado_2026_04_12": "109 passed (Home: ilhas Master sem border Streamlit, Panorama Material Symbols, sidebar ativo sem barra)",
       "resultado_2026_04_13": "124 passed — Painel de Vendas Ilha Mãe Sereno (slot vnd + inject_constituicao_vnd_page + mount unificado CAG/VND)",
@@ -29,7 +29,8 @@
       "e2e_incluido": "tests/e2e_stress_test.py (hero + boundary quick + fatia domínio Especialidades na suite pytest)",
       "resultado_2026_04_14": "200 passed — CAG conversão avulsa→pacote (hoje): UI `_cag_render_conversao_pacote_hoje_block`, domínio `converter_agendamento_avulso_para_consumo_pacote` + repasse; contrato `assert_cag_conversao_pacote_hoje_no_form_dados_agendamento`; Vendas pos_venda/combo linha; E2E slice CAG.",
       "resultado_2026_04_16": "217 passed — Épico Especialidades: `especialidades` + `servicos.especialidade_id`, migração «Geral», `listar_especialidades_por_natureza` / `cadastrar_especialidade`, UI Catálogo (select+expander); contrato `assert_cat_especialidade_form_contract`; seed wipe inclui `especialidades`.",
-      "resultado_2026_04_16_etapa1": "224 passed — ETAPA 1 CADERNO: edge `test_catalogo.py` (inativa, natureza errada, dup, migração NULL, idempotência, `listar_servicos_para_venda`, `atualizar_servico`); fatia `catalogo_especialidades_e2e_slice` em `e2e_stress_test._run_boundary_tests`."
+      "resultado_2026_04_16_etapa1": "224 passed — ETAPA 1 CADERNO: edge `test_catalogo.py` (inativa, natureza errada, dup, migração NULL, idempotência, `listar_servicos_para_venda`, `atualizar_servico`); fatia `catalogo_especialidades_e2e_slice` em `e2e_stress_test._run_boundary_tests`.",
+      "resultado_2026_04_16_smoke_ui": "237 passed — Camada 3: `tests/smoke_test_ui.py` (AppTest `src/app.py` por rota) + `pytest.ini`; governança `test_pytest_ini_declares_smoke_ui_module`; scripts backup / certificado E17 referenciam smoke."
     },
     "backup_restore": {
       "nuvem_codigo": "Artefactos encriptados GHA + telemetria backup_dr_history.json — cópia integral SQLite em backup horário (.gitignore *.db intencional).",
@@ -176,14 +177,14 @@
   "pc_foco": "PC1–PC2",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "2026-04-16: Especialidades + ETAPA 1 testes (224 passed): edge catálogo + E2E fatia `catalogo_especialidades_e2e_slice` em stress boundary; CADERNO actualizado.",
+  "live_status": "2026-04-16: Camada 3 Smoke UI — `tests/smoke_test_ui.py` + `pytest.ini`; .cursorrules (3 camadas pre-push); CADERNO 237 testes; scripts backup + certificado E17 alinhados.",
   "etapas_pendentes": [
     "Diretor: homologar PDV vs protótipo (semáforo visível, comanda spa). Sem OK → sem avançar módulos.",
     "E22: após OK — um único módulo seguinte (ex. Catálogo / Agendamentos).",
     "Encerramento futuro E22: `python tests/e2e_stress_test.py` (≥1000 iterações) + `tests/last_stress_report.txt` sem bloqueios (além da suite pytest).",
     "E17.1: na fila — CONFIRMO desenho lógico Cloud quando priorizado."
   ],
-  "live_actualizado_iso": "2026-04-16T12:00:00Z",
+  "live_actualizado_iso": "2026-04-16T16:15:00Z",
   "epico_cockpit_boas_vindas": {
     "status": "CONCLUÍDO",
     "data_iso": "2026-04-12",
@@ -246,6 +247,7 @@
     "2026-04-12 — E17 infra: certificado restore `tests/E17_RESTORE_CERTIFICATE.txt`; workflows restore/test_restore branch main; gate backup+upload; `e17_restore_certify.yml`; campo `falha` limpo no JSON.",
     "2026-04-12 — Épico Cockpit de Boas-vindas CONCLUÍDO: Fase 3 UI (Plotly+keys, drill CAG, agenda HTML); remoção Acesso rápido na Home; `status_demanda` + pytest 103; prova E17 restore (pytest) + dump métricas local.",
     "2026-04-16 — Épico Especialidades (Natureza→Especialidade→Serviço): tabela `especialidades`, `servicos.especialidade_id`, migração «Geral», UI Catálogo Sereno; pytest 217; seed wipe + doc backup D1.",
-    "2026-04-16 — CADERNO ETAPA 1: +7 testes catálogo; `catalogo_especialidades_e2e_slice` integrado em `e2e_stress_test`; pytest 224 passed."
+    "2026-04-16 — CADERNO ETAPA 1: +7 testes catálogo; `catalogo_especialidades_e2e_slice` integrado em `e2e_stress_test`; pytest 224 passed.",
+    "2026-04-16 — Camada 3 Smoke UI: `tests/smoke_test_ui.py` (AppTest rotas `src/app.py`), `pytest.ini`, `.cursorrules` três camadas pre-push; `test_governanca` + scripts backup/certificado E17; pytest 237."
   ]
 }

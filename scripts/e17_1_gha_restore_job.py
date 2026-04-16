@@ -5,6 +5,7 @@ Nota 2026-04-12: decomissionamento UI legado Clientes/Agendamentos; ver `page_cl
 CAG Setor 4 (lista no expander «Agendamentos»): contrato em `tests/cag_setor4_ui_contract.py`.
 Vendas Sereno: `tests/vnd_ui_contract.py`. Colaboradores: `tests/col_ui_contract.py`.
 Catálogo Sereno: `tests/cat_ui_contract.py`. Início / Cockpit Sereno: `tests/home_ui_contract.py`.
+Smoke UI: `tests/smoke_test_ui.py` + `pytest.ini`.
 """
 
 from __future__ import annotations
