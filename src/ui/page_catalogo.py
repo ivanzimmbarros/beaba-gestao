@@ -911,6 +911,7 @@ def render_page_catalogo(*, render_back_and_breadcrumb) -> None:
             {
                 "id": [r["id"] for r in itens],
                 "Nome": [r["nome"] for r in itens],
+                "Valor de Venda": [r.get("valor_venda") or "—" for r in itens],
                 "Natureza": [r["natureza"] for r in itens],
                 "Especialidade": [r.get("especialidade", "—") for r in itens],
                 "Ativo": [r["ativo"] for r in itens],

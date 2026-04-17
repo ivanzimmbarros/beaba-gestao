@@ -771,10 +771,33 @@ def listar_itens_catalogo() -> list[dict[str, str | int | float | None]]:
             elif natureza == "Evento":
                 detalhe = _detalhe_evento(cur, int(sid))
 
+            v_cent: int | None = None
+            if natureza == "Sessão":
+                v_cent = int(svc) if svc is not None else None
+            elif natureza == "Produto":
+                v_cent = int(pvc) if pvc is not None else None
+            elif natureza == "Coworking":
+                v_cent = int(cwv) if cwv is not None else None
+            elif natureza == "Pacote":
+                v_cent = int(pvalc) if pvalc is not None else None
+            elif natureza == "Evento":
+                ea = int(_epca) if _epca is not None else None
+                ec = int(_epcc) if _epcc is not None else None
+                if ea is not None and ea > 0:
+                    v_cent = ea
+                elif ec is not None and ec > 0:
+                    v_cent = ec
+                else:
+                    v_cent = None
+            valor_venda_txt = (
+                centavos_para_texto_euros(v_cent) if v_cent is not None and v_cent > 0 else "—"
+            )
+
             out.append(
                 {
                     "id": sid,
                     "nome": nome,
+                    "valor_venda": valor_venda_txt,
                     "natureza": natureza,
                     "especialidade": str(esp_nome or "") or "—",
                     "ativo": "Sim" if ativo else "Não",
@@ -824,7 +847,8 @@ def listar_sessoes_do_pacote_catalogo(pacote_servico_id: int) -> list[dict[str, 
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT sps.id, sps.sessao_servico_id, sps.ordem, sps.quantidade, sv.nome AS sessao_nome
+            SELECT sps.id, sps.sessao_servico_id, sps.ordem, sps.quantidade, sv.nome AS sessao_nome,
+                   COALESCE(NULLIF(TRIM(sv.descritivo), ''), '') AS sessao_descritivo
             FROM servico_pacote_sessoes sps
             JOIN servicos sv ON sv.id = sps.sessao_servico_id
             WHERE sps.pacote_servico_id = ?
@@ -832,7 +856,7 @@ def listar_sessoes_do_pacote_catalogo(pacote_servico_id: int) -> list[dict[str, 
             """,
             (pid,),
         )
-        for rid, ssid, ordem, qty, snm in cur.fetchall():
+        for rid, ssid, ordem, qty, snm, sdesc in cur.fetchall():
             out.append(
                 {
                     "pacote_sessao_id": int(rid),
@@ -840,6 +864,7 @@ def listar_sessoes_do_pacote_catalogo(pacote_servico_id: int) -> list[dict[str, 
                     "ordem": int(ordem),
                     "quantidade": int(qty),
                     "sessao_nome": str(snm or ""),
+                    "sessao_descritivo": str(sdesc or "").strip(),
                 }
             )
     finally:

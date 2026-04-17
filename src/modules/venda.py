@@ -501,6 +501,7 @@ def reconciliar_estado_pagamento_venda(venda_id: int) -> None:
     conn = get_connection()
     if not conn:
         return
+    aplicou_integral = False
     try:
         cur = conn.cursor()
         if not venda_totalmente_liquidada(cur, int(venda_id)):
@@ -517,10 +518,15 @@ def reconciliar_estado_pagamento_venda(venda_id: int) -> None:
         except Exception:
             pass
         conn.commit()
+        aplicou_integral = True
     except Exception:
         conn.rollback()
     finally:
         conn.close()
+    if aplicou_integral:
+        from src.modules.agendamento import promover_agendamentos_realizado_pendente_apos_liquidacao_venda
+
+        promover_agendamentos_realizado_pendente_apos_liquidacao_venda(int(venda_id))
 
 
 def liquidar_pendencias_pos_venda_registo(

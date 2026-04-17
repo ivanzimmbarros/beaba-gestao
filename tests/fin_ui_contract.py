@@ -21,10 +21,10 @@ def assert_fin_area_unica_shell() -> None:
 
 
 def assert_fin_repasses_sector_na_pagina() -> None:
-    """Contrato: sector «2. Repasses», expander, módulo e botões de pesquisa (paridade com outros setores)."""
+    """Contrato: sector «3. Repasses», expander, módulo e botões de pesquisa (paridade com outros setores)."""
     root = Path(__file__).resolve().parents[1]
     src = (root / "src" / "ui" / "page_financeiro.py").read_text(encoding="utf-8")
-    assert '2. Repasses' in src
+    assert "3. Repasses" in src
     assert "Gestão de Repasses para os Colaboradores" in src
     assert "listar_linhas_gestao_repasses" in src
     assert "financeiro_repasses_colaboradores" in src
@@ -36,6 +36,18 @@ def assert_fin_repasses_sector_na_pagina() -> None:
     assert "filtra_metadados_servicos_por_naturezas" in src
     assert "filtra_metadados_servicos_por_especialidades" in src
     assert "listar_servicos_metadados_para_filtro_repasse" in src
+
+
+def assert_fin_resultado_operacional_sector_na_pagina() -> None:
+    """Contrato: sector «1. Resultado Operacional Consolidado» com painel e agregador dedicado."""
+    root = Path(__file__).resolve().parents[1]
+    src = (root / "src" / "ui" / "page_financeiro.py").read_text(encoding="utf-8")
+    assert "1. Resultado Operacional Consolidado" in src
+    assert "Painel do resultado operacional (consolidado)" in src
+    assert "agregar_resultado_operacional_consolidado" in src
+    assert "financeiro_resultado_operacional" in src
+    assert "Resultado (Entradas − Gastos − Repasses)" in src
+    assert "_render_fin_resultado_operacional_panel" in src
 
 
 def assert_fin_repasses_filtros_cadeia_e_layout_na_pagina() -> None:

@@ -14,9 +14,9 @@ E20 — Fortaleza Operacional: stress & E2E (Jornada do Herói + fronteiras + co
 - **slice Catálogo (UI Sereno):** `tests/cat_ui_contract.py`, `tests/test_cat_visual_sereno.py`.
 - **slice Catálogo Especialidades (domínio, sem browser):** `tests/catalogo_especialidades_e2e_slice.py` (`run_catalogo_especialidades_domain_slice`) integrado em `_run_boundary_tests`.
 - **slice Início / Cockpit (UI Sereno):** `tests/home_ui_contract.py`, `tests/test_home_visual_sereno.py`.
-- **slice Financeiro (UI Sereno):** `tests/fin_ui_contract.py`, `tests/test_fin_visual_sereno.py`,
-  `tests/test_financeiro_repasses_colaboradores.py`, `tests/smoke_test_ui.py::test_smoke_financeiro_repasses_multiselect_chain`
-  (sector **2. Repasses**: cadeia Natureza→Especialidades→Serviço + 6 colunas).
+- **slice Financeiro (UI Sereno):** `tests/fin_ui_contract.py` (sector **1. Resultado Operacional** + **3. Repasses**),
+  `tests/test_fin_visual_sereno.py`, `tests/test_financeiro_resultado_operacional.py`,
+  `tests/test_financeiro_repasses_colaboradores.py`, `tests/smoke_test_ui.py` (repasses + painel sector 1).
 - Execução completa (1000 iterações): `python tests/e2e_stress_test.py`
 - Pytest (mais leve): `pytest tests/e2e_stress_test.py` (defeito N=35; sobrescrever com
   `E2E_STRESS_HERO_ITERATIONS=1000`).
@@ -749,9 +749,11 @@ def test_e2e_fin_visual_shell_contract() -> None:
         assert_fin_area_unica_shell,
         assert_fin_repasses_filtros_cadeia_e_layout_na_pagina,
         assert_fin_repasses_sector_na_pagina,
+        assert_fin_resultado_operacional_sector_na_pagina,
     )
 
     assert_fin_area_unica_shell()
+    assert_fin_resultado_operacional_sector_na_pagina()
     assert_fin_repasses_sector_na_pagina()
     assert_fin_repasses_filtros_cadeia_e_layout_na_pagina()
 

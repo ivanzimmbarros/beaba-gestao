@@ -142,12 +142,15 @@ def listar_linhas_gestao_repasses(
 
     sql = f"""
         SELECT
+            rl.id,
             co.nome,
             s.natureza,
             s.nome,
             rl.percentual_bp,
             rl.base_calculo_centavos,
             rl.valor_repasse_centavos,
+            rl.status_repasse,
+            rl.pago_em,
             a.data_agendamento
         FROM repasse_linhas rl
         INNER JOIN agendamentos a ON a.id = rl.agendamento_id
@@ -179,17 +182,107 @@ def listar_linhas_gestao_repasses(
     cur = conn.execute(sql, params)
     out: list[dict[str, object]] = []
     for r in cur.fetchall():
-        bp = r[3]
+        rid = int(r[0])
+        bp = r[4]
+        st_rep = str(r[7] or "").strip().upper()
+        pago_em_raw = str(r[8] or "").strip()[:10] if r[8] is not None else ""
+        pago_sim = st_rep == "REPASSE_PAGO"
         out.append(
             {
-                "colaborador_nome": str(r[0] or ""),
-                "natureza_servico": str(r[1] or ""),
-                "nome_servico": str(r[2] or ""),
+                "repasse_linha_id": rid,
+                "colaborador_nome": str(r[1] or ""),
+                "natureza_servico": str(r[2] or ""),
+                "nome_servico": str(r[3] or ""),
                 "percentual_bp": int(bp) if bp is not None else None,
-                "base_calculo_centavos": int(r[4] or 0),
-                "valor_repasse_centavos": int(r[5] or 0),
-                "data_execucao_iso": str(r[6] or "")[:10],
-                "data_execucao_dm": _iso_para_dd_mm_yyyy(str(r[6] or "")),
+                "base_calculo_centavos": int(r[5] or 0),
+                "valor_repasse_centavos": int(r[6] or 0),
+                "repasse_pago_sim": pago_sim,
+                "repasse_pago_label": "Sim" if pago_sim else "Não",
+                "data_pagamento_repasse_iso": pago_em_raw,
+                "data_pagamento_repasse_dm": _iso_para_dd_mm_yyyy(pago_em_raw)
+                if pago_em_raw
+                else "",
+                "data_execucao_iso": str(r[9] or "")[:10],
+                "data_execucao_dm": _iso_para_dd_mm_yyyy(str(r[9] or "")),
             }
         )
     return out
+
+
+def marcar_repasses_como_pagos(
+    conn: sqlite3.Connection,
+    repasse_linha_ids: list[int],
+    *,
+    data_pagamento_iso10: str,
+) -> tuple[bool, str, int]:
+    """
+    Define `status_repasse = REPASSE_PAGO` e `pago_em` apenas para linhas ainda pendentes.
+    Devolve (ok, mensagem, linhas actualizadas).
+    """
+    ids = sorted({int(x) for x in repasse_linha_ids if int(x) > 0})
+    if not ids:
+        return False, "❌ Nenhuma linha seleccionada.", 0
+    d = str(data_pagamento_iso10 or "").strip()[:10]
+    if len(d) != 10 or d[4] != "-" or d[7] != "-":
+        return False, "❌ Data de pagamento inválida.", 0
+    cur = conn.cursor()
+    ph = ",".join("?" * len(ids))
+    cur.execute(
+        f"""
+        UPDATE repasse_linhas
+        SET status_repasse = 'REPASSE_PAGO', pago_em = ?
+        WHERE id IN ({ph}) AND status_repasse = 'PENDENTE_REPASSE'
+        """,
+        [d, *ids],
+    )
+    n = int(cur.rowcount or 0)
+    conn.commit()
+    if n <= 0:
+        return (
+            False,
+            "❌ Nenhuma linha actualizada (só são afectadas linhas ainda pendentes de repasse).",
+            0,
+        )
+    return True, f"✅ Pagamento registado em {len(ids)} linha(s) solicitada(s); {n} actualizada(s).", n
+
+
+def aplicar_edicao_repasse_linhas_gestao(
+    conn: sqlite3.Connection,
+    linhas: list[tuple[int, bool, str | None]],
+) -> tuple[bool, str, int]:
+    """
+    `linhas`: (repasse_linha_id, pago_sim, data_pagamento_iso10 ou None).
+    Se `pago_sim` e sem data válida → erro.
+    """
+    cur = conn.cursor()
+    ntot = 0
+    for rid, pago_sim, data_iso in linhas:
+        iid = int(rid)
+        if pago_sim:
+            d = (str(data_iso or "").strip()[:10] if data_iso else "") or ""
+            if len(d) != 10 or d[4] != "-" or d[7] != "-":
+                return (
+                    False,
+                    f"❌ Indique uma data de pagamento válida (AAAA-MM-DD) para a linha #{iid}.",
+                    ntot,
+                )
+            cur.execute(
+                """
+                UPDATE repasse_linhas
+                SET status_repasse = 'REPASSE_PAGO', pago_em = ?
+                WHERE id = ?
+                """,
+                (d, iid),
+            )
+        else:
+            cur.execute(
+                """
+                UPDATE repasse_linhas
+                SET status_repasse = 'PENDENTE_REPASSE', pago_em = NULL
+                WHERE id = ?
+                """,
+                (iid,),
+            )
+        ntot += int(cur.rowcount or 0)
+    conn.commit()
+    return True, f"✅ {len(linhas)} linha(s) actualizada(s).", ntot

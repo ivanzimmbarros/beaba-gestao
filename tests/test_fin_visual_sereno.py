@@ -8,11 +8,16 @@ from tests.fin_ui_contract import (
     assert_fin_area_unica_shell,
     assert_fin_repasses_filtros_cadeia_e_layout_na_pagina,
     assert_fin_repasses_sector_na_pagina,
+    assert_fin_resultado_operacional_sector_na_pagina,
 )
 
 
 def test_fin_contract_alinhado_com_app_e_shell():
     assert_fin_area_unica_shell()
+
+
+def test_fin_resultado_operacional_sector_contrato():
+    assert_fin_resultado_operacional_sector_na_pagina()
 
 
 def test_fin_repasses_sector_contrato():
@@ -51,6 +56,7 @@ def test_render_page_financeiro_importa_inject_constituicao_fin():
     assert "fin_gxc_btn_salvar_linha1" not in t
     assert "Cadastramento de Novas Categorias" in t
     assert "vertical_alignment=\"center\"" in t
-    assert "2. Repasses" in t
+    assert "1. Resultado Operacional Consolidado" in t
+    assert "3. Repasses" in t
     assert "Gestão de Repasses para os Colaboradores" in t
     assert "fin_rep_btn_pesquisar" in t

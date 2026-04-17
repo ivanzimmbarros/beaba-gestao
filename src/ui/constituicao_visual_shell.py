@@ -1625,6 +1625,21 @@ def get_constituicao_fin_page_css() -> str:
         margin: 0 0 0.5rem 0 !important;
         letter-spacing: 0.01em !important;
     }}
+    .bea-cv-fin-gxc-banner {{
+        font-family: var(--cv-sans) !important;
+        margin: 0 0 0.75rem 0 !important;
+    }}
+    .bea-cv-fin-gxc-banner [data-testid="stAlert"] {{
+        border-radius: 14px !important;
+        box-shadow: {CV_SOMBRA_2} !important;
+    }}
+    .bea-cv-fin-gxc-banner-q {{
+        font-family: var(--cv-sans) !important;
+        font-weight: 600 !important;
+        color: {CV_TITULO} !important;
+        margin: 0 0 0.65rem 0 !important;
+        font-size: 1rem !important;
+    }}
     section[data-testid="stMain"]:has(.bea-cv-fin-slot) .block-container [data-testid="stButton"] > button,
     body.bea-cv-fin-page section[data-testid="stMain"] .block-container [data-testid="stButton"] > button {{
         border-radius: 9999px !important;

@@ -10,8 +10,14 @@ from __future__ import annotations
 import sqlite3
 
 from src.database.connection import get_connection
+from src.modules.financeiro_nome_normalizacao import chave_duplicacao_nome
 
 _T_LANCAMENTOS = "financeiro_gasto_lancamentos"
+
+# Duplicado na mesma hierarquia (centro, natureza ou tipo).
+MSG_REGISTRO_DUPLICADO = "Registo Duplicado. Operação não pode ser concluída."
+# Sentinela para a UI pedir confirmação antes de alterar tipo existente.
+MSG_PEDIR_CONFIRMACAO_ALTERACAO = "__FIN_GXC_CONFIRMAR_ALTERACAO__"
 
 
 def _conn(c: sqlite3.Connection | None = None) -> sqlite3.Connection:
@@ -29,6 +35,44 @@ def _tabela_existe(cursor: sqlite3.Cursor, nome: str) -> bool:
         (nome,),
     ).fetchone()
     return r is not None
+
+
+def _id_centro_por_chave_dup(conn: sqlite3.Connection, nome: str) -> int | None:
+    k = chave_duplicacao_nome(nome)
+    if not k:
+        return None
+    for rid, rnome in conn.execute(
+        "SELECT id, nome FROM financeiro_centro_custo WHERE ativo = 1"
+    ).fetchall():
+        if chave_duplicacao_nome(str(rnome)) == k:
+            return int(rid)
+    return None
+
+
+def _id_natureza_por_chave_dup(conn: sqlite3.Connection, centro_custo_id: int, nome: str) -> int | None:
+    k = chave_duplicacao_nome(nome)
+    if not k:
+        return None
+    for rid, rnome in conn.execute(
+        "SELECT id, nome FROM financeiro_natureza WHERE ativo = 1 AND centro_custo_id = ?",
+        (int(centro_custo_id),),
+    ).fetchall():
+        if chave_duplicacao_nome(str(rnome)) == k:
+            return int(rid)
+    return None
+
+
+def _id_tipo_por_chave_dup(conn: sqlite3.Connection, natureza_id: int, nome: str) -> int | None:
+    k = chave_duplicacao_nome(nome)
+    if not k:
+        return None
+    for rid, rnome in conn.execute(
+        "SELECT id, nome FROM financeiro_tipo_gasto WHERE ativo = 1 AND natureza_id = ?",
+        (int(natureza_id),),
+    ).fetchall():
+        if chave_duplicacao_nome(str(rnome)) == k:
+            return int(rid)
+    return None
 
 
 def tipo_tem_lancamentos(conn: sqlite3.Connection, tipo_gasto_id: int) -> bool:
@@ -181,12 +225,9 @@ def _obter_ou_criar_centro_ativo(conn: sqlite3.Connection, nome: str) -> tuple[i
     nome = nome.strip()
     if not nome:
         raise ValueError("Nome do centro de custo vazio.")
-    row = conn.execute(
-        "SELECT id FROM financeiro_centro_custo WHERE ativo = 1 AND nome = ?",
-        (nome,),
-    ).fetchone()
-    if row:
-        return int(row[0]), False
+    cid = _id_centro_por_chave_dup(conn, nome)
+    if cid is not None:
+        return cid, False
     cur = conn.execute(
         "INSERT INTO financeiro_centro_custo (nome, ativo) VALUES (?, 1)",
         (nome,),
@@ -198,15 +239,9 @@ def _obter_ou_criar_natureza_ativa(conn: sqlite3.Connection, centro_id: int, nom
     nome = nome.strip()
     if not nome:
         raise ValueError("Nome da natureza vazio.")
-    row = conn.execute(
-        """
-        SELECT id FROM financeiro_natureza
-        WHERE ativo = 1 AND centro_custo_id = ? AND nome = ?
-        """,
-        (int(centro_id), nome),
-    ).fetchone()
-    if row:
-        return int(row[0]), False
+    nid = _id_natureza_por_chave_dup(conn, int(centro_id), nome)
+    if nid is not None:
+        return nid, False
     cur = conn.execute(
         "INSERT INTO financeiro_natureza (centro_custo_id, nome, ativo) VALUES (?, ?, 1)",
         (int(centro_id), nome),
@@ -270,39 +305,49 @@ def listar_linhas_tabela_tipos(
 
 
 def salvar_linha1_apenas_centro_custo(conn: sqlite3.Connection, nome_centro: str) -> tuple[bool, str]:
-    """Linha 1 só com texto «Centro de Custo»: cria ou reutiliza centro activo pelo nome."""
+    """Linha 1 só com texto «Centro de Custo»: insere se o nome ainda não existir (activo)."""
     nome = (nome_centro or "").strip()
     if not nome:
         return False, "Indique o nome do Centro de Custo na linha 1."
+    if _id_centro_por_chave_dup(conn, nome) is not None:
+        return False, MSG_REGISTRO_DUPLICADO
     try:
-        _obter_ou_criar_centro_ativo(conn, nome)
-        return True, ""
+        conn.execute(
+            "INSERT INTO financeiro_centro_custo (nome, ativo) VALUES (?, 1)",
+            (nome,),
+        )
+        return True, "Centro de Custo criado com sucesso."
     except sqlite3.IntegrityError as e:
         return False, f"Dados em conflito: {e}"
 
 
 def salvar_linha1_tres_textos(conn: sqlite3.Connection, cc: str, nat: str, tipo: str) -> tuple[bool, str]:
-    """Linha 1: cria (ou reutiliza) centro, natureza e tipo; transação única."""
+    """Linha 1: cria centro, natureza e tipo numa única cadeia; rejeita qualquer duplicado na hierarquia."""
     cc, nat, tipo = cc.strip(), nat.strip(), tipo.strip()
     if not cc or not nat or not tipo:
         return False, "Preencha Centro de Custo, Natureza e Tipo de Gasto na linha 1."
     try:
-        cid, _ = _obter_ou_criar_centro_ativo(conn, cc)
-        nid, _ = _obter_ou_criar_natureza_ativa(conn, cid, nat)
-        row = conn.execute(
-            """
-            SELECT id FROM financeiro_tipo_gasto
-            WHERE ativo = 1 AND natureza_id = ? AND nome = ?
-            """,
-            (nid, tipo),
-        ).fetchone()
-        if row:
-            return False, "Já existe um Tipo de Gasto activo com este nome para esta Natureza."
+        if _id_centro_por_chave_dup(conn, cc) is not None:
+            return False, MSG_REGISTRO_DUPLICADO
+        cur = conn.execute(
+            "INSERT INTO financeiro_centro_custo (nome, ativo) VALUES (?, 1)",
+            (cc,),
+        )
+        cid = int(cur.lastrowid)
+        if _id_natureza_por_chave_dup(conn, cid, nat) is not None:
+            return False, MSG_REGISTRO_DUPLICADO
+        cur = conn.execute(
+            "INSERT INTO financeiro_natureza (centro_custo_id, nome, ativo) VALUES (?, ?, 1)",
+            (cid, nat),
+        )
+        nid = int(cur.lastrowid)
+        if _id_tipo_por_chave_dup(conn, nid, tipo) is not None:
+            return False, MSG_REGISTRO_DUPLICADO
         conn.execute(
             "INSERT INTO financeiro_tipo_gasto (natureza_id, nome, ativo) VALUES (?, ?, 1)",
             (nid, tipo),
         )
-        return True, ""
+        return True, "Tipo de Gasto criado com sucesso."
     except sqlite3.IntegrityError as e:
         return False, f"Dados em conflito com regras da base: {e}"
 
@@ -319,9 +364,14 @@ def salvar_linha2_centro_e_natureza_texto(
     ).fetchone()
     if not row:
         return False, "Centro de Custo seleccionado inválido."
+    if _id_natureza_por_chave_dup(conn, int(centro_custo_id), natureza_nome) is not None:
+        return False, MSG_REGISTRO_DUPLICADO
     try:
-        _obter_ou_criar_natureza_ativa(conn, int(centro_custo_id), natureza_nome)
-        return True, ""
+        conn.execute(
+            "INSERT INTO financeiro_natureza (centro_custo_id, nome, ativo) VALUES (?, ?, 1)",
+            (int(centro_custo_id), natureza_nome),
+        )
+        return True, "Natureza de Gasto criada com sucesso."
     except sqlite3.IntegrityError as e:
         return False, f"Dados em conflito: {e}"
 
@@ -337,21 +387,14 @@ def salvar_linha3_centro_natureza_e_tipo_texto(
         return False, "Indique o nome do Tipo de Gasto na linha 3."
     if not _validar_natureza_pertenece_centro(conn, natureza_id, centro_custo_id):
         return False, "A Natureza seleccionada não pertence ao Centro de Custo indicado."
-    row = conn.execute(
-        """
-        SELECT id FROM financeiro_tipo_gasto
-        WHERE ativo = 1 AND natureza_id = ? AND nome = ?
-        """,
-        (int(natureza_id), tipo_nome),
-    ).fetchone()
-    if row:
-        return False, "Já existe um Tipo de Gasto activo com este nome para esta Natureza."
+    if _id_tipo_por_chave_dup(conn, int(natureza_id), tipo_nome) is not None:
+        return False, MSG_REGISTRO_DUPLICADO
     try:
         conn.execute(
             "INSERT INTO financeiro_tipo_gasto (natureza_id, nome, ativo) VALUES (?, ?, 1)",
             (int(natureza_id), tipo_nome),
         )
-        return True, ""
+        return True, "Tipo de Gasto criado com sucesso."
     except sqlite3.IntegrityError as e:
         return False, f"Dados em conflito: {e}"
 
@@ -379,7 +422,7 @@ def atualizar_tipo_a_partir_formulario(
         return False, "Tipo de gasto não encontrado ou inactivo."
 
     same_nat = int(path["natureza_id"]) == int(natureza_id)
-    same_nome = path["tipo_nome"].strip() == novo_nome_tipo
+    same_nome = chave_duplicacao_nome(path["tipo_nome"]) == chave_duplicacao_nome(novo_nome_tipo)
     if same_nat and same_nome:
         return True, "Nenhuma alteração a gravar."
 
@@ -387,6 +430,9 @@ def atualizar_tipo_a_partir_formulario(
 
     if same_nat:
         if tem:
+            oid = _id_tipo_por_chave_dup(conn, int(natureza_id), novo_nome_tipo)
+            if oid is not None and oid != int(tipo_id):
+                return False, MSG_REGISTRO_DUPLICADO
             conn.execute("UPDATE financeiro_tipo_gasto SET ativo = 0 WHERE id = ?", (int(tipo_id),))
             conn.execute(
                 """
@@ -396,23 +442,20 @@ def atualizar_tipo_a_partir_formulario(
                 (int(natureza_id), novo_nome_tipo),
             )
         else:
-            clash = conn.execute(
-                """
-                SELECT id FROM financeiro_tipo_gasto
-                WHERE ativo = 1 AND natureza_id = ? AND nome = ? AND id != ?
-                """,
-                (int(natureza_id), novo_nome_tipo, int(tipo_id)),
-            ).fetchone()
-            if clash:
-                return False, "Já existe outro Tipo de Gasto activo com este nome para esta Natureza."
+            oid = _id_tipo_por_chave_dup(conn, int(natureza_id), novo_nome_tipo)
+            if oid is not None and oid != int(tipo_id):
+                return False, MSG_REGISTRO_DUPLICADO
             conn.execute(
                 "UPDATE financeiro_tipo_gasto SET nome = ? WHERE id = ?",
                 (novo_nome_tipo, int(tipo_id)),
             )
-        return True, ""
+        return True, "Dados alterados com sucesso."
 
     # Mudou natureza (relocalização)
     if tem:
+        oid = _id_tipo_por_chave_dup(conn, int(natureza_id), novo_nome_tipo)
+        if oid is not None and oid != int(tipo_id):
+            return False, MSG_REGISTRO_DUPLICADO
         conn.execute("UPDATE financeiro_tipo_gasto SET ativo = 0 WHERE id = ?", (int(tipo_id),))
         conn.execute(
             """
@@ -421,22 +464,16 @@ def atualizar_tipo_a_partir_formulario(
             """,
             (int(natureza_id), novo_nome_tipo),
         )
-        return True, ""
+        return True, "Dados alterados com sucesso."
 
-    clash = conn.execute(
-        """
-        SELECT id FROM financeiro_tipo_gasto
-        WHERE ativo = 1 AND natureza_id = ? AND nome = ? AND id != ?
-        """,
-        (int(natureza_id), novo_nome_tipo, int(tipo_id)),
-    ).fetchone()
-    if clash:
-        return False, "Já existe um Tipo de Gasto activo com este nome para a Natureza destino."
+    oid = _id_tipo_por_chave_dup(conn, int(natureza_id), novo_nome_tipo)
+    if oid is not None and oid != int(tipo_id):
+        return False, MSG_REGISTRO_DUPLICADO
     conn.execute(
         "UPDATE financeiro_tipo_gasto SET natureza_id = ?, nome = ? WHERE id = ?",
         (int(natureza_id), novo_nome_tipo, int(tipo_id)),
     )
-    return True, ""
+    return True, "Dados alterados com sucesso."
 
 
 def actualizar_nome_natureza_se_sem_lancamentos(
@@ -458,15 +495,16 @@ def actualizar_nome_natureza_se_sem_lancamentos(
     if not row:
         return False, "Natureza não encontrada."
     cid = int(row[1])
-    o = conn.execute(
+    kn = chave_duplicacao_nome(novo_nome)
+    for oid, onome in conn.execute(
         """
-        SELECT id FROM financeiro_natureza
-        WHERE ativo = 1 AND centro_custo_id = ? AND nome = ? AND id != ?
+        SELECT id, nome FROM financeiro_natureza
+        WHERE ativo = 1 AND centro_custo_id = ? AND id != ?
         """,
-        (cid, novo_nome, int(natureza_id)),
-    ).fetchone()
-    if o:
-        return False, "Já existe outra Natureza activa com este nome neste Centro de Custo."
+        (cid, int(natureza_id)),
+    ).fetchall():
+        if chave_duplicacao_nome(str(onome)) == kn:
+            return False, "Já existe outra Natureza activa com este nome neste Centro de Custo."
     conn.execute(
         "UPDATE financeiro_natureza SET nome = ? WHERE id = ?",
         (novo_nome, int(natureza_id)),
@@ -485,14 +523,8 @@ def actualizar_nome_centro_custo(conn: sqlite3.Connection, centro_id: int, novo_
     ).fetchone()
     if not row:
         return False, "Centro de custo não encontrado."
-    o = conn.execute(
-        """
-        SELECT id FROM financeiro_centro_custo
-        WHERE ativo = 1 AND nome = ? AND id != ?
-        """,
-        (novo_nome, int(centro_id)),
-    ).fetchone()
-    if o:
+    oid = _id_centro_por_chave_dup(conn, novo_nome)
+    if oid is not None and oid != int(centro_id):
         return False, "Já existe outro Centro de Custo activo com este nome."
     conn.execute(
         "UPDATE financeiro_centro_custo SET nome = ? WHERE id = ?",
@@ -513,33 +545,25 @@ def resolver_salvar_formulario(
     linha3_natureza_id: int | None,
     linha3_tipo_texto: str,
     editando_tipo_id: int | None,
+    confirmar_alteracao: bool = False,
 ) -> tuple[bool, str]:
     """
-    Prioridade: edição (tipo seleccionado) > linha 3 > linha 2 > linha 1 só centro
-    > linha 1 legada (três textos — testes/API).
-    """
-    if editando_tipo_id is not None:
-        if linha3_centro_id is None or linha3_natureza_id is None:
-            return False, "Para gravar a edição, preencha Centro e Natureza na linha 3."
-        ok_s, msg_s = sincronizar_nomes_superiores_apos_edicao_por_texto_linha1(
-            conn,
-            tipo_id=int(editando_tipo_id),
-            novo_cc=linha1_cc,
-            novo_nat=linha1_natureza,
-        )
-        if not ok_s:
-            return False, msg_s
-        return atualizar_tipo_a_partir_formulario(
-            conn,
-            int(editando_tipo_id),
-            int(linha3_centro_id),
-            int(linha3_natureza_id),
-            linha3_tipo_texto,
-        )
+    Prioridade: linha 3 (combinação: insere tipo novo ou altera tipo existente) >
+    linha 2 > linha 1 só centro > linha 1 legada (três textos).
 
+    Alterações a tipo existente exigem `confirmar_alteracao=True` após confirmação na UI;
+    até lá devolve `MSG_PEDIR_CONFIRMACAO_ALTERACAO`.
+    """
     if linha3_centro_id is not None and linha3_natureza_id is not None and linha3_tipo_texto.strip():
-        return salvar_linha3_centro_natureza_e_tipo_texto(
-            conn, int(linha3_centro_id), int(linha3_natureza_id), linha3_tipo_texto
+        return _resolver_linha3_centro_natureza_tipo(
+            conn,
+            linha1_cc=linha1_cc,
+            linha1_natureza=linha1_natureza,
+            linha3_centro_id=int(linha3_centro_id),
+            linha3_natureza_id=int(linha3_natureza_id),
+            linha3_tipo_texto=linha3_tipo_texto,
+            editando_tipo_id=editando_tipo_id,
+            confirmar_alteracao=confirmar_alteracao,
         )
 
     if linha2_centro_id is not None and linha2_natureza_texto.strip():
@@ -560,6 +584,116 @@ def resolver_salvar_formulario(
     return (
         False,
         "Preencha a linha 1 (nome do centro), ou a linha 2 (centro + natureza), ou a linha 3 (centro + natureza + tipo).",
+    )
+
+
+def _ha_mudanca_tipo_formulario(
+    conn: sqlite3.Connection,
+    tipo_id: int,
+    centro_custo_id: int,
+    natureza_id: int,
+    tipo_nome: str,
+    linha1_cc: str,
+    linha1_natureza: str,
+) -> bool:
+    """Verdadeiro se centro, natureza, tipo ou textos da linha 1 divergem do registo actual."""
+    path = obter_tipo_com_caminho(conn, int(tipo_id))
+    if not path:
+        return True
+    if int(path["centro_custo_id"]) != int(centro_custo_id):
+        return True
+    if int(path["natureza_id"]) != int(natureza_id):
+        return True
+    if chave_duplicacao_nome(path["tipo_nome"]) != chave_duplicacao_nome(tipo_nome):
+        return True
+    cc1 = (linha1_cc or "").strip()
+    na1 = (linha1_natureza or "").strip()
+    if cc1 and chave_duplicacao_nome(cc1) != chave_duplicacao_nome(str(path["centro_nome"])):
+        return True
+    if na1 and chave_duplicacao_nome(na1) != chave_duplicacao_nome(str(path["natureza_nome"])):
+        return True
+    return False
+
+
+def _resolver_linha3_centro_natureza_tipo(
+    conn: sqlite3.Connection,
+    *,
+    linha1_cc: str,
+    linha1_natureza: str,
+    linha3_centro_id: int,
+    linha3_natureza_id: int,
+    linha3_tipo_texto: str,
+    editando_tipo_id: int | None,
+    confirmar_alteracao: bool,
+) -> tuple[bool, str]:
+    tnom = linha3_tipo_texto.strip()
+    if not _validar_natureza_pertenece_centro(conn, int(linha3_natureza_id), int(linha3_centro_id)):
+        return False, "A Natureza seleccionada não pertence ao Centro de Custo indicado."
+    existing_id = _id_tipo_por_chave_dup(conn, int(linha3_natureza_id), tnom)
+
+    if existing_id is not None:
+        if editando_tipo_id is not None and int(editando_tipo_id) == existing_id:
+            if not _ha_mudanca_tipo_formulario(
+                conn,
+                existing_id,
+                int(linha3_centro_id),
+                int(linha3_natureza_id),
+                tnom,
+                linha1_cc,
+                linha1_natureza,
+            ):
+                return True, "Nenhuma alteração a gravar."
+            if not confirmar_alteracao:
+                return False, MSG_PEDIR_CONFIRMACAO_ALTERACAO
+            ok_s, msg_s = sincronizar_nomes_superiores_apos_edicao_por_texto_linha1(
+                conn,
+                tipo_id=int(editando_tipo_id),
+                novo_cc=linha1_cc,
+                novo_nat=linha1_natureza,
+            )
+            if not ok_s:
+                return False, msg_s
+            return atualizar_tipo_a_partir_formulario(
+                conn,
+                int(editando_tipo_id),
+                int(linha3_centro_id),
+                int(linha3_natureza_id),
+                tnom,
+            )
+        return False, MSG_REGISTRO_DUPLICADO
+
+    if editando_tipo_id is not None:
+        if not obter_tipo_com_caminho(conn, int(editando_tipo_id)):
+            return False, "Tipo de gasto não encontrado ou inactivo."
+        if not _ha_mudanca_tipo_formulario(
+            conn,
+            int(editando_tipo_id),
+            int(linha3_centro_id),
+            int(linha3_natureza_id),
+            tnom,
+            linha1_cc,
+            linha1_natureza,
+        ):
+            return True, "Nenhuma alteração a gravar."
+        if not confirmar_alteracao:
+            return False, MSG_PEDIR_CONFIRMACAO_ALTERACAO
+        ok_s, msg_s = sincronizar_nomes_superiores_apos_edicao_por_texto_linha1(
+            conn,
+            tipo_id=int(editando_tipo_id),
+            novo_cc=linha1_cc,
+            novo_nat=linha1_natureza,
+        )
+        if not ok_s:
+            return False, msg_s
+        return atualizar_tipo_a_partir_formulario(
+            conn,
+            int(editando_tipo_id),
+            int(linha3_centro_id),
+            int(linha3_natureza_id),
+            tnom,
+        )
+    return salvar_linha3_centro_natureza_e_tipo_texto(
+        conn, int(linha3_centro_id), int(linha3_natureza_id), tnom
     )
 
 

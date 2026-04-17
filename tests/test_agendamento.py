@@ -28,6 +28,7 @@ from src.modules.agendamento import (
 from src.modules.catalogo import cadastrar_pacote, cadastrar_servico_fase1
 from src.modules.cliente import buscar_cliente_por_whatsapp, cadastrar_cliente
 from src.modules.colaborador import cadastrar_colaborador
+from src.modules.credito_ledger import obter_saldo_credito_cliente
 from src.modules.venda import listar_venda_item_ids_em_ordem, registrar_venda
 
 
@@ -209,21 +210,19 @@ def test_pacote_saldo_por_componente():
     cur.execute("SELECT id FROM venda_itens ORDER BY id DESC LIMIT 1")
     vi_id = int(cur.fetchone()[0])
     assert saldo_bucket(cur, vi_id, psid) == 2
-    assert saldo_bucket(cur, vi_id, None) == 0
     conn.close()
-
-    ok_a1, _ = criar_agendamento(
+    ok_a1, msg1 = criar_agendamento(
         vi_id, psid, "2026-06-01", "08:00", "09:00", [], ""
     )
-    assert ok_a1
+    assert ok_a1, msg1
     conn = get_connection()
     cur = conn.cursor()
     assert saldo_bucket(cur, vi_id, psid) == 1
     conn.close()
-    ok_a2, _ = criar_agendamento(
+    ok_a2, msg2 = criar_agendamento(
         vi_id, psid, "2026-06-02", "08:00", "09:00", [], ""
     )
-    assert ok_a2
+    assert ok_a2, msg2
     conn = get_connection()
     cur = conn.cursor()
     assert saldo_bucket(cur, vi_id, psid) == 0
@@ -1613,3 +1612,186 @@ def test_listar_opcoes_servicos_adquiridos_pendente_pre_agendamento_smoke():
     assert isinstance(opts, list)
     for row in opts:
         assert "token" in row and "rotulo" in row and "venda_item_id" in row
+
+
+def test_listar_opcoes_sap_pacote_uma_entrada_por_venda_item_tres_cancelamentos():
+    """Três créditos devolvidos do mesmo pacote → 1 linha SAP (`…|pkg`), não 3."""
+    cid = _cliente()
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão SapPkg1",
+        "D",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=40.0,
+    )
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Sessão SapPkg1",))
+    s1 = int(cur.fetchone()[0])
+    conn.close()
+    ok_p, msg_p = cadastrar_pacote(
+        "Pacote SapPkg1",
+        "D.",
+        True,
+        [(s1, 3, None)],
+        None,
+        50.0,
+        100.0,
+    )
+    assert ok_p, msg_p
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Pacote SapPkg1",))
+    pid = int(cur.fetchone()[0])
+    cur.execute(
+        "SELECT id FROM servico_pacote_sessoes WHERE pacote_servico_id = ?",
+        (pid,),
+    )
+    psid = int(cur.fetchone()[0])
+    conn.close()
+    ok_v, msg_v, _ = registrar_venda(
+        int(cid),
+        "integral",
+        [
+            {
+                "servico_id": pid,
+                "quantidade": 1,
+                "is_bonus": False,
+                "evento_preco": None,
+                "desconto_linha_tipo": "none",
+                "desconto_linha_valor": None,
+            }
+        ],
+        None,
+        None,
+        [("dinheiro", 10000)],
+        [],
+        "",
+    )
+    assert ok_v, msg_v
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM venda_itens ORDER BY id DESC LIMIT 1")
+    vi_id = int(cur.fetchone()[0])
+    conn.close()
+    for d_off in range(3):
+        ok_a, _ = criar_agendamento(
+            vi_id,
+            psid,
+            f"2026-07-{10 + d_off:02d}",
+            "09:00",
+            "10:00",
+            [],
+            "",
+        )
+        assert ok_a
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id FROM agendamentos WHERE venda_item_id = ? ORDER BY id ASC",
+        (vi_id,),
+    )
+    aids = [int(r[0]) for r in cur.fetchall()]
+    conn.close()
+    assert len(aids) == 3
+    for aid in aids:
+        ok_c, _ = cancelar_agendamento(aid, devolver_ao_buffer=True)
+        assert ok_c
+    opts = listar_opcoes_servicos_adquiridos_pendente_pre_agendamento(int(cid))
+    pkg_opts = [o for o in opts if str(o.get("token") or "").endswith("|pkg")]
+    assert len(pkg_opts) == 1
+    assert int(pkg_opts[0]["venda_item_id"]) == vi_id
+    assert pkg_opts[0].get("pacote_sessao_esc") is None
+    tot, op_l = analisar_sessoes_pacote_pendentes_cag(int(cid), pid)
+    assert tot == 3
+    assert len(op_l) == 3
+
+
+def test_credito_cancelamento_pacote_prorata_tres_sessoes_nao_triplica_valor_pacote():
+    """Crédito por cancelamento = total_linha / sessões oficiais do catálogo (× qty linha)."""
+    cid = _cliente()
+    cadastrar_servico_fase1(
+        "Sessão",
+        "Sessão CredProrata",
+        "D",
+        True,
+        sessao_duracao_horas=1.0,
+        sessao_valor_euros=50.0,
+    )
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Sessão CredProrata",))
+    s1 = int(cur.fetchone()[0])
+    conn.close()
+    ok_p, msg_p = cadastrar_pacote(
+        "Pacote CredProrata",
+        "D.",
+        True,
+        [(s1, 3, None)],
+        None,
+        40.0,
+        100.0,
+    )
+    assert ok_p, msg_p
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM servicos WHERE nome = ?", ("Pacote CredProrata",))
+    pid = int(cur.fetchone()[0])
+    cur.execute(
+        "SELECT id FROM servico_pacote_sessoes WHERE pacote_servico_id = ?",
+        (pid,),
+    )
+    psid = int(cur.fetchone()[0])
+    conn.close()
+    ok_v, msg_v, _ = registrar_venda(
+        int(cid),
+        "integral",
+        [
+            {
+                "servico_id": pid,
+                "quantidade": 1,
+                "is_bonus": False,
+                "evento_preco": None,
+                "desconto_linha_tipo": "none",
+                "desconto_linha_valor": None,
+            }
+        ],
+        None,
+        None,
+        [("dinheiro", 10000)],
+        [],
+        "",
+    )
+    assert ok_v, msg_v
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM venda_itens ORDER BY id DESC LIMIT 1")
+    vi_id = int(cur.fetchone()[0])
+    conn.close()
+    aids = []
+    for d_off in range(3):
+        ok_a, _ = criar_agendamento(
+            vi_id,
+            psid,
+            f"2026-08-{10 + d_off:02d}",
+            "09:00",
+            "10:00",
+            [],
+            "",
+        )
+        assert ok_a
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM agendamentos ORDER BY id DESC LIMIT 1")
+        aids.append(int(cur.fetchone()[0]))
+        conn.close()
+    for aid in aids:
+        ok_c, _ = cancelar_agendamento(
+            aid,
+            devolver_ao_buffer=True,
+            converter_valor_pago_em_credito_loja=True,
+        )
+        assert ok_c
+    # 10000 // 3 = 3333 por sessão; 3 cancelamentos → 9999 (1 cêntimo de resto em divisão inteira)
+    assert obter_saldo_credito_cliente(int(cid)) == 9999

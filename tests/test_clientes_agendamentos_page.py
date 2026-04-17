@@ -49,12 +49,14 @@ def test_cag_busca_nome_integrado_estado_sessao_na_pagina():
     assert "pesquisa_unificada=True" in src
 
 
-def test_cag_servicos_adquiridos_pendentes_help_ordem_contratacao():
-    """Contrato UI: tooltip do selectbox SAP (novo agendamento) = ordenação por data de contratação."""
+def test_cag_servicos_adquiridos_pendentes_expander_tabela():
+    """Contrato UI: SAP em expander com tabela + chave dataframe (selecção como lista de agendamentos)."""
     src = (_REPO_ROOT / "src" / "ui" / "page_clientes_agendamentos.py").read_text(encoding="utf-8")
-    needle = 'help="Campo Ordenado por Data de Contratação"'
-    assert needle in src
-    assert src.count(needle) == 1
+    assert "st.expander(" in src
+    assert "adquiridos pendente agendamento" in src
+    assert "cag_sap_df_" in src
+    assert "on_select=\"rerun\"" in src
+    assert "selection_mode=\"single-row\"" in src
 
 
 def test_page_clientes_agendamentos_importa_e_expoe_render():
@@ -165,3 +167,35 @@ def test_html_linhas_natureza_linhas():
     assert "Sessão" in h
     assert "Evento" in h
     assert "2" in h
+
+
+def test_cag_agrupar_listagem_tres_sessoes_pacote_canceladas_uma_linha():
+    from src.ui import page_clientes_agendamentos as mod
+
+    base = {
+        "cliente_id": 1,
+        "venda_item_id": 99,
+        "tipo_origem": "pacote",
+        "nome_do_pacote": "Pacote 3",
+        "data_agendamento": "2026-04-17",
+        "data_criacao_registo": "2026-04-17T12:18:00",
+        "status": "CANCELADO",
+        "cliente_nome": "Ivan",
+        "pagamento": "Pago",
+        "modo_origem": "credito_venda",
+    }
+    rows = [
+        {**base, "id": 10, "hora_inicio": "09:00", "hora_fim": "11:00", "servico_nome": "Sessão A", "servico_natureza": "Sessão"},
+        {**base, "id": 11, "hora_inicio": "09:00", "hora_fim": "12:00", "servico_nome": "Sessão B", "servico_natureza": "Sessão"},
+        {**base, "id": 12, "hora_inicio": "09:00", "hora_fim": "10:00", "servico_nome": "Sessão C", "servico_natureza": "Sessão"},
+    ]
+    out = mod._cag_agrupar_listagem_cancelados_mesmo_pacote(rows)
+    assert len(out) == 1
+    assert out[0]["id"] == 10
+    assert out[0]["servico_nome"] == "Pacote 3"
+    assert out[0]["servico_natureza"] == "Pacote"
+    assert out[0]["hora_inicio"] == "09:00"
+    assert out[0]["hora_fim"] == "12:00"
+    assert set(out[0].get("_cag_lista_pacote_ids_agrupados") or []) == {10, 11, 12}
+    exp = mod._cag_ids_agendamentos_lista_expandidos(out)
+    assert exp == {10, 11, 12}

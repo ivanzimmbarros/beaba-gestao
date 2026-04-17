@@ -8,7 +8,11 @@ import pytest
 
 from src.database.connection import create_tables, get_connection
 from src.modules.colaborador import cadastrar_colaborador
-from src.modules.financeiro_repasses_colaboradores import listar_linhas_gestao_repasses
+from src.modules.financeiro_repasses_colaboradores import (
+    aplicar_edicao_repasse_linhas_gestao,
+    listar_linhas_gestao_repasses,
+    marcar_repasses_como_pagos,
+)
 
 
 @pytest.fixture()
@@ -126,6 +130,9 @@ def test_listar_repasses_concluido_e_filtros(rep_conn: sqlite3.Connection) -> No
     assert int(rows[0]["base_calculo_centavos"]) == 10000
     assert int(rows[0]["valor_repasse_centavos"]) == 2500
     assert rows[0]["data_execucao_dm"] == "20/03/2026"
+    assert rows[0]["repasse_pago_label"] == "Não"
+    assert rows[0]["data_pagamento_repasse_dm"] == ""
+    assert int(rows[0]["repasse_linha_id"]) > 0
 
     rows_m = listar_linhas_gestao_repasses(rep_conn, mes=3, ano=2026)
     assert len(rows_m) == 1
@@ -216,3 +223,41 @@ def test_metadados_servicos_repasse_nat_esp_e_sem_especialidade(rep_conn: sqlite
     r_nb = filtra_metadados_servicos_por_naturezas(meta, ["NMetaNatB"])
     r_sem = filtra_metadados_servicos_por_especialidades(r_nb, [REPASSE_ESP_SEM_LABEL])
     assert {int(r[0]) for r in r_sem} == {id_c}
+
+
+def test_marcar_repasses_como_pagos_ok(rep_conn: sqlite3.Connection) -> None:
+    _cid, _sid = _seed_repasse_row(rep_conn)
+    rows = listar_linhas_gestao_repasses(rep_conn)
+    rid = int(rows[0]["repasse_linha_id"])
+    ok, msg, n = marcar_repasses_como_pagos(rep_conn, [rid], data_pagamento_iso10="2026-04-10")
+    assert ok and n == 1 and "actualizada" in msg.casefold()
+    rows2 = listar_linhas_gestao_repasses(rep_conn)
+    assert rows2[0]["repasse_pago_label"] == "Sim"
+    assert rows2[0]["data_pagamento_repasse_iso"] == "2026-04-10"
+
+
+def test_marcar_repasses_como_pagos_sem_actualizacao_se_ja_pago(rep_conn: sqlite3.Connection) -> None:
+    _cid, _sid = _seed_repasse_row(rep_conn)
+    rid = int(listar_linhas_gestao_repasses(rep_conn)[0]["repasse_linha_id"])
+    assert marcar_repasses_como_pagos(rep_conn, [rid], data_pagamento_iso10="2026-04-01")[0]
+    ok2, _msg2, n2 = marcar_repasses_como_pagos(rep_conn, [rid], data_pagamento_iso10="2026-04-02")
+    assert not ok2 and n2 == 0
+
+
+def test_aplicar_edicao_repasse_linhas_gestao(rep_conn: sqlite3.Connection) -> None:
+    _cid, _sid = _seed_repasse_row(rep_conn)
+    rid = int(listar_linhas_gestao_repasses(rep_conn)[0]["repasse_linha_id"])
+    assert marcar_repasses_como_pagos(rep_conn, [rid], data_pagamento_iso10="2026-05-01")[0]
+    ok, msg, _n = aplicar_edicao_repasse_linhas_gestao(rep_conn, [(rid, False, None)])
+    assert ok
+    r = listar_linhas_gestao_repasses(rep_conn)[0]
+    assert r["repasse_pago_label"] == "Não"
+    assert r["data_pagamento_repasse_iso"] == ""
+
+
+def test_aplicar_edicao_repasse_sim_sem_data_falha(rep_conn: sqlite3.Connection) -> None:
+    _cid, _sid = _seed_repasse_row(rep_conn)
+    rid = int(listar_linhas_gestao_repasses(rep_conn)[0]["repasse_linha_id"])
+    ok, msg, ntot = aplicar_edicao_repasse_linhas_gestao(rep_conn, [(rid, True, "")])
+    assert not ok
+    assert ntot == 0

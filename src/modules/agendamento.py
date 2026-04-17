@@ -7,6 +7,7 @@ from datetime import date, timedelta
 from typing import Any, Literal
 
 from src.database.connection import get_connection
+from src.modules.catalogo import obter_servico_para_formulario
 from src.modules.colaborador import nome_colaborador_sem_sufixo_id_ui
 from src.modules.constants import ESTADO_AGENDAMENTO_REALIZADO_PENDENTE_LABEL_PT
 from src.modules.credito_ledger import (
@@ -175,6 +176,32 @@ def saldo_bucket(cur, venda_item_id: int, pacote_sessao_id: int | None) -> int:
     if tot <= 0:
         return 0
     return tot - _count_consumindo(cur, venda_item_id, pacote_sessao_id)
+
+
+def promover_agendamentos_realizado_pendente_apos_liquidacao_venda(venda_id: int) -> None:
+    """
+    Quando a venda passa a totalmente liquidada, tenta concluir agendamentos que ficaram
+    em REALIZADO_PENDENTE_PGTO por falta de pagamento (ex.: pacote parcial → integral).
+    """
+    conn = get_connection()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id FROM agendamentos
+            WHERE venda_id = ?
+              AND modo_origem = 'credito_venda'
+              AND IFNULL(UPPER(TRIM(status)), '') = 'REALIZADO_PENDENTE_PGTO'
+            """,
+            (int(venda_id),),
+        )
+        aids = [int(r[0]) for r in cur.fetchall()]
+    finally:
+        conn.close()
+    for aid in aids:
+        alterar_status(int(aid), "CONCLUIDO", actor="sync_pagamento_venda")
 
 
 def _tipo_origem_para_natureza(
@@ -442,13 +469,63 @@ def _sap_fmt_data_contratacao_dd_mm_yyyy(iso_date: str | None) -> str:
     return s if s else "—"
 
 
+def _sap_data_criacao_min_credito_iso(cur, venda_item_id: int) -> str | None:
+    """Data mínima (YYYY-MM-DD) de `data_criacao_registo` em créditos de venda não cancelados."""
+    cur.execute(
+        """
+        SELECT MIN(date(data_criacao_registo))
+        FROM agendamentos
+        WHERE venda_item_id = ?
+          AND modo_origem = 'credito_venda'
+          AND IFNULL(UPPER(TRIM(status)), '') != 'CANCELADO'
+        """,
+        (int(venda_item_id),),
+    )
+    r = cur.fetchone()
+    if not r or not r[0]:
+        return None
+    s = str(r[0]).strip()[:10]
+    return s if len(s) == 10 else None
+
+
+def _sap_data_registo_celula_cag(
+    cur,
+    *,
+    nat_s: str,
+    venda_item_id: int,
+    data_contr_iso: object,
+    pag_lab: str,
+) -> str:
+    """Regra CAG: pacote → data aquisição; avulso pago → aquisição; avulso não pago → 1.ª criação de registo."""
+    dd_contr = _sap_fmt_data_contratacao_dd_mm_yyyy(
+        str(data_contr_iso).strip()[:10] if data_contr_iso is not None else None
+    )
+    if str(nat_s or "").strip() == "Pacote":
+        return dd_contr
+    if str(pag_lab or "").strip() == "Pago":
+        return dd_contr
+    alt = _sap_data_criacao_min_credito_iso(cur, int(venda_item_id))
+    return _sap_fmt_data_contratacao_dd_mm_yyyy(alt) if alt else dd_contr
+
+
+def _sap_especialidade_servico_catalogo(servico_catalog_id: int) -> str:
+    row = obter_servico_para_formulario(int(servico_catalog_id))
+    if not row:
+        return "—"
+    en = str(row.get("especialidade_nome") or "").strip()
+    return en if en else "—"
+
+
 def listar_opcoes_servicos_adquiridos_pendente_pre_agendamento(
     cliente_id: int,
 ) -> list[dict[str, Any]]:
     """
-    Linhas de venda pagas (integral ou parcial) com unidade ainda **sem** agendamento
-    `credito_venda` em estado ≥ «Pré-agendado» (cancelamentos não contam; o registo volta
-    a aparecer para nova marcação).
+    Linhas de venda com pagamento liquidado (integral/parcial) ou **pendente** (sessões,
+    pacotes, etc.) com unidade ainda **sem** agendamento `credito_venda` em estado ≥
+    «Pré-agendado» (cancelamentos não contam; o registo volta a aparecer).
+
+    **Pacote:** uma única opção por `venda_item` com pendências (`token` …`|pkg`); as
+    unidades pendentes aparecem na UI em «Lista de Sessoes do Pacote Pendente Agendamento».
     """
     cid = int(cliente_id)
     conn = get_connection()
@@ -461,6 +538,7 @@ def listar_opcoes_servicos_adquiridos_pendente_pre_agendamento(
             """
             SELECT vi.id, vi.venda_id, vi.servico_id, vi.quantidade, vi.nome_snapshot,
                    s.natureza, s.nome AS nome_catalogo,
+                   c.nome AS cliente_nome,
                    COALESCE(
                        (
                            SELECT MIN(date(vpl.criado_em))
@@ -473,14 +551,15 @@ def listar_opcoes_servicos_adquiridos_pendente_pre_agendamento(
             FROM venda_itens vi
             JOIN vendas v ON v.id = vi.venda_id
             JOIN servicos s ON s.id = vi.servico_id
+            JOIN clientes c ON c.id = v.cliente_id
             WHERE v.cliente_id = ?
-              AND IFNULL(LOWER(TRIM(v.estado_pagamento)), '') IN ('integral', 'parcial')
+              AND IFNULL(LOWER(TRIM(v.estado_pagamento)), '') IN ('integral', 'parcial', 'pendente')
               AND IFNULL(s.natureza, '') != 'Produto'
             ORDER BY v.id ASC, vi.ordem, vi.id
             """,
             (cid,),
         )
-        for vi_id, vid, sid_cat, qty, nome_snap, nat, nome_cat, data_contr_iso in cur.fetchall():
+        for vi_id, vid, sid_cat, qty, nome_snap, nat, nome_cat, cliente_nome, data_contr_iso in cur.fetchall():
             vi_id_i = int(vi_id)
             vid_i = int(vid)
             sid_i = int(sid_cat)
@@ -525,28 +604,28 @@ def listar_opcoes_servicos_adquiridos_pendente_pre_agendamento(
                     if pend > 0:
                         pendencias.append((psid_i, ssid_i, snome_t, pend))
                 total_opts_pac = sum(p for *_, p in pendencias)
-                for psid_i, ssid_i, snome_t, pend in pendencias:
-                    for k in range(1, pend + 1):
-                        tok = f"sap|{vi_id_i}|pkg|{psid_i}|{ssid_i}|u{k}"
-                        pesc = f"{psid_i}|{ssid_i}|u{k}"
-                        rot = f"(Pacote - {dd_mm}) {nome_snap_s} - {synth}"
-                        if total_opts_pac > 1:
-                            rot += f" — {snome_t}"
-                        if pend > 1:
-                            rot += f" · {k}/{pend}"
-                        out.append(
-                            {
-                                "token": tok,
-                                "rotulo": rot,
-                                "natureza": "Pacote",
-                                "servico_esc": f"{sid_i}|{nome_snap_s}",
-                                "pacote_sessao_esc": pesc,
-                                "venda_item_id": vi_id_i,
-                                "venda_id": vid_i,
-                                "servico_catalog_id": ssid_i,
-                                "pacote_sessao_id": psid_i,
-                            }
-                        )
+                if total_opts_pac > 0:
+                    tok = f"sap|{vi_id_i}|pkg"
+                    rot = f"(Pacote - {dd_mm}) {nome_snap_s} - {synth}"
+                    if total_opts_pac != 1:
+                        rot += f" — {total_opts_pac} pendentes"
+                    out.append(
+                        {
+                            "token": tok,
+                            "rotulo": rot,
+                            "natureza": "Pacote",
+                            "servico_esc": f"{sid_i}|{nome_snap_s}",
+                            "pacote_sessao_esc": None,
+                            "venda_item_id": vi_id_i,
+                            "venda_id": vid_i,
+                            "servico_catalog_id": sid_i,
+                            "pacote_sessao_id": None,
+                            "cliente_nome": str(cliente_nome or "").strip(),
+                            "data_contr_iso": str(data_contr_iso or "").strip()[:10],
+                            "nome_servico_tabela": nome_snap_s,
+                            "nome_pacote_tabela": nome_snap_s,
+                        }
+                    )
                 continue
 
             if nat_s not in ("Sessão", "Coworking", "Evento"):
@@ -571,10 +650,33 @@ def listar_opcoes_servicos_adquiridos_pendente_pre_agendamento(
                         "venda_id": vid_i,
                         "servico_catalog_id": sid_i,
                         "pacote_sessao_id": None,
+                        "cliente_nome": str(cliente_nome or "").strip(),
+                        "data_contr_iso": str(data_contr_iso or "").strip()[:10],
+                        "nome_servico_tabela": (nome_snap_s or nome_cat_s).strip() or nome_cat_s,
+                        "nome_pacote_tabela": "—",
                     }
                 )
+        for d in out:
+            vid_i = int(d["venda_id"])
+            vi_id_i = int(d["venda_item_id"])
+            nat_s = str(d.get("natureza") or "").strip()
+            pag = rotulo_pagamento_venda(cur, vid_i)
+            d["status_pagamento"] = pag
+            d["data_do_registo"] = _sap_data_registo_celula_cag(
+                cur,
+                nat_s=nat_s,
+                venda_item_id=vi_id_i,
+                data_contr_iso=d.get("data_contr_iso"),
+                pag_lab=pag,
+            )
+            sid_cat = int(d.get("servico_catalog_id") or 0)
+            d["especialidade"] = (
+                _sap_especialidade_servico_catalogo(sid_cat) if sid_cat > 0 else "—"
+            )
+            d.pop("data_contr_iso", None)
         out.sort(
             key=lambda r: (
+                str(r.get("data_do_registo") or ""),
                 str(r.get("rotulo") or "").casefold(),
                 str(r.get("token") or ""),
             )
@@ -607,7 +709,8 @@ def listar_agendamentos(
                    a.modo_origem, a.preco_referencia_centavos,
                    a.tipo_atendimento, a.sala_virtual_disponibilizada,
                    c.nome AS cliente_nome, s.nome AS servico_nome, s.natureza AS servico_natureza,
-                   spac.nome AS nome_do_pacote
+                   spac.nome AS nome_do_pacote,
+                   a.data_criacao_registo
             FROM agendamentos a
             JOIN clientes c ON c.id = a.cliente_id
             JOIN servicos s ON s.id = a.servico_id
@@ -703,6 +806,7 @@ def listar_agendamentos(
                     "servico_nome": str(r[18]),
                     "servico_natureza": str(r[19]),
                     "nome_do_pacote": str(r[20] or "").strip(),
+                    "data_criacao_registo": str(r[21] or "").strip(),
                     "colaborador_ids": cids,
                     "colaboradores_nomes": nomes,
                     "pagamento": pag_lbl,
@@ -727,7 +831,8 @@ def obter_agendamento(ag_id: int) -> dict[str, Any] | None:
                    a.modo_origem, a.preco_referencia_centavos,
                    a.tipo_atendimento, a.sala_virtual_disponibilizada,
                    c.nome, s.nome, s.natureza,
-                   spac.nome AS nome_pacote_cat, sps.pacote_servico_id AS pacote_servico_cat_id
+                   spac.nome AS nome_pacote_cat, sps.pacote_servico_id AS pacote_servico_cat_id,
+                   a.data_criacao_registo
             FROM agendamentos a
             JOIN clientes c ON c.id = a.cliente_id
             JOIN servicos s ON s.id = a.servico_id
@@ -790,6 +895,7 @@ def obter_agendamento(ag_id: int) -> dict[str, Any] | None:
             "servico_natureza": str(r[19]),
             "nome_do_pacote": str(r[20] or "").strip(),
             "pacote_servico_catalogo_id": int(r[21]) if r[21] is not None else None,
+            "data_criacao_registo": str(r[22] or "").strip(),
             "colaborador_ids": cids,
             "colaboradores_nomes": nomes,
             "pagamento": pag_lbl,
@@ -872,9 +978,10 @@ def criar_agendamento(
                 tipo_origem, data_agendamento, hora_inicio, hora_fim, status,
                 devolver_ao_buffer, observacoes, data_alteracao,
                 modo_origem, preco_referencia_centavos,
-                tipo_atendimento, sala_virtual_disponibilizada
+                tipo_atendimento, sala_virtual_disponibilizada,
+                data_criacao_registo
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'AGENDADO', 0, ?, CURRENT_TIMESTAMP,
-                'credito_venda', NULL, ?, ?)
+                'credito_venda', NULL, ?, ?, datetime('now'))
             """,
             (
                 venda_id,
@@ -1022,10 +1129,48 @@ def _append_ag_hist(
     )
 
 
+def _divisor_valor_unitario_credito_venda_item_cur(
+    cur: sqlite3.Cursor, venda_item_id: int, tipo_origem: str | None
+) -> int:
+    """Unidades para repartir `total_linha_centavos` (crédito cancelamento / base repasse).
+
+    Pacote (`tipo_origem` pacote + natureza Pacote): soma das quantidades oficiais no
+    catálogo × quantidade vendida na linha — evita creditar o valor integral do pacote
+    por cada sessão cancelada.
+    Demais: quantidade da linha (ex.: várias sessões avulsas na mesma linha).
+    """
+    cur.execute(
+        """
+        SELECT vi.quantidade, s.natureza, vi.servico_id
+        FROM venda_itens vi
+        JOIN servicos s ON s.id = vi.servico_id
+        WHERE vi.id = ?
+        """,
+        (int(venda_item_id),),
+    )
+    r = cur.fetchone()
+    if not r:
+        return 1
+    qty_i, nat, sid_pkg = max(1, int(r[0] or 1)), str(r[1] or "").strip(), int(r[2])
+    if str(tipo_origem or "").strip().lower() == "pacote" and nat == "Pacote":
+        cur.execute(
+            """
+            SELECT COALESCE(SUM(sps.quantidade), 0)
+            FROM servico_pacote_sessoes sps
+            WHERE sps.pacote_servico_id = ?
+            """,
+            (int(sid_pkg),),
+        )
+        sum_pq = int(cur.fetchone()[0] or 0)
+        return max(1, sum_pq * qty_i)
+    return qty_i
+
+
 def _base_repasse_centavos(cur, ag_id: int) -> tuple[int, int]:
     cur.execute(
         """
-        SELECT a.modo_origem, a.preco_referencia_centavos, a.venda_item_id, a.servico_id
+        SELECT a.modo_origem, a.preco_referencia_centavos, a.venda_item_id, a.servico_id,
+               a.tipo_origem
         FROM agendamentos a WHERE a.id = ?
         """,
         (int(ag_id),),
@@ -1033,20 +1178,21 @@ def _base_repasse_centavos(cur, ag_id: int) -> tuple[int, int]:
     r = cur.fetchone()
     if not r:
         return 0, 0
-    modo, pref, viid, sid = str(r[0]), r[1], r[2], int(r[3])
+    modo, pref, viid, sid, tpo = str(r[0]), r[1], r[2], int(r[3]), str(r[4] or "")
     if modo == "pre_venda":
         return max(0, int(pref or 0)), sid
     if viid is None:
         return 0, sid
     cur.execute(
-        "SELECT total_linha_centavos, quantidade FROM venda_itens WHERE id = ?",
+        "SELECT total_linha_centavos FROM venda_itens WHERE id = ?",
         (int(viid),),
     )
     r2 = cur.fetchone()
     if not r2:
         return 0, sid
-    tlin, q = int(r2[0]), max(1, int(r2[1]))
-    return int(tlin // q), sid
+    tlin = int(r2[0])
+    divis = _divisor_valor_unitario_credito_venda_item_cur(cur, int(viid), tpo)
+    return int(tlin // max(1, divis)), sid
 
 
 def _gerar_repasse_linhas(cur, ag_id: int) -> None:
@@ -1092,7 +1238,7 @@ def _gerar_repasse_linhas(cur, ag_id: int) -> None:
 def _valor_credito_cancelamento_sugerido_cur(cur, ag_id: int) -> int:
     cur.execute(
         """
-        SELECT modo_origem, preco_referencia_centavos, venda_item_id
+        SELECT modo_origem, preco_referencia_centavos, venda_item_id, tipo_origem
         FROM agendamentos WHERE id = ?
         """,
         (int(ag_id),),
@@ -1100,20 +1246,21 @@ def _valor_credito_cancelamento_sugerido_cur(cur, ag_id: int) -> int:
     r = cur.fetchone()
     if not r:
         return 0
-    modo, pref, viid = str(r[0]), r[1], r[2]
+    modo, pref, viid, tpo = str(r[0]), r[1], r[2], str(r[3] or "")
     if modo == "pre_venda":
         return max(0, int(pref or 0))
     if viid is None:
         return 0
     cur.execute(
-        "SELECT total_linha_centavos, quantidade FROM venda_itens WHERE id = ?",
+        "SELECT total_linha_centavos FROM venda_itens WHERE id = ?",
         (int(viid),),
     )
     r2 = cur.fetchone()
     if not r2:
         return 0
-    tlin, q = int(r2[0]), max(1, int(r2[1]))
-    return int(tlin // q)
+    tlin = int(r2[0])
+    divis = _divisor_valor_unitario_credito_venda_item_cur(cur, int(viid), tpo)
+    return int(tlin // max(1, divis))
 
 
 def alterar_status(
@@ -1399,9 +1546,10 @@ def criar_agendamento_pre_venda(
                 tipo_origem, data_agendamento, hora_inicio, hora_fim, status,
                 devolver_ao_buffer, observacoes, data_alteracao,
                 modo_origem, preco_referencia_centavos,
-                tipo_atendimento, sala_virtual_disponibilizada
+                tipo_atendimento, sala_virtual_disponibilizada,
+                data_criacao_registo
             ) VALUES (NULL, NULL, ?, ?, ?, ?, ?, ?, ?, 'AGENDADO', 0, ?, CURRENT_TIMESTAMP,
-                'pre_venda', ?, ?, ?)
+                'pre_venda', ?, ?, ?, datetime('now'))
             """,
             (
                 cid,
@@ -2058,6 +2206,7 @@ __all__ = [
     "obter_resumo_agendamentos_cliente_setor2_proposta",
     "obter_primeiro_item_venda_por_servico",
     "pos_venda_associar_agendamentos_por_linha",
+    "promover_agendamentos_realizado_pendente_apos_liquidacao_venda",
     "rotulo_pagamento_venda",
     "saldo_bucket",
     "validar_intervalo_horario",

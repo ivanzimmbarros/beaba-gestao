@@ -11,6 +11,7 @@ import streamlit as st
 from src.modules.catalogo import (
     euros_para_centavos,
     listar_servicos_para_venda,
+    listar_sessoes_do_pacote_catalogo,
     resolver_snapshot_venda,
 )
 from src.modules.cliente import (
@@ -1540,15 +1541,28 @@ def render_page_vendas(
                                     )
                                 )
                             with c_c:
-                                cc1, cc2 = st.columns([7, 5])
+                                cc1, cc2 = st.columns([9, 3])
                                 with cc1:
                                     st.session_state.setdefault(
                                         f"{fk}_bon_{idx}", bool(it.get("bonus"))
                                     )
-                                    it["bonus"] = st.checkbox(
-                                        "Bónus\u00a0(serviço\u00a0gratuito)",
-                                        key=f"{fk}_bon_{idx}",
+                                    _bon_cb, _bon_lbl = st.columns(
+                                        [0.14, 0.86], gap="small", vertical_alignment="center"
                                     )
+                                    with _bon_cb:
+                                        it["bonus"] = st.checkbox(
+                                            "Bónus (serviço gratuito)",
+                                            key=f"{fk}_bon_{idx}",
+                                            label_visibility="collapsed",
+                                        )
+                                    with _bon_lbl:
+                                        _bon_vis = html.escape("Bónus (serviço gratuito)")
+                                        st.markdown(
+                                            f'<p title="Bónus (serviço gratuito)" style="margin:0;'
+                                            f"line-height:1.5;font-size:0.95rem;color:#2D332F;"
+                                            f'white-space:nowrap;">{_bon_vis}</p>',
+                                            unsafe_allow_html=True,
+                                        )
                                 with cc2:
                                     if nat == "Evento":
                                         it["evt"] = st.radio(
@@ -1570,9 +1584,9 @@ def render_page_vendas(
                                 it["disc_pct"] = float(
                                     st.number_input(
                                         "% desconto",
-                                        min_value=0.01,
+                                        min_value=0.0,
                                         max_value=100.0,
-                                        value=float(it.get("disc_pct", 0.01)),
+                                        value=float(it.get("disc_pct", 0.0)),
                                         step=0.01,
                                         key=f"{fk}_dp_{idx}",
                                     )
@@ -1581,8 +1595,8 @@ def render_page_vendas(
                                 it["disc_eur"] = float(
                                     st.number_input(
                                         "Valor desconto (€)",
-                                        min_value=0.01,
-                                        value=float(it.get("disc_eur", 0.01)),
+                                        min_value=0.0,
+                                        value=float(it.get("disc_eur", 0.0)),
                                         step=0.01,
                                         key=f"{fk}_de_{idx}",
                                     )
@@ -1631,10 +1645,13 @@ def render_page_vendas(
                                     "Produto: venda directa — sem associação a agendamento."
                                 )
                             elif nat == "Pacote":
-                                st.caption(
-                                    "Pacote: consumos na agenda seguem a venda do pacote; "
-                                    "conclusão exige liquidação integral da venda (política restritiva)."
-                                )
+                                st.markdown("**Composição do pacote**")
+                                for plinha in listar_sessoes_do_pacote_catalogo(int(it["servico_id"])):
+                                    q_lin = int(plinha.get("quantidade", 1))
+                                    nome_lin = str(plinha.get("sessao_nome") or "—").strip()
+                                    st.markdown(
+                                        f"- **{html.escape(nome_lin)}** — quantidade: **{q_lin}**"
+                                    )
                             evt_key = (
                                 "adulto" if str(it.get("evt", "Adulto")) == "Adulto" else "crianca"
                             )
@@ -1909,12 +1926,6 @@ def render_page_vendas(
         modo_parcial_sem_prev=modo_p_ui,
         snap=snap_fin,
     )
-    if modo_p_ui and a_distribuir_cent > 0:
-        st.caption(
-            f"**{ESTADO_PAGAMENTO_VENDA_LABEL_PT['parcial']}:** em aberto **{_vnd_fmt_cent(a_distribuir_cent)}** "
-            "(pode finalizar a venda; o restante ficará por liquidar)."
-        )
-
     obs = st.text_area("Observações da venda", key=f"{fk}_obs_v")
 
     _pend_colab_ok = all(

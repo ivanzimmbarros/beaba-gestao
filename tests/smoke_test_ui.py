@@ -15,7 +15,8 @@ Na CI / pre-push: incluído em ``python -m pytest tests/ -v`` (ficheiro em ``tes
 
 Referência técnica: `streamlit.testing.v1.AppTest` (Streamlit ≥ 1.28; projeto em 1.52+).
 
-Financeiro — **2. Repasses:** `test_smoke_financeiro_repasses_multiselect_chain` confirma na árvore
+Financeiro — **1. Resultado Operacional:** `test_smoke_financeiro_resultado_operacional_panel` confirma widgets do painel
+(mês/ano, cenário das entradas). **3. Repasses:** `test_smoke_financeiro_repasses_multiselect_chain` confirma na árvore
 de widgets os multiselects «Natureza do Serviço», «Especialidades» e «Nome do Serviço» na ordem
 correcta (regressão da cadeia de filtros em `page_financeiro.py`).
 """
@@ -108,8 +109,23 @@ def test_smoke_streamlit_app_legacy_redirect_boots(legacy: str) -> None:
     _run_app_smoke(legacy, timeout=120)
 
 
+def test_smoke_financeiro_resultado_operacional_panel() -> None:
+    """Financeiro: painel sector 1 — mês/ano, cenário das entradas e rótulo do expander."""
+    at = AppTest.from_file(str(_APP_PY), default_timeout=120)
+    at.session_state["page"] = "financeiro"
+    at.run()
+    _assert_app_tree_clean(at, context="Financeiro — resultado operacional (painel)")
+    labels_sb = [str(getattr(sb, "label", "") or "") for sb in at.get("selectbox")]
+    assert "Mês (referência)" in labels_sb
+    assert "Ano (referência)" in labels_sb
+    labels_radio = [str(getattr(r, "label", "") or "") for r in at.get("radio")]
+    assert "Cenário das entradas" in labels_radio
+    exp_titles = [str(getattr(e, "label", "") or "") for e in at.get("expander")]
+    assert any("Painel do resultado operacional (consolidado)" in t for t in exp_titles), exp_titles
+
+
 def test_smoke_financeiro_repasses_multiselect_chain() -> None:
-    """Financeiro: multiselects do sector «2. Repasses» presentes e ordenados (Nat → Esp → Svc)."""
+    """Financeiro: multiselects do sector «3. Repasses» presentes e ordenados (Nat → Esp → Svc)."""
     at = AppTest.from_file(str(_APP_PY), default_timeout=120)
     at.session_state["page"] = "financeiro"
     at.run()

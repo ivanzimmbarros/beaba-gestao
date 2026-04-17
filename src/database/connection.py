@@ -592,6 +592,123 @@ def _migrate_cliente_contatos_emergencia_e16_if_needed(cursor) -> None:
     cursor.execute("PRAGMA foreign_keys=ON")
 
 
+def _fin_count_lancamentos_tipo(cursor: sqlite3.Cursor, tipo_id: int) -> int:
+    tabs = {r[0] for r in cursor.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+    if "financeiro_gasto_lancamentos" not in tabs:
+        return 0
+    r = cursor.execute(
+        "SELECT COUNT(*) FROM financeiro_gasto_lancamentos WHERE tipo_gasto_id = ?",
+        (int(tipo_id),),
+    ).fetchone()
+    return int(r[0] or 0)
+
+
+def _chave_dup_nome_fin(s: str) -> str:
+    """Import tardio: evita ciclo connection ↔ `src.modules` (o __init__ importa cliente)."""
+    from src.modules.financeiro_nome_normalizacao import chave_duplicacao_nome
+
+    return chave_duplicacao_nome(s)
+
+
+def _dedupe_fin_tipos_ci(cursor: sqlite3.Cursor) -> None:
+    """Desactiva tipos activos duplicados (mesma natureza + mesmo nome: caixa e acentos)."""
+    cursor.execute(
+        "SELECT id, nome, natureza_id FROM financeiro_tipo_gasto WHERE ativo = 1"
+    )
+    groups: dict[tuple[int, str], list[int]] = {}
+    for tid, nome, nid in cursor.fetchall():
+        k = (int(nid), _chave_dup_nome_fin(str(nome)))
+        groups.setdefault(k, []).append(int(tid))
+    for _k, ids in groups.items():
+        if len(ids) < 2:
+            continue
+        keeper = sorted(ids, key=lambda tid: (-_fin_count_lancamentos_tipo(cursor, tid), tid))[0]
+        for tid in ids:
+            if tid != keeper:
+                cursor.execute("UPDATE financeiro_tipo_gasto SET ativo = 0 WHERE id = ?", (tid,))
+
+
+def _dedupe_fin_naturezas_ci(cursor: sqlite3.Cursor) -> None:
+    """Reatribui tipos e desactiva naturezas duplicadas (mesmo centro + nome: caixa e acentos)."""
+    cursor.execute("SELECT id, nome, centro_custo_id FROM financeiro_natureza WHERE ativo = 1")
+    groups: dict[tuple[int, str], list[int]] = {}
+    for nid, nome, cid in cursor.fetchall():
+        k = (int(cid), _chave_dup_nome_fin(str(nome)))
+        groups.setdefault(k, []).append(int(nid))
+    for _k, ids in groups.items():
+        if len(ids) < 2:
+            continue
+        ids = sorted(ids)
+        keeper = ids[0]
+        for rid in ids[1:]:
+            cursor.execute(
+                """
+                UPDATE financeiro_tipo_gasto SET natureza_id = ?
+                WHERE natureza_id = ? AND ativo = 1
+                """,
+                (keeper, rid),
+            )
+            cursor.execute("UPDATE financeiro_natureza SET ativo = 0 WHERE id = ?", (rid,))
+
+
+def _dedupe_fin_centros_ci(cursor: sqlite3.Cursor) -> None:
+    """Reatribui naturezas e desactiva centros duplicados (mesmo nome: caixa e acentos)."""
+    cursor.execute("SELECT id, nome FROM financeiro_centro_custo WHERE ativo = 1")
+    groups: dict[str, list[int]] = {}
+    for cid, nome in cursor.fetchall():
+        k = _chave_dup_nome_fin(str(nome))
+        groups.setdefault(k, []).append(int(cid))
+    for _k, ids in groups.items():
+        if len(ids) < 2:
+            continue
+        ids = sorted(ids)
+        keeper = ids[0]
+        for rid in ids[1:]:
+            cursor.execute(
+                """
+                UPDATE financeiro_natureza SET centro_custo_id = ?
+                WHERE centro_custo_id = ? AND ativo = 1
+                """,
+                (keeper, rid),
+            )
+            cursor.execute("UPDATE financeiro_centro_custo SET ativo = 0 WHERE id = ?", (rid,))
+
+
+def _ensure_financeiro_case_insensitive_unique_indexes(cursor: sqlite3.Cursor) -> None:
+    """
+    Índices únicos por LOWER(TRIM(nome)) na BD (maiúsculas + espaços); duplicados com acentos
+    diferentes são consolidados na migração e bloqueados na aplicação via chave canónica.
+    """
+    tabs = {r[0] for r in cursor.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+    if "financeiro_centro_custo" not in tabs:
+        return
+    for name in (
+        "uq_fin_cc_nome_ativo",
+        "uq_fin_nat_cc_nome_ativo",
+        "uq_fin_tipo_nat_nome_ativo",
+        "uq_fin_cc_nome_ci_ativo",
+        "uq_fin_nat_cc_nome_ci_ativo",
+        "uq_fin_tipo_nat_nome_ci_ativo",
+    ):
+        cursor.execute(f"DROP INDEX IF EXISTS {name}")
+    for _ in range(4):
+        _dedupe_fin_centros_ci(cursor)
+        _dedupe_fin_naturezas_ci(cursor)
+        _dedupe_fin_tipos_ci(cursor)
+    cursor.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_fin_cc_nome_ci_ativo "
+        "ON financeiro_centro_custo(LOWER(TRIM(nome))) WHERE ativo = 1"
+    )
+    cursor.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_fin_nat_cc_nome_ci_ativo "
+        "ON financeiro_natureza(centro_custo_id, LOWER(TRIM(nome))) WHERE ativo = 1"
+    )
+    cursor.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_fin_tipo_nat_nome_ci_ativo "
+        "ON financeiro_tipo_gasto(natureza_id, LOWER(TRIM(nome))) WHERE ativo = 1"
+    )
+
+
 def create_tables():
     """Garante esquema base, migrações incrementais e tabelas relacionadas."""
     conn = get_connection()
@@ -1015,18 +1132,7 @@ def create_tables():
         )
         """
     )
-    cursor.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS uq_fin_cc_nome_ativo "
-        "ON financeiro_centro_custo(nome) WHERE ativo = 1"
-    )
-    cursor.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS uq_fin_nat_cc_nome_ativo "
-        "ON financeiro_natureza(centro_custo_id, nome) WHERE ativo = 1"
-    )
-    cursor.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS uq_fin_tipo_nat_nome_ativo "
-        "ON financeiro_tipo_gasto(natureza_id, nome) WHERE ativo = 1"
-    )
+    _ensure_financeiro_case_insensitive_unique_indexes(cursor)
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_fin_lanc_tipo ON financeiro_gasto_lancamentos(tipo_gasto_id)"
     )
@@ -1050,6 +1156,22 @@ def create_tables():
         "agendamentos",
         "sala_virtual_disponibilizada",
         "INTEGER",
+    )
+    _ensure_column(
+        cursor,
+        "agendamentos",
+        "data_criacao_registo",
+        "TEXT",
+    )
+    cursor.execute(
+        """
+        UPDATE agendamentos
+        SET data_criacao_registo = COALESCE(
+            NULLIF(TRIM(data_criacao_registo), ''),
+            REPLACE(REPLACE(IFNULL(data_alteracao, ''), 'T', ' '), 'Z', '')
+        )
+        WHERE data_criacao_registo IS NULL OR TRIM(data_criacao_registo) = ''
+        """
     )
     conn.commit()
     conn.close()
