@@ -190,14 +190,13 @@
   "pc_foco": "PC1–PC2",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "2026-04-19: Orientações Mestres concluídas no repo local — 275 pytest (venv); smoke+E2E Colaboradores; scripts backup/restore actualizados; push develop pendente de rede/CI.",
+  "live_status": "2026-04-19: Orientações Mestres — push develop daddb64b; CI GitHub verde (Validador Maestro V2, FLUXO GOVERNANCA, E17 restore, auditorias).",
   "etapas_pendentes": [
-    "Validar GitHub Actions após push (Validador Maestro + FLUXO GOVERNANCA).",
     "Diretor: homologar PDV vs protótipo (semáforo visível, comanda spa). Sem OK → sem avançar módulos.",
     "E22: após OK — um único módulo seguinte (ex. Catálogo / Agendamentos).",
     "Encerramento futuro E22: `python tests/e2e_stress_test.py` (≥1000 iterações) + `tests/last_stress_report.txt` sem bloqueios (além da suite pytest)."
   ],
-  "live_actualizado_iso": "2026-04-19T18:00:00Z",
+  "live_actualizado_iso": "2026-04-19T22:05:00Z",
   "epico_cockpit_boas_vindas": {
     "status": "CONCLUÍDO",
     "data_iso": "2026-04-12",
