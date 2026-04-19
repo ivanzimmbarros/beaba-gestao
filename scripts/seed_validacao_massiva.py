@@ -9,7 +9,8 @@ Recomendado: ficheiro **dedicado** (`--db`) para não sobrescrever produção.
 Para repor `data/beaba_gestao.db` em branco (destrutivo):
   python scripts/seed_validacao_massiva.py --db data/beaba_gestao.db --wipe-live-confirm
 
-Gera tipicamente: **100** clientes (NIF PT + E.164), **20** colaboradores (habilitações 1..N serviços),
+Gera tipicamente: **100** clientes (NIF PT + E.164), **20** colaboradores (habilitações 1..N serviços; cada ficha inclui
+`iban_dados_bancarios` e restantes campos **Dados da Parceria** exigidos por `cadastrar_colaborador`),
 **20** serviços (Sessão, Produto, Coworking, Pacote, Evento), **~300** vendas com cenários de pagamento
 (integral, pendente, parcial, parcelado, multi-meios, cartão em 2 linhas, crédito loja, bónus, evento, pacote)
 e **300** agendamentos (275 crédito + 25 pré-venda) com estados PRE_AGENDADO…CANCELADO repartidos no tempo
@@ -333,6 +334,7 @@ def main() -> int:
             numero_contato=tel,
             observacoes="Seed massivo",
             servicos_repasse=linhas,
+            iban_dados_bancarios="PT50000201231234567890152",
         )
         assert ok, msg
         cur = sqlite3.connect(str(db_path)).cursor()

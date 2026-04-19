@@ -34,3 +34,18 @@ def parse_data_iso(s: str | None) -> bool:
         return True
     except ValueError:
         return False
+
+
+def normalizar_iban_dados_bancarios(raw: str) -> tuple[bool, str, str]:
+    """
+    Validação leve de IBAN (formato internacional) para ficha de colaborador.
+    Devolve (ok, mensagem_erro, iban_sem_espacos_maiúsculas).
+    """
+    t = re.sub(r"\s+", "", (raw or "").strip()).upper()
+    if not t:
+        return False, "❌ Dados Bancários — IBAN é obrigatório.", ""
+    if len(t) < 15 or len(t) > 34:
+        return False, "❌ IBAN inválido (comprimento).", ""
+    if not re.fullmatch(r"[A-Z]{2}\d{2}[A-Z0-9]+", t):
+        return False, "❌ IBAN inválido (use o formato internacional, ex.: PT50…).", ""
+    return True, "", t

@@ -1,4 +1,8 @@
-"""E17.1 — Evidências sobre ficheiro SQLite: integrity_check, FK, contagens, SHA-256."""
+"""E17.1 — Evidências sobre ficheiro SQLite: integrity_check, FK, contagens, SHA-256.
+
+A tabela `colaboradores` (conjunto `critical`) inclui dados de parceria (IBAN, actividade económica, contrato, etc.)
+adicionados em migrações `_ensure_column`; contagens D1 reflectem o estado integral do registo.
+"""
 
 from __future__ import annotations
 

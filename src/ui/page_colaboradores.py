@@ -67,6 +67,8 @@ _LBL_FILTRO_COL_MAPA = (
 _COL_MAPA_NAT_PH = "— Escolher natureza —"
 _COL_MAPA_ESP_PH = "— Escolher especialidade —"
 _COL_MAPA_SVC_PH = "— Escolher serviço —"
+_COL_SIM_NAO = ("Sim", "Não")
+_COL_PAR_3W = [0.24, 0.38, 0.38]
 # Placeholder interno para multiselect «Serviço» quando ainda não há ids reais (Streamlit exige opções).
 _COL_MAPA_SVC_SENTINEL = -9_000_000
 _COL_MAPA_COL_W = [0.95, 0.95, 1.05, 0.38]
@@ -197,6 +199,16 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
             st.session_state[f"{fk}_email"] = d["email"]
             st.session_state[f"{fk}_docintl"] = bool(d.get("identificacao_internacional"))
             st.session_state[f"{fk}_nif"] = str(d.get("nif_ou_documento") or "")
+            st.session_state[f"{fk}_doc_par"] = str(d.get("documento_passaporte_residencia_cc") or "")
+            st.session_state[f"{fk}_ae_sel"] = "Sim" if d.get("atividade_economica_aberta") else "Não"
+            st.session_state[f"{fk}_ae_cod"] = str(d.get("atividade_economica_codigo") or "")
+            st.session_state[f"{fk}_ae_desc"] = str(d.get("atividade_economica_descricao") or "")
+            st.session_state[f"{fk}_ctr_sel"] = "Sim" if d.get("contrato_prestacao_assinado") else "Não"
+            dctr = (d.get("contrato_prestacao_data_assinatura") or "")[:10]
+            st.session_state[f"{fk}_ctr_dt"] = (
+                datetime.strptime(dctr, "%Y-%m-%d").date() if parse_data_iso(dctr) else date.today()
+            )
+            st.session_state[f"{fk}_iban"] = str(d.get("iban_dados_bancarios") or "")
             preencher_session_telefone_de_e164(f"{fk}_tel_pri", str(d.get("whatsapp") or ""))
             st.session_state[f"{fk}_rua"] = d["endereco_rua"]
             st.session_state[f"{fk}_numero"] = d["endereco_numero"]
@@ -559,7 +571,15 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
             if bool(st.session_state.get(f"{fk}_docintl"))
             else "9 dígitos (NIF PT)"
         )
-        c_nif = st.text_input("NIF ou documento de identificação *", key=f"{fk}_nif", placeholder=ph_doc)
+        nif_col, docp_col = st.columns(2, gap="small", vertical_alignment="bottom")
+        with nif_col:
+            c_nif = st.text_input("NIF ou documento de identificação *", key=f"{fk}_nif", placeholder=ph_doc)
+        with docp_col:
+            st.text_input(
+                "Passaporte, Título de Residência ou Cartão Cidadão",
+                key=f"{fk}_doc_par",
+                placeholder="Opcional",
+            )
         render_grupo_telefone(st, prefix=f"{fk}_tel_pri", label="Contacto principal *", disabled=False)
 
         st.markdown(_col_ficha_subsec_html("Morada"), unsafe_allow_html=True)
@@ -584,6 +604,44 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
             if _col_pais_k not in st.session_state:
                 st.session_state[_col_pais_k] = "Portugal"
             c_pais = st.text_input("País *", key=_col_pais_k)
+
+        st.markdown(_col_ficha_subsec_html("Dados da Parceria"), unsafe_allow_html=True)
+        for _pk, _pd in (
+            (f"{fk}_ae_sel", "Não"),
+            (f"{fk}_ctr_sel", "Não"),
+        ):
+            if _pk not in st.session_state:
+                st.session_state[_pk] = _pd
+        if f"{fk}_ctr_dt" not in st.session_state:
+            st.session_state[f"{fk}_ctr_dt"] = date.today()
+
+        r_par_1 = st.columns(_COL_PAR_3W, gap="small", vertical_alignment="bottom")
+        with r_par_1[0]:
+            st.selectbox("Atividade Econômica Aberta? *", options=_COL_SIM_NAO, key=f"{fk}_ae_sel")
+        ae_sim = str(st.session_state.get(f"{fk}_ae_sel") or "Não") == "Sim"
+        with r_par_1[1]:
+            st.text_input("Código da Atividade", key=f"{fk}_ae_cod", disabled=not ae_sim)
+        with r_par_1[2]:
+            st.text_input("Descrição da Atividade Econômica", key=f"{fk}_ae_desc", disabled=not ae_sim)
+
+        r_par_2 = st.columns(_COL_PAR_3W, gap="small", vertical_alignment="bottom")
+        with r_par_2[0]:
+            st.selectbox(
+                "Contrato de Prestação de Serviço assinado? *",
+                options=_COL_SIM_NAO,
+                key=f"{fk}_ctr_sel",
+            )
+        ctr_sim = str(st.session_state.get(f"{fk}_ctr_sel") or "Não") == "Sim"
+        with r_par_2[1]:
+            st.date_input(
+                "Data de Assinatura (DD/MM/AAAA)",
+                key=f"{fk}_ctr_dt",
+                format="DD/MM/YYYY",
+                disabled=not ctr_sim,
+                min_value=date(1900, 1, 1),
+            )
+        with r_par_2[2]:
+            st.text_input("Dados Bancários — IBAN *", key=f"{fk}_iban", placeholder="PT50 …")
 
         st.markdown(_col_ficha_subsec_html("Serviços habilitados e repasse"), unsafe_allow_html=True)
         if st.button("Abrir Catálogo de Serviços", key=f"{fk}_goto_cat"):
@@ -696,6 +754,10 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
                 st.error(str(err_t or "❌ Contacto inválido."))
             else:
                 dn_iso = c_dn.isoformat() if c_dn else ""
+                ae_aberta = str(st.session_state.get(f"{fk}_ae_sel") or "Não") == "Sim"
+                ctr_ass = str(st.session_state.get(f"{fk}_ctr_sel") or "Não") == "Sim"
+                d_ctr = st.session_state.get(f"{fk}_ctr_dt")
+                ctr_dt_iso = d_ctr.isoformat() if ctr_ass and isinstance(d_ctr, date) else ""
                 common = dict(
                     nome=c_nome,
                     sexo=c_sexo,
@@ -714,6 +776,13 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
                     servicos_repasse=repasse,
                     nif_ou_documento=c_nif or "",
                     identificacao_internacional=bool(c_docintl),
+                    documento_passaporte_residencia_cc=str(st.session_state.get(f"{fk}_doc_par") or ""),
+                    atividade_economica_aberta=ae_aberta,
+                    atividade_economica_codigo=str(st.session_state.get(f"{fk}_ae_cod") or ""),
+                    atividade_economica_descricao=str(st.session_state.get(f"{fk}_ae_desc") or ""),
+                    contrato_prestacao_assinado=ctr_ass,
+                    contrato_prestacao_data_assinatura=ctr_dt_iso,
+                    iban_dados_bancarios=str(st.session_state.get(f"{fk}_iban") or ""),
                 )
                 if editing:
                     ok, msg = atualizar_colaborador(int(st.session_state.col_edit_id), **common)

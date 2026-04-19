@@ -714,14 +714,18 @@ def test_e2e_col_visual_shell_contract() -> None:
     """E2E leve: Colaboradores com Ilha Mãe + slot (paridade CAG/VND)."""
     from tests.col_ui_contract import (
         assert_col_area_unica_shell,
+        assert_col_dados_parceria_na_ficha,
         assert_col_ficha_contacto_grupo_telefone,
         assert_col_mapa_equipa_na_pagina,
         assert_col_pesquisa_unificada_na_pagina,
     )
+    from tests.smoke_test_ui import test_smoke_colaboradores_dados_parceria_ficha_widgets
 
     assert_col_area_unica_shell()
     assert_col_pesquisa_unificada_na_pagina()
     assert_col_ficha_contacto_grupo_telefone()
+    assert_col_dados_parceria_na_ficha()
+    test_smoke_colaboradores_dados_parceria_ficha_widgets()
     assert_col_mapa_equipa_na_pagina()
 
 

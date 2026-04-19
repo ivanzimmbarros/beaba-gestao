@@ -1282,6 +1282,7 @@ def test_converter_rejeita_repasse_fora_de_pendente():
         numero_contato="91222222222",
         observacoes="",
         servicos_repasse=[(sid, 20.0, "2026-01-01")],
+        iban_dados_bancarios="PT50000201231234567890152",
     )
     assert ok_col
     conn = get_connection()
@@ -1416,6 +1417,7 @@ def test_converter_apaga_repasse_pendente_e_converte():
         numero_contato="91333333333",
         observacoes="",
         servicos_repasse=[(sid, 15.0, "2026-01-01")],
+        iban_dados_bancarios="PT50000201231234567890152",
     )
     assert ok_col
     conn = get_connection()

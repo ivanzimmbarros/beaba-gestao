@@ -160,6 +160,7 @@ def test_pacote_ok_e_listagem():
         numero_contato="11955443322",
         observacoes="",
         servicos_repasse=[(sid_a, 40.0, date.today().isoformat())],
+        iban_dados_bancarios="PT50000201231234567890152",
     )
     w = repasse_medio_ponderado_pacote([(sid_a, 2), (sid_b, 1)])
     assert w is not None
@@ -217,6 +218,7 @@ def test_evento_ok_e_listagem():
         numero_contato="11944332211",
         observacoes="",
         servicos_repasse=[(_sid_habilitacao(), 30.0, date.today().isoformat())],
+        iban_dados_bancarios="PT50000201231234567890152",
     )
     cur = __import__("sqlite3").connect(os.environ["BEABA_SQLITE_PATH"])
     cid = cur.execute("SELECT id FROM colaboradores WHERE nome = 'Colab Evento'").fetchone()[0]
@@ -278,6 +280,7 @@ def test_evento_colaborador_duplicado_falha():
         numero_contato="11933221100",
         observacoes="",
         servicos_repasse=[(_sid_habilitacao(), 40.0, date.today().isoformat())],
+        iban_dados_bancarios="PT50000201231234567890152",
     )
     cur = __import__("sqlite3").connect(os.environ["BEABA_SQLITE_PATH"])
     cid = cur.execute("SELECT id FROM colaboradores WHERE nome = 'Dup Ev'").fetchone()[0]

@@ -2,6 +2,7 @@ from datetime import date, timedelta
 
 import pytest
 
+from src.database.connection import get_connection
 from src.modules.colaborador import (
     atualizar_colaborador,
     buscar_colaboradores_por_prefixo_nome,
@@ -31,6 +32,9 @@ def _linha_svc(sid: int, pct: float, data_linha: str | None = None):
     return (sid, pct, d)
 
 
+_IBAN_COLAB_TESTE = "PT50000201231234567890152"
+
+
 def _colab(**kw):
     base = dict(
         nome="Prof Teste",
@@ -50,6 +54,7 @@ def _colab(**kw):
         numero_contato="11999887766",
         observacoes="",
         servicos_repasse=[_linha_svc(_primeiro_servico_id(), 12.34)],
+        iban_dados_bancarios=_IBAN_COLAB_TESTE,
     )
     base.update(kw)
     return cadastrar_colaborador(**base)
@@ -94,6 +99,7 @@ def test_nif_obrigatorio_em_cadastro_colaborador():
         numero_contato="11988776600",
         observacoes="",
         servicos_repasse=[_linha_svc(sid, 10.0)],
+        iban_dados_bancarios=_IBAN_COLAB_TESTE,
     )
     assert ok is False
     assert "identificação" in msg.lower() or "nif" in msg.lower()
@@ -144,6 +150,7 @@ def test_data_linha_obrigatoria():
         numero_contato="11977665544",
         observacoes="",
         servicos_repasse=[(sid, 50.0, "")],
+        iban_dados_bancarios=_IBAN_COLAB_TESTE,
     )
     assert ok is False
     assert "data" in msg.lower() or "inserção" in msg.lower() or "habilitação" in msg.lower()
@@ -276,5 +283,139 @@ def test_atualizar_colaborador_e_media_repasse():
         servicos_repasse=[
             (cur["linhas"][0]["servico_id"], 25.0, cur["linhas"][0]["data_insercao_linha"] or date.today().isoformat()),
         ],
+        documento_passaporte_residencia_cc=str(cur.get("documento_passaporte_residencia_cc") or ""),
+        atividade_economica_aberta=bool(cur.get("atividade_economica_aberta")),
+        atividade_economica_codigo=str(cur.get("atividade_economica_codigo") or ""),
+        atividade_economica_descricao=str(cur.get("atividade_economica_descricao") or ""),
+        contrato_prestacao_assinado=bool(cur.get("contrato_prestacao_assinado")),
+        contrato_prestacao_data_assinatura=str(cur.get("contrato_prestacao_data_assinatura") or ""),
+        iban_dados_bancarios=str(cur.get("iban_dados_bancarios") or _IBAN_COLAB_TESTE),
     )
     assert ok3, msg3
+
+
+def test_parceria_iban_obrigatorio():
+    sid = _primeiro_servico_id()
+    ok, msg = cadastrar_colaborador(
+        nome="Sem IBAN",
+        sexo="Feminino",
+        data_nascimento=_adult_dob(),
+        endereco_rua="Rua A",
+        endereco_numero="1",
+        endereco_complemento="",
+        codigo_postal="4800-100",
+        concelho="Guimarães",
+        freguesia="Selho",
+        distrito="",
+        pais="Portugal",
+        email="sem.iban.col@example.com",
+        nif_ou_documento="123456789",
+        identificacao_internacional=False,
+        numero_contato="11988776633",
+        observacoes="",
+        servicos_repasse=[_linha_svc(sid, 10.0)],
+        iban_dados_bancarios="",
+    )
+    assert ok is False
+    assert "iban" in msg.lower()
+
+
+def test_parceria_actividade_aberta_so_codigo_falha():
+    sid = _primeiro_servico_id()
+    ok, msg = cadastrar_colaborador(
+        nome="AE incompleta",
+        sexo="Masculino",
+        data_nascimento=_adult_dob(),
+        endereco_rua="Rua A",
+        endereco_numero="1",
+        endereco_complemento="",
+        codigo_postal="4800-100",
+        concelho="Guimarães",
+        freguesia="Selho",
+        distrito="",
+        pais="Portugal",
+        email="ae.incompleta@example.com",
+        nif_ou_documento="123456789",
+        identificacao_internacional=False,
+        numero_contato="11988776634",
+        observacoes="",
+        servicos_repasse=[_linha_svc(sid, 11.0)],
+        atividade_economica_aberta=True,
+        atividade_economica_codigo="12345",
+        atividade_economica_descricao="",
+        iban_dados_bancarios=_IBAN_COLAB_TESTE,
+    )
+    assert ok is False
+    assert "código" in msg.lower() or "descrição" in msg.lower() or "ambos" in msg.lower()
+
+
+def test_parceria_contrato_sim_sem_data_falha():
+    sid = _primeiro_servico_id()
+    ok, msg = cadastrar_colaborador(
+        nome="Contrato sem data",
+        sexo="Feminino",
+        data_nascimento=_adult_dob(),
+        endereco_rua="Rua A",
+        endereco_numero="1",
+        endereco_complemento="",
+        codigo_postal="4800-100",
+        concelho="Guimarães",
+        freguesia="Selho",
+        distrito="",
+        pais="Portugal",
+        email="ctr.sem.data@example.com",
+        nif_ou_documento="123456789",
+        identificacao_internacional=False,
+        numero_contato="11988776635",
+        observacoes="",
+        servicos_repasse=[_linha_svc(sid, 12.0)],
+        contrato_prestacao_assinado=True,
+        contrato_prestacao_data_assinatura="",
+        iban_dados_bancarios=_IBAN_COLAB_TESTE,
+    )
+    assert ok is False
+    assert "data" in msg.lower() or "assinatura" in msg.lower()
+
+
+def test_parceria_actividade_aberta_ok():
+    sid = _primeiro_servico_id()
+    ok, msg = cadastrar_colaborador(
+        nome="AE completa OK",
+        sexo="Outro",
+        data_nascimento=_adult_dob(),
+        endereco_rua="Rua A",
+        endereco_numero="1",
+        endereco_complemento="",
+        codigo_postal="4800-100",
+        concelho="Guimarães",
+        freguesia="Selho",
+        distrito="",
+        pais="Portugal",
+        email="ae.ok@example.com",
+        nif_ou_documento="123456789",
+        identificacao_internacional=False,
+        numero_contato="11988776636",
+        observacoes="",
+        servicos_repasse=[_linha_svc(sid, 13.0)],
+        documento_passaporte_residencia_cc="CC 123",
+        atividade_economica_aberta=True,
+        atividade_economica_codigo="CAE-X",
+        atividade_economica_descricao="Serviços de bem-estar",
+        contrato_prestacao_assinado=True,
+        contrato_prestacao_data_assinatura="2024-06-01",
+        iban_dados_bancarios=_IBAN_COLAB_TESTE,
+    )
+    assert ok, msg
+    conn = get_connection()
+    assert conn
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT atividade_economica_codigo, iban_dados_bancarios FROM colaboradores WHERE nome = ?",
+            ("AE completa OK",),
+        )
+        row = cur.fetchone()
+        assert row and row[0] == "CAE-X"
+        assert row[1] == _IBAN_COLAB_TESTE
+    finally:
+        conn.close()

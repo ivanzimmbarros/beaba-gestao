@@ -15,6 +15,10 @@ Na CI / pre-push: incluído em ``python -m pytest tests/ -v`` (ficheiro em ``tes
 
 Referência técnica: `streamlit.testing.v1.AppTest` (Streamlit ≥ 1.28; projeto em 1.52+).
 
+Colaboradores — **Dados da Parceria:** `test_smoke_colaboradores_dados_parceria_ficha_widgets` confirma na ficha os
+selects obrigatórios (actividade económica / contrato), IBAN e documento complementar na linha do NIF
+(`page_colaboradores.py` + `colaborador.py`).
+
 Financeiro — **1. Resultado Operacional:** `test_smoke_financeiro_resultado_operacional_panel` confirma widgets do painel
 (mês/ano, cenário das entradas). **3. Repasses:** `test_smoke_financeiro_repasses_multiselect_chain` confirma na árvore
 de widgets os multiselects «Natureza do Serviço», «Especialidades» e «Nome do Serviço» na ordem
@@ -107,6 +111,20 @@ def test_smoke_streamlit_app_route_boots(route: str) -> None:
 def test_smoke_streamlit_app_legacy_redirect_boots(legacy: str) -> None:
     """Rotas legadas redireccionadas não rebentam no primeiro render."""
     _run_app_smoke(legacy, timeout=120)
+
+
+def test_smoke_colaboradores_dados_parceria_ficha_widgets() -> None:
+    """Colaboradores: «Dados da Parceria» — selects Sim/Não, IBAN, documento complementar (regressão UI)."""
+    at = AppTest.from_file(str(_APP_PY), default_timeout=120)
+    at.session_state["page"] = "colaboradores"
+    at.run()
+    _assert_app_tree_clean(at, context="Colaboradores — dados da parceria (ficha)")
+    sb_labels = [str(getattr(sb, "label", "") or "") for sb in at.get("selectbox")]
+    assert "Atividade Econômica Aberta? *" in sb_labels
+    assert "Contrato de Prestação de Serviço assinado? *" in sb_labels
+    ti_labels = [str(getattr(ti, "label", "") or "") for ti in at.get("text_input")]
+    assert any("Dados Bancários — IBAN *" in t for t in ti_labels), ti_labels
+    assert any("Passaporte, Título de Residência ou Cartão Cidadão" in t for t in ti_labels), ti_labels
 
 
 def test_smoke_financeiro_resultado_operacional_panel() -> None:

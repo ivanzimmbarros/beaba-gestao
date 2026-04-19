@@ -52,6 +52,7 @@ def _seed_repasse_row(conn: sqlite3.Connection) -> tuple[int, int]:
         numero_contato="11977665544",
         observacoes="",
         servicos_repasse=[(sid, 25.0, "2026-01-01")],
+        iban_dados_bancarios="PT50000201231234567890152",
     )
     assert ok
     cur.execute("SELECT id FROM colaboradores WHERE nome = ?", ("Colab Repasse Fin",))

@@ -866,6 +866,13 @@ def create_tables():
     )
     _ensure_column(cursor, "colaboradores", "nif_ou_documento", "TEXT")
     _ensure_column(cursor, "colaboradores", "identificacao_internacional", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(cursor, "colaboradores", "documento_passaporte_residencia_cc", "TEXT DEFAULT ''")
+    _ensure_column(cursor, "colaboradores", "atividade_economica_aberta", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(cursor, "colaboradores", "atividade_economica_codigo", "TEXT DEFAULT ''")
+    _ensure_column(cursor, "colaboradores", "atividade_economica_descricao", "TEXT DEFAULT ''")
+    _ensure_column(cursor, "colaboradores", "contrato_prestacao_assinado", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(cursor, "colaboradores", "contrato_prestacao_data_assinatura", "TEXT DEFAULT ''")
+    _ensure_column(cursor, "colaboradores", "iban_dados_bancarios", "TEXT DEFAULT ''")
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS colaborador_servicos (

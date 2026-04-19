@@ -14,7 +14,8 @@ CAG: listagens e resumos vêm do mesmo `.db`; integridade do ficheiro cobre tamb
 consolidada (dados); camada visual Sereno é código em git, não artefacto de backup.
 Setor 4 (listagem dentro do expander «Agendamentos»; formulário com `tipo_atendimento` / `sala_virtual_disponibilizada` em `agendamentos`): contrato `tests/cag_setor4_ui_contract.py`.
 Painel de Vendas Sereno: `tests/vnd_ui_contract.py` (contrato `assert_vnd_editar_cliente_number_input_sem_value_duplicado_session`), `tests/test_vnd_visual_sereno.py`.
-Colaboradores Sereno: `tests/col_ui_contract.py`, `tests/test_col_visual_sereno.py`.
+Colaboradores Sereno: `tests/col_ui_contract.py`, `tests/test_col_visual_sereno.py`; ficha **Dados da Parceria** coberta por
+`tests/smoke_test_ui.py::test_smoke_colaboradores_dados_parceria_ficha_widgets`.
 Catálogo Sereno: `tests/cat_ui_contract.py`, `tests/test_cat_visual_sereno.py`.
 Início / Cockpit Sereno: `tests/home_ui_contract.py`, `tests/test_home_visual_sereno.py`.
 Setor 5 Entradas (2026-04): `tests/fin_ui_contract.py` (`assert_fin_entradas_sector_na_pagina`), `tests/test_financeiro_entradas_convertidas.py`.

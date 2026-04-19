@@ -14,6 +14,7 @@ from src.modules.telefone import normalizar_telefone_legado_ou_e164
 from src.modules.validators import (
     email_valido,
     normalizar_codigo_postal_pt,
+    normalizar_iban_dados_bancarios,
     parse_data_iso,
     validar_e_limpar_telefone,
 )
@@ -30,6 +31,60 @@ def nome_colaborador_sem_sufixo_id_ui(nome: object) -> str:
 
 # UI Mapa da Equipa / habilitações — serviços sem especialidade no catálogo.
 MAPA_EQUI_ESP_SEM_LABEL = "(Sem especialidade)"
+
+
+def _normalizar_campos_parceria_colaborador(
+    *,
+    documento_passaporte_residencia_cc: str,
+    atividade_economica_aberta: bool,
+    atividade_economica_codigo: str,
+    atividade_economica_descricao: str,
+    contrato_prestacao_assinado: bool,
+    contrato_prestacao_data_assinatura: str,
+    iban_dados_bancarios: str,
+) -> tuple[bool, str, tuple[str, int, str, str, int, str, str]]:
+    """
+    Valida e normaliza campos «Dados da Parceria».
+    Devolve (ok, mensagem_erro, tupla para INSERT/UPDATE na ordem das colunas SQLite).
+    """
+    doc2 = (documento_passaporte_residencia_cc or "").strip()
+    c_ae = (atividade_economica_codigo or "").strip()
+    d_ae = (atividade_economica_descricao or "").strip()
+    if atividade_economica_aberta:
+        if not c_ae and not d_ae:
+            return (
+                False,
+                "❌ Com «Atividade Económica Aberta?» = Sim, preencha o código e a descrição.",
+                ("", 0, "", "", 0, "", ""),
+            )
+        if (c_ae and not d_ae) or (not c_ae and d_ae):
+            return (
+                False,
+                "❌ Com atividade económica aberta, o Código da Atividade e a Descrição devem estar "
+                "ambos preenchidos (não deixe apenas um em branco).",
+                ("", 0, "", "", 0, "", ""),
+            )
+    else:
+        c_ae, d_ae = "", ""
+
+    ctr_dt = (contrato_prestacao_data_assinatura or "").strip()[:10]
+    if contrato_prestacao_assinado:
+        if not parse_data_iso(ctr_dt):
+            return (
+                False,
+                "❌ Com «Contrato de Prestação de Serviço assinado?» = Sim, a data de assinatura é obrigatória.",
+                ("", 0, "", "", 0, "", ""),
+            )
+    else:
+        ctr_dt = ""
+
+    ok_iban, msg_iban, iban_v = normalizar_iban_dados_bancarios(iban_dados_bancarios)
+    if not ok_iban:
+        return False, msg_iban, ("", 0, "", "", 0, "", "")
+
+    ae_i = 1 if atividade_economica_aberta else 0
+    ctr_i = 1 if contrato_prestacao_assinado else 0
+    return True, "", (doc2, ae_i, c_ae, d_ae, ctr_i, ctr_dt, iban_v)
 
 
 def _mapa_row_matches_especialidades(esps: list[str], esp_nome: str) -> bool:
@@ -216,6 +271,13 @@ def cadastrar_colaborador(
     *,
     nif_ou_documento: str = "",
     identificacao_internacional: bool = False,
+    documento_passaporte_residencia_cc: str = "",
+    atividade_economica_aberta: bool = False,
+    atividade_economica_codigo: str = "",
+    atividade_economica_descricao: str = "",
+    contrato_prestacao_assinado: bool = False,
+    contrato_prestacao_data_assinatura: str = "",
+    iban_dados_bancarios: str = "",
 ) -> tuple[bool, str]:
     """
     `servicos_repasse`: lista (servico_id, percentual %, data_insercao_linha ISO YYYY-MM-DD)
@@ -276,6 +338,19 @@ def cadastrar_colaborador(
             "❌ Número de contacto inválido. Use país + número no formulário ou formato internacional (+…)."
         )
 
+    ok_par, msg_par, par_t = _normalizar_campos_parceria_colaborador(
+        documento_passaporte_residencia_cc=documento_passaporte_residencia_cc,
+        atividade_economica_aberta=bool(atividade_economica_aberta),
+        atividade_economica_codigo=atividade_economica_codigo,
+        atividade_economica_descricao=atividade_economica_descricao,
+        contrato_prestacao_assinado=bool(contrato_prestacao_assinado),
+        contrato_prestacao_data_assinatura=contrato_prestacao_data_assinatura,
+        iban_dados_bancarios=iban_dados_bancarios,
+    )
+    if not ok_par:
+        return False, msg_par
+    doc2, ae_i, c_ae, d_ae, ctr_i, ctr_dt, iban_v = par_t
+
     if not servicos_repasse:
         return False, "❌ Indique pelo menos um serviço habilitado com o respetivo percentual."
 
@@ -310,10 +385,13 @@ def cadastrar_colaborador(
             """
             INSERT INTO colaboradores (
                 nome, sexo, data_nascimento, email, nif_ou_documento, identificacao_internacional,
+                documento_passaporte_residencia_cc,
+                atividade_economica_aberta, atividade_economica_codigo, atividade_economica_descricao,
+                contrato_prestacao_assinado, contrato_prestacao_data_assinatura, iban_dados_bancarios,
                 whatsapp, observacoes,
                 endereco_rua, endereco_numero, endereco_complemento,
                 codigo_postal, concelho, freguesia, distrito, pais
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 nome,
@@ -322,6 +400,13 @@ def cadastrar_colaborador(
                 email,
                 nif_store,
                 intl_i,
+                doc2,
+                ae_i,
+                c_ae,
+                d_ae,
+                ctr_i,
+                ctr_dt,
+                iban_v,
                 tel,
                 obs,
                 rua,
@@ -535,6 +620,9 @@ def obter_colaborador(colaborador_id: int) -> dict | None:
         cur.execute(
             """
             SELECT nome, sexo, data_nascimento, email, nif_ou_documento, identificacao_internacional,
+                   documento_passaporte_residencia_cc,
+                   atividade_economica_aberta, atividade_economica_codigo, atividade_economica_descricao,
+                   contrato_prestacao_assinado, contrato_prestacao_data_assinatura, iban_dados_bancarios,
                    whatsapp, observacoes,
                    endereco_rua, endereco_numero, endereco_complemento,
                    codigo_postal, concelho, freguesia, distrito, pais
@@ -578,16 +666,23 @@ def obter_colaborador(colaborador_id: int) -> dict | None:
         "email": row[3],
         "nif_ou_documento": row[4] or "",
         "identificacao_internacional": bool(row[5]),
-        "whatsapp": row[6],
-        "observacoes": row[7] or "",
-        "endereco_rua": row[8],
-        "endereco_numero": row[9],
-        "endereco_complemento": row[10] or "",
-        "codigo_postal": row[11],
-        "concelho": row[12],
-        "freguesia": row[13],
-        "distrito": row[14] or "",
-        "pais": row[15] or "Portugal",
+        "documento_passaporte_residencia_cc": row[6] or "",
+        "atividade_economica_aberta": bool(row[7]),
+        "atividade_economica_codigo": row[8] or "",
+        "atividade_economica_descricao": row[9] or "",
+        "contrato_prestacao_assinado": bool(row[10]),
+        "contrato_prestacao_data_assinatura": (row[11] or "")[:10],
+        "iban_dados_bancarios": row[12] or "",
+        "whatsapp": row[13],
+        "observacoes": row[14] or "",
+        "endereco_rua": row[15],
+        "endereco_numero": row[16],
+        "endereco_complemento": row[17] or "",
+        "codigo_postal": row[18],
+        "concelho": row[19],
+        "freguesia": row[20],
+        "distrito": row[21] or "",
+        "pais": row[22] or "Portugal",
         "linhas": linhas,
     }
 
@@ -612,6 +707,13 @@ def atualizar_colaborador(
     *,
     nif_ou_documento: str = "",
     identificacao_internacional: bool = False,
+    documento_passaporte_residencia_cc: str = "",
+    atividade_economica_aberta: bool = False,
+    atividade_economica_codigo: str = "",
+    atividade_economica_descricao: str = "",
+    contrato_prestacao_assinado: bool = False,
+    contrato_prestacao_data_assinatura: str = "",
+    iban_dados_bancarios: str = "",
 ) -> tuple[bool, str]:
     """Atualiza ficha e substitui todas as linhas de habilitação."""
     nome = (nome or "").strip()
@@ -669,6 +771,19 @@ def atualizar_colaborador(
             "❌ Número de contacto inválido. Use país + número no formulário ou formato internacional (+…)."
         )
 
+    ok_par, msg_par, par_t = _normalizar_campos_parceria_colaborador(
+        documento_passaporte_residencia_cc=documento_passaporte_residencia_cc,
+        atividade_economica_aberta=bool(atividade_economica_aberta),
+        atividade_economica_codigo=atividade_economica_codigo,
+        atividade_economica_descricao=atividade_economica_descricao,
+        contrato_prestacao_assinado=bool(contrato_prestacao_assinado),
+        contrato_prestacao_data_assinatura=contrato_prestacao_data_assinatura,
+        iban_dados_bancarios=iban_dados_bancarios,
+    )
+    if not ok_par:
+        return False, msg_par
+    doc2, ae_i, c_ae, d_ae, ctr_i, ctr_dt, iban_v = par_t
+
     if not servicos_repasse:
         return False, "❌ Indique pelo menos um serviço habilitado com o respetivo percentual."
 
@@ -709,6 +824,9 @@ def atualizar_colaborador(
             UPDATE colaboradores SET
                 nome = ?, sexo = ?, data_nascimento = ?, email = ?,
                 nif_ou_documento = ?, identificacao_internacional = ?,
+                documento_passaporte_residencia_cc = ?,
+                atividade_economica_aberta = ?, atividade_economica_codigo = ?, atividade_economica_descricao = ?,
+                contrato_prestacao_assinado = ?, contrato_prestacao_data_assinatura = ?, iban_dados_bancarios = ?,
                 whatsapp = ?, observacoes = ?,
                 endereco_rua = ?, endereco_numero = ?, endereco_complemento = ?,
                 codigo_postal = ?, concelho = ?, freguesia = ?, distrito = ?, pais = ?
@@ -721,6 +839,13 @@ def atualizar_colaborador(
                 email,
                 nif_store,
                 intl_i,
+                doc2,
+                ae_i,
+                c_ae,
+                d_ae,
+                ctr_i,
+                ctr_dt,
+                iban_v,
                 tel,
                 obs,
                 rua,

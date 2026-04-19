@@ -43,6 +43,11 @@ Setor 5 Entradas (2026-04): `page_financeiro.py` (expander «Gestão de valores 
 gestão de faturas (`atualizar_fatura_venda` em `financeiro_entradas_convertidas.py`); 
 contrato em `tests/fin_ui_contract.py` (`assert_fin_entradas_sector_na_pagina`) + 
 `tests/test_financeiro_entradas_convertidas.py` + `tests/smoke_test_ui.py` (`test_smoke_financeiro_entradas_sector_widgets`).
+
+Colaboradores — **Dados da Parceria** (2026-04): colunas extra em `colaboradores` (documento complementar, actividade
+económica, contrato+data, IBAN) em **D1** via cópia integral do `.db`; domínio `src/modules/colaborador.py`; UI
+`page_colaboradores.py`; regressão `tests/test_colaborador.py`, `tests/col_ui_contract.py` (`assert_col_dados_parceria_na_ficha`),
+`tests/smoke_test_ui.py` (`test_smoke_colaboradores_dados_parceria_ficha_widgets`).
 """
 
 from __future__ import annotations

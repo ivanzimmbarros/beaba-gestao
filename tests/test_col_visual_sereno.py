@@ -6,6 +6,7 @@ from pathlib import Path
 
 from tests.col_ui_contract import (
     assert_col_area_unica_shell,
+    assert_col_dados_parceria_na_ficha,
     assert_col_ficha_contacto_grupo_telefone,
     assert_col_mapa_equipa_na_pagina,
     assert_col_pesquisa_unificada_na_pagina,
@@ -26,6 +27,10 @@ def test_col_ficha_grupo_telefone_contrato():
 
 def test_col_mapa_equipa_contrato():
     assert_col_mapa_equipa_na_pagina()
+
+
+def test_col_dados_parceria_contrato():
+    assert_col_dados_parceria_na_ficha()
 
 
 def test_page_colaboradores_sem_border_true():

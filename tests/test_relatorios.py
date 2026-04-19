@@ -104,6 +104,7 @@ def test_relatorio_apos_venda_e_filtro_colaborador():
         numero_contato="91444444440",
         observacoes="",
         servicos_repasse=[(prod_id, 15.0, date.today().isoformat())],
+        iban_dados_bancarios="PT50000201231234567890152",
     )
     assert ok_c
     conn = get_connection()

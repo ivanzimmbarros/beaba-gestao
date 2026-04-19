@@ -32,6 +32,19 @@ def assert_col_pesquisa_unificada_na_pagina() -> None:
     assert 'entidade_nome="colaborador"' in src
 
 
+def assert_col_dados_parceria_na_ficha() -> None:
+    """Ficha: secção «Dados da Parceria», IBAN, actividade/contrato Sim/Não, documento complementar na linha do NIF."""
+    root = Path(__file__).resolve().parents[1]
+    src = (root / "src" / "ui" / "page_colaboradores.py").read_text(encoding="utf-8")
+    assert "Dados da Parceria" in src
+    assert "Passaporte, Título de Residência ou Cartão Cidadão" in src
+    assert "Atividade Econômica Aberta?" in src
+    assert "Contrato de Prestação de Serviço assinado?" in src
+    assert "Dados Bancários — IBAN" in src
+    assert "_doc_par" in src
+    assert "iban_dados_bancarios" in src
+
+
 def assert_col_ficha_contacto_grupo_telefone() -> None:
     """Ficha: mesmo bloco telefónico que Clientes e Agendamentos (`telefone_widgets`)."""
     root = Path(__file__).resolve().parents[1]
