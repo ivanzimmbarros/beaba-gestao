@@ -74,7 +74,7 @@ Lista **cronológica inversa** (entrega mais recente primeiro). Cada linha liga 
 
 | Workflow | Gatilho | Função |
 |:---|:---|:---|
-| [`.github/workflows/backup_hourly.yml`](../.github/workflows/backup_hourly.yml) | `cron: 5 * * * *` UTC + `workflow_dispatch` | Checkout código em **`develop`** (telemetria); *run* do cron listado em **`main`**; `e17_1_gha_backup_job.py` + **`BEABA_BACKUP_KEY`**; artefacto **`beaba-sqlite-backup-encrypted`**; gate valida upload. |
+| [`.github/workflows/backup_hourly.yml`](../.github/workflows/backup_hourly.yml) | `cron: 37 * * * *` UTC + `workflow_dispatch` | Checkout código em **`develop`** (telemetria); *run* do cron listado em **`main`**; `e17_1_gha_backup_job.py` + **`BEABA_BACKUP_KEY`**; artefacto **`beaba-sqlite-backup-encrypted`**; gate valida upload. |
 | [`.github/workflows/restore_weekly.yml`](../.github/workflows/restore_weekly.yml) | `cron: 0 3 * * 0` UTC + `workflow_dispatch` | Download artefacto do **`backup_hourly` na branch `main`** (defeito); decrypt; `e17_1_gha_restore_job.py` + telemetria. |
 | [`.github/workflows/e17_restore_certify.yml`](../.github/workflows/e17_restore_certify.yml) | `push` (paths E17) + `workflow_dispatch` | `pytest` restore/verify + regenera certificado + upload artefacto **`E17_RESTORE_CERTIFICATE`**. |
 

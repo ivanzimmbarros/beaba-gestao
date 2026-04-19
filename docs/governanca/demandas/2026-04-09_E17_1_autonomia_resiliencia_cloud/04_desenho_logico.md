@@ -46,7 +46,7 @@ Todos os workflows que leem código ou esquema do repositório devem:
 
 | Aspecto | Decisão |
 |:---|:---|
-| **Gatilho** | `on: schedule: - cron: '0 * * * *'` (UTC, minuto 0 de cada hora). Ajuste documentado se RPO tiver de ser «relógio local». |
+| **Gatilho** | `on: schedule: - cron: '37 * * * *'` (UTC, minuto 37 de cada hora). Ajuste documentado se RPO tiver de ser «relógio local». |
 | **Runner** | `ubuntu-latest` **se** S2 (só processa blob remoto); **self-hosted** se S1 (lê disco local). |
 | **Passos lógicos** | 1) `checkout` **develop**. 2) Obter ficheiro de dados (download S3 OIDC / artefacto anterior / path mount). 3) `PRAGMA quick_check` na cópia de trabalho **antes** de encriptar. 4) Encriptar AES-256-GCM (§4). 5) Publicar **GitHub Artifact** nomeado com timestamp + opcionalmente **Release** mensal ou mirror para bucket frio (retenção > 90 d). 6) Escrever entrada em telemetria (§6). 7) Falha em qualquer passo crítico ⇒ job falha + entrada ❌ na telemetria. |
 | **RPO ~1 h** | Um artefacto **bem-sucedido** por hora; retenção mínima documentada (ex.: 168 horas espelhadas no desenho E17). |
