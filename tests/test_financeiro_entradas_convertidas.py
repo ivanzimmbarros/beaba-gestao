@@ -10,6 +10,7 @@ from src.database.connection import create_tables, get_connection
 from src.modules.financeiro_entradas_convertidas import (
     listar_clientes_com_venda_para_filtro_entradas,
     listar_linhas_gestao_entradas_convertidas_vendas,
+    atualizar_fatura_venda,
 )
 
 
@@ -153,3 +154,43 @@ def test_filtro_estado_pagamento(ent_conn: sqlite3.Connection) -> None:
         estados_pagamento=["pendente"],
     )
     assert len(p) == 1
+
+
+def test_atualizar_fatura_venda_sucesso(ent_conn: sqlite3.Connection) -> None:
+    cur = ent_conn.cursor()
+    _seed_venda_simples(cur)
+    vid = int(cur.execute("SELECT MAX(id) FROM vendas").fetchone()[0])
+    ok, msg = atualizar_fatura_venda(ent_conn, vid, 1, "FAT-123")
+    assert ok is True
+    assert "sucesso" in msg.lower()
+    
+    cur.execute("SELECT fatura_emitida, fatura_numero FROM vendas WHERE id = ?", (vid,))
+    row = cur.fetchone()
+    assert int(row[0]) == 1
+    assert str(row[1]) == "FAT-123"
+
+
+def test_atualizar_fatura_venda_duplicada(ent_conn: sqlite3.Connection) -> None:
+    cur = ent_conn.cursor()
+    _seed_venda_simples(cur)
+    vid1 = int(cur.execute("SELECT MAX(id) FROM vendas").fetchone()[0])
+    # Segunda venda
+    cur.execute("INSERT INTO clientes (nome, whatsapp) VALUES ('Cli 2', '+351910000022')")
+    cid2 = int(cur.lastrowid)
+    cur.execute(
+        """
+        INSERT INTO vendas (
+            cliente_id, fatura_numero, estado_pagamento,
+            subtotal_bruto_centavos, subtotal_apos_descontos_linha_centavos,
+            desconto_global_centavos_aplicado, total_final_centavos,
+            observacoes, credito_abatido_centavos
+        ) VALUES (?, 'DUPLICADA', 'integral', 1000, 1000, 0, 1000, '', 0)
+        """,
+        (cid2,),
+    )
+    vid2 = int(cur.lastrowid)
+    
+    # Tentar atualizar vid1 com o mesmo número
+    ok, msg = atualizar_fatura_venda(ent_conn, vid1, 1, "DUPLICADA")
+    assert ok is False
+    assert "já está associado" in msg

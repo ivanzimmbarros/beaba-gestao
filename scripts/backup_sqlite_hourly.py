@@ -38,6 +38,11 @@ dados em cópia integral incluem `financeiro_*`, `repasse_linhas`, `agendamentos
 Smoke UI (camada 3): `tests/smoke_test_ui.py` + `pytest.ini` — `AppTest` por rota em `src/app.py`,
 `test_smoke_financeiro_repasses_multiselect_chain`, `test_smoke_financeiro_resultado_operacional_panel` e `test_smoke_monitor_governanca` em
 `monitor_governanca.py` (raiz). Catálogo: wizard «tipo → confirmação → cadastro» (`_render_cat_expander_cadastro` em `page_catalogo.py`).
+
+Setor 5 Entradas (2026-04): `page_financeiro.py` (expander «Gestão de valores convertidos (vendas)»); 
+gestão de faturas (`atualizar_fatura_venda` em `financeiro_entradas_convertidas.py`); 
+contrato em `tests/fin_ui_contract.py` (`assert_fin_entradas_sector_na_pagina`) + 
+`tests/test_financeiro_entradas_convertidas.py` + `tests/smoke_test_ui.py` (`test_smoke_financeiro_entradas_sector_widgets`).
 """
 
 from __future__ import annotations

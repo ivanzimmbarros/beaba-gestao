@@ -163,6 +163,7 @@ def registrar_venda(
     agendamento_contexto_id: int | None = None,
     credito_abatido_centavos: int = 0,
     modo_pagamento_parcial_sem_previsto: bool = False,
+    fatura_solicitada: bool | int = False,
 ) -> tuple[bool, str, int | None]:
     """
     `linhas_entrada`: servico_id, quantidade, is_bonus, evento_preco (adulto|crianca|None),
@@ -387,8 +388,8 @@ def registrar_venda(
                 subtotal_bruto_centavos, subtotal_apos_descontos_linha_centavos,
                 desconto_global_tipo, desconto_global_valor, desconto_global_centavos_aplicado,
                 total_final_centavos, observacoes, agendamento_contexto_id,
-                credito_abatido_centavos
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                credito_abatido_centavos, fatura_solicitada
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 cid,
@@ -402,6 +403,7 @@ def registrar_venda(
                 (observacoes or "").strip(),
                 int(ag_ctx) if ag_ctx is not None else None,
                 cab,
+                1 if fatura_solicitada else 0,
             ),
         )
         vid = int(cur.lastrowid)

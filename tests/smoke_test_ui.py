@@ -140,6 +140,25 @@ def test_smoke_financeiro_repasses_multiselect_chain() -> None:
     assert i_nat < i_esp < i_svc, labels
 
 
+def test_smoke_financeiro_entradas_sector_widgets() -> None:
+    """Financeiro: widgets do sector «5. Entradas» (expander, caixas de totais, filtros)."""
+    at = AppTest.from_file(str(_APP_PY), default_timeout=120)
+    at.session_state["page"] = "financeiro"
+    at.run()
+    _assert_app_tree_clean(at, context="Financeiro — entradas (widgets)")
+    exp_titles = [str(getattr(e, "label", "") or "") for e in at.get("expander")]
+    assert any("Gestão de valores convertidos (vendas)" in t for t in exp_titles), exp_titles
+    # Verificar filtros da seção Entradas (estão noutro set de multiselects)
+    labels_ms = [str(getattr(m, "label", "") or "") for m in at.get("multiselect")]
+    assert labels_ms.count("Natureza do Serviço") >= 2 # Um no Repasse, outro nas Entradas
+    assert labels_ms.count("Especialidades") >= 2
+    assert labels_ms.count("Nome do Serviço") >= 2
+    
+    # Verificar botões
+    btn_labels = [str(getattr(b, "label", "") or "") for b in at.get("button")]
+    assert any("Limpar Pesquisa" in l for l in btn_labels)
+
+
 def test_smoke_ui_page_modules_sync_with_disk() -> None:
     """Garante que toda a superfície `page_*.py` está inventariada (actualizar após novas páginas)."""
     found = _discovered_page_module_stems()

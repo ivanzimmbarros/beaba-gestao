@@ -9,6 +9,7 @@ from tests.fin_ui_contract import (
     assert_fin_repasses_filtros_cadeia_e_layout_na_pagina,
     assert_fin_repasses_sector_na_pagina,
     assert_fin_resultado_operacional_sector_na_pagina,
+    assert_fin_entradas_sector_na_pagina,
 )
 
 
@@ -26,6 +27,10 @@ def test_fin_repasses_sector_contrato():
 
 def test_fin_repasses_filtros_cadeia_contrato():
     assert_fin_repasses_filtros_cadeia_e_layout_na_pagina()
+
+
+def test_fin_entradas_sector_contrato():
+    assert_fin_entradas_sector_na_pagina()
 
 
 def test_fin_shell_css_ilha_mae_e_slot():

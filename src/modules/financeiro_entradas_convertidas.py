@@ -110,6 +110,7 @@ def listar_linhas_gestao_entradas_convertidas_vendas(
     mes: int | None = None,
     ano: int | None = None,
     estados_pagamento: list[str] | None = None,
+    fatura_solicitada: int | None = None,
 ) -> list[dict[str, object]]:
     """
     Uma linha por `venda_itens` (pacote = uma linha na venda, não explode componentes).
@@ -145,7 +146,10 @@ def listar_linhas_gestao_entradas_convertidas_vendas(
             TRIM(IFNULL(s.natureza, '')) AS natureza_servico,
             COALESCE(NULLIF(TRIM(e.nome), ''), '') AS esp_nome,
             vi.nome_snapshot,
-            s.nome AS nome_servico_catalogo
+            s.nome AS nome_servico_catalogo,
+            COALESCE(v.fatura_solicitada, 0) AS fatura_solicitada,
+            COALESCE(v.fatura_emitida, 0) AS fatura_emitida,
+            COALESCE(v.fatura_numero, '') AS fatura_numero
         FROM venda_itens vi
         INNER JOIN vendas v ON v.id = vi.venda_id
         INNER JOIN clientes c ON c.id = v.cliente_id
@@ -175,6 +179,9 @@ def listar_linhas_gestao_entradas_convertidas_vendas(
     if fe:
         sql += " AND lower(trim(v.estado_pagamento)) IN (" + ",".join("?" for _ in fe) + ")"
         params.extend(fe)
+    if fatura_solicitada is not None:
+        sql += " AND COALESCE(v.fatura_solicitada, 0) = ?"
+        params.append(int(fatura_solicitada))
 
     sql += " ORDER BY datetime(v.data_registo) DESC, v.id DESC, vi.ordem ASC"
 
@@ -200,6 +207,9 @@ def listar_linhas_gestao_entradas_convertidas_vendas(
             "esp_nome": str(r[16] or ""),
             "nome_snapshot": str(r[17] or ""),
             "nome_servico_catalogo": str(r[18] or ""),
+            "fatura_solicitada": int(r[19] or 0),
+            "fatura_emitida": int(r[20] or 0),
+            "fatura_numero": str(r[21] or ""),
         }
         for r in cur.fetchall()
     ]
@@ -290,6 +300,9 @@ def listar_linhas_gestao_entradas_convertidas_vendas(
                     ),
                     "data_registo_iso": dreg,
                     "data_registo_dm": _iso_para_dd_mm_yyyy(dreg),
+                    "fatura_solicitada": int(r["fatura_solicitada"] or 0),
+                    "fatura_emitida": int(r["fatura_emitida"] or 0),
+                    "fatura_numero": str(r["fatura_numero"] or ""),
                 }
             )
         est_l = str(items[0]["estado_pagamento"] or "").strip().lower()
@@ -308,8 +321,36 @@ def listar_linhas_gestao_entradas_convertidas_vendas(
     return out
 
 
+def atualizar_fatura_venda(conn: sqlite3.Connection, venda_id: int, fatura_emitida: int, fatura_numero: str) -> tuple[bool, str]:
+    """
+    Atualiza as informações de faturamento (se emitida e o número) de uma venda.
+    """
+    try:
+        cur = conn.cursor()
+        
+        # Validar duplicidade se a fatura foi emitida e possui número
+        fn = str(fatura_numero).strip()
+        if int(fatura_emitida) == 1 and fn:
+            cur.execute("SELECT id FROM vendas WHERE fatura_numero = ? AND id != ?", (fn, int(venda_id)))
+            if cur.fetchone():
+                return False, f"O número de fatura '{fn}' já está associado a outra venda."
+
+        cur.execute(
+            """
+            UPDATE vendas
+            SET fatura_emitida = ?, fatura_numero = ?
+            WHERE id = ?
+            """,
+            (int(fatura_emitida), fn, int(venda_id))
+        )
+        return True, "Informações de faturamento atualizadas com sucesso."
+    except Exception as e:
+        return False, f"Erro ao atualizar informações de faturamento: {e}"
+
+
 __all__ = [
     "fmt_estado_pagamento_ui",
     "listar_clientes_com_venda_para_filtro_entradas",
     "listar_linhas_gestao_entradas_convertidas_vendas",
+    "atualizar_fatura_venda",
 ]

@@ -33,7 +33,8 @@
       "resultado_2026_04_16_smoke_ui": "237 passed — Camada 3: `tests/smoke_test_ui.py` (AppTest `src/app.py` por rota) + `pytest.ini`; governança `test_pytest_ini_declares_smoke_ui_module`; scripts backup / certificado E17 referenciam smoke.",
       "resultado_2026_04_16_smoke_monitor": "238 passed — Smoke UI + `test_smoke_monitor_governanca` (`AppTest` `monitor_governanca.py`).",
       "resultado_2026_04_16_fin_repasse_filtros": "241 passed — Financeiro **2. Repasses**: filtros Natureza→Especialidades→Nome do Serviço (6 colunas); `fin_ui_contract` (`assert_fin_repasses_filtros_cadeia_e_layout_na_pagina`), `test_financeiro_repasses_colaboradores` metadados, E2E `test_e2e_fin_visual_shell_contract`, smoke `test_smoke_financeiro_repasses_multiselect_chain`; docstrings `backup_sqlite_hourly.py`, `restore_sqlite.py`, `restore_operacional_de_copia.py`.",
-      "resultado_2026_04_17_fin_ro_sector1": "265 passed — Financeiro **1. Resultado Operacional Consolidado**: módulo `financeiro_resultado_operacional.py`, painel em `page_financeiro.py` (expander + caixas Sereno); `test_financeiro_resultado_operacional.py`; `fin_ui_contract.assert_fin_resultado_operacional_sector_na_pagina`; E2E `test_e2e_fin_visual_shell_contract`; smoke `test_smoke_financeiro_resultado_operacional_panel`; docstrings backup/restore; CAG `page_clientes_agendamentos.py` sem `border=True` (contrato visual)."
+      "resultado_2026_04_17_fin_ro_sector1": "265 passed — Financeiro **1. Resultado Operacional Consolidado**: módulo `financeiro_resultado_operacional.py`, painel em `page_financeiro.py` (expander + caixas Sereno); `test_financeiro_resultado_operacional.py`; `fin_ui_contract.assert_fin_resultado_operacional_sector_na_pagina`; E2E `test_e2e_fin_visual_shell_contract`; smoke `test_smoke_financeiro_resultado_operacional_panel`; docstrings backup/restore; CAG `page_clientes_agendamentos.py` sem `border=True` (contrato visual).",
+      "resultado_2026_04_19_fin_ent_sector5": "269 passed — Financeiro **5. Entradas**: persistência do expander «Gestão de valores convertidos (vendas)», reposicionamento de mensagens de sucesso/erro; unit tests `atualizar_fatura_venda`; contrato `assert_fin_entradas_sector_na_pagina`; smoke `test_smoke_financeiro_entradas_sector_widgets`; docstrings backup/restore actualizadas."
     },
     "backup_restore": {
       "nuvem_codigo": "Artefactos encriptados GHA + telemetria backup_dr_history.json — cópia integral SQLite em backup horário (.gitignore *.db intencional).",
@@ -180,7 +181,7 @@
   "pc_foco": "PC1–PC2",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "2026-04-19: Execução de verificação final de Governança concluída (Orientações Mestres Mandatórias). Testes completos (265 passed), validação de scripts de backup efetuada, e sincronia cloud em execução para alinhamento total de ambientes.",
+  "live_status": "2026-04-19: Implementação das Orientações Mestres Mandatórias concluída. Suite de testes completa (269/269 passed), scripts de backup/restore actualizados com cobertura do Setor 5 Entradas, e alinhamento de ambientes em curso.",
   "etapas_pendentes": [
     "Diretor: homologar PDV vs protótipo (semáforo visível, comanda spa). Sem OK → sem avançar módulos.",
     "E22: após OK — um único módulo seguinte (ex. Catálogo / Agendamentos).",

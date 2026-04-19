@@ -1144,6 +1144,24 @@ def create_tables():
         "agendamento_contexto_id",
         "INTEGER REFERENCES agendamentos(id) ON DELETE SET NULL",
     )
+    _ensure_column(
+        cursor,
+        "vendas",
+        "fatura_solicitada",
+        "INTEGER DEFAULT 0",
+    )
+    _ensure_column(
+        cursor,
+        "vendas",
+        "fatura_emitida",
+        "INTEGER DEFAULT 0",
+    )
+    _ensure_column(
+        cursor,
+        "vendas",
+        "fatura_numero",
+        "TEXT",
+    )
     _migrate_e18_if_needed(cursor)
     _ensure_column(
         cursor,

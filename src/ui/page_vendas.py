@@ -1963,6 +1963,21 @@ def render_page_vendas(
             f"**{_vnd_fmt_cent(int(snap_fin['liq_cent']))}** (total a liquidar)."
         )
 
+    if st.session_state.get("venda_mostrar_dialog_fatura", False):
+        @st.dialog("Emissão de Fatura")
+        def fatura_dialog():
+            st.markdown("Deseja emissão de fatura para o serviço?")
+            c_sim, c_nao = st.columns(2)
+            if c_sim.button("Sim", key=f"{fk}_fat_sim", use_container_width=True):
+                st.session_state.venda_fatura_solicitada_resposta = True
+                st.session_state.venda_mostrar_dialog_fatura = False
+                st.rerun()
+            if c_nao.button("Não", key=f"{fk}_fat_nao", use_container_width=True):
+                st.session_state.venda_fatura_solicitada_resposta = False
+                st.session_state.venda_mostrar_dialog_fatura = False
+                st.rerun()
+        fatura_dialog()
+
     if st.button(
         "Finalizar Venda",
         type="primary",
@@ -2012,6 +2027,13 @@ def render_page_vendas(
                 f"ou «{ESTADO_PAGAMENTO_VENDA_LABEL_PT['parcelado']}»."
             )
             return
+        
+        st.session_state.venda_mostrar_dialog_fatura = True
+        st.rerun()
+
+    if "venda_fatura_solicitada_resposta" in st.session_state:
+        fatura_resp = st.session_state.pop("venda_fatura_solicitada_resposta")
+        cart_snap = list(cart)
         modo_p_submit = _vnd_modo_pagamento_parcial_sem_previsto(fk, n_lin)
         # rebuild linhas_reg for backend
         linhas_b: list[dict] = []
@@ -2110,6 +2132,7 @@ def render_page_vendas(
             agendamento_contexto_id=int(ctx_arg) if ctx_arg else None,
             credito_abatido_centavos=int(cab_reg),
             modo_pagamento_parcial_sem_previsto=modo_p_submit,
+            fatura_solicitada=fatura_resp,
         )
         if ok_f and vid_new is not None:
             reconciliar_estado_pagamento_venda(int(vid_new))

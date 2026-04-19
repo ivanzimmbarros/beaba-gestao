@@ -48,6 +48,7 @@ from src.modules.financeiro_entradas_convertidas import (
     fmt_estado_pagamento_ui,
     listar_clientes_com_venda_para_filtro_entradas,
     listar_linhas_gestao_entradas_convertidas_vendas,
+    atualizar_fatura_venda,
 )
 from src.modules.financeiro_saldos_clientes import (
     listar_clientes_com_saldo_credito_positivo,
@@ -633,7 +634,7 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
         st.session_state.fin_ent_filt_v = int(st.session_state.get("fin_ent_filt_v", 0)) + 1
 
     _h2("1. Resultado Operacional Consolidado")
-    with st.expander("Painel do resultado operacional (consolidado)", expanded=True):
+    with st.expander("Painel do resultado operacional (consolidado)", expanded=False):
         _render_fin_resultado_operacional_panel(conn)
 
     _h2("2. Gastos Operacionais")
@@ -1950,7 +1951,25 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
 
     _h2("5. Entradas")
 
-    with st.expander("Gestão de valores convertidos (vendas)", expanded=False):
+    _fin_ent_sucesso = st.session_state.get("fin_ent_fatura_sucesso", False)
+    _k_ent_exp_open = "fin_ent_expander_open"
+    if _k_ent_exp_open not in st.session_state:
+        st.session_state[_k_ent_exp_open] = False
+    
+    # Se acabou de ter sucesso, forçamos o expander a abrir se não estiver
+    if _fin_ent_sucesso:
+        st.session_state[_k_ent_exp_open] = True
+
+    with st.expander("Gestão de valores convertidos (vendas)", expanded=st.session_state[_k_ent_exp_open]):
+        # Se o usuário interagir com qualquer widget que cause rerun, 
+        # o 'expanded' virá do session_state. 
+        # No Streamlit, expanders não atualizam o session_state automaticamente ao abrir/fechar via clique,
+        # mas aqui garantimos que se ele estava aberto por um sucesso ou interação, ele permaneça.
+        # Para melhorar a UX, vamos setar como True sempre que entrarmos aqui, 
+        # a menos que o usuário explicitamente feche (o que o Streamlit trata via JS/Frontend).
+        # Contudo, ao selecionar uma linha na tabela (rerun), queremos que continue aberto.
+        st.session_state[_k_ent_exp_open] = True
+
         ent_cli_opts = listar_clientes_com_venda_para_filtro_entradas(conn)
         ent_nat_opts = listar_naturezas_servico_para_filtro_repasse(conn)
         ent_meta = listar_servicos_metadados_para_filtro_repasse(conn)
@@ -1964,6 +1983,7 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
         _k_ent_esp = f"fin_ent_f{_ve}_ms_esp"
         _k_ent_svc = f"fin_ent_f{_ve}_ms_svc"
         _k_ent_est = f"fin_ent_f{_ve}_sel_est"
+        _k_ent_fat = f"fin_ent_f{_ve}_sel_fat"
         _k_ent_mes = f"fin_ent_f{_ve}_mes"
         _k_ent_ano = f"fin_ent_f{_ve}_ano"
 
@@ -2024,14 +2044,15 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
         _ent_pode_servico = bool(esp_m_e) and bool(ent_svc_ids)
 
         _ent_est_opts = ["", "integral", "pendente", "parcial", "parcelado"]
+        _ent_fat_opts = ["Todos", "Sim", "Não"]
 
         def _fmt_ent_estado_sel(ev: str) -> str:
             if not (ev or "").strip():
                 return "Todos"
             return fmt_estado_pagamento_ui(str(ev))
 
-        ec1, ec2, ec3, ec4, ec5, ec6, ec7 = st.columns(
-            7, vertical_alignment="top", gap="small"
+        ec1, ec2, ec3, ec4, ec5, ec_fatura, ec6, ec7 = st.columns(
+            8, vertical_alignment="top", gap="small"
         )
         with ec1:
             if ent_cli_ids:
@@ -2096,6 +2117,13 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
                 format_func=_fmt_ent_estado_sel,
                 key=_k_ent_est,
             )
+        with ec_fatura:
+            st.selectbox(
+                "Fatura Solicitada",
+                options=_ent_fat_opts,
+                index=0,
+                key=_k_ent_fat,
+            )
         with ec6:
             st.selectbox(
                 "Mês",
@@ -2152,6 +2180,13 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
         _est_sel = str(st.session_state.get(_k_ent_est) or "").strip().lower()
         _f_eest = None if not _est_sel else [_est_sel]
 
+        _fat_sel = str(st.session_state.get(_k_ent_fat) or "Todos").strip()
+        _f_efat = None
+        if _fat_sel == "Sim":
+            _f_efat = 1
+        elif _fat_sel == "Não":
+            _f_efat = 0
+
         ent_rows = listar_linhas_gestao_entradas_convertidas_vendas(
             conn,
             cliente_ids=_f_ecli,
@@ -2160,6 +2195,7 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
             mes=_f_emes,
             ano=_f_eano,
             estados_pagamento=_f_eest,
+            fatura_solicitada=_f_efat,
         )
 
         _ent_tot_conv = sum(int(r["valor_final_venda_centavos"]) for r in ent_rows)
@@ -2167,59 +2203,107 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
         _ent_tot_diff = int(_ent_tot_conv) - int(_ent_tot_rec)
 
         if ent_rows:
+            _k_ent_tbl = f"fin_ent_tbl_{_ve}"
+            
+            page_size = 10
+            total_pages = max(1, (len(ent_rows) + page_size - 1) // page_size)
+            _k_page = f"fin_ent_page_{_ve}"
+            if _k_page not in st.session_state:
+                st.session_state[_k_page] = 1
+
+            if st.session_state[_k_page] > total_pages:
+                st.session_state[_k_page] = 1
+
+            current_page = st.session_state[_k_page]
+            start_idx = (current_page - 1) * page_size
+            end_idx = start_idx + page_size
+            
+            page_rows = ent_rows[start_idx:end_idx]
+
             ent_df = pd.DataFrame(
                 {
-                    "Nome do Cliente": [r["cliente_nome"] for r in ent_rows],
-                    "Natureza do serviço prestado": [
-                        r["natureza_servico"] for r in ent_rows
+                    "Data de aquisição do serviço de origem": [
+                        r["data_registo_dm"] for r in page_rows
                     ],
-                    "Especialidades": [r["especialidade"] for r in ent_rows],
-                    "Nome do Serviço prestado": [r["nome_servico"] for r in ent_rows],
+                    "Fatura Solicitada": [
+                        "Sim" if r.get("fatura_solicitada", 0) else "Não" for r in page_rows
+                    ],
+                    "Fatura Emitida": [
+                        "Sim" if r.get("fatura_emitida", 0) else "Não" for r in page_rows
+                    ],
+                    "Número da Fatura": [
+                        r.get("fatura_numero", "") for r in page_rows
+                    ],
+                    "Nome do Cliente": [r["cliente_nome"] for r in page_rows],
+                    "Natureza do serviço prestado": [
+                        r["natureza_servico"] for r in page_rows
+                    ],
+                    "Especialidades": [r["especialidade"] for r in page_rows],
+                    "Nome do Serviço prestado": [r["nome_servico"] for r in page_rows],
                     "Valor Final de Venda": [
                         fmt_euro_centavos(int(r["valor_final_venda_centavos"]))
-                        for r in ent_rows
+                        for r in page_rows
                     ],
                     "Valor Bruto Original": [
-                        fmt_euro_centavos(int(r["valor_bruto_centavos"])) for r in ent_rows
+                        fmt_euro_centavos(int(r["valor_bruto_centavos"])) for r in page_rows
                     ],
                     "Descontos": [
-                        fmt_euro_centavos(int(r["descontos_centavos"])) for r in ent_rows
+                        fmt_euro_centavos(int(r["descontos_centavos"])) for r in page_rows
                     ],
                     "% Descontos": [
                         f"{float(r.get('pct_descontos') or 0):.2f} %".replace(".", ",")
-                        for r in ent_rows
+                        for r in page_rows
                     ],
                     "Saldo Aplicado": [
                         fmt_euro_centavos(int(r["saldo_aplicado_centavos"]))
-                        for r in ent_rows
+                        for r in page_rows
                     ],
                     "Repasse do Colaborador": [
                         fmt_euro_centavos(int(r["repasse_colaborador_centavos"]))
-                        for r in ent_rows
+                        for r in page_rows
                     ],
                     "Resultado Final Apurado": [
                         fmt_euro_centavos(int(r["resultado_final_apurado_centavos"]))
-                        for r in ent_rows
+                        for r in page_rows
                     ],
                     "Estado Atual Pagamento": [
-                        r["estado_pagamento_ui"] for r in ent_rows
+                        r["estado_pagamento_ui"] for r in page_rows
                     ],
                     "Total do valor recebido": [
                         fmt_euro_centavos(int(r["total_valor_recebido_centavos"]))
-                        for r in ent_rows
-                    ],
-                    "Data de aquisição do serviço de origem": [
-                        r["data_registo_dm"] for r in ent_rows
+                        for r in page_rows
                     ],
                 }
             )
-            st.dataframe(ent_df, width="stretch", hide_index=True)
+            ev_ent = st.dataframe(
+                ent_df,
+                width="stretch",
+                hide_index=True,
+                on_select="rerun",
+                selection_mode="single-row",
+                key=_k_ent_tbl
+            )
+            
+            col_prev, col_info, col_next = st.columns([1, 2, 1])
+            with col_prev:
+                if st.button("⬅️ Anterior", disabled=current_page <= 1, key=f"fin_ent_prev_{_ve}"):
+                    st.session_state[_k_page] = current_page - 1
+                    st.rerun()
+            with col_info:
+                st.markdown(f"<div style='text-align: center;'>Página {current_page} de {total_pages} (Total: {len(ent_rows)} registos)</div>", unsafe_allow_html=True)
+            with col_next:
+                if st.button("Próxima ➡️", disabled=current_page >= total_pages, key=f"fin_ent_next_{_ve}"):
+                    st.session_state[_k_page] = current_page + 1
+                    st.rerun()
+
+            sel_ent_rows = _df_selected_rows(ev_ent, _k_ent_tbl)
         else:
+            sel_ent_rows = []
             st.caption(
                 "Nenhum registo de venda para os filtros actuais. Ajuste os filtros ou registe vendas no **Painel de Vendas**."
             )
 
-        # Totais (mesmos filtros); ≤50% da largura; estilos globais `_FIN_TOTAIS_CAIXAS_STYLE` no topo da página.
+        st.markdown("<br/>", unsafe_allow_html=True)
         _v_conv = html.escape(fmt_euro_centavos(_ent_tot_conv))
         _v_rec = html.escape(fmt_euro_centavos(_ent_tot_rec))
         _v_dif = html.escape(fmt_euro_centavos(_ent_tot_diff))
@@ -2232,8 +2316,8 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
         with _ent_e1:
             st.markdown(
                 f'<div class="bea-fin-ent-tot bea-fin-ent-tot--convertido" role="group" '
-                f'aria-label="Valor Total Convertido">'
-                f'<span class="bea-fin-ent-tot__lbl">Valor Total Convertido</span>'
+                f'aria-label="Valor Total Vendido">'
+                f'<span class="bea-fin-ent-tot__lbl">Valor Total Vendido</span>'
                 f'<span class="bea-fin-ent-tot__val">{_v_conv}</span></div>',
                 unsafe_allow_html=True,
             )
@@ -2248,10 +2332,108 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
         with _ent_e3:
             st.markdown(
                 f'<div class="{_ent_dif_cls}" role="group" '
-                f'aria-label="Diferença - Convertido x Recebido">'
-                f'<span class="bea-fin-ent-tot__lbl">Diferença - Convertido x Recebido</span>'
+                f'aria-label="Diferença - Vendido x Recebido">'
+                f'<span class="bea-fin-ent-tot__lbl">Diferença - Vendido x Recebido</span>'
                 f'<span class="bea-fin-ent-tot__val">{_v_dif}</span></div>',
                 unsafe_allow_html=True,
             )
         with _ent_ez:
             st.empty()
+
+        if st.session_state.pop("fin_ent_fatura_sucesso", False):
+            st.success("Alteração concluída.")
+        _fin_ent_err = st.session_state.pop("fin_ent_fatura_erro", None)
+        if _fin_ent_err:
+            st.error(_fin_ent_err)
+
+        if ent_rows and sel_ent_rows:
+            idx = start_idx + sel_ent_rows[0]
+            if 0 <= idx < len(ent_rows):
+                r_sel = ent_rows[idx]
+                
+                st.markdown("---")
+                
+                st.markdown("**Informações do Serviço Selecionado**")
+                
+                tc1, tc2, tc3, tc4 = st.columns(4)
+                with tc1:
+                    st.text_input("Nome do Cliente", value=r_sel["cliente_nome"], disabled=True, key="fin_ent_ro_cli")
+                with tc2:
+                    st.text_input("Data da Aquisicao", value=r_sel["data_registo_dm"], disabled=True, key="fin_ent_ro_data")
+                with tc3:
+                    st.text_input("Serviço Adquirido", value=r_sel["nome_servico"], disabled=True, key="fin_ent_ro_svc")
+                with tc4:
+                    st.text_input("Valor final de venda", value=fmt_euro_centavos(int(r_sel["valor_final_venda_centavos"])), disabled=True, key="fin_ent_ro_val")
+                
+                st.markdown("**Informações de Faturamento**")
+                
+                _k_lib = f"fin_ent_lib_ed_{r_sel['venda_id']}"
+                liberar_edicao = st.checkbox("Liberar edicao de dados de faturamento", key=_k_lib)
+                
+                fc1, fc2 = st.columns(2)
+                with fc1:
+                    _cur_emit = "Sim" if r_sel.get("fatura_emitida", 0) else "Não"
+                    fat_emit = st.selectbox(
+                        "Fatura Emitida",
+                        options=["Sim", "Não"],
+                        index=0 if _cur_emit == "Sim" else 1,
+                        key=f"fin_ent_fat_emit_{r_sel['venda_id']}",
+                        disabled=not liberar_edicao
+                    )
+                with fc2:
+                    _cur_num = str(r_sel.get("fatura_numero", ""))
+                    fat_num = st.text_input(
+                        "Número da fatura",
+                        value=_cur_num,
+                        key=f"fin_ent_fat_num_{r_sel['venda_id']}",
+                        disabled=not liberar_edicao
+                    )
+                
+                if st.button("Salvar Informacoes de Faturamento", type="primary", key=f"fin_ent_btn_salvar_fat_{r_sel['venda_id']}", disabled=not liberar_edicao):
+                    st.session_state.fin_ent_show_fat_dialog = True
+                    st.rerun()
+
+                if st.session_state.get("fin_ent_show_fat_dialog"):
+                    @st.dialog("Confirmar Alteração")
+                    def confirmar_fatura_dialog():
+                        st.markdown("Deseja mesmo salvar as alterações?")
+                        dc1, dc2 = st.columns(2)
+                        with dc1:
+                            if st.button("Sim", use_container_width=True, type="primary", key="fin_ent_dlg_sim"):
+                                _fat_emit_val = st.session_state.get(f"fin_ent_fat_emit_{r_sel['venda_id']}")
+                                _fat_num_val = st.session_state.get(f"fin_ent_fat_num_{r_sel['venda_id']}", "").strip()
+                                
+                                if _fat_emit_val == "Sim" and not _fat_num_val:
+                                    st.session_state.fin_ent_dlg_err = "Para salvar com Fatura Emitida = 'Sim', indique o Número da fatura."
+                                elif _fat_emit_val == "Não" and _fat_num_val:
+                                    st.session_state.fin_ent_dlg_err = "Não é possível informar o Número da fatura se a Fatura Emitida for 'Não'."
+                                else:
+                                    ok_f, msg_f = atualizar_fatura_venda(
+                                        conn,
+                                        int(r_sel["venda_id"]),
+                                        1 if _fat_emit_val == "Sim" else 0,
+                                        _fat_num_val
+                                    )
+                                    if ok_f:
+                                        conn.commit()
+                                        st.session_state.pop("fin_ent_show_fat_dialog", None)
+                                        st.session_state[_k_lib] = False
+                                        st.session_state.fin_ent_filt_v = _ve + 1
+                                        st.session_state.fin_ent_fatura_sucesso = True
+                                        st.rerun()
+                                    else:
+                                        st.session_state.fin_ent_dlg_err = msg_f
+                        with dc2:
+                            if st.button("Não", use_container_width=True, key="fin_ent_dlg_nao"):
+                                st.session_state.pop("fin_ent_show_fat_dialog", None)
+                                st.session_state.pop("fin_ent_dlg_err", None)
+                                st.session_state[_k_lib] = False
+                                st.session_state.pop(f"fin_ent_fat_emit_{r_sel['venda_id']}", None)
+                                st.session_state.pop(f"fin_ent_fat_num_{r_sel['venda_id']}", None)
+                                st.rerun()
+                        
+                        _dlg_err = st.session_state.get("fin_ent_dlg_err")
+                        if _dlg_err:
+                            st.error(_dlg_err)
+                            
+                    confirmar_fatura_dialog()

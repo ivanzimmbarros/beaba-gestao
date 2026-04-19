@@ -60,3 +60,21 @@ def assert_fin_repasses_filtros_cadeia_e_layout_na_pagina() -> None:
     assert "fin_rep_f" in src and "_ms_esp" in src
     assert "Natureza do Serviço" in src
     assert "Nome do Serviço" in src
+
+
+def assert_fin_entradas_sector_na_pagina() -> None:
+    """Contrato: sector «5. Entradas», expander, caixas de totais, tabela e gestão de faturas."""
+    root = Path(__file__).resolve().parents[1]
+    src = (root / "src" / "ui" / "page_financeiro.py").read_text(encoding="utf-8")
+    assert "5. Entradas" in src
+    assert "Gestão de valores convertidos (vendas)" in src
+    assert "listar_linhas_gestao_entradas_convertidas_vendas" in src
+    assert "valor_final_venda_centavos" in src
+    assert "fin_ent_fatura_sucesso" in src
+    assert "Valor Total Vendido" in src
+    assert "Diferença - Vendido x Recebido" in src
+    assert "Informações de Faturamento" in src
+    assert "atualizar_fatura_venda" in src
+    assert "fin_ent_btn_salvar_fat" in src
+    # Garantir que o expander usa o estado de persistência
+    assert "fin_ent_expander_open" in src
