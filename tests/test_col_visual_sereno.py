@@ -6,6 +6,7 @@ from pathlib import Path
 
 from tests.col_ui_contract import (
     assert_col_area_unica_shell,
+    assert_col_disponibilidade_setor_na_pagina,
     assert_col_dados_parceria_na_ficha,
     assert_col_ficha_contacto_grupo_telefone,
     assert_col_mapa_equipa_na_pagina,
@@ -27,6 +28,10 @@ def test_col_ficha_grupo_telefone_contrato():
 
 def test_col_mapa_equipa_contrato():
     assert_col_mapa_equipa_na_pagina()
+
+
+def test_col_disponibilidade_setor_contrato():
+    assert_col_disponibilidade_setor_na_pagina()
 
 
 def test_col_dados_parceria_contrato():
@@ -58,6 +63,7 @@ def test_col_shell_css_ilha_mae_e_slot():
     assert "bea-busca-nome-sug-panel" in css
     assert "bea-col-mapa-wrap" in css
     assert "bea-col-mapa-th" in css
+    assert "bea-col-disp-flag" in css
     assert "0 12px 40px rgba(118, 148, 125, 0.12)" in css
     assert "0 2px 10px rgba(0, 0, 0, 0.05)" in css
 

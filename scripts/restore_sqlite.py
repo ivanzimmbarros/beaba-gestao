@@ -21,9 +21,11 @@ e dos testes `test_cag_visual_sereno`, `test_vnd_visual_sereno`, `test_col_visua
 `sala_virtual_disponibilizada` (NULL se presencial, 0/1 se virtual); dados de busca por prefixo de nome: `tests/test_cliente.py`; Painel de Vendas:
 `tests/vnd_ui_contract.py`, `test_vnd_visual_sereno` (pesquisa unificada; form editar cliente sem value= duplicado
 em `st.number_input` com chaves `*_vc_nem` / `*_vc_qfil` primadas por `_prime_cliente_form` em `page_vendas.py`); Colaboradores:
-`tests/col_ui_contract.py`, `test_col_visual_sereno` (pesquisa unificada + **Mapa da Equipa** + **Dados da Parceria** em `page_colaboradores.py`);
-prefixo de nome, filtros mapa e campos de parceria/IBAN em `tests/test_colaborador.py`; smoke `tests/smoke_test_ui.py`
-(`test_smoke_colaboradores_dados_parceria_ficha_widgets`); Catálogo: `tests/cat_ui_contract.py`; Início: `tests/home_ui_contract.py`;
+`tests/col_ui_contract.py`, `test_col_visual_sereno` (pesquisa unificada + **Mapa da Equipa** + **Dados da Parceria** +
+setor **Disponibilidade** em `page_colaboradores.py` / `colaboradores_disponibilidade_ui.py`);
+prefixo de nome, filtros mapa, disponibilidade (`colaborador_disponibilidade_*`) e campos de parceria/IBAN em `tests/test_colaborador.py`,
+`tests/test_colaborador_disponibilidade.py`; smoke `tests/smoke_test_ui.py`
+(`test_smoke_colaboradores_dados_parceria_ficha_widgets`, `test_smoke_colaboradores_disponibilidade_sector`); Catálogo: `tests/cat_ui_contract.py`; Início: `tests/home_ui_contract.py`;
 Financeiro: `tests/fin_ui_contract.py`, `tests/test_fin_visual_sereno.py`, `tests/test_financeiro_resultado_operacional.py`,
 `tests/test_financeiro_repasses_colaboradores.py`, fatia `e2e_stress_test.py::test_e2e_fin_visual_shell_contract`;
 sector **1. Resultado Operacional Consolidado** (`financeiro_resultado_operacional.py`, painel em `page_financeiro.py`);

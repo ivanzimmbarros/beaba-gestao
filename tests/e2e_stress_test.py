@@ -429,6 +429,8 @@ def _run_cag_consolidated_slice(cliente_id: int, ag_id: int) -> str | None:
         return "col: Colaboradores sem pesquisa unificada (nome + flag)"
     if "Mapa da Equipa" not in pcol or "listar_colaboradores_mapa_equipa" not in pcol:
         return "col: Mapa da Equipa (filtros + listagem) ausente"
+    if "render_colaboradores_disponibilidade_setor" not in pcol:
+        return "col: setor Disponibilidade (render) ausente em page_colaboradores"
 
     return None
 
@@ -714,19 +716,25 @@ def test_e2e_col_visual_shell_contract() -> None:
     """E2E leve: Colaboradores com Ilha Mãe + slot (paridade CAG/VND)."""
     from tests.col_ui_contract import (
         assert_col_area_unica_shell,
+        assert_col_disponibilidade_setor_na_pagina,
         assert_col_dados_parceria_na_ficha,
         assert_col_ficha_contacto_grupo_telefone,
         assert_col_mapa_equipa_na_pagina,
         assert_col_pesquisa_unificada_na_pagina,
     )
-    from tests.smoke_test_ui import test_smoke_colaboradores_dados_parceria_ficha_widgets
+    from tests.smoke_test_ui import (
+        test_smoke_colaboradores_dados_parceria_ficha_widgets,
+        test_smoke_colaboradores_disponibilidade_sector,
+    )
 
     assert_col_area_unica_shell()
     assert_col_pesquisa_unificada_na_pagina()
     assert_col_ficha_contacto_grupo_telefone()
     assert_col_dados_parceria_na_ficha()
     test_smoke_colaboradores_dados_parceria_ficha_widgets()
+    test_smoke_colaboradores_disponibilidade_sector()
     assert_col_mapa_equipa_na_pagina()
+    assert_col_disponibilidade_setor_na_pagina()
 
 
 def test_e2e_cat_visual_shell_contract() -> None:

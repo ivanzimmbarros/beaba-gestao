@@ -1,7 +1,7 @@
 """E17.1 — Evidências sobre ficheiro SQLite: integrity_check, FK, contagens, SHA-256.
 
-A tabela `colaboradores` (conjunto `critical`) inclui dados de parceria (IBAN, actividade económica, contrato, etc.)
-adicionados em migrações `_ensure_column`; contagens D1 reflectem o estado integral do registo.
+As tabelas `colaboradores` e `colaborador_disponibilidade_plano` / `colaborador_disponibilidade_regra` (conjunto
+`critical` onde aplicável) incluem dados operacionais e de parceria; contagens D1 reflectem o estado integral.
 """
 
 from __future__ import annotations
@@ -34,6 +34,8 @@ def gather_evidence(db_path: Path) -> dict:
             "vendas",
             "agendamentos",
             "colaboradores",
+            "colaborador_disponibilidade_plano",
+            "colaborador_disponibilidade_regra",
             "credito_movimentos",
             "repasse_linhas",
             "venda_pagamento_linhas",

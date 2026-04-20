@@ -1190,6 +1190,56 @@ def create_tables():
     )
     cursor.execute(
         """
+        CREATE TABLE IF NOT EXISTS colaborador_disponibilidade_plano (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            colaborador_id INTEGER NOT NULL,
+            valido_de TEXT NOT NULL,
+            valido_ate TEXT NOT NULL,
+            estado TEXT NOT NULL CHECK (estado IN ('rascunho', 'confirmado', 'arquivado')),
+            confirmado_em TEXT,
+            criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (colaborador_id) REFERENCES colaboradores(id) ON DELETE CASCADE
+        )
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS colaborador_disponibilidade_regra (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            plano_id INTEGER NOT NULL,
+            tipo TEXT NOT NULL CHECK (tipo IN ('semanal', 'excecao_dia', 'custom_intervalo')),
+            dia_semana INTEGER,
+            data_especifica TEXT,
+            intervalo_de TEXT,
+            intervalo_ate TEXT,
+            dias_mascara TEXT,
+            hora_inicio TEXT NOT NULL,
+            hora_fim TEXT NOT NULL,
+            ordem INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (plano_id) REFERENCES colaborador_disponibilidade_plano(id) ON DELETE CASCADE
+        )
+        """
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_col_disp_plano_col_est "
+        "ON colaborador_disponibilidade_plano(colaborador_id, estado)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_col_disp_plano_val "
+        "ON colaborador_disponibilidade_plano(colaborador_id, valido_de, valido_ate)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_col_disp_plano_conf_fim "
+        "ON colaborador_disponibilidade_plano(estado, valido_ate)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_col_disp_regra_plano ON colaborador_disponibilidade_regra(plano_id)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_col_disp_regra_data ON colaborador_disponibilidade_regra(data_especifica)"
+    )
+    cursor.execute(
+        """
         UPDATE agendamentos
         SET data_criacao_registo = COALESCE(
             NULLIF(TRIM(data_criacao_registo), ''),

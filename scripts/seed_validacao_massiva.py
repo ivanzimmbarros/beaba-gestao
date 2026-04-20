@@ -75,6 +75,8 @@ def _wipe(conn: sqlite3.Connection) -> None:
         "venda_pagamentos",
         "venda_itens",
         "vendas",
+        "colaborador_disponibilidade_regra",
+        "colaborador_disponibilidade_plano",
         "colaborador_servicos",
         "colaboradores",
         "servico_evento_participantes",

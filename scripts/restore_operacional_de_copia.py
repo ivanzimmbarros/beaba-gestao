@@ -17,10 +17,12 @@ Arquitectura UI (2026-04-12): páginas legadas Clientes/Agendamentos substituíd
 `test_col_visual_sereno`, `test_cat_visual_sereno`, `test_home_visual_sereno` / E20 seguem o repo, não a cópia `.db`.
 Após recuperação, validar UI CAG Setor 4 (listagem dentro do expander «Agendamentos») com
 `tests/cag_setor4_ui_contract.py` / pytest nos ficheiros de teste CAG; Vendas `tests/vnd_ui_contract.py`;
-Colaboradores `tests/col_ui_contract.py` + smoke `test_smoke_colaboradores_dados_parceria_ficha_widgets`; Catálogo `tests/cat_ui_contract.py`; Início `tests/home_ui_contract.py`;
+Colaboradores `tests/col_ui_contract.py` + smoke `test_smoke_colaboradores_dados_parceria_ficha_widgets` +
+`test_smoke_colaboradores_disponibilidade_sector` + `tests/test_colaborador_disponibilidade.py` (tabelas `colaborador_disponibilidade_*` em D1);
+Catálogo `tests/cat_ui_contract.py`; Início `tests/home_ui_contract.py`;
 Financeiro `tests/fin_ui_contract.py`, `tests/test_fin_visual_sereno.py`, `tests/test_financeiro_resultado_operacional.py`,
 `tests/test_financeiro_repasses_colaboradores.py` (sector **1. Resultado Operacional** + **3. Repasses**; cópia `.db` inclui `especialidades` / `servicos`, `colaboradores` com colunas **Dados da Parceria**).
-Smoke UI: `tests/smoke_test_ui.py` (`test_smoke_colaboradores_dados_parceria_ficha_widgets`, `test_smoke_financeiro_repasses_multiselect_chain`, `test_smoke_financeiro_resultado_operacional_panel`) + `pytest.ini`. Catálogo: wizard tipo→confirmação em `page_catalogo.py`.
+Smoke UI: `tests/smoke_test_ui.py` (`test_smoke_colaboradores_dados_parceria_ficha_widgets`, `test_smoke_colaboradores_disponibilidade_sector`, `test_smoke_financeiro_repasses_multiselect_chain`, `test_smoke_financeiro_resultado_operacional_panel`) + `pytest.ini`. Catálogo: wizard tipo→confirmação em `page_catalogo.py`.
 """
 
 from __future__ import annotations

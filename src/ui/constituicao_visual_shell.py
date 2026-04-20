@@ -1300,6 +1300,20 @@ def get_constituicao_col_page_css() -> str:
         margin: 0 0.25rem;
         font-weight: 500;
     }}
+    /* Ilha filha — Disponibilidade (coluna com marcador `bea-col-disp-flag`) */
+    section[data-testid="stMain"]:has(.bea-cv-col-slot)
+        [data-testid="column"]:has(p.bea-col-disp-flag),
+    body.bea-cv-col-page [data-testid="column"]:has(p.bea-col-disp-flag),
+    section[data-testid="stMain"]:has(.bea-cv-col-slot)
+        [data-testid="stColumn"]:has(p.bea-col-disp-flag),
+    body.bea-cv-col-page [data-testid="stColumn"]:has(p.bea-col-disp-flag) {{
+        background-color: #FFFFFF !important;
+        border-radius: 20px !important;
+        box-shadow: {CV_SOMBRA_COMPOSTA} !important;
+        padding: 24px 28px !important;
+        margin: 20px 0 24px 0 !important;
+        box-sizing: border-box !important;
+    }}
     section[data-testid="stMain"]:has(.bea-cv-col-slot) .bea-col-mapa-wrap,
     body.bea-cv-col-page .bea-col-mapa-wrap {{
         width: 100%;

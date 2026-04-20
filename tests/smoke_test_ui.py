@@ -17,7 +17,8 @@ Referência técnica: `streamlit.testing.v1.AppTest` (Streamlit ≥ 1.28; projet
 
 Colaboradores — **Dados da Parceria:** `test_smoke_colaboradores_dados_parceria_ficha_widgets` confirma na ficha os
 selects obrigatórios (actividade económica / contrato), IBAN e documento complementar na linha do NIF
-(`page_colaboradores.py` + `colaborador.py`).
+(`page_colaboradores.py` + `colaborador.py`). **Disponibilidade:** `test_smoke_colaboradores_disponibilidade_sector`
+confirma expanders 3.1–3.3 e filtros do calendário mestre.
 
 Financeiro — **1. Resultado Operacional:** `test_smoke_financeiro_resultado_operacional_panel` confirma widgets do painel
 (mês/ano, cenário das entradas). **3. Repasses:** `test_smoke_financeiro_repasses_multiselect_chain` confirma na árvore
@@ -125,6 +126,18 @@ def test_smoke_colaboradores_dados_parceria_ficha_widgets() -> None:
     ti_labels = [str(getattr(ti, "label", "") or "") for ti in at.get("text_input")]
     assert any("Dados Bancários — IBAN *" in t for t in ti_labels), ti_labels
     assert any("Passaporte, Título de Residência ou Cartão Cidadão" in t for t in ti_labels), ti_labels
+
+
+def test_smoke_colaboradores_disponibilidade_sector() -> None:
+    """Colaboradores: setor 3 — expanders de pesquisa, plano e calendário mestre (sem excepção no boot)."""
+    at = AppTest.from_file(str(_APP_PY), default_timeout=120)
+    at.session_state["page"] = "colaboradores"
+    at.run()
+    _assert_app_tree_clean(at, context="Colaboradores — disponibilidade (setor 3)")
+    exp_titles = [str(getattr(e, "label", "") or "") for e in at.get("expander")]
+    assert sum(1 for t in exp_titles if "3.1 Pesquisa e filtro de contexto" in t) >= 1, exp_titles
+    assert sum(1 for t in exp_titles if "3.2 Plano de disponibilidade" in t) >= 1, exp_titles
+    assert sum(1 for t in exp_titles if "3.3 Calendário mestre" in t) >= 1, exp_titles
 
 
 def test_smoke_financeiro_resultado_operacional_panel() -> None:

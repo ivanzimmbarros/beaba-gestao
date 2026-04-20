@@ -48,6 +48,12 @@ Colaboradores — **Dados da Parceria** (2026-04): colunas extra em `colaborador
 económica, contrato+data, IBAN) em **D1** via cópia integral do `.db`; domínio `src/modules/colaborador.py`; UI
 `page_colaboradores.py`; regressão `tests/test_colaborador.py`, `tests/col_ui_contract.py` (`assert_col_dados_parceria_na_ficha`),
 `tests/smoke_test_ui.py` (`test_smoke_colaboradores_dados_parceria_ficha_widgets`).
+
+Colaboradores — **Disponibilidade** (2026-04+): tabelas `colaborador_disponibilidade_plano` e
+`colaborador_disponibilidade_regra` (índices por colaborador/validade/regra) em **D1** integral;
+`src/modules/colaborador_disponibilidade.py`, `src/ui/colaboradores_disponibilidade_ui.py`; testes
+`tests/test_colaborador_disponibilidade.py`, `assert_col_disponibilidade_setor_na_pagina`, smoke
+`test_smoke_colaboradores_disponibilidade_sector`; `scripts/seed_validacao_massiva.py` apaga/repõe estas tabelas no wipe.
 """
 
 from __future__ import annotations
