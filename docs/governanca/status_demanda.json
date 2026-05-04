@@ -199,7 +199,7 @@
   "pc_foco": "PC1–PC2",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "2026-05-04: Concluído filtro colaborador↔serviço (CAG/Vendas/Financeiro/Disponibilidade); pytest 284 PASS; commit/push develop em curso.",
+  "live_status": "2026-05-04: Entregue — filtro colaborador por habilitação; pytest 284 PASS; push origin/develop e7b117e5.",
   "etapas_pendentes": [
     "Diretor: homologar PDV vs protótipo (semáforo visível, comanda spa). Sem OK → sem avançar módulos.",
     "E22: após OK — um único módulo seguinte (ex. Catálogo / Agendamentos).",
