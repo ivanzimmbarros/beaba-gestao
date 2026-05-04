@@ -42,7 +42,7 @@ from src.modules.cliente import (
     cadastrar_cliente,
     obter_cliente_completo,
 )
-from src.modules.colaborador import listar_colaboradores_resumo, nome_colaborador_sem_sufixo_id_ui
+from src.modules.colaborador import listar_colaboradores_mapa_equipa, nome_colaborador_sem_sufixo_id_ui
 from src.modules.constants import (
     ESTADO_AGENDAMENTO_REALIZADO_PENDENTE_LABEL_PT,
     NATUREZAS_CATALOGO_FASE3,
@@ -1382,10 +1382,17 @@ def _cag_coletar_filhos_do_form(fk: str, tem_filhos: bool, qtd: int) -> list[tup
     return filhos
 
 
-def _cag_ag_default_colab_options(colabs: list[tuple[int, str]]) -> list[int]:
-    if not colabs:
-        return []
-    return [colabs[0][0]]
+_CAG_AG_COLAB_OPTS_EMPTY_SENTINEL = -1
+
+
+def _cag_ag_colab_opts_para_servico_id(servico_id: int | None) -> tuple[list[int], dict[int, str]]:
+    """Colaboradores com habilitação em ``servico_id`` (lista vazia se serviço inválido ou sem elegíveis)."""
+    if servico_id is None or int(servico_id) < 1:
+        return [], {}
+    rows = listar_colaboradores_mapa_equipa([int(servico_id)])
+    col_opts = [int(r["id"]) for r in rows]
+    col_lbl = {int(r["id"]): str(r.get("nome") or "") for r in rows}
+    return col_opts, col_lbl
 
 
 def _cag_sync_ag_tipo_sala_state() -> None:
@@ -1665,8 +1672,7 @@ def _cag_limpar_form_ag_novo() -> None:
     st.session_state.cag_ag_sala_virtual = "—"
     st.session_state[CAG_AG_STATUS_UI_KEY] = "Agendado"
     st.session_state[_cag_ag_status_widget_key(None)] = "Agendado"
-    colabs = listar_colaboradores_resumo()
-    st.session_state.cag_ag_colabs = _cag_ag_default_colab_options(colabs)
+    st.session_state.cag_ag_colabs = []
 
 
 def _cag_opcoes_status_edicao(status_db: str) -> list[str]:
@@ -2382,12 +2388,23 @@ def _cag_render_dados_ag_linha1_novo_fora_form(
                 st.session_state.cag_ag_servico_esc = choices_real[0]
             st.selectbox("Serviço", options=choices_real, key="cag_ag_servico_esc", disabled=dis_ag)
     with r1c4:
+        _opts_c = (
+            col_opts
+            if col_opts
+            else [_CAG_AG_COLAB_OPTS_EMPTY_SENTINEL]
+        )
+
+        def _fmt_cag_colab_row(i: int, _m: dict[int, str] = col_lbl) -> str:
+            if int(i) == _CAG_AG_COLAB_OPTS_EMPTY_SENTINEL:
+                return "— Seleccione o serviço (colaboradores por habilitação) —"
+            return _cag_colab_multiselect_label(_m, int(i))
+
         st.multiselect(
             "Colaborador(es)",
-            options=col_opts,
-            format_func=lambda i, _m=col_lbl: _cag_colab_multiselect_label(_m, int(i)),
+            options=_opts_c,
+            format_func=_fmt_cag_colab_row,
             key="cag_ag_colabs",
-            disabled=dis_ag,
+            disabled=dis_ag or not col_opts,
         )
     with r1c5:
         ag_cur3 = obter_agendamento(int(aid_sel)) if aid_sel is not None else None
@@ -2417,9 +2434,11 @@ def _cag_setor4_render_dados_ag_form_e_wizards(
         st.markdown("##### Dados do Agendamento")
 
         all_srv = listar_servicos_para_venda()
-        colabs_all = listar_colaboradores_resumo()
-        col_opts = [c[0] for c in colabs_all]
-        col_lbl = {c[0]: c[1] for c in colabs_all}
+        _sid_colab = _cag_ag_servico_id_para_duracao(modo_novo=modo_novo, aid_sel=aid_sel)
+        col_opts, col_lbl = _cag_ag_colab_opts_para_servico_id(_sid_colab)
+        _allowed_c = set(col_opts)
+        _cur_c = [int(x) for x in (st.session_state.get("cag_ag_colabs") or []) if int(x) != _CAG_AG_COLAB_OPTS_EMPTY_SENTINEL]
+        st.session_state.cag_ag_colabs = [x for x in _cur_c if x in _allowed_c]
 
         if modo_novo:
             _cag_render_dados_ag_linha1_novo_fora_form(
@@ -2484,14 +2503,23 @@ def _cag_setor4_render_dados_ag_form_e_wizards(
                         key=f"cag_ag_srv_combo_{aid_sel}_{fv}",
                     )
                 with r1c4:
+                    _opts_ce = (
+                        col_opts
+                        if col_opts
+                        else [_CAG_AG_COLAB_OPTS_EMPTY_SENTINEL]
+                    )
+
+                    def _fmt_cag_colab_ed(i: int, _m: dict[int, str] = col_lbl) -> str:
+                        if int(i) == _CAG_AG_COLAB_OPTS_EMPTY_SENTINEL:
+                            return "— Sem colaboradores habilitados para este serviço —"
+                        return _cag_colab_multiselect_label(_m, int(i))
+
                     st.multiselect(
                         "Colaborador(es)",
-                        options=col_opts,
-                        format_func=lambda i, _m=col_lbl: _cag_colab_multiselect_label(
-                            _m, int(i)
-                        ),
+                        options=_opts_ce,
+                        format_func=_fmt_cag_colab_ed,
                         key="cag_ag_colabs",
-                        disabled=dis_ag,
+                        disabled=dis_ag or not col_opts,
                     )
                 with r1c5:
                     ag_cur3 = obter_agendamento(int(aid_sel)) if aid_sel is not None else None

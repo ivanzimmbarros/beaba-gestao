@@ -44,3 +44,12 @@ def assert_vnd_associacao_agendamento_por_linha() -> None:
     assert "Agendamento a associar (opcional)" in src
     assert "pos_venda_associar_agendamentos_por_linha" in src
     assert "listar_agendamentos_elegiveis_associacao_linha_venda" in src
+
+
+def assert_vnd_colaborador_por_linha_filtra_por_habilitacao_servico() -> None:
+    """Contrato: colaborador por linha do carrinho usa `listar_colaboradores_mapa_equipa` (serviço da linha)."""
+    root = Path(__file__).resolve().parents[1]
+    src = (root / "src" / "ui" / "page_vendas.py").read_text(encoding="utf-8")
+    assert "listar_colaboradores_mapa_equipa" in src
+    assert "Colaborador (opcional)" in src
+    assert "Colaborador *" in src

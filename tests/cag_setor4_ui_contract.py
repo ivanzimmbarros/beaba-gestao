@@ -151,3 +151,11 @@ def assert_cag_dados_agendamento_tipo_virtual_widgets() -> None:
     assert "Sala virtual disponibilizada?" in src
     assert "cag_ag_sala_virtual" in src
     assert "CAG_AG_STATUS_UI_KEY" in src
+
+
+def assert_cag_colaboradores_multiselect_filtra_por_habilitacao_servico() -> None:
+    """Contrato: multiselect de colaboradores só lista habilitados ao serviço seleccionado."""
+    src = _CAG_PAGE.read_text(encoding="utf-8")
+    assert "_cag_ag_colab_opts_para_servico_id" in src
+    assert "listar_colaboradores_mapa_equipa" in src
+    assert "_CAG_AG_COLAB_OPTS_EMPTY_SENTINEL" in src

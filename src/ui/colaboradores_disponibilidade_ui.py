@@ -238,7 +238,15 @@ def render_colaboradores_disponibilidade_setor() -> None:
             st.selectbox("Especialidade (calendário)", esp_labels, key="col_disp_cal_esp")
             esp_l = str(st.session_state.get("col_disp_cal_esp") or esp_ph)
             if esp_l == esp_ph:
-                cal_col_ids: list[int] | None = None
+                if nat_l == _nat_ph:
+                    cal_col_ids: list[int] | None = None
+                else:
+                    ids_nat = [int(r[0]) for r in svc_rows]
+                    if not ids_nat:
+                        cal_col_ids = []
+                    else:
+                        rows_m = listar_colaboradores_mapa_equipa(ids_nat)
+                        cal_col_ids = [int(r["id"]) for r in rows_m]
             else:
                 rows_e = _disp_mapa_filtra_rows_por_especialidades(svc_rows, [esp_l])
                 ids_sv = [int(r[0]) for r in rows_e]
@@ -254,9 +262,22 @@ def render_colaboradores_disponibilidade_setor() -> None:
                     cal_col_ids = [int(r["id"]) for r in rows_m]
             st.session_state["_col_disp_cal_filter_ids"] = cal_col_ids
 
-            opts_c = [(f"#{int(tid)} — {nome}", int(tid)) for tid, nome in resumo]
+            if cal_col_ids is None:
+                filt_resumo = list(resumo)
+            else:
+                _ok_cal = set(int(x) for x in cal_col_ids)
+                filt_resumo = [(tid, nome) for tid, nome in resumo if int(tid) in _ok_cal]
+            if not filt_resumo:
+                st.warning(
+                    "Nenhum colaborador com habilitação nos serviços deste filtro — "
+                    "a lista mostra toda a equipa até existir correspondência (evita bloquear o ecrã)."
+                )
+                filt_resumo = list(resumo)
+            opts_c = [(f"#{int(tid)} — {nome}", int(tid)) for tid, nome in filt_resumo]
             labels = [x[0] for x in opts_c]
             if "col_disp_pick_label" not in st.session_state:
+                st.session_state.col_disp_pick_label = labels[0]
+            elif st.session_state.col_disp_pick_label not in labels:
                 st.session_state.col_disp_pick_label = labels[0]
             st.selectbox(
                 "Colaborador alvo (plano + alertas)",

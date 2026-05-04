@@ -22,7 +22,11 @@ from src.modules.cliente import (
     cadastrar_cliente,
     obter_cliente_completo,
 )
-from src.modules.colaborador import listar_colaboradores_resumo, nome_colaborador_sem_sufixo_id_ui
+from src.modules.colaborador import (
+    listar_colaboradores_mapa_equipa,
+    listar_colaboradores_resumo,
+    nome_colaborador_sem_sufixo_id_ui,
+)
 from src.modules.constants import (
     ESTADO_AGENDAMENTO_REALIZADO_PENDENTE_LABEL_PT,
     ESTADO_PAGAMENTO_VENDA_LABEL_PT,
@@ -1497,11 +1501,13 @@ def render_page_vendas(
                                 f"**Valor pendente referente ao serviço contratado:** {_vnd_fmt_cent(aberto_vis)}"
                             )
                             st.markdown("".join(pag_md_parts), unsafe_allow_html=True)
-                            _cs_ids_p = [int(cid) for cid, _ in colab_resumo]
+                            _rows_p = listar_colaboradores_mapa_equipa([int(it["servico_id"])])
+                            _cs_ids_p = [int(r["id"]) for r in _rows_p]
+                            _cs_nome_p = {int(r["id"]): str(r.get("nome") or "") for r in _rows_p}
                             if not _cs_ids_p:
                                 st.warning(
-                                    "Não existem colaboradores registados. É necessário um colaborador "
-                                    "para liquidar pendências e calcular repasses."
+                                    "Não existem colaboradores habilitados para este serviço no catálogo. "
+                                    "Associe habilitações em **Colaboradores** ou escolha outro serviço."
                                 )
                                 it["colab_id"] = None
                             else:
@@ -1510,20 +1516,18 @@ def render_page_vendas(
                                     it["colab_id"]
                                 ) in _cs_ids_p:
                                     _ix_p = _cs_ids_p.index(int(it["colab_id"]))
+                                else:
+                                    it["colab_id"] = int(_cs_ids_p[0])
                                 _sel_col_id = st.selectbox(
                                     "Colaborador *",
                                     options=_cs_ids_p,
                                     index=_ix_p,
-                                    format_func=lambda i: nome_colaborador_sem_sufixo_id_ui(
-                                        next(
-                                            nome
-                                            for c, nome in colab_resumo
-                                            if int(c) == int(i)
-                                        )
+                                    format_func=lambda i, _nm=_cs_nome_p: nome_colaborador_sem_sufixo_id_ui(
+                                        _nm.get(int(i), "")
                                     )
                                     or "—",
                                     key=f"{fk}_col_{idx}",
-                                    help="Obrigatório para o cálculo correcto do repasse.",
+                                    help="Obrigatório para o cálculo correcto do repasse — apenas habilitados neste serviço.",
                                 )
                                 it["colab_id"] = int(_sel_col_id)
                         else:
@@ -1601,16 +1605,35 @@ def render_page_vendas(
                                         key=f"{fk}_de_{idx}",
                                     )
                                 )
+                            _rows_c = listar_colaboradores_mapa_equipa([int(it["servico_id"])])
                             _colab_opts: list[tuple[str, int | None]] = [("— Nenhum —", None)]
                             _colab_opts.extend(
-                                (nome_colaborador_sem_sufixo_id_ui(nome) or "—", int(cid))
-                                for cid, nome in colab_resumo
+                                (
+                                    nome_colaborador_sem_sufixo_id_ui(str(r.get("nome") or "")) or "—",
+                                    int(r["id"]),
+                                )
+                                for r in _rows_c
                             )
+                            if len(_colab_opts) == 1:
+                                st.caption(
+                                    "Nenhum colaborador habilitado a este serviço — defina habilitações em **Colaboradores**."
+                                )
+                            _sel_ix = 0
+                            if it.get("colab_id") is not None:
+                                _cid_cur = int(it["colab_id"])
+                                _pairs = [p for p in _colab_opts if p[1] is not None]
+                                _ids_only = [int(p[1]) for p in _pairs]
+                                if _cid_cur in _ids_only:
+                                    _sel_ix = _ids_only.index(_cid_cur) + 1
+                                else:
+                                    it["colab_id"] = None
                             _sel_col = st.selectbox(
                                 "Colaborador (opcional)",
                                 options=_colab_opts,
+                                index=_sel_ix,
                                 format_func=lambda x: x[0],
                                 key=f"{fk}_col_{idx}",
+                                disabled=len(_colab_opts) <= 1,
                             )
                             it["colab_id"] = _sel_col[1]
                             if cli_id and nat in ("Sessão", "Coworking", "Evento"):

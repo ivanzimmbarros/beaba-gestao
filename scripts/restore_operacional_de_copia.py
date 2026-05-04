@@ -21,7 +21,7 @@ Colaboradores `tests/col_ui_contract.py` + smoke `test_smoke_colaboradores_dados
 `test_smoke_colaboradores_disponibilidade_sector` + `tests/test_colaborador_disponibilidade.py` (tabelas `colaborador_disponibilidade_*` em D1);
 Catálogo `tests/cat_ui_contract.py`; Início `tests/home_ui_contract.py`;
 Financeiro `tests/fin_ui_contract.py`, `tests/test_fin_visual_sereno.py`, `tests/test_financeiro_resultado_operacional.py`,
-`tests/test_financeiro_repasses_colaboradores.py` (sector **1. Resultado Operacional** + **3. Repasses**; cópia `.db` inclui `especialidades` / `servicos`, `colaboradores` com colunas **Dados da Parceria**).
+`tests/test_financeiro_repasses_colaboradores.py` (sector **1. Resultado Operacional** + **3. Repasses**; UI repasse filtra colaboradores por habilitação ao serviço; cópia `.db` inclui `especialidades` / `servicos`, `colaboradores` com colunas **Dados da Parceria**).
 Smoke UI: `tests/smoke_test_ui.py` (`test_smoke_colaboradores_dados_parceria_ficha_widgets`, `test_smoke_colaboradores_disponibilidade_sector`, `test_smoke_financeiro_repasses_multiselect_chain`, `test_smoke_financeiro_resultado_operacional_panel`) + `pytest.ini`. Catálogo: wizard tipo→confirmação em `page_catalogo.py`.
 """
 

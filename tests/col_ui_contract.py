@@ -84,3 +84,5 @@ def assert_col_disponibilidade_setor_na_pagina() -> None:
     assert "bea-proto-scope" in ui
     assert "confirmar_plano_publicado" in ui
     assert "bea-col-disp-flag" in sh
+    assert "filt_resumo" in ui
+    assert "listar_colaboradores_mapa_equipa(ids_nat)" in ui

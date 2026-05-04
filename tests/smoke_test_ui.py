@@ -169,6 +169,8 @@ def test_smoke_financeiro_repasses_multiselect_chain() -> None:
     i_esp = labels.index("Especialidades")
     i_svc = labels.index("Nome do Serviço")
     assert i_nat < i_esp < i_svc, labels
+    if "Nome do Colaborador" in labels:
+        assert labels.index("Nome do Colaborador") < i_nat, labels
 
 
 def test_smoke_financeiro_entradas_sector_widgets() -> None:

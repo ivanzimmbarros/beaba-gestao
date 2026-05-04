@@ -29,7 +29,8 @@ do cliente em `constituicao_visual_shell.py` + `page_clientes_agendamentos.py`; 
 
 Financeiro (2026-04+): `page_financeiro.py` (sector **1. Resultado Operacional Consolidado** com
 `financeiro_resultado_operacional.py` + gastos + sector **3. Repasses** com cadeia Natureza do Serviço → Especialidades
-→ Nome do Serviço, 6 colunas + `financeiro_repasses_colaboradores.py` metadados `listar_servicos_metadados_para_filtro_repasse`);
+→ Nome do Serviço, 6 colunas + `financeiro_repasses_colaboradores.py` metadados `listar_servicos_metadados_para_filtro_repasse`;
+filtro «Nome do Colaborador» restrito a habilitações via `listar_colaboradores_mapa_equipa` conforme serviços do contexto);
 dados em cópia integral incluem `financeiro_*`, `repasse_linhas`, `agendamentos`, `especialidades`, `servicos`; regressão em
 `tests/test_fin_visual_sereno.py`, `tests/fin_ui_contract.py` (`assert_fin_resultado_operacional_sector_na_pagina`,
 `assert_fin_repasses_sector_na_pagina`, `assert_fin_repasses_filtros_cadeia_e_layout_na_pagina`),

@@ -56,6 +56,7 @@ from src.modules.financeiro_saldos_clientes import (
     listar_vendas_com_consumo_credito_loja,
     totais_saldos_ativos_por_antiguidade_cancelamento,
 )
+from src.modules.colaborador import listar_colaboradores_mapa_equipa
 from src.ui.constituicao_visual_shell import inject_constituicao_fin_page
 from src.ui.fmt_euro_constituicao import fmt_euro_centavos
 
@@ -1260,8 +1261,30 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
         if sv_ok != sv_raw:
             st.session_state[_k_rep_svc] = sv_ok
 
-        rep_c_ids = [c[0] for c in rep_colab_opts]
-        rep_c_lbl = {c[0]: c[1] for c in rep_colab_opts}
+        if sv_ok:
+            eff_svc_ids_fin: list[int] | None = list(sv_ok)
+        elif rep_svc_ids:
+            eff_svc_ids_fin = list(rep_svc_ids)
+        elif nat_m:
+            eff_svc_ids_fin = [int(r[0]) for r in rows_nat]
+        else:
+            eff_svc_ids_fin = None
+
+        if eff_svc_ids_fin is None:
+            rep_colab_visible = rep_colab_opts
+        elif not eff_svc_ids_fin:
+            rep_colab_visible = []
+        else:
+            _hab_fin = listar_colaboradores_mapa_equipa(eff_svc_ids_fin)
+            _hab_ids_fin = {int(r["id"]) for r in _hab_fin}
+            rep_colab_visible = [c for c in rep_colab_opts if c[0] in _hab_ids_fin]
+
+        rep_c_ids = [c[0] for c in rep_colab_visible]
+        rep_c_lbl = {c[0]: c[1] for c in rep_colab_visible}
+        _raw_rep_colab = [int(x) for x in (st.session_state.get(_k_rep_col) or [])]
+        _pruned_rep_colab = [x for x in _raw_rep_colab if x in set(rep_c_ids)]
+        if _pruned_rep_colab != _raw_rep_colab:
+            st.session_state[_k_rep_col] = _pruned_rep_colab
 
         def _fmt_rep_col(i: int) -> str:
             return rep_c_lbl.get(int(i), str(i))
@@ -1284,8 +1307,13 @@ def render_page_financeiro(*, render_back_and_breadcrumb) -> None:
                     format_func=_fmt_rep_col,
                     key=_k_rep_col,
                 )
-            else:
+            elif not rep_colab_opts:
                 st.caption("Sem colaboradores cadastrados.")
+            else:
+                st.caption(
+                    "Nenhum colaborador com habilitação nos serviços do filtro — alargue natureza / "
+                    "especialidade / serviço ou ajuste habilitações em **Colaboradores**."
+                )
         with rp2:
             if rep_nat_opts:
                 st.multiselect(

@@ -704,12 +704,14 @@ def test_e2e_vnd_visual_shell_contract() -> None:
     from tests.vnd_ui_contract import (
         assert_vnd_area_unica_shell,
         assert_vnd_associacao_agendamento_por_linha,
+        assert_vnd_colaborador_por_linha_filtra_por_habilitacao_servico,
         assert_vnd_editar_cliente_number_input_sem_value_duplicado_session,
     )
 
     assert_vnd_area_unica_shell()
     assert_vnd_editar_cliente_number_input_sem_value_duplicado_session()
     assert_vnd_associacao_agendamento_por_linha()
+    assert_vnd_colaborador_por_linha_filtra_por_habilitacao_servico()
 
 
 def test_e2e_col_visual_shell_contract() -> None:

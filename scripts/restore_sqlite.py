@@ -29,7 +29,8 @@ prefixo de nome, filtros mapa, disponibilidade (`colaborador_disponibilidade_*`)
 Financeiro: `tests/fin_ui_contract.py`, `tests/test_fin_visual_sereno.py`, `tests/test_financeiro_resultado_operacional.py`,
 `tests/test_financeiro_repasses_colaboradores.py`, fatia `e2e_stress_test.py::test_e2e_fin_visual_shell_contract`;
 sector **1. Resultado Operacional Consolidado** (`financeiro_resultado_operacional.py`, painel em `page_financeiro.py`);
-sector **3. Repasses** (cadeia Natureza→Especialidades→Serviço) + metadados em `financeiro_repasses_colaboradores.py`.
+sector **3. Repasses** (cadeia Natureza→Especialidades→Serviço; multiselect colaborador filtrado por `listar_colaboradores_mapa_equipa`)
++ metadados em `financeiro_repasses_colaboradores.py`.
 Setor 5 Entradas (2026-04): `page_financeiro.py` (expander «Gestão de valores convertidos (vendas)»); 
 gestão de faturas (`atualizar_fatura_venda` em `financeiro_entradas_convertidas.py`); 
 contrato em `tests/fin_ui_contract.py` (`assert_fin_entradas_sector_na_pagina`) + 

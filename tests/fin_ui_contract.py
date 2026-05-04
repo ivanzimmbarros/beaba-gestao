@@ -36,6 +36,9 @@ def assert_fin_repasses_sector_na_pagina() -> None:
     assert "filtra_metadados_servicos_por_naturezas" in src
     assert "filtra_metadados_servicos_por_especialidades" in src
     assert "listar_servicos_metadados_para_filtro_repasse" in src
+    assert "listar_colaboradores_mapa_equipa" in src
+    assert "eff_svc_ids_fin" in src
+    assert "rep_colab_visible" in src
 
 
 def assert_fin_resultado_operacional_sector_na_pagina() -> None:

@@ -12,6 +12,7 @@ Setor 4 (2026-04): listagem dentro do expander «Agendamentos» — ver `tests/c
 from pathlib import Path
 
 from tests.cag_setor4_ui_contract import (
+    assert_cag_colaboradores_multiselect_filtra_por_habilitacao_servico,
     assert_cag_conversao_pacote_hoje_no_form_dados_agendamento,
     assert_cag_dados_agendamento_tipo_virtual_widgets,
     assert_cag_setor4_lista_dentro_expander_agendamentos,
@@ -28,6 +29,26 @@ def test_cag_setor4_lista_obrigatoriamente_dentro_expander_agendamentos():
 
 def test_cag_dados_agendamento_tipo_atendimento_virtual_contrato():
     assert_cag_dados_agendamento_tipo_virtual_widgets()
+
+
+def test_cag_colaboradores_filtrados_por_servico_contrato():
+    assert_cag_colaboradores_multiselect_filtra_por_habilitacao_servico()
+
+
+def test_cag_ag_colab_opts_para_servico_id_limita_a_habilitados():
+    from src.modules.colaborador import listar_colaboradores_resumo, listar_servicos_para_mapa_equipa
+    from src.ui import page_clientes_agendamentos as mod
+
+    o0, l0 = mod._cag_ag_colab_opts_para_servico_id(None)
+    assert o0 == [] and l0 == {}
+    o1, _l1 = mod._cag_ag_colab_opts_para_servico_id(0)
+    assert o1 == []
+    rows = listar_servicos_para_mapa_equipa(None)
+    assert rows
+    sid = int(rows[0][0])
+    opts, _lbl = mod._cag_ag_colab_opts_para_servico_id(sid)
+    todos = listar_colaboradores_resumo()
+    assert len(opts) <= len(todos)
 
 
 def test_cag_conversao_pacote_hoje_contrato_form_dados_agendamento():
