@@ -80,6 +80,15 @@ jobs:
         continue-on-error: true
         run: python scripts/e17_1_gha_backup_job.py
 
+      - name: Upload Error Log
+        if: ${{ always() && steps.pipe.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: erro-log
+          path: ERRO_CRIPTOGRAFIA.txt
+          retention-days: 30
+          if-no-files-found: ignore
+
       - name: Upload artefacto encriptado
         id: up
         if: ${{ steps.pipe.outputs.encrypted_path != '' }}

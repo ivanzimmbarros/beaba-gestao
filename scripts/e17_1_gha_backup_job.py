@@ -124,8 +124,12 @@ def main() -> int:
             except Exception as e:
                 import traceback
 
-                print(f"ERRO CRÍTICO NA ENCRIPTAÇÃO: {str(e)}")
-                print(traceback.format_exc())
+                erro_completo = traceback.format_exc()
+                try:
+                    (repo / "ERRO_CRIPTOGRAFIA.txt").write_text(erro_completo, encoding="utf-8")
+                except OSError:
+                    pass
+                print("ERRO DETECTADO. Verifique o artefato 'erro-log' no GitHub Actions.")
                 steps["encrypt_rc"] = 1
                 steps["backup_detail"] = f"encrypt: {e}"
                 if not is_dev:
