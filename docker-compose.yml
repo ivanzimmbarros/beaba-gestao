@@ -1,0 +1,55 @@
+# BeaBa Gestão — dois perfis isolados (`staging`, `production`) com `.env` distintos.
+#
+# Antes do primeiro arranque, crie os ficheiros (a partir de `.env.example`):
+#   .env.staging   e   .env.production
+#
+# Staging apenas:
+#   docker compose --profile staging up -d
+#
+# Produção apenas:
+#   docker compose --profile production up -d
+#
+# No mesmo hospedeiro, use portas diferentes (STAGING_HOST_PORT / PRODUCTION_HOST_PORT).
+# Para bind mounts no hospedeiro em vez de volumes nomeados, substitua as entradas em
+# ``volumes:`` por, por exemplo, ``./data-staging:/app/data`` e ``./backups-staging:/app/backups``.
+
+services:
+  beaba-staging:
+    image: beaba-gestao:${TAG:-local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    profiles:
+      - staging
+    env_file:
+      - path: .env.staging
+        required: false
+    ports:
+      - "${STAGING_HOST_PORT:-8501}:8501"
+    volumes:
+      - beaba_data_staging:/app/data
+      - beaba_backups_staging:/app/backups
+    restart: unless-stopped
+
+  beaba-production:
+    image: beaba-gestao:${TAG:-local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    profiles:
+      - production
+    env_file:
+      - path: .env.production
+        required: false
+    ports:
+      - "${PRODUCTION_HOST_PORT:-8502}:8501"
+    volumes:
+      - beaba_data_production:/app/data
+      - beaba_backups_production:/app/backups
+    restart: unless-stopped
+
+volumes:
+  beaba_data_staging:
+  beaba_backups_staging:
+  beaba_data_production:
+  beaba_backups_production:

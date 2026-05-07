@@ -807,6 +807,7 @@ def inject_area_unica_visual_mount() -> None:
       doc.body.classList.remove("bea-cv-vnd-page");
       doc.body.classList.remove("bea-cv-col-page");
       doc.body.classList.remove("bea-cv-cat-page");
+      doc.body.classList.remove("bea-cv-gov-page");
       doc.body.classList.remove("bea-cv-fin-page");
       doc.body.classList.remove("bea-cv-home-page");
       doc.querySelectorAll(".bea-cv-cag-mother-island").forEach(function (el) {
@@ -820,6 +821,9 @@ def inject_area_unica_visual_mount() -> None:
       });
       doc.querySelectorAll(".bea-cv-cat-mother-island").forEach(function (el) {
         el.classList.remove("bea-cv-cat-mother-island");
+      });
+      doc.querySelectorAll(".bea-cv-gov-mother-island").forEach(function (el) {
+        el.classList.remove("bea-cv-gov-mother-island");
       });
       doc.querySelectorAll(".bea-cv-fin-mother-island").forEach(function (el) {
         el.classList.remove("bea-cv-fin-mother-island");
@@ -844,6 +848,11 @@ def inject_area_unica_visual_mount() -> None:
         slot = doc.querySelector(".bea-cv-cat-slot");
         bodyCls = "bea-cv-cat-page";
         colCls = "bea-cv-cat-mother-island";
+      }
+      if (!slot) {
+        slot = doc.querySelector(".bea-cv-gov-slot");
+        bodyCls = "bea-cv-gov-page";
+        colCls = "bea-cv-gov-mother-island";
       }
       if (!slot) {
         slot = doc.querySelector(".bea-cv-fin-slot");
@@ -880,7 +889,7 @@ def inject_area_unica_visual_mount() -> None:
 
 
 def inject_cag_visual_mount() -> None:
-    """Compat: mesmo que `inject_area_unica_visual_mount()` (CAG/VND/COL/CAT/Financeiro/Início)."""
+    """Compat: mesmo que `inject_area_unica_visual_mount()` (CAG/VND/COL/CAT/Governança/Financeiro/Início)."""
     inject_area_unica_visual_mount()
 
 
@@ -1552,6 +1561,16 @@ def get_constituicao_cat_page_css() -> str:
 
 def inject_constituicao_cat_page() -> None:
     st.markdown(get_constituicao_cat_page_css(), unsafe_allow_html=True)
+
+
+def get_constituicao_gov_page_css() -> str:
+    """Governança prod (admin): Horizonte + Ilha Mãe Sereno — paridade técnica com Catálogo (classes ``gov``)."""
+    css = get_constituicao_cat_page_css()
+    return css.replace("bea-cv-cat-", "bea-cv-gov-").replace("bea-cat-slot", "bea-gov-slot")
+
+
+def inject_constituicao_gov_page() -> None:
+    st.markdown(get_constituicao_gov_page_css(), unsafe_allow_html=True)
 
 
 def get_constituicao_fin_page_css() -> str:

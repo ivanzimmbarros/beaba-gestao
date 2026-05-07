@@ -55,6 +55,11 @@ Colaboradores — **Disponibilidade** (2026-04+): tabelas `colaborador_disponibi
 `src/modules/colaborador_disponibilidade.py`, `src/ui/colaboradores_disponibilidade_ui.py`; testes
 `tests/test_colaborador_disponibilidade.py`, `assert_col_disponibilidade_setor_na_pagina`, smoke
 `test_smoke_colaboradores_disponibilidade_sector`; `scripts/seed_validacao_massiva.py` apaga/repõe estas tabelas no wipe.
+
+Governança prod + Cloud DR (2026-05): página `src/ui/page_governanca.py` (Sereno `bea-cv-gov-slot` + `inject_constituicao_gov_page`),
+fluxo `backup_sync_cloud.py`, orquestrador `scheduler.py`, drill `restore_test_drill.py`, verificação final `sqlite_backup_verify.py` (CLI);
+regressão `tests/gov_ui_contract.py`, `tests/test_backup_drill_contract.py`,
+`tests/smoke_test_ui.py::test_smoke_governanca_admin_sector_widgets`; `.github/workflows/deploy.yml` (job `backup-health-main`).
 """
 
 from __future__ import annotations

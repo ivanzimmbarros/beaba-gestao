@@ -42,11 +42,13 @@ _MONITOR_GOVERNANCA_PY = _REPO_ROOT / "monitor_governanca.py"
 # Módulos `src/ui/page_*.py` existentes (sem extensão). Deve coincidir com o disco.
 EXPECTED_PAGE_MODULES: frozenset[str] = frozenset(
     {
+        "page_auth",
         "page_catalogo",
         "page_clientes_agendamentos",
         "page_colaboradores",
         "page_dashboards",
         "page_financeiro",
+        "page_governanca",
         "page_home",
         "page_vendas",
     }
@@ -61,6 +63,7 @@ SMOKE_APP_ROUTES: tuple[str, ...] = (
     "catalogo",
     "colaboradores",
     "financeiro",
+    "governanca",
     "dashboards",
     "relatorios",
 )
@@ -94,10 +97,20 @@ def _assert_app_tree_clean(at: AppTest, *, context: str) -> None:
     assert not problems, f"{context}: " + "; ".join(problems)
 
 
+def _prep_sessao_autenticada_smoke(at: AppTest, route: str) -> None:
+    """Ecrã inicial de login + MFA obriga identidade fictícia nos smokes."""
+    at.session_state["page"] = route
+    at.session_state["authenticated"] = True
+    at.session_state["auth_perfil"] = "admin"
+    at.session_state["auth_user_id"] = 1
+    at.session_state["auth_user_email"] = "admin@beaba.com"
+    at.session_state["auth_user_nome"] = "Smoke"
+
+
 def _run_app_smoke(route: str, *, timeout: int) -> None:
     assert _APP_PY.is_file(), f"Em falta: {_APP_PY}"
     at = AppTest.from_file(str(_APP_PY), default_timeout=timeout)
-    at.session_state["page"] = route
+    _prep_sessao_autenticada_smoke(at, route)
     at.run()
     _assert_app_tree_clean(at, context=f"Rota «{route}»")
 
@@ -117,7 +130,7 @@ def test_smoke_streamlit_app_legacy_redirect_boots(legacy: str) -> None:
 def test_smoke_colaboradores_dados_parceria_ficha_widgets() -> None:
     """Colaboradores: «Dados da Parceria» — selects Sim/Não, IBAN, documento complementar (regressão UI)."""
     at = AppTest.from_file(str(_APP_PY), default_timeout=120)
-    at.session_state["page"] = "colaboradores"
+    _prep_sessao_autenticada_smoke(at, "colaboradores")
     at.run()
     _assert_app_tree_clean(at, context="Colaboradores — dados da parceria (ficha)")
     sb_labels = [str(getattr(sb, "label", "") or "") for sb in at.get("selectbox")]
@@ -131,11 +144,11 @@ def test_smoke_colaboradores_dados_parceria_ficha_widgets() -> None:
 def test_smoke_colaboradores_disponibilidade_sector() -> None:
     """Colaboradores: setor 3 — expanders de pesquisa, plano e calendário mestre (sem excepção no boot)."""
     at = AppTest.from_file(str(_APP_PY), default_timeout=120)
-    at.session_state["page"] = "colaboradores"
+    _prep_sessao_autenticada_smoke(at, "colaboradores")
     at.run()
     _assert_app_tree_clean(at, context="Colaboradores — disponibilidade (setor 3)")
     exp_titles = [str(getattr(e, "label", "") or "") for e in at.get("expander")]
-    assert sum(1 for t in exp_titles if "3.1 Pesquisa e filtro de contexto" in t) >= 1, exp_titles
+    assert sum(1 for t in exp_titles if "3.1 Pesquisa de Disponibilidade de Colaboradores" in t) >= 1, exp_titles
     assert sum(1 for t in exp_titles if "3.2 Plano de disponibilidade" in t) >= 1, exp_titles
     assert sum(1 for t in exp_titles if "3.3 Calendário mestre" in t) >= 1, exp_titles
 
@@ -143,7 +156,7 @@ def test_smoke_colaboradores_disponibilidade_sector() -> None:
 def test_smoke_financeiro_resultado_operacional_panel() -> None:
     """Financeiro: painel sector 1 — mês/ano, cenário das entradas e rótulo do expander."""
     at = AppTest.from_file(str(_APP_PY), default_timeout=120)
-    at.session_state["page"] = "financeiro"
+    _prep_sessao_autenticada_smoke(at, "financeiro")
     at.run()
     _assert_app_tree_clean(at, context="Financeiro — resultado operacional (painel)")
     labels_sb = [str(getattr(sb, "label", "") or "") for sb in at.get("selectbox")]
@@ -158,7 +171,7 @@ def test_smoke_financeiro_resultado_operacional_panel() -> None:
 def test_smoke_financeiro_repasses_multiselect_chain() -> None:
     """Financeiro: multiselects do sector «3. Repasses» presentes e ordenados (Nat → Esp → Svc)."""
     at = AppTest.from_file(str(_APP_PY), default_timeout=120)
-    at.session_state["page"] = "financeiro"
+    _prep_sessao_autenticada_smoke(at, "financeiro")
     at.run()
     _assert_app_tree_clean(at, context="Financeiro — repasses (multiselects)")
     labels = [str(getattr(m, "label", "") or "") for m in at.get("multiselect")]
@@ -176,7 +189,7 @@ def test_smoke_financeiro_repasses_multiselect_chain() -> None:
 def test_smoke_financeiro_entradas_sector_widgets() -> None:
     """Financeiro: widgets do sector «5. Entradas» (expander, caixas de totais, filtros)."""
     at = AppTest.from_file(str(_APP_PY), default_timeout=120)
-    at.session_state["page"] = "financeiro"
+    _prep_sessao_autenticada_smoke(at, "financeiro")
     at.run()
     _assert_app_tree_clean(at, context="Financeiro — entradas (widgets)")
     exp_titles = [str(getattr(e, "label", "") or "") for e in at.get("expander")]
@@ -190,6 +203,33 @@ def test_smoke_financeiro_entradas_sector_widgets() -> None:
     # Verificar botões
     btn_labels = [str(getattr(b, "label", "") or "") for b in at.get("button")]
     assert any("Limpar Pesquisa" in l for l in btn_labels)
+
+
+def test_smoke_governanca_admin_sector_widgets() -> None:
+    """Governança (admin): título, subtítulos sector log/estado, botão cópia manual (sem executar scripts)."""
+    at = AppTest.from_file(str(_APP_PY), default_timeout=120)
+    _prep_sessao_autenticada_smoke(at, "governanca")
+    at.run()
+    _assert_app_tree_clean(at, context="Governança — sector operacional")
+    btn_labels = [str(getattr(b, "label", "") or "") for b in at.get("button")]
+    assert any("Executar Backup Agora" in l for l in btn_labels), btn_labels
+    # Markdown inclui grandes blocos `<style>` de `inject_constituicao_gov_page` — filtrar.
+    chunks: list[str] = []
+    for m in at.get("markdown"):
+        v = getattr(m, "value", None)
+        txt = v if isinstance(v, str) else str(getattr(m, "body", "") or "")
+        if "<style>" in txt and "bea-cv-gov-slot" in txt:
+            continue
+        chunks.append(txt)
+    # st.title → AppTest `"title"`; st.subheader → `"subheader"` (não `"heading"`).
+    for t in at.get("title"):
+        chunks.append(str(getattr(t, "value", "") or ""))
+    for sh in at.get("subheader"):
+        chunks.append(str(getattr(sh, "value", "") or ""))
+    digest = "\n".join(chunks)
+    assert "Governança — cópias" in digest
+    assert "backup_hourly.log" in digest or "Ainda não existe log legível" in digest
+    assert "Estados de recuperação" in digest
 
 
 def test_smoke_ui_page_modules_sync_with_disk() -> None:

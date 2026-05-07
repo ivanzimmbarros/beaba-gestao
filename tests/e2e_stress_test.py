@@ -772,6 +772,21 @@ def test_e2e_fin_visual_shell_contract() -> None:
     assert_fin_repasses_filtros_cadeia_e_layout_na_pagina()
 
 
+def test_e2e_governanca_backup_visual_shell_contract() -> None:
+    """E2E leve: Governança (admin) — slot Sereno, CSS Master, sector operacional e menu."""
+    from tests.gov_ui_contract import (
+        assert_constituicao_gov_css_horizonte_ilhas_master,
+        assert_gov_shell_slot_e_inject_na_app_constituicao,
+        assert_governanca_sector_operacional_na_pagina,
+        assert_sidebar_governanca_reservada_admin,
+    )
+
+    assert_gov_shell_slot_e_inject_na_app_constituicao()
+    assert_constituicao_gov_css_horizonte_ilhas_master()
+    assert_governanca_sector_operacional_na_pagina()
+    assert_sidebar_governanca_reservada_admin()
+
+
 if __name__ == "__main__":
     import tempfile
 

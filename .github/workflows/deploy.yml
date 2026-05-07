@@ -1,0 +1,102 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - staging
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docker-build-verify-staging:
+    if: github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (validate Dockerfile)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: beaba-gestao:staging-${{ github.sha }}
+
+      - name: Verificar utilizador não-root (UID esperado 1000)
+        run: |
+          uid=$(docker run --rm --entrypoint id beaba-gestao:staging-${{ github.sha }} -u)
+          test "$uid" = "1000"
+
+  build-and-deploy-prod-skeleton:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build production image (local artefact apenas)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: beaba-gestao:prod-${{ github.sha }}
+
+      - name: Verificar utilizador não-root (UID esperado 1000)
+        run: |
+          uid=$(docker run --rm --entrypoint id beaba-gestao:prod-${{ github.sha }} -u)
+          test "$uid" = "1000"
+
+      # Esqueleto: acrescentar autenticação no registry (docker/login-action), push da tag,
+      # SSH/rsync ao servidor ou orquestração (Kubernetes/Swarm), secrets em GitHub Environments.
+
+      - name: Deploy para produção (placeholder — sem credenciais)
+        run: |
+          echo "::notice::Substitua este passo por push ao registry + deploy ao servidor quando estiver configurado."
+
+  backup-health-main:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pip mínimo (backup / S3 compat)
+        run: pip install boto3 cryptography
+
+      - name: Verificar sintaxe dos scripts de cópias de segurança
+        run: |
+          python -m py_compile scripts/backup_sqlite_hourly.py
+          python -m py_compile scripts/backup_sync_cloud.py
+          python -m py_compile scripts/restore_test_drill.py
+          python -m py_compile scripts/scheduler.py
+          python -m py_compile scripts/sqlite_backup_verify.py
+
+  notify-main-backup-failure:
+    needs:
+      - backup-health-main
+    if: ${{ needs.backup-health-main.result == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Registar falha e notificar webhook opcional
+        env:
+          WEBHOOK_URL: ${{ secrets.BACKUP_FAILURE_WEBHOOK_URL }}
+        run: |
+          echo "::error::Scripts de cópias de segurança / sincronização S3 falharam no job backup-health-main (branch main)."
+          body="BeaBa Gestão CI (main): verificação de scripts de cópias de segurança falhou. Ver trabalho '${{ github.run_id }}'."
+          if [ -z "${WEBHOOK_URL:-}" ]; then
+            echo "WEBHOOK_URL não configurada em secrets — apenas o log CI acima."
+            exit 0
+          fi
+          curl -fsS -X POST -H "Content-Type: text/plain; charset=UTF-8" --data-binary "$body" "$WEBHOOK_URL" \
+            || echo "Envio webhook falhou."

@@ -35,7 +35,8 @@ Setor 5 Entradas (2026-04): `page_financeiro.py` (expander «Gestão de valores 
 gestão de faturas (`atualizar_fatura_venda` em `financeiro_entradas_convertidas.py`); 
 contrato em `tests/fin_ui_contract.py` (`assert_fin_entradas_sector_na_pagina`) + 
 `tests/test_financeiro_entradas_convertidas.py` + `tests/smoke_test_ui.py` (`test_smoke_financeiro_entradas_sector_widgets`).
-Smoke UI: `tests/smoke_test_ui.py` (`test_smoke_colaboradores_dados_parceria_ficha_widgets`, `test_smoke_financeiro_repasses_multiselect_chain`, `test_smoke_financeiro_resultado_operacional_panel`, `test_smoke_financeiro_entradas_sector_widgets`) + `pytest.ini`. Catálogo: wizard tipo→confirmação em `page_catalogo.py`.
+Smoke UI: `tests/smoke_test_ui.py` (`test_smoke_colaboradores_dados_parceria_ficha_widgets`, `test_smoke_financeiro_repasses_multiselect_chain`, `test_smoke_financeiro_resultado_operacional_panel`, `test_smoke_financeiro_entradas_sector_widgets`, `test_smoke_governanca_admin_sector_widgets`) + `pytest.ini`. Catálogo: wizard tipo→confirmação em `page_catalogo.py`.
+Cloud sync + drill staging: `scripts/backup_sync_cloud.py`, `scripts/restore_test_drill.py`, `scripts/scheduler.py`, `tests/test_backup_drill_contract.py`, `tests/gov_ui_contract.py`, `e2e_stress_test.py::test_e2e_governanca_backup_visual_shell_contract`.
 """
 
 from __future__ import annotations

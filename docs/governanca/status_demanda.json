@@ -36,7 +36,8 @@
       "resultado_2026_04_17_fin_ro_sector1": "265 passed — Financeiro **1. Resultado Operacional Consolidado**: módulo `financeiro_resultado_operacional.py`, painel em `page_financeiro.py` (expander + caixas Sereno); `test_financeiro_resultado_operacional.py`; `fin_ui_contract.assert_fin_resultado_operacional_sector_na_pagina`; E2E `test_e2e_fin_visual_shell_contract`; smoke `test_smoke_financeiro_resultado_operacional_panel`; docstrings backup/restore; CAG `page_clientes_agendamentos.py` sem `border=True` (contrato visual).",
       "resultado_2026_04_19_fin_ent_sector5": "269 passed — Financeiro **5. Entradas**: persistência do expander «Gestão de valores convertidos (vendas)», reposicionamento de mensagens de sucesso/erro; unit tests `atualizar_fatura_venda`; contrato `assert_fin_entradas_sector_na_pagina`; smoke `test_smoke_financeiro_entradas_sector_widgets`; docstrings backup/restore actualizadas.",
       "resultado_2026_04_19_col_parceria": "275 passed — Colaboradores «Dados da Parceria»: colunas SQLite + `colaborador.py` + ficha `page_colaboradores.py`; `col_ui_contract`; smoke `test_smoke_colaboradores_dados_parceria_ficha_widgets`; E2E `test_e2e_col_visual_shell_contract`; docstrings backup/restore/verify/seed/evidence; pytest venv `tests/` -v 100%.",
-      "resultado_2026_04_20_col_disponibilidade": "282 passed — Colaboradores: disponibilidade operacional (`colaborador_disponibilidade_plano` + `colaborador_disponibilidade_regra`, índices SQLite); `colaborador_disponibilidade.py`; UI `colaboradores_disponibilidade_ui.py` (ilha `bea-col-disp-flag`, expanders 3.1–3.3, calendário `bea-proto-scope`); `test_colaborador_disponibilidade.py`; `assert_col_disponibilidade_setor_na_pagina`; smoke `test_smoke_colaboradores_disponibilidade_sector`; E2E `test_e2e_col_visual_shell_contract`; seed wipe + `e17_1_sqlite_evidence` critical + docstrings backup/restore."
+      "resultado_2026_04_20_col_disponibilidade": "282 passed — Colaboradores: disponibilidade operacional (`colaborador_disponibilidade_plano` + `colaborador_disponibilidade_regra`, índices SQLite); `colaborador_disponibilidade.py`; UI `colaboradores_disponibilidade_ui.py` (ilha `bea-col-disp-flag`, expanders 3.1–3.3, calendário `bea-proto-scope`); `test_colaborador_disponibilidade.py`; `assert_col_disponibilidade_setor_na_pagina`; smoke `test_smoke_colaboradores_disponibilidade_sector`; E2E `test_e2e_col_visual_shell_contract`; seed wipe + `e17_1_sqlite_evidence` critical + docstrings backup/restore.",
+      "resultado_2026_05_07_governance_cloud_dr": "(ver relatório ciclo QA) — Governança Sereno prod (`bea-cv-gov-slot`, `inject_constituicao_gov_page`, RBAC admin); núcleo DR `backup_sync_cloud` / `scheduler` / `restore_test_drill` / `sqlite_backup_verify` CLI; unit `tests/test_backup_drill_contract.py` + contrato `tests/gov_ui_contract.py`; smoke `test_smoke_governanca_admin_sector_widgets`; E2E `test_e2e_governanca_backup_visual_shell_contract`; CI `backup-health-main`; docstrings backup/restore cruzadas."
     },
     "backup_restore": {
       "nuvem_codigo": "Artefactos encriptados GHA + telemetria backup_dr_history.json — cópia integral SQLite em backup horário (.gitignore *.db intencional).",
@@ -199,13 +200,14 @@
   "pc_foco": "PC1–PC2",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "2026-05-04: Entregue — filtro colaborador por habilitação; pytest 284 PASS; push origin/develop e7b117e5.",
+  "live_status": "2026-05-07 QA — Orientações Mestres: página Governança Sereno (`bea-cv-gov-slot`), suite pytest completa+coberturas govern_ui / backup_drill / smoke governança; docstrings backup/restore actualizadas.",
   "etapas_pendentes": [
+    "Pós-validação pytest 100%: Diretor faz commit+push quando homologado (origin/develop conforme fluxo).",
     "Diretor: homologar PDV vs protótipo (semáforo visível, comanda spa). Sem OK → sem avançar módulos.",
     "E22: após OK — um único módulo seguinte (ex. Catálogo / Agendamentos).",
     "Encerramento futuro E22: `python tests/e2e_stress_test.py` (≥1000 iterações) + `tests/last_stress_report.txt` sem bloqueios (além da suite pytest)."
   ],
-  "live_actualizado_iso": "2026-05-04T10:00:00Z",
+  "live_actualizado_iso": "2026-05-07T12:00:00Z",
   "epico_cockpit_boas_vindas": {
     "status": "CONCLUÍDO",
     "data_iso": "2026-04-12",

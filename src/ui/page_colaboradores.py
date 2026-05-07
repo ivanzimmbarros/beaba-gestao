@@ -557,6 +557,10 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
         '<div class="bea-cv-cag-gap" aria-hidden="true"></div>',
         unsafe_allow_html=True,
     )
+    st.markdown(
+        _col_section_title_html("4. Cadastro de novo colaborador"),
+        unsafe_allow_html=True,
+    )
     with st.expander(f"⋯ Item: {exp_nome} — Detalhes", expanded=True):
         st.markdown(_col_ficha_subsec_html("Dados pessoais"), unsafe_allow_html=True)
         c_nome = st.text_input("Nome completo *", key=f"{fk}_nome")

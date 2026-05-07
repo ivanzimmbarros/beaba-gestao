@@ -1,5 +1,10 @@
 __pycache__/
 
+# Variáveis locais / staging — nunca enviar `.env` com segredos
+.env
+.env.staging
+.env.production
+
 # E20 — relatório gerado por stress E2E (reexecutável localmente)
 tests/last_stress_report.txt
 

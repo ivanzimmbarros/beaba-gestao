@@ -79,6 +79,7 @@ def assert_col_disponibilidade_setor_na_pagina() -> None:
     ui = (root / "src" / "ui" / "colaboradores_disponibilidade_ui.py").read_text(encoding="utf-8")
     sh = (root / "src" / "ui" / "constituicao_visual_shell.py").read_text(encoding="utf-8")
     assert "render_colaboradores_disponibilidade_setor" in pg
+    assert "4. Cadastro de novo colaborador" in pg
     assert "3. Disponibilidade e calendário operacional" in ui
     assert "bea-col-disp-flag" in ui
     assert "bea-proto-scope" in ui

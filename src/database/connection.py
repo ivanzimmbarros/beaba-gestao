@@ -1,7 +1,51 @@
+from __future__ import annotations
+
 import os
 import sqlite3
+from pathlib import Path
 
 import streamlit as st
+from dotenv import load_dotenv
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+# Preferir variáveis já definidas no processo/container; `.env` preenche omissões (desenvolvimento local).
+load_dotenv(_REPO_ROOT / ".env", override=False)
+
+
+def get_sqlite_database_path() -> str:
+    """Caminho absoluto/normalizado do ficheiro SQLite para a aplicação.
+
+    Ordem de precedência: ``BEABA_SQLITE_PATH``, depois ``DB_PATH``, por fim ``data/beaba_gestao.db``
+    relativamente à raiz do projecto quando o valor não é absoluto.
+    """
+    raw = (os.environ.get("BEABA_SQLITE_PATH") or os.environ.get("DB_PATH") or "").strip()
+    if not raw:
+        raw = "data/beaba_gestao.db"
+    path = Path(raw)
+    if not path.is_absolute():
+        path = _REPO_ROOT / path
+    return str(path.resolve())
+
+
+def get_beaba_env_type_raw() -> str:
+    """Identificador de ambiente (minúsculo), vindo de ``ENV_TYPE`` ou ``BEABA_ENV``."""
+    v = (os.environ.get("ENV_TYPE") or os.environ.get("BEABA_ENV") or "local").strip().lower()
+    return v if v else "local"
+
+
+def env_type_display_label_pt() -> str:
+    """Etiqueta curta para UI (sidebar), em português."""
+    aliases = {
+        "local": "Local",
+        "dev": "Desenvolvimento",
+        "development": "Desenvolvimento",
+        "staging": "Staging",
+        "stg": "Staging",
+        "production": "Produção",
+        "prod": "Produção",
+    }
+    key = get_beaba_env_type_raw()
+    return aliases.get(key, key.replace("_", " ").title())
 
 
 def get_connection():
@@ -10,10 +54,12 @@ def get_connection():
 
     Não aceder a `st.secrets` aqui sem `secrets.toml`: o Streamlit chama `st.error` ao
     falhar o parse mesmo antes de propagar excepção, o que quebra toda a UI local.
-    Produção com secrets: usar `BEABA_SQLITE_PATH` ou futura camada explícita.
+
+    Variáveis: ficheiro ``.env`` na raiz (via python-dotenv) e ambiente OS.
+    Preferir ``BEABA_SQLITE_PATH``; ``DB_PATH`` é alias documentado para o mesmo efeito.
     """
-    db_path = os.environ.get("BEABA_SQLITE_PATH") or "data/beaba_gestao.db"
-    db_dir = os.path.dirname(os.path.abspath(db_path))
+    db_path = get_sqlite_database_path()
+    db_dir = os.path.dirname(db_path)
     if db_dir:
         os.makedirs(db_dir, exist_ok=True)
 
@@ -709,6 +755,25 @@ def _ensure_financeiro_case_insensitive_unique_indexes(cursor: sqlite3.Cursor) -
     )
 
 
+def _seed_default_admin_if_needed(cursor: sqlite3.Cursor) -> None:
+    """Garante um administrador inicial quando ainda não existe nenhum utilizador (UI de login pendente)."""
+    cursor.execute("SELECT COUNT(*) FROM usuarios")
+    if int(cursor.fetchone()[0]) > 0:
+        return
+    from src.modules.auth_utils import hash_password
+
+    raw_pwd = (os.environ.get("BEABA_BOOTSTRAP_ADMIN_PASSWORD") or "changeme123").strip()
+    if not raw_pwd:
+        raw_pwd = "changeme123"
+    cursor.execute(
+        """
+        INSERT INTO usuarios (nome, email, senha_hash, perfil, ativo, data_cadastro)
+        VALUES (?, ?, ?, 'admin', 1, datetime('now'))
+        """,
+        ("Administrador", "admin@beaba.com", hash_password(raw_pwd)),
+    )
+
+
 def create_tables():
     """Garante esquema base, migrações incrementais e tabelas relacionadas."""
     conn = get_connection()
@@ -1238,6 +1303,35 @@ def create_tables():
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_col_disp_regra_data ON colaborador_disponibilidade_regra(data_especifica)"
     )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS usuarios (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL,
+            email TEXT NOT NULL UNIQUE,
+            senha_hash TEXT NOT NULL,
+            perfil TEXT NOT NULL CHECK (perfil IN ('admin', 'colaborador')),
+            ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1)),
+            data_cadastro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS mfa_tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            token TEXT NOT NULL,
+            expira_em TIMESTAMP NOT NULL,
+            usado INTEGER NOT NULL DEFAULT 0 CHECK (usado IN (0, 1)),
+            FOREIGN KEY (user_id) REFERENCES usuarios(id) ON DELETE CASCADE
+        )
+        """
+    )
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_mfa_tokens_user ON mfa_tokens(user_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_mfa_tokens_exp ON mfa_tokens(expira_em)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_mfa_tokens_usado ON mfa_tokens(usado)")
+    _seed_default_admin_if_needed(cursor)
     cursor.execute(
         """
         UPDATE agendamentos

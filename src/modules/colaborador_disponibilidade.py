@@ -8,8 +8,17 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from src.database.connection import get_connection
+from src.modules.agendamento import listar_agendamentos
 
 _DIAS_PT = ("Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom")
+
+# Agendamentos com slot «ocupado» no mapa da disponibilidade (exclui cancelados / encerrados).
+_STATUS_AG_VISIVEL_CALENDARIO_DISP = (
+    "PRE_AGENDADO",
+    "AGENDADO",
+    "CONFIRMADO",
+    "REALIZADO_PENDENTE_PGTO",
+)
 
 
 def _parse_iso_date(s: str | None) -> date | None:
@@ -485,7 +494,10 @@ def agregar_slots_calendario_mestre(
     colaborador_ids: list[int] | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     """
-    Por data ISO: lista de blocos {colaborador_id, nome, hora_inicio, hora_fim, especialidades_txt, cor_idx}.
+    Por data ISO: lista de blocos com horários de disponibilidade (plano confirmado) e de agendamentos activos.
+
+    Cada entrada inclui ``bloco``: ``\"disponibilidade\"`` | ``\"agendamento\"``. Agendamentos trazem
+    ``cliente_nome`` e ``servico_nome`` para destaque visual no calendário.
     """
     d0 = _parse_iso_date(data_de)
     d1 = _parse_iso_date(data_ate)
@@ -519,10 +531,64 @@ def agregar_slots_calendario_mestre(
                         "hora_fim": hf,
                         "especialidades_txt": p["especialidades_txt"],
                         "cor_idx": cor_idx,
+                        "bloco": "disponibilidade",
                     }
                 )
+
+    cols_pos: set[int] | None = None
+    ag_cids_arg: list[int] | None = None
+    if colaborador_ids is not None:
+        cols_pos = {int(x) for x in colaborador_ids if int(x) > 0}
+        ag_cids_arg = sorted(cols_pos) if cols_pos else [-1]
+
+    if ag_cids_arg != [-1]:
+        ag_rows = listar_agendamentos(
+            data_de=str(data_de)[:10],
+            data_ate=str(data_ate)[:10],
+            colaborador_ids=ag_cids_arg if ag_cids_arg is not None else None,
+            status_list=list(_STATUS_AG_VISIVEL_CALENDARIO_DISP),
+        )
+        cfilter = cols_pos if colaborador_ids is not None else None
+        for ag in ag_rows:
+            ds = str(ag.get("data_agendamento") or "")[:10]
+            if len(ds) < 10:
+                continue
+            hi = str(ag.get("hora_inicio") or "").strip()
+            hf = str(ag.get("hora_fim") or "").strip()
+            if not hi or not hf:
+                continue
+            cids_ag: list[int] = list(ag.get("colaborador_ids") or [])
+            nomes_ag: list[str] = list(ag.get("colaboradores_nomes") or [])
+            cliente_nm = str(ag.get("cliente_nome") or "").strip()
+            srv_nm = str(ag.get("servico_nome") or "").strip()
+            for j, cid_raw in enumerate(cids_ag):
+                cid = int(cid_raw)
+                if cfilter is not None and cid not in cfilter:
+                    continue
+                nome_col = nomes_ag[j].strip() if j < len(nomes_ag) and nomes_ag[j] else "—"
+                cor_idx = abs(cid) % 5
+                by_day.setdefault(ds, []).append(
+                    {
+                        "colaborador_id": cid,
+                        "nome": nome_col,
+                        "hora_inicio": hi,
+                        "hora_fim": hf,
+                        "especialidades_txt": srv_nm or "—",
+                        "cor_idx": cor_idx,
+                        "bloco": "agendamento",
+                        "cliente_nome": cliente_nm,
+                        "servico_nome": srv_nm,
+                    }
+                )
+
     for ds in by_day:
-        by_day[ds].sort(key=lambda x: (x["hora_inicio"], x["nome"].lower()))
+        by_day[ds].sort(
+            key=lambda x: (
+                0 if str(x.get("bloco")) == "agendamento" else 1,
+                str(x["hora_inicio"]),
+                str(x["nome"]).lower(),
+            )
+        )
     return by_day
 
 

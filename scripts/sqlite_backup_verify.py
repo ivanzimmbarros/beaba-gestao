@@ -20,12 +20,15 @@ Catálogo Sereno: `tests/cat_ui_contract.py`, `tests/test_cat_visual_sereno.py`.
 Início / Cockpit Sereno: `tests/home_ui_contract.py`, `tests/test_home_visual_sereno.py`.
 Setor 5 Entradas (2026-04): `tests/fin_ui_contract.py` (`assert_fin_entradas_sector_na_pagina`), `tests/test_financeiro_entradas_convertidas.py`.
 Smoke UI: `tests/smoke_test_ui.py` + `pytest.ini`. Catálogo: wizard tipo→confirmação em `page_catalogo.py`.
+CLI (``python scripts/sqlite_backup_verify.py <.db>``): usado pelo drill ``scripts/restore_test_drill.py``; regressões em ``tests/test_backup_drill_contract.py`` e Governança prod ``page_governanca.py``.
 """
 
 from __future__ import annotations
 
+import argparse
 import os
 import sqlite3
+import sys
 from pathlib import Path
 
 SQLITE_MAGIC = b"SQLite format 3\x00"
@@ -92,3 +95,16 @@ def verify_backup_destination(
         return False, msg_p
 
     return True, "ok"
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Verificar ficheiro SQLite (header + PRAGMA quick_check).")
+    ap.add_argument("db_path", type=Path, help="Caminho do .db copiado/restaurado.")
+    args = ap.parse_args()
+    ok, msg = verify_backup_destination(Path(args.db_path))
+    print(msg)
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

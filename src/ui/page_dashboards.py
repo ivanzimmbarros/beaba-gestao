@@ -13,7 +13,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.pages.theme import get_beaba_css  # noqa: F401 — BeaBa Sereno (CSS em app.main)
-from src.database.connection import get_connection
+from src.database.connection import get_connection, get_sqlite_database_path
 from src.modules.relatorios import (
     DimensaoGroupBy,
     FiltrosDashboard,
@@ -35,7 +35,7 @@ def _repo_root() -> Path:
 
 
 def _db_path() -> Path:
-    return _repo_root() / "data" / "beaba_gestao.db"
+    return Path(get_sqlite_database_path())
 
 
 def _dw_table_exists(conn: sqlite3.Connection, name: str) -> bool:
