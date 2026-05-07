@@ -67,6 +67,8 @@ def main() -> int:
     repo = Path(os.environ.get("GITHUB_WORKSPACE", _REPO)).resolve()
     load_dotenv(repo / ".env", override=False)
     env_slug = _env_folder_slug()
+    git_ref = (os.environ.get("GITHUB_REF_NAME", "develop").strip() or "develop")
+    is_dev = git_ref == "develop"
     t0 = time.time()
     start = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -119,10 +121,15 @@ def main() -> int:
                 encrypt_file(latest, out, key)
                 steps["encrypt_rc"] = 0
                 steps["encrypted_rel"] = str(out.relative_to(repo)).replace("\\", "/")
-            except Exception as exc:
-                print(f"Erro na encriptação: {exc}")
+            except Exception as e:
+                import traceback
+
+                print(f"ERRO CRÍTICO NA ENCRIPTAÇÃO: {str(e)}")
+                print(traceback.format_exc())
                 steps["encrypt_rc"] = 1
-                steps["backup_detail"] = f"encrypt: {exc}"
+                steps["backup_detail"] = f"encrypt: {e}"
+                if not is_dev:
+                    raise
     elif steps["backup_rc"] == 0 and not steps["key_configured"]:
         steps["backup_detail"] = "backup ok; chave ausente — sem encriptação"
 
@@ -144,7 +151,6 @@ def main() -> int:
         encoding="utf-8",
     )
 
-    is_dev = (os.environ.get("GITHUB_REF_NAME", "develop").strip() or "develop") == "develop"
     ok = steps["backup_rc"] == 0 and (steps["encrypt_rc"] == 0 or is_dev)
     return 0 if ok else 1
 

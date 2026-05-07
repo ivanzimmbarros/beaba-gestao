@@ -38,6 +38,9 @@ def parse_backup_key() -> bytes:
 
 
 def encrypt_file(path_in: Path, path_out: Path, key: bytes) -> None:
+    print(f"DEBUG: Tamanho da chave recebida: {len(key)}")
+    if len(key) == 0:
+        print("ERRO: A chave está vazia. Verifique se o secret BEABA_BACKUP_KEY está chegando ao runner.")
     pt = path_in.read_bytes()
     aes = AESGCM(key)
     nonce = os.urandom(12)
