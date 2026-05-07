@@ -85,7 +85,7 @@ jobs:
   notify-main-backup-failure:
     needs:
       - backup-health-main
-    if: ${{ needs.backup-health-main.result == 'failure' }}
+    if: ${{ always() && needs['backup-health-main'].result == 'failure' }}
     runs-on: ubuntu-latest
     steps:
       - name: Registar falha e notificar webhook opcional
