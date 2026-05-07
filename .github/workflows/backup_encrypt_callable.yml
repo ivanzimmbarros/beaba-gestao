@@ -43,6 +43,9 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment_name || 'develop' }}
+    defaults:
+      run:
+        shell: bash
     permissions:
       contents: write
       actions: write
@@ -77,7 +80,7 @@ jobs:
 
       - name: Pipeline backup + encriptação
         id: pipe
-        continue-on-error: true
+        continue-on-error: false
         run: python scripts/e17_1_gha_backup_job.py
 
       - name: Upload Error Log
