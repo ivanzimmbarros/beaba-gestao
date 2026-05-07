@@ -138,11 +138,17 @@ def main() -> int:
                     except OSError:
                         pass
                     print(erro_completo)
-                    sys.exit(1)
+                    steps["encrypt_rc"] = 1
+                    steps["backup_detail"] = "encrypt: ver ERRO_CRIPTOGRAFIA.txt"
+                    if not is_dev:
+                        raise
         elif steps["backup_rc"] == 0 and not steps["key_configured"]:
             steps["backup_detail"] = "backup ok; chave ausente — sem encriptação"
 
-        _gh_output("encrypted_path", steps["encrypted_rel"])
+        print(f"DEBUG: Caminho do arquivo encriptado calculado: {steps['encrypted_rel']}")
+        if os.environ.get("GITHUB_OUTPUT"):
+            with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+                fh.write(f"encrypted_path={steps['encrypted_rel']}\n")
 
         finished = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         sha = os.environ.get("GITHUB_SHA", "")
