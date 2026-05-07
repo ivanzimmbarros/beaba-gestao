@@ -12,6 +12,11 @@
 on:
   workflow_call:
     inputs:
+      environment_name:
+        description: "GitHub Environment a usar para secrets (production|staging|develop)."
+        required: false
+        type: string
+        default: develop
       artifact_name:
         required: true
         type: string
@@ -37,7 +42,7 @@ permissions:
 jobs:
   backup:
     runs-on: ubuntu-latest
-    environment: ${{ (github.ref_name == 'main' && 'production') || (github.ref_name == 'staging' && 'staging') || 'develop' }}
+    environment: ${{ inputs.environment_name || 'develop' }}
     permissions:
       contents: write
       actions: write

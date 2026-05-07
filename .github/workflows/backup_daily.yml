@@ -25,6 +25,7 @@ jobs:
     uses: ./.github/workflows/backup_encrypt_callable.yml
     secrets: inherit
     with:
+      environment_name: ${{ (github.ref_name == 'main' && 'production') || (github.ref_name == 'staging' && 'staging') || 'develop' }}
       artifact_name: DB_DAILY_BACKUP
       retention_days: 7
       retention_label: "DAILY (7d)"

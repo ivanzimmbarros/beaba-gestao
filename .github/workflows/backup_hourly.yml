@@ -33,6 +33,7 @@ jobs:
     uses: ./.github/workflows/backup_encrypt_callable.yml
     secrets: inherit
     with:
+      environment_name: ${{ (github.ref_name == 'main' && 'production') || (github.ref_name == 'staging' && 'staging') || 'develop' }}
       artifact_name: beaba-sqlite-backup-encrypted
       retention_days: 3
       retention_label: "HOURLY (3d)"
