@@ -1,0 +1,60 @@
+name: staging_weekly_drill
+
+on:
+  schedule:
+    # Segunda-feira 03:00 UTC (ajuste conforme necessário)
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: beaba-staging-weekly-drill
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  drill:
+    runs-on: ubuntu-latest
+    environment: ${{ 'staging' }}
+    if: ${{ github.repository_owner != '' }}
+    env:
+      ENV_TYPE: staging
+      BEABA_ENV: staging
+      PYTHONPATH: ${{ github.workspace }}
+      BEABA_REPO_ROOT: ${{ github.workspace }}
+    steps:
+      - name: Checkout staging
+        uses: actions/checkout@v4
+        with:
+          ref: staging
+          fetch-depth: 0
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Dependências
+        run: pip install -r requirements.txt
+
+      - name: Restore Drill (produção → staging)
+        env:
+          # S3_* e BEABA_BACKUP_KEY devem existir como secrets do Environment "staging"
+          S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
+          S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
+          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+          S3_ENDPOINT_URL: ${{ secrets.S3_ENDPOINT_URL }}
+          S3_REGION: ${{ secrets.S3_REGION }}
+          BEABA_BACKUP_KEY: ${{ secrets.BEABA_BACKUP_KEY }}
+        run: python scripts/restore_test_drill.py
+
+      - name: Upload Drill Report Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging_restore_drill_state
+          path: docs/governanca/telemetry/staging_restore_drill_state.json
+          retention-days: 90
+          if-no-files-found: error
+

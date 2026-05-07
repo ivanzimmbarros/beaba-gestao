@@ -23,11 +23,13 @@ import json
 import os
 import shutil
 import socket
+import sqlite3
 import subprocess
 import sys
-import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 _REPO = Path(__file__).resolve().parents[1]
 if str(_REPO) not in sys.path:
@@ -37,7 +39,7 @@ from scripts.backup_sync_cloud import _prefix_norm, boto3_client, repo_root  # n
 from scripts.e17_1_crypto import decrypt_file, parse_backup_key  # noqa: E402
 from scripts.sqlite_backup_verify import verify_backup_destination  # noqa: E402
 
-STATE_REL = Path("staging_restore_drill_state.json")
+STATE_REL = Path("docs") / "governanca" / "telemetry" / "staging_restore_drill_state.json"
 
 
 def _env_kind() -> str:
@@ -50,10 +52,37 @@ def _env_kind() -> str:
 
 def _require_staging() -> None:
     k = _env_kind()
+    if k in ("production", "prod", "main"):
+        print(
+            f"Trava: restore drill recusado em produção (ENV_TYPE/BEABA_ENV={k!r}).",
+            file=sys.stderr,
+        )
+        raise SystemExit(3)
     if k in ("staging", "stg"):
         return
     print(f"Este script só corre em staging (ENV_TYPE/BEABA_ENV). Valor actual: «{k}».", file=sys.stderr)
     raise SystemExit(2)
+
+
+def _env_folder_slug() -> str:
+    k = _env_kind()
+    if k in ("production", "prod", "main"):
+        return "prod"
+    if k in ("staging", "stg"):
+        return "stg"
+    return "dev"
+
+
+def _count_table_rows(db_path: Path, table: str) -> int | None:
+    try:
+        conn = sqlite3.connect(db_path, timeout=15.0)
+        try:
+            row = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()
+            return int(row[0]) if row else 0
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return None
 
 
 def _latest_prod_enc_key(bucket: str, prefix: str, client) -> tuple[str | None, list[dict[str, object]]]:
@@ -72,8 +101,33 @@ def _latest_prod_enc_key(bucket: str, prefix: str, client) -> tuple[str | None, 
     return str(best.get("Key")), objs
 
 
+def _obj_last_modified_utc(objs: list[dict[str, object]], key: str) -> datetime | None:
+    for item in objs:
+        if str(item.get("Key") or "") != key:
+            continue
+        lm = item.get("LastModified")
+        if isinstance(lm, datetime):
+            return lm.astimezone(timezone.utc)
+    return None
+
+
+def _rpo_eval(now_utc: datetime, last_modified_utc: datetime | None) -> tuple[str, str, int | None]:
+    if last_modified_utc is None:
+        return "alerta", "ALERTA: timestamp do backup não disponível para cálculo de RPO.", None
+    delay_min = int(round((now_utc - last_modified_utc).total_seconds() / 60.0))
+    if delay_min <= 65:
+        msg = (
+            f"Recuperação garantida: Backup de {last_modified_utc.strftime('%Y-%m-%dT%H:%M:%SZ')} "
+            f"(atraso de {delay_min} min) cumpre a meta de 1h"
+        )
+        return "cumprido", msg, delay_min
+    msg = f"ALERTA: Backup com atraso de {delay_min} min. Excede a meta de 1h"
+    return "alerta", msg, delay_min
+
+
 def _write_state(root: Path, payload: dict) -> None:
-    path = root / STATE_REL.name
+    path = root / STATE_REL
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
@@ -83,13 +137,21 @@ def _write_state(root: Path, payload: dict) -> None:
 def run_drill(root: Path | None = None) -> int:
     _require_staging()
     root = root or repo_root()
+    load_dotenv(root / ".env", override=False)
     bucket = os.environ.get("S3_BUCKET_NAME", "").strip()
     if not bucket:
         print("S3_BUCKET_NAME ausente.", file=sys.stderr)
         return 2
 
-    key_prefix = _prefix_norm(os.environ.get("S3_PRODUCTION_RESTORE_PREFIX", "production/hourly"))
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    env_slug = _env_folder_slug()
+    if env_slug != "stg":
+        print(f"Este script só corre em staging/stg. Pasta resolvida: {env_slug!r}.", file=sys.stderr)
+        return 2
+
+    # Prefixo onde estão os backups reais da produção.
+    key_prefix = _prefix_norm(os.environ.get("S3_PRODUCTION_RESTORE_PREFIX", "prod/hourly/"))
+    now_dt = datetime.now(timezone.utc)
+    ts = now_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
     stub = {
         "type": "restore_drill_staging",
         "started_at": ts,
@@ -100,13 +162,25 @@ def run_drill(root: Path | None = None) -> int:
         "verify_ok": False,
         "verify_message": "",
         "hostname": socket.gethostname(),
+        "environment": env_slug,
+        "row_counts_proof": {"clientes": None, "vendas": None},
+        "rpo_status": "",
+        "rpo_message": "",
+        "rpo_delay_minutes": None,
+        "prod_backup_last_modified_utc": "",
     }
 
-    enc_local: Path | None = None
-    dec_local: Path | None = None
-    target_db = root / "data" / "beaba_gestao.db"
-    hourly = root / "backups" / "hourly"
+    base = root / "backups" / "stg"
+    restore_verify = base / "restore_verify"
+    hourly = base / "hourly"
+    restore_verify.mkdir(parents=True, exist_ok=True)
     hourly.mkdir(parents=True, exist_ok=True)
+
+    # Caminhos determinísticos (evita colisões com outros ambientes e facilita auditoria).
+    enc_local = restore_verify / "drill_latest_prod.beaba.enc"
+    dec_local = restore_verify / "drill_temp.db"
+
+    target_db = root / "data" / "beaba_gestao.db"
 
     try:
         client = boto3_client()
@@ -118,13 +192,14 @@ def run_drill(root: Path | None = None) -> int:
             print(stub["error"], file=sys.stderr)
             return 1
         stub["prod_remote_key"] = rk
-
-        ef, ef_raw = tempfile.mkstemp(prefix="drill_enc_", suffix=".beaba.enc")
-        os.close(ef)
-        enc_local = Path(ef_raw)
-        df, df_raw = tempfile.mkstemp(prefix="drill_dec_", suffix=".db")
-        os.close(df)
-        dec_local = Path(df_raw)
+        lm_utc = _obj_last_modified_utc(lst, rk)
+        if lm_utc is not None:
+            stub["prod_backup_last_modified_utc"] = lm_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+        rpo_status, rpo_message, rpo_delay = _rpo_eval(now_dt, lm_utc)
+        stub["rpo_status"] = rpo_status
+        stub["rpo_message"] = rpo_message
+        stub["rpo_delay_minutes"] = rpo_delay
+        print(rpo_message)
 
         obj = client.get_object(Bucket=bucket, Key=rk)
         with enc_local.open("wb") as fh:
@@ -143,32 +218,42 @@ def run_drill(root: Path | None = None) -> int:
             print(stub["error"], file=sys.stderr)
             return 1
 
+        vr_tmp = subprocess.run(
+            [sys.executable, str(root / "scripts" / "sqlite_backup_verify.py"), str(dec_local)],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+        )
+        out_tmp = (vr_tmp.stdout or "").strip() + (vr_tmp.stderr or "").strip()
+        stub["sqlite_backup_verify_stdout"] = out_tmp[:8000]
+        stub["sqlite_backup_verify_rc"] = int(vr_tmp.returncode)
+        ok_tmp = vr_tmp.returncode == 0
+        stub["verify_ok"] = ok_tmp
+        stub["verify_message"] = out_tmp or "(sem saída)"
+        if not ok_tmp:
+            stub["error"] = f"Aborto: `sqlite_backup_verify.py` falhou no banco temporário (rc={vr_tmp.returncode})."
+            stub["finished_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            _write_state(root, stub)
+            print(stub["error"], file=sys.stderr)
+            return 1
+
+        # Prova visual mínima (tabelas-chave).
+        stub["row_counts_proof"] = {
+            "clientes": _count_table_rows(dec_local, "clientes"),
+            "vendas": _count_table_rows(dec_local, "vendas"),
+        }
+
         if target_db.is_file():
             bak = hourly / f"pre_drill_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')}.db"
             shutil.copy2(target_db, bak)
 
         target_db.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(dec_local, target_db)
+        tmp_target = target_db.parent / f".beaba_gestao_drill_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')}.db"
+        shutil.copy2(dec_local, tmp_target)
+        os.replace(tmp_target, target_db)
 
-        vr = subprocess.run(
-            [sys.executable, str(root / "scripts" / "sqlite_backup_verify.py"), str(target_db)],
-            cwd=str(root),
-            capture_output=True,
-            text=True,
-        )
-        out = (vr.stdout or "").strip() + (vr.stderr or "").strip()
-        stub["sqlite_backup_verify_stdout"] = out[:8000]
-        stub["sqlite_backup_verify_rc"] = int(vr.returncode)
-        ok_tgt = vr.returncode == 0
-        stub["verify_ok"] = ok_tgt
-        stub["verify_message"] = out or "(sem saída)"
-        stub["ok"] = ok_tgt
+        stub["ok"] = True
         stub["production_encrypted_objects_seen"] = len(lst)
-        if not ok_tgt:
-            stub["error"] = f"Cópia final em dados falhou `sqlite_backup_verify.py` (rc={vr.returncode})."
-            stub["finished_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-            _write_state(root, stub)
-            return 1
 
         stub["finished_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         _write_state(root, stub)
@@ -181,10 +266,16 @@ def run_drill(root: Path | None = None) -> int:
         print(f"Erro no drill DR: {exc}", file=sys.stderr)
         return 1
     finally:
-        if enc_local is not None:
+        # Segurança: remove temporários após sucesso.
+        try:
             enc_local.unlink(missing_ok=True)
-        if dec_local is not None:
-            dec_local.unlink(missing_ok=True)
+        except OSError:
+            pass
+        try:
+            if bool(stub.get("ok")):
+                dec_local.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def main() -> int:

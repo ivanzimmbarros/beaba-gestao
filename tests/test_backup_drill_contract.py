@@ -22,12 +22,12 @@ def test_restore_test_drill_rejects_non_staging() -> None:
         env={**os.environ, "ENV_TYPE": "production"},
         text=True,
     )
-    assert proc.returncode == 2
+    assert proc.returncode in (2, 3)
 
 
 @pytest.fixture()
 def hourly_dir(tmp_path: Path) -> Path:
-    p = tmp_path / "backups" / "hourly"
+    p = tmp_path / "backups" / "dev" / "hourly"
     p.mkdir(parents=True)
     db = p / "beaba_gestao_20990101.db"
     conn = sqlite3.connect(db)
@@ -50,10 +50,10 @@ def test_backup_sync_dry_run_empty_ok(hourly_dir: Path, monkeypatch: pytest.Monk
 
 
 def test_backup_sync_manifest_skips_stable_file(hourly_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    dbs = list((hourly_dir / "backups" / "hourly").glob("*.db"))
+    dbs = list((hourly_dir / "backups" / "dev" / "hourly").glob("*.db"))
     assert len(dbs) == 1
     db = dbs[0]
-    manifest = hourly_dir / "backups" / "cloud_sync_manifest.json"
+    manifest = hourly_dir / "backups" / "dev" / "cloud_sync_manifest.json"
     st = db.stat()
     mt = getattr(st, "st_mtime_ns", int(st.st_mtime * 1_000_000_000))
     upload = MagicMock(side_effect=AssertionError("put_object não deveria ser chamado"))
@@ -66,6 +66,8 @@ def test_backup_sync_manifest_skips_stable_file(hourly_dir: Path, monkeypatch: p
     monkeypatch.setenv("S3_SECRET_KEY", "s")
     monkeypatch.setenv("BEABA_BACKUP_KEY", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
     monkeypatch.setenv("BEABA_REPO_ROOT", str(hourly_dir))
+    monkeypatch.setenv("ENV_TYPE", "dev")
+    monkeypatch.setenv("BEABA_ENV", "dev")
 
     class _Cli:
         def put_object(self, **_k):  # noqa: D401
@@ -105,6 +107,8 @@ def test_backup_sync_upload_when_no_manifest(monkeypatch: pytest.MonkeyPatch, ho
     cli = MagicMock()
     cli.put_object.return_value = {"ETag": "\"testetag\""}
     monkeypatch.setenv("BEABA_REPO_ROOT", str(hourly_dir))
+    monkeypatch.setenv("ENV_TYPE", "dev")
+    monkeypatch.setenv("BEABA_ENV", "dev")
     import scripts.backup_sync_cloud as mod
 
     monkeypatch.setattr(mod, "boto3_client", lambda: cli)

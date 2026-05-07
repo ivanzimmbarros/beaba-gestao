@@ -25,6 +25,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 _logger = logging.getLogger("beaba.verify_restore_weekly")
 
 
@@ -33,6 +35,17 @@ def repo_root() -> Path:
     if override:
         return Path(override).resolve()
     return Path(__file__).resolve().parents[1]
+
+
+def _env_folder_slug() -> str:
+    raw = (os.environ.get("ENV_TYPE") or os.environ.get("BEABA_ENV") or "dev").strip().lower()
+    if raw in ("production", "prod", "main"):
+        return "prod"
+    if raw in ("staging", "stg"):
+        return "stg"
+    if raw in ("develop", "dev", "development", "local"):
+        return "dev"
+    return "dev"
 
 
 def _configure_logging(log_dir: Path) -> None:
@@ -52,9 +65,12 @@ def _configure_logging(log_dir: Path) -> None:
 
 def run_verify(root: Path | None = None) -> int:
     root = root or repo_root()
-    hourly = root / "backups" / "hourly"
-    staging_dir = root / "backups" / "restore_verify"
-    log_dir = root / "backups" / "logs"
+    load_dotenv(root / ".env", override=False)
+    env_slug = _env_folder_slug()
+    base = root / "backups" / env_slug
+    hourly = base / "hourly"
+    staging_dir = base / "restore_verify"
+    log_dir = base / "logs"
     staging_dir.mkdir(parents=True, exist_ok=True)
     _configure_logging(log_dir)
 

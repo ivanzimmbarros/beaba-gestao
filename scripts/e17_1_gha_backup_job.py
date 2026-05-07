@@ -22,6 +22,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 # Imports relativos ao repo
 _REPO = Path(__file__).resolve().parents[1]
 if str(_REPO) not in sys.path:
@@ -50,8 +52,21 @@ def _pip_check_rc() -> int:
     ).returncode
 
 
+def _env_folder_slug() -> str:
+    raw = (os.environ.get("ENV_TYPE") or os.environ.get("BEABA_ENV") or "dev").strip().lower()
+    if raw in ("production", "prod", "main"):
+        return "prod"
+    if raw in ("staging", "stg"):
+        return "stg"
+    if raw in ("develop", "dev", "development", "local"):
+        return "dev"
+    return "dev"
+
+
 def main() -> int:
     repo = Path(os.environ.get("GITHUB_WORKSPACE", _REPO)).resolve()
+    load_dotenv(repo / ".env", override=False)
+    env_slug = _env_folder_slug()
     t0 = time.time()
     start = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -85,7 +100,7 @@ def main() -> int:
     steps["snapshot_table_counts"] = {}
 
     if steps["backup_rc"] == 0 and steps["key_configured"]:
-        hourly = repo / "backups" / "hourly"
+        hourly = repo / "backups" / env_slug / "hourly"
         dbs = sorted(hourly.glob("beaba_gestao_*.db"), key=lambda p: p.stat().st_mtime)
         if dbs:
             latest = dbs[-1]
@@ -98,7 +113,7 @@ def main() -> int:
                 steps["backup_detail"] = (steps.get("backup_detail") or "") + f"; snapshot: {exc}"
             try:
                 key = parse_backup_key()
-                out = repo / "backups" / "gha_encrypted" / f"{latest.stem}.beaba.enc"
+                out = repo / "backups" / env_slug / "gha_encrypted" / f"{latest.stem}.beaba.enc"
                 encrypt_file(latest, out, key)
                 steps["encrypt_rc"] = 0
                 steps["encrypted_rel"] = str(out.relative_to(repo)).replace("\\", "/")

@@ -19,7 +19,16 @@ from src.database.connection import env_type_display_label_pt, get_beaba_env_typ
 from src.ui.constituicao_visual_shell import inject_constituicao_gov_page
 
 
-DRILL_JSON = "staging_restore_drill_state.json"
+DRILL_JSON = str(Path("docs") / "governanca" / "telemetry" / "staging_restore_drill_state.json")
+
+
+def _env_folder_slug(raw: str) -> str:
+    k = str(raw or "").strip().lower()
+    if k in ("production", "prod", "main"):
+        return "prod"
+    if k in ("staging", "stg"):
+        return "stg"
+    return "dev"
 
 
 def _repo_root() -> Path:
@@ -63,14 +72,15 @@ def render_page_governanca() -> None:
     st.title("Governança — cópias de segurança")
     repo = _repo_root()
     env_slug = get_beaba_env_type_raw()
+    env_folder = _env_folder_slug(env_slug)
 
     st.caption(
         f"Ambiente registado como **{env_type_display_label_pt()}** (`ENV_TYPE={env_slug}`)."
     )
 
-    log_path = repo / "backups" / "logs" / "backup_hourly.log"
+    log_path = repo / "backups" / env_folder / "logs" / "backup_hourly.log"
     lines = _tail_log_lines(log_path)
-    st.subheader("Log horário (`backups/logs/backup_hourly.log`)")
+    st.subheader(f"Log horário (`backups/{env_folder}/logs/backup_hourly.log`)")
     if not lines:
         st.info("Ainda não existe log legível.")
     else:
@@ -140,6 +150,39 @@ def render_page_governanca() -> None:
             )
     else:
         st.markdown("Sem `staging_restore_drill_state.json` (drill automático ou manual em staging).")
+
+    st.divider()
+    st.subheader("Relatório de Auditoria de Dados (Drill)")
+    if not drill:
+        st.info("Sem relatório de auditoria ainda (execute o drill em staging ou aguarde o cron semanal).")
+    else:
+        ok = bool(drill.get("ok"))
+        finished = str(drill.get("finished_at") or drill.get("finished_at_utc") or drill.get("started_at") or "").strip()
+        proof = drill.get("row_counts_proof") if isinstance(drill.get("row_counts_proof"), dict) else {}
+        clientes = proof.get("clientes")
+        vendas = proof.get("vendas")
+        err = str(drill.get("error") or drill.get("verify_message") or "").strip()
+        rpo_status = str(drill.get("rpo_status") or "").strip().lower()
+        rpo_msg = str(drill.get("rpo_message") or "").strip()
+
+        def _fmt_int(v) -> str:
+            try:
+                return f"{int(v):,}".replace(",", ".")
+            except (TypeError, ValueError):
+                return "—"
+
+        if rpo_status:
+            icon = "✅" if rpo_status == "cumprido" else "⚠️"
+            st.markdown(f"**RPO (1h):** {icon} {rpo_msg or '—'}")
+
+        if ok:
+            msg = (
+                f"Staging sincronizado com Produção em {finished} — "
+                f"{_fmt_int(clientes)} clientes validados; {_fmt_int(vendas)} vendas."
+            )
+            st.success(msg)
+        else:
+            st.error(f"Falha na auditoria (drill). Detalhe técnico: {err or '(sem detalhe)'}")
 
     st.divider()
 

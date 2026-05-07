@@ -10,6 +10,7 @@ from __future__ import annotations
 import streamlit as st
 
 from src.ui.page_auth import clear_session_full
+from src.database.connection import get_beaba_env_type_raw
 
 # Ordem e chaves alinhadas a `src.app` (Streamlit). Posição 0 = Início (home).
 NAV_ITEMS: list[tuple[str, str]] = [
@@ -38,6 +39,44 @@ def render_shell_sidebar(*, current_page: str, user_perfil: str | None = None) -
     """Renderiza `st.sidebar` com links de navegação (session_state.page)."""
     nav = _nav_items_para_perfil(user_perfil)
     with st.sidebar:
+        env_raw = get_beaba_env_type_raw()
+        if env_raw in ("production", "prod", "main"):
+            badge_bg = "#B91C1C"
+            badge_fg = "#FFFFFF"
+            badge_txt = "PRODUÇÃO - DADOS REAIS"
+        elif env_raw in ("staging", "stg"):
+            badge_bg = "#FBBF24"
+            badge_fg = "#111827"
+            badge_txt = "STAGING - AUDITORIA"
+        else:
+            badge_bg = "#2563EB"
+            badge_fg = "#FFFFFF"
+            badge_txt = "DESENVOLVIMENTO"
+
+        st.markdown(
+            f"""
+            <div style="
+              display:flex;
+              justify-content:center;
+              align-items:center;
+              padding:10px 10px 6px 10px;">
+              <div style="
+                background:{badge_bg};
+                color:{badge_fg};
+                font-weight:800;
+                letter-spacing:0.6px;
+                border-radius:999px;
+                padding:6px 12px;
+                font-size:12px;
+                text-transform:uppercase;
+                width:100%;
+                text-align:center;">
+                {badge_txt}
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         st.markdown(
             '<p class="bea-sidebar-app-title">Sistema de Gestão do BeaBa Materno</p>',
             unsafe_allow_html=True,

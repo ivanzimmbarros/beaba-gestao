@@ -9,6 +9,11 @@
 name: backup_hourly
 
 on:
+  push:
+    branches:
+      - develop
+      - staging
+      - main
   schedule:
     - cron: "37 * * * *"
   workflow_dispatch:
@@ -37,6 +42,7 @@ jobs:
     needs: backup
     if: failure()
     runs-on: ubuntu-latest
+    environment: ${{ (github.ref_name == 'main' && 'production') || (github.ref_name == 'staging' && 'staging') || 'develop' }}
     steps:
       - name: Hora UTC
         id: utc

@@ -72,6 +72,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 _REPO = Path(__file__).resolve().parents[1]
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
@@ -88,6 +90,27 @@ def repo_root() -> Path:
     if override:
         return Path(override).resolve()
     return Path(__file__).resolve().parents[1]
+
+
+def _env_folder_slug() -> str:
+    raw = (os.environ.get("ENV_TYPE") or os.environ.get("BEABA_ENV") or "dev").strip().lower()
+    if raw in ("production", "prod", "main"):
+        return "prod"
+    if raw in ("staging", "stg"):
+        return "stg"
+    if raw in ("develop", "dev", "development", "local"):
+        return "dev"
+    return "dev"
+
+
+def _sqlite_source_db_path(root: Path) -> Path:
+    raw = (os.environ.get("BEABA_SQLITE_PATH") or os.environ.get("DB_PATH") or "").strip()
+    if not raw:
+        return root / "data" / "beaba_gestao.db"
+    p = Path(raw)
+    if not p.is_absolute():
+        p = root / p
+    return p.resolve()
 
 
 def _configure_logging(log_dir: Path) -> None:
@@ -123,6 +146,8 @@ def run_backup(
     copy_to_cloud_queue: bool | None = None,
 ) -> int:
     root = root or repo_root()
+    load_dotenv(root / ".env", override=False)
+    env_slug = _env_folder_slug()
     env_keep = os.environ.get("BEABA_BACKUP_KEEP")
     keep = int(env_keep) if env_keep is not None else (keep if keep is not None else DEFAULT_KEEP)
 
@@ -130,10 +155,11 @@ def run_backup(
         flag = os.environ.get("BEABA_BACKUP_CLOUD_QUEUE", "1").lower()
         copy_to_cloud_queue = flag not in ("0", "false", "no")
 
-    data_db = root / "data" / "beaba_gestao.db"
-    hourly = root / "backups" / "hourly"
-    log_dir = root / "backups" / "logs"
-    cloud_queue = root / "backups" / "cloud_queue"
+    data_db = _sqlite_source_db_path(root)
+    base = root / "backups" / env_slug
+    hourly = base / "hourly"
+    log_dir = base / "logs"
+    cloud_queue = base / "cloud_queue"
     hourly.mkdir(parents=True, exist_ok=True)
     _configure_logging(log_dir)
 

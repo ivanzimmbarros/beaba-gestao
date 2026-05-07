@@ -37,6 +37,7 @@ permissions:
 jobs:
   backup:
     runs-on: ubuntu-latest
+    environment: ${{ (github.ref_name == 'main' && 'production') || (github.ref_name == 'staging' && 'staging') || 'develop' }}
     permissions:
       contents: write
       actions: write

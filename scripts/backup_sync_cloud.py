@@ -32,6 +32,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 _REPO = Path(__file__).resolve().parents[1]
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
@@ -46,6 +48,25 @@ def repo_root() -> Path:
     if raw:
         return Path(raw).resolve()
     return Path(__file__).resolve().parents[1]
+
+
+def _env_folder_slug() -> str:
+    raw = (os.environ.get("ENV_TYPE") or os.environ.get("BEABA_ENV") or "dev").strip().lower()
+    if raw in ("production", "prod", "main"):
+        return "prod"
+    if raw in ("staging", "stg"):
+        return "stg"
+    if raw in ("develop", "dev", "development", "local"):
+        return "dev"
+    return "dev"
+
+
+def _default_upload_prefix(*, env_slug: str, backup_kind: str) -> str:
+    # Ex.: prod/hourly/, stg/daily/, dev/hourly/
+    kind = (backup_kind or "hourly").strip().lower()
+    if kind not in ("hourly", "daily", "weekly"):
+        kind = "hourly"
+    return f"{env_slug}/{kind}/"
 
 
 def _prefix_norm(prefix: str) -> str:
@@ -81,7 +102,8 @@ def boto3_client():
 
 
 def _load_manifest(root: Path) -> dict:
-    path = root / MANIFEST_REL
+    env_slug = _env_folder_slug()
+    path = root / "backups" / env_slug / "cloud_sync_manifest.json"
     if not path.is_file():
         return {"version": 1, "uploaded": {}}
     try:
@@ -97,7 +119,8 @@ def _load_manifest(root: Path) -> dict:
 
 
 def _save_manifest(root: Path, data: dict) -> None:
-    path = root / MANIFEST_REL
+    env_slug = _env_folder_slug()
+    path = root / "backups" / env_slug / "cloud_sync_manifest.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -124,7 +147,9 @@ def _needs_upload(stat: os.stat_result, entry: dict | None) -> bool:
 
 def run_sync(root: Path | None = None, *, dry_run: bool = False, force_all: bool = False) -> int:
     root = root or repo_root()
-    hourly = root / "backups" / "hourly"
+    load_dotenv(root / ".env", override=False)
+    env_slug = _env_folder_slug()
+    hourly = root / "backups" / env_slug / "hourly"
     hourly.mkdir(parents=True, exist_ok=True)
     manifest = _load_manifest(root)
     uploaded_raw = manifest.setdefault("uploaded", {})
@@ -138,6 +163,8 @@ def run_sync(root: Path | None = None, *, dry_run: bool = False, force_all: bool
         return 2
 
     prefix = _prefix_norm(os.environ.get("S3_UPLOAD_PREFIX", ""))
+    if not prefix:
+        prefix = _prefix_norm(_default_upload_prefix(env_slug=env_slug, backup_kind="hourly"))
 
     bkey = None
     if not dry_run:

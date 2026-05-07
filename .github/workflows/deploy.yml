@@ -3,6 +3,7 @@ name: Deploy
 on:
   push:
     branches:
+      - develop
       - staging
       - main
 
@@ -14,6 +15,7 @@ jobs:
   docker-build-verify-staging:
     if: github.ref == 'refs/heads/staging'
     runs-on: ubuntu-latest
+    environment: ${{ (github.ref_name == 'main' && 'production') || (github.ref_name == 'staging' && 'staging') || 'develop' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,6 +39,7 @@ jobs:
   build-and-deploy-prod-skeleton:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    environment: ${{ (github.ref_name == 'main' && 'production') || (github.ref_name == 'staging' && 'staging') || 'develop' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -67,6 +70,7 @@ jobs:
   backup-health-main:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    environment: ${{ (github.ref_name == 'main' && 'production') || (github.ref_name == 'staging' && 'staging') || 'develop' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -87,6 +91,7 @@ jobs:
       - backup-health-main
     if: ${{ always() && needs['backup-health-main'].result == 'failure' }}
     runs-on: ubuntu-latest
+    environment: ${{ (github.ref_name == 'main' && 'production') || (github.ref_name == 'staging' && 'staging') || 'develop' }}
     steps:
       - name: Registar falha e notificar webhook opcional
         env:

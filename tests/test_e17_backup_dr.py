@@ -18,6 +18,9 @@ def _run_script(script: Path, repo_root: Path) -> subprocess.CompletedProcess:
     env = os.environ.copy()
     env["BEABA_REPO_ROOT"] = str(repo_root)
     env["BEABA_BACKUP_CLOUD_QUEUE"] = "0"
+    env["ENV_TYPE"] = "dev"
+    env["BEABA_ENV"] = "dev"
+    env["BEABA_SQLITE_PATH"] = str((repo_root / "data" / "beaba_gestao.db").resolve())
     return subprocess.run(
         [sys.executable, str(script)],
         env=env,
@@ -52,7 +55,7 @@ def test_backup_quick_check_e_verify_ok(tmp_path: Path):
     _minimal_db(tmp_path)
     r = _run_script(BACKUP_SCRIPT, tmp_path)
     assert r.returncode == 0, r.stderr + r.stdout
-    hourly = tmp_path / "backups" / "hourly"
+    hourly = tmp_path / "backups" / "dev" / "hourly"
     dbs = list(hourly.glob("beaba_gestao_*.db"))
     assert len(dbs) == 1
     v = _run_script(VERIFY_SCRIPT, tmp_path)
@@ -61,7 +64,7 @@ def test_backup_quick_check_e_verify_ok(tmp_path: Path):
 
 def test_verify_falha_sem_backups(tmp_path: Path):
     _minimal_db(tmp_path)
-    (tmp_path / "backups" / "hourly").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "backups" / "dev" / "hourly").mkdir(parents=True, exist_ok=True)
     v = _run_script(VERIFY_SCRIPT, tmp_path)
     assert v.returncode == 1
 
@@ -72,6 +75,9 @@ def test_rotacao_respeita_keep(tmp_path: Path):
     env["BEABA_REPO_ROOT"] = str(tmp_path)
     env["BEABA_BACKUP_KEEP"] = "2"
     env["BEABA_BACKUP_CLOUD_QUEUE"] = "0"
+    env["ENV_TYPE"] = "dev"
+    env["BEABA_ENV"] = "dev"
+    env["BEABA_SQLITE_PATH"] = str((tmp_path / "data" / "beaba_gestao.db").resolve())
     for _ in range(3):
         r = subprocess.run(
             [sys.executable, str(BACKUP_SCRIPT)],
@@ -82,7 +88,7 @@ def test_rotacao_respeita_keep(tmp_path: Path):
         )
         assert r.returncode == 0, r.stderr + r.stdout
         time.sleep(0.002)
-    dbs = sorted((tmp_path / "backups" / "hourly").glob("beaba_gestao_*.db"))
+    dbs = sorted((tmp_path / "backups" / "dev" / "hourly").glob("beaba_gestao_*.db"))
     assert len(dbs) == 2
 
 
@@ -90,7 +96,7 @@ def test_integrity_check_detecta_corrupcao(tmp_path: Path):
     _minimal_db(tmp_path)
     assert _run_script(BACKUP_SCRIPT, tmp_path).returncode == 0
     latest = max(
-        (tmp_path / "backups" / "hourly").glob("beaba_gestao_*.db"),
+        (tmp_path / "backups" / "dev" / "hourly").glob("beaba_gestao_*.db"),
         key=lambda p: p.stat().st_mtime,
     )
     # Substituir por conteúdo inválido — integrity_check deve falhar

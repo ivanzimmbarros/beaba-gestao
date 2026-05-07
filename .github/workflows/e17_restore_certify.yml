@@ -5,7 +5,7 @@ name: E17 certificação restore
 
 on:
   push:
-    branches: [develop, main]
+    branches: [develop, staging, main]
     paths:
       - "scripts/restore_sqlite.py"
       - "scripts/generate_e17_restore_certificate.py"
@@ -43,6 +43,7 @@ permissions:
 jobs:
   certify:
     runs-on: ubuntu-latest
+    environment: ${{ (github.ref_name == 'main' && 'production') || (github.ref_name == 'staging' && 'staging') || 'develop' }}
     env:
       PYTHONPATH: ${{ github.workspace }}
     steps:

@@ -27,6 +27,7 @@ permissions:
 jobs:
   restore:
     runs-on: ubuntu-latest
+    environment: ${{ (github.ref_name == 'main' && 'production') || (github.ref_name == 'staging' && 'staging') || 'develop' }}
     env:
       PYTHONPATH: ${{ github.workspace }}
       BEABA_REPO_ROOT: ${{ github.workspace }}
