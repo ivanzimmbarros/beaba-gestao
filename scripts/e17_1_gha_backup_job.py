@@ -114,10 +114,12 @@ def main() -> int:
             try:
                 key = parse_backup_key()
                 out = repo / "backups" / env_slug / "gha_encrypted" / f"{latest.stem}.beaba.enc"
+                out.parent.mkdir(parents=True, exist_ok=True)
                 encrypt_file(latest, out, key)
                 steps["encrypt_rc"] = 0
                 steps["encrypted_rel"] = str(out.relative_to(repo)).replace("\\", "/")
             except Exception as exc:
+                print(f"Erro na encriptação: {exc}")
                 steps["encrypt_rc"] = 1
                 steps["backup_detail"] = f"encrypt: {exc}"
     elif steps["backup_rc"] == 0 and not steps["key_configured"]:

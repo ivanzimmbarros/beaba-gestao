@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import binascii
 import os
+import hashlib
 from pathlib import Path
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -25,7 +26,12 @@ def parse_backup_key() -> bytes:
     try:
         key = base64.b64decode(raw, validate=True)
     except binascii.Error:
-        key = bytes.fromhex(raw)
+        try:
+            key = bytes.fromhex(raw)
+        except ValueError:
+            # Fallback: permite uma "password" comum em BEABA_BACKUP_KEY.
+            # Derivação determinística para 32 bytes (AES-256): SHA-256(utf8(raw)).
+            key = hashlib.sha256(raw.encode("utf-8")).digest()
     if len(key) != 32:
         raise ValueError("BEABA_BACKUP_KEY deve decodificar para exactamente 32 bytes (AES-256)")
     return key
