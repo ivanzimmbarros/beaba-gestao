@@ -41,6 +41,11 @@ permissions:
 
 jobs:
   backup:
+    # Um único run de commit em backup_dr_history.json por vez (evita push rejeitado quando hourly +
+    # daily + weekly disparam juntos, ou com rebase já integrado à telemetria).
+    concurrency:
+      group: beaba-e17-telemetry-push-${{ github.repository }}-${{ inputs.telemetry_git_branch }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment_name || 'develop' }}
     defaults:
