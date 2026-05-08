@@ -12,6 +12,7 @@ from src.modules.auth_db import (
     get_usuario_por_id,
     issue_mfa_token,
     try_login_credentials,
+    update_password_clear_must_change,
 )
 from src.modules.auth_utils import generate_mfa_code
 from src.modules.email_utils import send_mfa_email
@@ -117,9 +118,10 @@ def render_login_screen() -> None:
             except Exception as err:
                 discard_pending_mfa_tokens(int(user["id"]))
                 st.error(
-                    "Não foi possível enviar o e-mail com o código. "
-                    "Confirme servidor, porta SSL/TLS, utilizador SMTP e palavra-passe de aplicação no `.env`. "
-                    f"Mensagem: {err!s}"
+                    "Não foi possível enviar o e-mail com o código. No `.env` (raiz do projecto): "
+                    "SMTP_USER ou EMAIL_USERNAME + SMTP_PASSWORD ou EMAIL_PASSWORD (Gmail = palavra-passe "
+                    "de *aplicação*, 16 caracteres sem espaços); confirme pasta de trabalho antes de iniciar Streamlit. "
+                    f"Pormenores: {err!s}"
                 )
                 return
             st.session_state.pending_mfa_user_id = int(user["id"])
@@ -174,9 +176,52 @@ def render_mfa_screen() -> None:
                     st.session_state.auth_user_email = row["email"]
                     st.session_state.auth_user_nome = row["nome"]
                     st.session_state.auth_perfil = row["perfil"]
+                    st.session_state.auth_must_change_password = bool(
+                        row.get("must_change_password", False)
+                    )
                     st.rerun()
 
         if cb.button("Voltar ao início de sessão", width="stretch", key="bea_mfa_cancel"):
             discard_pending_mfa_tokens(uid)
             _reset_mfa_state()
             st.rerun()
+
+
+def render_force_password_change() -> None:
+    """Obrigatório após MFA quando ``must_change_password`` está activo (primeiro acesso ou conta nova)."""
+    _inject_auth_shell_css()
+    uid = int(st.session_state.get("auth_user_id") or 0)
+    if not uid:
+        clear_session_full()
+        return
+
+    outer_l, outer_c, outer_r = st.columns([1, 2.2, 1])
+    with outer_c:
+        st.markdown(
+            f'<div class="bea-auth-island">'
+            f'<div class="bea-auth-kicker">Segurança</div>'
+            f'<h1 class="bea-auth-title">Definir nova senha</h1>'
+            "<p class=\"bea-auth-sub\">É obrigatório alterar a senha antes de continuar. "
+            "Utilize uma palavra-passe forte (mínimo 8 caracteres), diferente da actual.</p></div>",
+            unsafe_allow_html=True,
+        )
+        with st.form("bea_force_password_form"):
+            cur = st.text_input("Senha actual", type="password")
+            n1 = st.text_input("Nova senha", type="password")
+            n2 = st.text_input("Confirmar nova senha", type="password")
+            submitted = st.form_submit_button("Guardar e continuar", type="primary", width="stretch")
+        if submitted:
+            if not (cur.strip() and n1.strip() and n2.strip()):
+                st.warning("Preencha todos os campos.")
+            elif n1.strip() != n2.strip():
+                st.error("A confirmação da nova senha não coincide.")
+            else:
+                err = update_password_clear_must_change(
+                    uid, n1.strip(), current_password=cur.strip()
+                )
+                if err:
+                    st.error(err)
+                else:
+                    st.session_state.auth_must_change_password = False
+                    st.success("Senha actualizada. A redireccionar…")
+                    st.rerun()

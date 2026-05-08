@@ -755,6 +755,33 @@ def _ensure_financeiro_case_insensitive_unique_indexes(cursor: sqlite3.Cursor) -
     )
 
 
+def _bootstrap_admin_email() -> str:
+    return (os.environ.get("BEABA_BOOTSTRAP_ADMIN_EMAIL") or "ivanzimmbarros@gmail.com").strip().lower()
+
+
+def _migrate_legacy_admin_email(cursor: sqlite3.Cursor) -> None:
+    """Renomeia admin@beaba.com legado para o e-mail de bootstrap, sem violar UNIQUE."""
+    new_mail = _bootstrap_admin_email()
+    cursor.execute(
+        "SELECT id FROM usuarios WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))",
+        ("admin@beaba.com",),
+    )
+    row = cursor.fetchone()
+    if not row:
+        return
+    uid = int(row[0])
+    cursor.execute(
+        "SELECT 1 FROM usuarios WHERE LOWER(TRIM(email)) = LOWER(TRIM(?)) AND id != ?",
+        (new_mail, uid),
+    )
+    if cursor.fetchone():
+        return
+    cursor.execute(
+        "UPDATE usuarios SET email = ?, must_change_password = 1 WHERE id = ?",
+        (new_mail, uid),
+    )
+
+
 def _seed_default_admin_if_needed(cursor: sqlite3.Cursor) -> None:
     """Garante um administrador inicial quando ainda não existe nenhum utilizador (UI de login pendente)."""
     cursor.execute("SELECT COUNT(*) FROM usuarios")
@@ -765,12 +792,13 @@ def _seed_default_admin_if_needed(cursor: sqlite3.Cursor) -> None:
     raw_pwd = (os.environ.get("BEABA_BOOTSTRAP_ADMIN_PASSWORD") or "changeme123").strip()
     if not raw_pwd:
         raw_pwd = "changeme123"
+    mail = _bootstrap_admin_email()
     cursor.execute(
         """
-        INSERT INTO usuarios (nome, email, senha_hash, perfil, ativo, data_cadastro)
-        VALUES (?, ?, ?, 'admin', 1, datetime('now'))
+        INSERT INTO usuarios (nome, email, senha_hash, perfil, ativo, must_change_password, data_cadastro)
+        VALUES (?, ?, ?, 'admin', 1, 1, datetime('now'))
         """,
-        ("Administrador", "admin@beaba.com", hash_password(raw_pwd)),
+        ("Administrador", mail, hash_password(raw_pwd)),
     )
 
 
@@ -1312,10 +1340,13 @@ def create_tables():
             senha_hash TEXT NOT NULL,
             perfil TEXT NOT NULL CHECK (perfil IN ('admin', 'colaborador')),
             ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1)),
+            must_change_password INTEGER NOT NULL DEFAULT 1 CHECK (must_change_password IN (0, 1)),
             data_cadastro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
         """
     )
+    _ensure_column(cursor, "usuarios", "must_change_password", "INTEGER NOT NULL DEFAULT 1")
+    _migrate_legacy_admin_email(cursor)
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS mfa_tokens (

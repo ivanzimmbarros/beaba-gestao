@@ -19,7 +19,8 @@ Colaboradores Sereno: `tests/col_ui_contract.py`, `tests/test_col_visual_sereno.
 Catálogo Sereno: `tests/cat_ui_contract.py`, `tests/test_cat_visual_sereno.py`.
 Início / Cockpit Sereno: `tests/home_ui_contract.py`, `tests/test_home_visual_sereno.py`.
 Setor 5 Entradas (2026-04): `tests/fin_ui_contract.py` (`assert_fin_entradas_sector_na_pagina`), `tests/test_financeiro_entradas_convertidas.py`.
-Smoke UI: `tests/smoke_test_ui.py` + `pytest.ini`. Catálogo: wizard tipo→confirmação em `page_catalogo.py`.
+Smoke UI: `tests/smoke_test_ui.py` + `pytest.ini` (incl. `test_smoke_auth_login_screen_boots`). Catálogo: wizard tipo→confirmação em `page_catalogo.py`.
+MFA/SMTP: `tests/test_email_utils.py`, `e2e_stress_test.py::test_e2e_mfa_email_smtp_contract` (credenciais só `.env`).
 CLI (``python scripts/sqlite_backup_verify.py <.db>``): usado pelo drill ``scripts/restore_test_drill.py``; regressões em ``tests/test_backup_drill_contract.py`` e Governança prod ``page_governanca.py``.
 """
 

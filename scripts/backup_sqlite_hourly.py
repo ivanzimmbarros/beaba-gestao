@@ -60,6 +60,9 @@ Governança prod + Cloud DR (2026-05): página `src/ui/page_governanca.py` (Sere
 fluxo `backup_sync_cloud.py`, orquestrador `scheduler.py`, drill `restore_test_drill.py`, verificação final `sqlite_backup_verify.py` (CLI);
 regressão `tests/gov_ui_contract.py`, `tests/test_backup_drill_contract.py`,
 `tests/smoke_test_ui.py::test_smoke_governanca_admin_sector_widgets`; `.github/workflows/deploy.yml` (job `backup-health-main`).
+
+Autenticação MFA / SMTP (2026-05): `src/modules/email_utils.py`, `page_auth.py`; `tests/test_email_utils.py`,
+`tests/smoke_test_ui.py::test_smoke_auth_login_screen_boots`, `e2e_stress_test.py::test_e2e_mfa_email_smtp_contract` — credenciais só em `.env` (não entram no backup SQLite).
 """
 
 from __future__ import annotations

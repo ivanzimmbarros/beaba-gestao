@@ -22,7 +22,8 @@ Colaboradores `tests/col_ui_contract.py` + smoke `test_smoke_colaboradores_dados
 Catálogo `tests/cat_ui_contract.py`; Início `tests/home_ui_contract.py`;
 Financeiro `tests/fin_ui_contract.py`, `tests/test_fin_visual_sereno.py`, `tests/test_financeiro_resultado_operacional.py`,
 `tests/test_financeiro_repasses_colaboradores.py` (sector **1. Resultado Operacional** + **3. Repasses**; UI repasse filtra colaboradores por habilitação ao serviço; cópia `.db` inclui `especialidades` / `servicos`, `colaboradores` com colunas **Dados da Parceria**).
-Smoke UI: `tests/smoke_test_ui.py` (`test_smoke_colaboradores_dados_parceria_ficha_widgets`, `test_smoke_colaboradores_disponibilidade_sector`, `test_smoke_financeiro_repasses_multiselect_chain`, `test_smoke_financeiro_resultado_operacional_panel`) + `pytest.ini`. Catálogo: wizard tipo→confirmação em `page_catalogo.py`.
+Smoke UI: `tests/smoke_test_ui.py` (`test_smoke_colaboradores_dados_parceria_ficha_widgets`, `test_smoke_colaboradores_disponibilidade_sector`, `test_smoke_financeiro_repasses_multiselect_chain`, `test_smoke_financeiro_resultado_operacional_panel`, `test_smoke_auth_login_screen_boots`) + `pytest.ini`. Catálogo: wizard tipo→confirmação em `page_catalogo.py`.
+MFA/SMTP (2026-05): `tests/test_email_utils.py`, `e2e_stress_test.py::test_e2e_mfa_email_smtp_contract`; credenciais em `.env` apenas.
 """
 
 from __future__ import annotations

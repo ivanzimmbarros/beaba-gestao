@@ -14,7 +14,8 @@ Chave de cópias: ``BEABA_BACKUP_KEY`` (AES-256, igual à usada ao encriptar no 
 Estado do último fluxo escrito na raiz: ``staging_restore_drill_state.json``.
 
 Coberturas: ``tests/test_backup_drill_contract.py`` (gate staging), ingestão horária ``scripts/backup_sqlite_hourly.py``,
-verificação SQLite ``scripts/sqlite_backup_verify.py``, UI admin ``src/ui/page_governanca.py`` + smoke dedicado.
+verificação SQLite ``scripts/sqlite_backup_verify.py``, UI admin ``src/ui/page_governanca.py`` + smoke dedicado;
+MFA/SMTP em ``tests/test_email_utils.py`` + ``tests/smoke_test_ui.py::test_smoke_auth_login_screen_boots`` + ``e2e_stress_test.py::test_e2e_mfa_email_smtp_contract``.
 """
 
 from __future__ import annotations

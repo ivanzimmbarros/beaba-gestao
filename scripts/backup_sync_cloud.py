@@ -19,7 +19,9 @@ Teste rápido local sem enviar: ``--dry-run`` (encriptação + plano apenas).
 
 Coberturas: ``tests/test_backup_drill_contract.py``, ``tests/gov_ui_contract.py``,
 ``tests/smoke_test_ui.py::test_smoke_governanca_admin_sector_widgets``,
-``e2e_stress_test.py::test_e2e_governanca_backup_visual_shell_contract``; orquestrador ``scripts/scheduler.py``; ingestão local ``scripts/backup_sqlite_hourly.py``.
+``e2e_stress_test.py::test_e2e_governanca_backup_visual_shell_contract``; MFA/SMTP: ``tests/test_email_utils.py``,
+``tests/smoke_test_ui.py::test_smoke_auth_login_screen_boots``, ``e2e_stress_test.py::test_e2e_mfa_email_smtp_contract``;
+orquestrador ``scripts/scheduler.py``; ingestão local ``scripts/backup_sqlite_hourly.py``.
 """
 
 from __future__ import annotations

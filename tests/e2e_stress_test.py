@@ -17,6 +17,8 @@ E20 — Fortaleza Operacional: stress & E2E (Jornada do Herói + fronteiras + co
 - **slice Financeiro (UI Sereno):** `tests/fin_ui_contract.py` (sector **1. Resultado Operacional** + **3. Repasses**),
   `tests/test_fin_visual_sereno.py`, `tests/test_financeiro_resultado_operacional.py`,
   `tests/test_financeiro_repasses_colaboradores.py`, `tests/smoke_test_ui.py` (repasses + painel sector 1).
+- **slice MFA / SMTP (domínio + smoke login):** `tests/test_email_utils.py`, `tests/smoke_test_ui.py::test_smoke_auth_login_screen_boots`,
+  `test_e2e_mfa_email_smtp_contract` (mock `smtplib`, sem rede).
 - Execução completa (1000 iterações): `python tests/e2e_stress_test.py`
 - Pytest (mais leve): `pytest tests/e2e_stress_test.py` (defeito N=35; sobrescrever com
   `E2E_STRESS_HERO_ITERATIONS=1000`).
@@ -785,6 +787,43 @@ def test_e2e_governanca_backup_visual_shell_contract() -> None:
     assert_constituicao_gov_css_horizonte_ilhas_master()
     assert_governanca_sector_operacional_na_pagina()
     assert_sidebar_governanca_reservada_admin()
+
+
+def test_e2e_mfa_email_smtp_contract(monkeypatch: pytest.MonkeyPatch) -> None:
+    """E2E leve: MFA por e-mail — resolução Gmail + envio SMTP_SSL mock; smoke do ecrã de login."""
+    from unittest.mock import MagicMock, patch
+
+    from src.modules import email_utils
+    from tests.smoke_test_ui import test_smoke_auth_login_screen_boots
+
+    for k in (
+        "SMTP_SERVER",
+        "SMTP_PORT",
+        "SMTP_USER",
+        "SMTP_PASSWORD",
+        "SMTP_FROM",
+        "EMAIL_USERNAME",
+        "EMAIL_PASSWORD",
+        "EMAIL_FROM",
+        "BEABA_SMTP_GMAIL",
+        "SMTP_GMAIL",
+    ):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("SMTP_USER", "mfa.sender@gmail.com")
+    monkeypatch.setenv("SMTP_PASSWORD", "zzzzzzzzzzzzzzzz")
+    s, p, u, pwd, f = email_utils.resolve_smtp_settings()
+    assert s == "smtp.gmail.com" and p == 465 and u == f == "mfa.sender@gmail.com"
+
+    mock_smtp = MagicMock()
+    mock_cm = MagicMock()
+    mock_cm.__enter__.return_value = mock_smtp
+    mock_cm.__exit__.return_value = False
+    with patch("src.modules.email_utils.smtplib.SMTP_SSL", return_value=mock_cm):
+        email_utils.send_mfa_email("login.user@example.com", "424242")
+    mock_smtp.login.assert_called_once_with("mfa.sender@gmail.com", "zzzzzzzzzzzzzzzz")
+    mock_smtp.send_message.assert_called_once()
+
+    test_smoke_auth_login_screen_boots()
 
 
 if __name__ == "__main__":

@@ -17,7 +17,7 @@ from src.ui.page_dashboards import render_page_dashboards
 from src.ui.page_financeiro import render_page_financeiro
 from src.ui.page_governanca import render_page_governanca
 from src.ui.page_home import render_page_home
-from src.ui.page_auth import render_login_screen, render_mfa_screen
+from src.ui.page_auth import render_force_password_change, render_login_screen, render_mfa_screen
 from src.ui.page_vendas import render_page_vendas
 from src.ui.shell_sidebar import render_shell_sidebar
 from src.pages.theme import inject_beaba_verde_sereno
@@ -55,6 +55,10 @@ def main() -> None:
             render_mfa_screen()
         else:
             render_login_screen()
+        st.stop()
+
+    if st.session_state.get("auth_must_change_password"):
+        render_force_password_change()
         st.stop()
 
     page = st.session_state.page

@@ -20,6 +20,8 @@ selects obrigatórios (actividade económica / contrato), IBAN e documento compl
 (`page_colaboradores.py` + `colaborador.py`). **Disponibilidade:** `test_smoke_colaboradores_disponibilidade_sector`
 confirma expanders 3.1–3.3 e filtros do calendário mestre.
 
+**Autenticação / MFA:** `test_smoke_auth_login_screen_boots` — ecrã de login Sereno (sem sessão autenticada; não envia SMTP).
+
 Financeiro — **1. Resultado Operacional:** `test_smoke_financeiro_resultado_operacional_panel` confirma widgets do painel
 (mês/ano, cenário das entradas). **3. Repasses:** `test_smoke_financeiro_repasses_multiselect_chain` confirma na árvore
 de widgets os multiselects «Natureza do Serviço», «Especialidades» e «Nome do Serviço» na ordem
@@ -103,7 +105,8 @@ def _prep_sessao_autenticada_smoke(at: AppTest, route: str) -> None:
     at.session_state["authenticated"] = True
     at.session_state["auth_perfil"] = "admin"
     at.session_state["auth_user_id"] = 1
-    at.session_state["auth_user_email"] = "admin@beaba.com"
+    at.session_state["auth_user_email"] = "ivanzimmbarros@gmail.com"
+    at.session_state["auth_must_change_password"] = False
     at.session_state["auth_user_nome"] = "Smoke"
 
 
@@ -125,6 +128,25 @@ def test_smoke_streamlit_app_route_boots(route: str) -> None:
 def test_smoke_streamlit_app_legacy_redirect_boots(legacy: str) -> None:
     """Rotas legadas redireccionadas não rebentam no primeiro render."""
     _run_app_smoke(legacy, timeout=120)
+
+
+def test_smoke_auth_login_screen_boots() -> None:
+    """Autenticação: boot do ecrã de login (ilha Sereno, formulário) sem `authenticated` nem MFA pendente."""
+    assert _APP_PY.is_file(), f"Em falta: {_APP_PY}"
+    at = AppTest.from_file(str(_APP_PY), default_timeout=120)
+    at.session_state["authenticated"] = False
+    # AppTest.session_state não suporta `.pop()` (Streamlit trata como chave).
+    at.session_state["aguardando_mfa"] = False
+    at.session_state["pending_mfa_user_id"] = None
+    at.session_state["pending_mfa_email"] = None
+    at.session_state["page"] = "home"
+    at.run()
+    _assert_app_tree_clean(at, context="Autenticação — ecrã de login")
+    btn_labels = [str(getattr(b, "label", "") or "") for b in at.get("button")]
+    assert any("Entrar" in l for l in btn_labels), btn_labels
+    ti_labels = [str(getattr(ti, "label", "") or "") for ti in at.get("text_input")]
+    assert any("E-mail" in t for t in ti_labels), ti_labels
+    assert any("Senha" in t for t in ti_labels), ti_labels
 
 
 def test_smoke_colaboradores_dados_parceria_ficha_widgets() -> None:

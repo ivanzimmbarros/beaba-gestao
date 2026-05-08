@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from src.database.connection import get_connection
-from src.modules.auth_utils import verify_password
+from src.modules.auth_utils import hash_password, verify_password
 
 _MFA_TTL_MIN = 10
 
@@ -18,18 +18,23 @@ def get_usuario_por_id(user_id: int) -> dict[str, Any] | None:
         return None
     try:
         cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT id, nome, email, perfil, ativo
-            FROM usuarios
-            WHERE id = ?
-            """,
-            (int(user_id),),
+        cols = {r[1] for r in cursor.execute("PRAGMA table_info(usuarios)").fetchall()}
+        has_mcp = "must_change_password" in cols
+        sel = (
+            "SELECT id, nome, email, perfil, ativo, must_change_password FROM usuarios WHERE id = ?"
+            if has_mcp
+            else "SELECT id, nome, email, perfil, ativo FROM usuarios WHERE id = ?"
         )
+        cursor.execute(sel, (int(user_id),))
         row = cursor.fetchone()
         if not row:
             return None
-        uid, nome, mail, perfil, ativo = row
+        if has_mcp:
+            uid, nome, mail, perfil, ativo, mcp = row
+            must_ch = int(mcp)
+        else:
+            uid, nome, mail, perfil, ativo = row
+            must_ch = 0
         if not int(ativo):
             return None
         return {
@@ -37,6 +42,7 @@ def get_usuario_por_id(user_id: int) -> dict[str, Any] | None:
             "nome": str(nome),
             "email": str(mail),
             "perfil": str(perfil),
+            "must_change_password": bool(must_ch),
         }
     finally:
         conn.close()
@@ -80,6 +86,109 @@ def try_login_credentials(
             "perfil": str(perfil),
         }
         return data, None
+    finally:
+        conn.close()
+
+
+def update_password_clear_must_change(
+    user_id: int,
+    new_password: str,
+    *,
+    current_password: str | None = None,
+) -> str | None:
+    """Define nova senha e ``must_change_password=0``. ``current_password`` obrigatório se ainda há troca pendente.
+
+    Devolve mensagem de erro ou ``None`` se OK.
+    """
+    pwd = new_password.strip()
+    if len(pwd) < 8:
+        return "A nova senha deve ter pelo menos 8 caracteres."
+    conn = get_connection()
+    if not conn:
+        return "Não foi possível ligar à base de dados."
+    try:
+        cursor = conn.cursor()
+        cols = {r[1] for r in cursor.execute("PRAGMA table_info(usuarios)").fetchall()}
+        if "must_change_password" in cols:
+            cursor.execute(
+                "SELECT senha_hash, must_change_password FROM usuarios WHERE id = ? AND ativo = 1",
+                (int(user_id),),
+            )
+        else:
+            cursor.execute(
+                "SELECT senha_hash FROM usuarios WHERE id = ? AND ativo = 1",
+                (int(user_id),),
+            )
+        row = cursor.fetchone()
+        if not row:
+            return "Utilizador não encontrado."
+        pwd_hash = row[0]
+        mcp = int(row[1]) if len(row) > 1 and row[1] is not None else 0
+        if int(mcp) == 1:
+            if current_password is None or not str(current_password).strip():
+                return "Indique a senha actual para confirmar a troca."
+            if not verify_password(str(current_password).strip(), str(pwd_hash)):
+                return "Senha actual incorrecta."
+        if verify_password(pwd, str(pwd_hash)):
+            return "A nova senha deve ser diferente da senha actual."
+        new_h = hash_password(pwd)
+        cursor.execute(
+            """
+            UPDATE usuarios
+            SET senha_hash = ?, must_change_password = 0
+            WHERE id = ?
+            """,
+            (new_h, int(user_id)),
+        )
+        conn.commit()
+        return None
+    except Exception:
+        conn.rollback()
+        return "Não foi possível actualizar a senha. Tente novamente."
+    finally:
+        conn.close()
+
+
+def create_usuario(
+    nome: str,
+    email: str,
+    password_plain: str,
+    perfil: str,
+) -> str | None:
+    """Cria utilizador; no primeiro login será obrigatório alterar a senha (``must_change_password=1``).
+
+    ``perfil``: ``admin`` ou ``colaborador``. Devolve mensagem de erro ou ``None`` se OK.
+    """
+    perfil_n = (perfil or "").strip().lower()
+    if perfil_n not in ("admin", "colaborador"):
+        return "Perfil inválido."
+    mail = (email or "").strip()
+    nome_n = (nome or "").strip()
+    if not mail or not nome_n:
+        return "Nome e e-mail são obrigatórios."
+    pwd = (password_plain or "").strip()
+    if len(pwd) < 1:
+        return "Senha inicial em falta."
+    conn = get_connection()
+    if not conn:
+        return "Não foi possível ligar à base de dados."
+    try:
+        cursor = conn.cursor()
+        cols = {r[1] for r in cursor.execute("PRAGMA table_info(usuarios)").fetchall()}
+        if "must_change_password" not in cols:
+            return "Esquema de utilizadores desactualizado (must_change_password em falta)."
+        cursor.execute(
+            """
+            INSERT INTO usuarios (nome, email, senha_hash, perfil, ativo, must_change_password, data_cadastro)
+            VALUES (?, ?, ?, ?, 1, 1, datetime('now'))
+            """,
+            (nome_n, mail.lower(), hash_password(pwd), perfil_n),
+        )
+        conn.commit()
+        return None
+    except Exception:
+        conn.rollback()
+        return "Não foi possível criar o utilizador (e-mail duplicado?)."
     finally:
         conn.close()
 
