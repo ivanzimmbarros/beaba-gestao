@@ -201,14 +201,14 @@
   "pc_foco": "PC1–PC2",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "2026-05-08 QA — Orientações Mestres: MFA/SMTP coberto (unit + smoke login + E2E mock); 302 passed em `pytest tests/` venv; Template Master: sem alteração visual fora do Sereno existente em `page_auth`; scripts backup/restore actualizados para inventário de testes.",
+  "live_status": "2026-05-08 — MFA/SMTP entregue em `origin/develop` (commit ab552d52, pós-rebase); suite pytest 302 passed local; aguardar GitHub Actions verdes.",
   "etapas_pendentes": [
-    "Commit+push `origin/develop` pelo Diretor após homologação; validar GitHub Actions (FLUXO OFICIAL + Validador Maestro V2).",
+    "Confirmar no GitHub Actions: FLUXO OFICIAL DE GOVERNANCA + Validador Maestro V2 em develop.",
     "Diretor: homologar PDV vs protótipo (semáforo visível, comanda spa). Sem OK → sem avançar módulos.",
     "E22: após OK — um único módulo seguinte (ex. Catálogo / Agendamentos).",
     "Encerramento futuro E22: `python tests/e2e_stress_test.py` (≥1000 iterações) + `tests/last_stress_report.txt` sem bloqueios (além da suite pytest)."
   ],
-  "live_actualizado_iso": "2026-05-08T23:30:00Z",
+  "live_actualizado_iso": "2026-05-09T00:45:00Z",
   "epico_cockpit_boas_vindas": {
     "status": "CONCLUÍDO",
     "data_iso": "2026-04-12",
