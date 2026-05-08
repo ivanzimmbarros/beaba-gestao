@@ -43,6 +43,16 @@ def _gh_output(name: str, value: str) -> None:
         fh.write(f"{name}={value}\n")
 
 
+def _append_github_step_summary(markdown: str) -> None:
+    p = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not p:
+        return
+    with open(p, "a", encoding="utf-8") as fh:
+        fh.write(markdown)
+        if not markdown.endswith("\n"):
+            fh.write("\n")
+
+
 def _pip_check_rc() -> int:
     return subprocess.run(
         [sys.executable, "-m", "pip", "check"],
@@ -132,10 +142,19 @@ def main() -> int:
                 except Exception as e:
                     import traceback
 
-                    print("\n" + "=" * 50)
-                    print("ERRO REVELADO NA ENCRIPTAÇÃO:")
-                    print(traceback.format_exc())
-                    print("=" * 50 + "\n")
+                    tb = traceback.format_exc()
+                    print("\n" + "=" * 50, flush=True)
+                    print("ERRO REVELADO NA ENCRIPTAÇÃO:", flush=True)
+                    print(tb, flush=True)
+                    print("=" * 50 + "\n", flush=True)
+                    _append_github_step_summary(
+                        "## Erro na encriptação\n\n"
+                        f"- **Tipo:** `{type(e).__name__}`\n"
+                        f"- **Mensagem:** {e!r}\n\n"
+                        "```text\n"
+                        f"{tb}"
+                        "```\n"
+                    )
                     steps["encrypt_rc"] = 1
         elif steps["backup_rc"] == 0 and not steps["key_configured"]:
             steps["backup_detail"] = "backup ok; chave ausente — sem encriptação"

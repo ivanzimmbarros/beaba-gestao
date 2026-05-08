@@ -50,6 +50,7 @@ jobs:
       contents: write
       actions: write
     env:
+      PYTHONUNBUFFERED: "1"
       PYTHONPATH: ${{ github.workspace }}
       BEABA_REPO_ROOT: ${{ github.workspace }}
       BEABA_BACKUP_CLOUD_QUEUE: "0"
