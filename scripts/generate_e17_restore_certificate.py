@@ -103,15 +103,17 @@ def _roundtrip_block() -> str:
             from scripts.e17_1_crypto import MAGIC, decrypt_file, encrypt_file, parse_backup_key  # noqa: E402
             from scripts.sqlite_backup_verify import verify_backup_destination  # noqa: E402
 
-            rc_backup = run_backup(root, keep=8, copy_to_cloud_queue=False)
+            rc_backup, latest_from_run = run_backup(root, keep=8, copy_to_cloud_queue=False)
             logging.shutdown()
             lines.append(f"(A) run_backup (cópia integral API) rc={rc_backup}")
-            hourly = root / "backups" / "hourly"
-            dbs = sorted(hourly.glob("beaba_gestao_*.db"), key=lambda p: p.stat().st_mtime)
-            if not dbs:
-                lines.append("ERRO: nenhum .db em backups/hourly após run_backup")
+            hourly = root / "backups" / "dev" / "hourly"
+            latest = latest_from_run
+            if latest is None or not latest.is_file():
+                dbs = sorted(hourly.glob("beaba_gestao_*.db"), key=lambda p: p.stat().st_mtime)
+                latest = dbs[-1] if dbs else None
+            if latest is None or not latest.is_file():
+                lines.append("ERRO: nenhum .db hourly após run_backup")
                 return "\n".join(lines)
-            latest = dbs[-1]
             ok_v, msg_v = verify_backup_destination(latest)
             lines.append(f"(B) verify_backup_destination (header + quick_check) ok={ok_v} msg={msg_v!r}")
 

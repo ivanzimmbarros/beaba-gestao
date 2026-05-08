@@ -144,7 +144,7 @@ def run_backup(
     keep: int | None = None,
     *,
     copy_to_cloud_queue: bool | None = None,
-) -> int:
+) -> tuple[int, Path | None]:
     root = root or repo_root()
     load_dotenv(root / ".env", override=False)
     env_slug = _env_folder_slug()
@@ -165,7 +165,7 @@ def run_backup(
 
     if not data_db.is_file():
         _logger.error("Fonte inexistente: %s", data_db)
-        return 1
+        return 1, None
 
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
     dest = hourly / f"beaba_gestao_{ts}.db"
@@ -175,7 +175,7 @@ def run_backup(
         source = sqlite3.connect(src_uri, uri=True, timeout=60.0)
     except sqlite3.Error as exc:
         _logger.error("Abrir origem RO falhou: %s", exc)
-        return 1
+        return 1, None
 
     try:
         dest_conn = sqlite3.connect(dest)
@@ -186,7 +186,7 @@ def run_backup(
     except sqlite3.Error as exc:
         _logger.error("Backup API falhou: %s", exc)
         dest.unlink(missing_ok=True)
-        return 1
+        return 1, None
     finally:
         source.close()
 
@@ -194,7 +194,7 @@ def run_backup(
     if not ok_v:
         _logger.error("Verificação pós-backup falhou: %s", msg_v)
         dest.unlink(missing_ok=True)
-        return 1
+        return 1, None
 
     _logger.info("Backup criado e verificado (header + pragma): %s", dest.name)
     _rotate_hourly(hourly, keep)
@@ -213,11 +213,12 @@ def run_backup(
         except OSError as exc:
             _logger.warning("cloud_queue: cópia falhou: %s", exc)
 
-    return 0
+    return 0, dest
 
 
 def main() -> int:
-    return run_backup()
+    rc, _ = run_backup()
+    return rc
 
 
 if __name__ == "__main__":

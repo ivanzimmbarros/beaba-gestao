@@ -47,10 +47,13 @@ def _append_github_step_summary(markdown: str) -> None:
     p = os.environ.get("GITHUB_STEP_SUMMARY")
     if not p:
         return
-    with open(p, "a", encoding="utf-8") as fh:
-        fh.write(markdown)
-        if not markdown.endswith("\n"):
-            fh.write("\n")
+    try:
+        with open(p, "a", encoding="utf-8") as fh:
+            fh.write(markdown)
+            if not markdown.endswith("\n"):
+                fh.write("\n")
+    except OSError:
+        pass
 
 
 def _pip_check_rc() -> int:
@@ -79,7 +82,6 @@ def main() -> int:
         load_dotenv(repo / ".env", override=False)
         env_slug = _env_folder_slug()
         git_ref = (os.environ.get("GITHUB_REF_NAME", "develop").strip() or "develop")
-        is_dev = git_ref == "develop"
         t0 = time.time()
         start = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -106,7 +108,7 @@ def main() -> int:
         os.environ.setdefault("BEABA_REPO_ROOT", str(repo))
         os.environ.setdefault("BEABA_BACKUP_CLOUD_QUEUE", "0")
 
-        steps["backup_rc"] = run_backup(
+        steps["backup_rc"], latest_db = run_backup(
             repo,
             keep=int(os.environ.get("BEABA_BACKUP_KEEP", "50")),
             copy_to_cloud_queue=False,
@@ -117,49 +119,53 @@ def main() -> int:
         steps["encrypted_rel"] = ""
         steps["snapshot_table_counts"] = {}
 
-        if steps["backup_rc"] == 0 and steps["key_configured"]:
-            hourly = repo / "backups" / env_slug / "hourly"
-            dbs = sorted(hourly.glob("beaba_gestao_*.db"), key=lambda p: p.stat().st_mtime)
-            if dbs:
-                latest = dbs[-1]
-                try:
-                    ev_snap = gather_evidence(latest)
-                    tc = ev_snap.get("table_counts")
-                    steps["snapshot_table_counts"] = dict(tc) if isinstance(tc, dict) else {}
-                except Exception as exc:
-                    steps["snapshot_table_counts"] = {}
-                    steps["backup_detail"] = (steps.get("backup_detail") or "") + f"; snapshot: {exc}"
-                try:
-                    key = parse_backup_key()
-                    out = repo / "backups" / env_slug / "gha_encrypted" / f"{latest.stem}.beaba.enc"
-                    out.parent.mkdir(parents=True, exist_ok=True)
-                    encrypt_file(latest, out, key)
-                    print(
-                        f"DEBUG: Encriptação finalizada com sucesso. Path gerado: {str(out).replace('\\\\', '/')}"
-                    )
-                    steps["encrypt_rc"] = 0
-                    steps["encrypted_rel"] = str(out.relative_to(repo)).replace("\\", "/")
-                except Exception as e:
-                    import traceback
+        if (
+            steps["backup_rc"] == 0
+            and steps["key_configured"]
+            and latest_db is not None
+            and latest_db.is_file()
+        ):
+            latest = latest_db
+            try:
+                ev_snap = gather_evidence(latest)
+                tc = ev_snap.get("table_counts")
+                steps["snapshot_table_counts"] = dict(tc) if isinstance(tc, dict) else {}
+            except Exception as exc:
+                steps["snapshot_table_counts"] = {}
+                steps["backup_detail"] = (steps.get("backup_detail") or "") + f"; snapshot: {exc}"
+            try:
+                key = parse_backup_key()
+                out = repo / "backups" / env_slug / "gha_encrypted" / f"{latest.stem}.beaba.enc"
+                out.parent.mkdir(parents=True, exist_ok=True)
+                encrypt_file(latest, out, key)
+                print(
+                    f"DEBUG: Encriptação finalizada com sucesso. Path gerado: {str(out).replace('\\\\', '/')}",
+                    flush=True,
+                )
+                steps["encrypt_rc"] = 0
+                steps["encrypted_rel"] = str(out.relative_to(repo)).replace("\\", "/")
+            except Exception as e:
+                import traceback
 
-                    tb = traceback.format_exc()
-                    print("\n" + "=" * 50, flush=True)
-                    print("ERRO REVELADO NA ENCRIPTAÇÃO:", flush=True)
-                    print(tb, flush=True)
-                    print("=" * 50 + "\n", flush=True)
-                    _append_github_step_summary(
-                        "## Erro na encriptação\n\n"
-                        f"- **Tipo:** `{type(e).__name__}`\n"
-                        f"- **Mensagem:** {e!r}\n\n"
-                        "```text\n"
-                        f"{tb}"
-                        "```\n"
-                    )
-                    steps["encrypt_rc"] = 1
+                tb = traceback.format_exc()
+                print("\n" + "=" * 50, flush=True)
+                print("ERRO REVELADO NA ENCRIPTAÇÃO:", flush=True)
+                print(tb, flush=True)
+                print("=" * 50 + "\n", flush=True)
+                try:
+                    (repo / "ERRO_CRIPTOGRAFIA.txt").write_text(tb, encoding="utf-8")
+                except OSError:
+                    pass
+                meta = "## Erro na encriptação\n\n"
+                meta += f"- **Tipo:** `{type(e).__name__}`\n"
+                meta += f"- **Mensagem:** {e!r}\n\n"
+                meta += "```text\n" + tb + "```\n"
+                _append_github_step_summary(meta)
+                steps["encrypt_rc"] = 1
         elif steps["backup_rc"] == 0 and not steps["key_configured"]:
             steps["backup_detail"] = "backup ok; chave ausente — sem encriptação"
 
-        print(f"DEBUG: Caminho do arquivo encriptado calculado: {steps['encrypted_rel']}")
+        print(f"DEBUG: Caminho do arquivo encriptado calculado: {steps['encrypted_rel']}", flush=True)
         if os.environ.get("GITHUB_OUTPUT"):
             with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
                 fh.write(f"encrypted_path={steps['encrypted_rel']}\n")
@@ -180,13 +186,13 @@ def main() -> int:
             encoding="utf-8",
         )
 
-        ok = steps["backup_rc"] == 0 and (steps["encrypt_rc"] == 0 or is_dev)
-        return 0  # Temporário: Força o passo Python a terminar com "sucesso" para liberar os logs
+        ok = steps["backup_rc"] == 0 and steps["encrypt_rc"] == 0
+        return 0 if ok else 1
     except Exception:
         import traceback
 
-        print(traceback.format_exc())
-        sys.exit(1)
+        print(traceback.format_exc(), flush=True)
+        return 1
 
 
 if __name__ == "__main__":
