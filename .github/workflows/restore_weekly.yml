@@ -26,6 +26,9 @@ permissions:
 
 jobs:
   restore:
+    concurrency:
+      group: beaba-e17-telemetry-push-${{ github.repository }}-develop
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     environment: ${{ (github.ref_name == 'main' && 'production') || (github.ref_name == 'staging' && 'staging') || 'develop' }}
     env:
@@ -68,6 +71,13 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_SERVER_URL: ${{ github.server_url }}
         run: python scripts/e17_1_gha_restore_job.py
+
+      - name: Sincronizar clone com origin (antes da telemetria)
+        if: always()
+        run: |
+          set -euo pipefail
+          git fetch origin develop
+          git pull --rebase origin develop
 
       - name: Telemetria restore
         if: always()

@@ -34,6 +34,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 _REPO = Path(__file__).resolve().parents[1]
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
@@ -43,6 +45,17 @@ from scripts.sqlite_backup_verify import verify_backup_destination  # noqa: E402
 
 def _repo_root() -> Path:
     return Path(os.environ.get("BEABA_REPO_ROOT") or _REPO).resolve()
+
+
+def _env_folder_slug() -> str:
+    raw = (os.environ.get("ENV_TYPE") or os.environ.get("BEABA_ENV") or "dev").strip().lower()
+    if raw in ("production", "prod", "main"):
+        return "prod"
+    if raw in ("staging", "stg"):
+        return "stg"
+    if raw in ("develop", "dev", "development", "local"):
+        return "dev"
+    return "dev"
 
 
 def _latest_in_dir(folder: Path, pattern: str) -> Path | None:
@@ -56,7 +69,7 @@ def main(argv: list[str] | None = None) -> int:
         "--fonte",
         choices=("hourly", "cloud_queue", "ficheiro"),
         default="hourly",
-        help="hourly=último em backups/hourly; cloud_queue=último em backups/cloud_queue; ficheiro=--caminho",
+        help="hourly=último em backups/<env>/hourly; cloud_queue=backups/<env>/cloud_queue; ficheiro=--caminho",
     )
     p.add_argument("--caminho", type=Path, help="Ficheiro .db quando --fonte=ficheiro")
     p.add_argument(
@@ -74,6 +87,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     root = _repo_root()
+    load_dotenv(root / ".env", override=False)
+    env_slug = _env_folder_slug()
+    base = root / "backups" / env_slug
     data_dir = root / "data"
     target = data_dir / "beaba_gestao.db"
 
@@ -83,9 +99,9 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         src = args.caminho.expanduser().resolve()
     elif args.fonte == "cloud_queue":
-        src = _latest_in_dir(root / "backups" / "cloud_queue", "beaba_gestao_*.db")
+        src = _latest_in_dir(base / "cloud_queue", "beaba_gestao_*.db")
     else:
-        src = _latest_in_dir(root / "backups" / "hourly", "beaba_gestao_*.db")
+        src = _latest_in_dir(base / "hourly", "beaba_gestao_*.db")
 
     if not src or not src.is_file():
         print("Nenhuma cópia .db encontrada para a fonte indicada.", file=sys.stderr)

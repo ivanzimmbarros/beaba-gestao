@@ -26,6 +26,17 @@ from scripts.e17_1_crypto import decrypt_file, parse_backup_key  # noqa: E402
 from scripts.verify_restore_weekly import run_verify  # noqa: E402
 
 
+def _env_folder_slug() -> str:
+    raw = (os.environ.get("ENV_TYPE") or os.environ.get("BEABA_ENV") or "dev").strip().lower()
+    if raw in ("production", "prod", "main"):
+        return "prod"
+    if raw in ("staging", "stg"):
+        return "stg"
+    if raw in ("develop", "dev", "development", "local"):
+        return "dev"
+    return "dev"
+
+
 def _pip_check_rc(cwd: Path) -> int:
     return subprocess.run(
         [sys.executable, "-m", "pip", "check"],
@@ -37,6 +48,7 @@ def _pip_check_rc(cwd: Path) -> int:
 
 def main() -> int:
     repo = Path(os.environ.get("GITHUB_WORKSPACE", _REPO)).resolve()
+    env_slug = _env_folder_slug()
     t0 = time.time()
     start = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -47,7 +59,7 @@ def main() -> int:
     vital = [
         repo / "scripts",
         repo / "docs" / "governanca" / "telemetry",
-        repo / "backups" / "hourly",
+        repo / "backups" / env_slug / "hourly",
     ]
     steps["struct_ok"] = all(p.is_dir() for p in vital)
     steps["requirements_exists"] = (repo / "requirements.txt").is_file()
@@ -66,7 +78,7 @@ def main() -> int:
     if enc_files:
         try:
             key = parse_backup_key()
-            hourly = repo / "backups" / "hourly"
+            hourly = repo / "backups" / env_slug / "hourly"
             hourly.mkdir(parents=True, exist_ok=True)
             ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
             db_out = hourly / f"beaba_gestao_{ts}.db"
