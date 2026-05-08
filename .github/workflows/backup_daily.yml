@@ -1,6 +1,7 @@
 # E17.2 — Backup diário 00:00 UTC, artefacto DB_DAILY_BACKUP, retenção 7 dias.
 # Usa o mesmo job reutilizável que backup_hourly (`backup_encrypt_callable.yml`): pipeline Python,
 # rebase antes do commit de telemetria, gate BEA1 + upload. Telemetria em `telemetry_git_branch` (= develop).
+# Push em `develop`, `staging`, `main`. Cron diário: só na branch por defeito do repo.
 
 name: backup_daily
 

@@ -1,8 +1,9 @@
 # E17.1 — Restore de prova semanal (domingo 03:00 UTC): último artefacto de backup_hourly, decrypt, verify, telemetria + commit.
 # Requer Secret: BEABA_BACKUP_KEY (igual ao workflow de backup).
 #
-# Branch dos artefactos: os backups agendados (cron) executam na branch por defeito do repo (normalmente main).
-# O download DEVE usar essa branch — «develop» não encontra artefactos dos crons e falha o restore.
+# Branch dos artefactos (download): em agendamentos GitHub Actions, backup_hourly/daily/weekly correm na
+# branch por defeito do repo; o artefacto fica associado a essa ref. Por defeito usamos a ref deste run
+# (schedule → default branch; workflow_dispatch → branch escolhida). Para forçar outra branch, use o input.
 
 name: restore_weekly
 
@@ -12,9 +13,9 @@ on:
   workflow_dispatch:
     inputs:
       artifact_source_branch:
-        description: "Branch em que o backup_hourly agendado corre (defeito main)"
+        description: "Branch onde correu o backup_hourly com o artefacto (vazio = github.ref_name)"
         required: false
-        default: "main"
+        default: ""
 
 concurrency:
   group: beaba-restore-telemetry-${{ github.ref }}
@@ -58,7 +59,7 @@ jobs:
         with:
           github_token: ${{ github.token }}
           workflow: backup_hourly.yml
-          branch: ${{ github.event.inputs.artifact_source_branch || 'main' }}
+          branch: ${{ github.event.inputs.artifact_source_branch || github.ref_name }}
           name: beaba-sqlite-backup-encrypted
           path: dl
 

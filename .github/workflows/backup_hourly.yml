@@ -5,6 +5,8 @@
 #
 # E17.1 — O *evento* do run pode aparecer em `main` (cron na branch por defeito). O *commit* de
 # telemetria é sempre em `telemetry_git_branch` (= develop). Comando local: `git pull origin develop`.
+# Push em `develop`, `staging`, `main` (ambiente GitHub mapeado no job). Agendamento `schedule`: só na
+# branch por defeito do repositório (regra GitHub Actions).
 
 name: backup_hourly
 

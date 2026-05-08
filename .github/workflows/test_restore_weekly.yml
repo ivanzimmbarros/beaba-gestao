@@ -1,5 +1,7 @@
 # E17.2 — Domingo 04:00 UTC: checkout backup-and-restore, descarregar último backup (weekly → daily → hourly), restore_sqlite + e-mail.
 # Secrets: BEABA_BACKUP_KEY, EMAIL_USERNAME, EMAIL_PASSWORD, EMAIL_FROM (igual backup_hourly).
+# Artefactos: a branch do download deve ser a mesma onde os backups produziram o ZIP (agenda/cron = branch por defeito;
+# vazio no input = github.ref_name deste run).
 
 name: test_restore_weekly
 
@@ -9,9 +11,9 @@ on:
   workflow_dispatch:
     inputs:
       artifact_source_branch:
-        description: "Branch dos workflows de backup agendados (defeito main)"
+        description: "Branch dos workflows de backup (vazio = github.ref_name)"
         required: false
-        default: "main"
+        default: ""
 
 concurrency:
   group: beaba-test-restore-weekly-${{ github.ref }}
@@ -57,7 +59,7 @@ jobs:
         with:
           github_token: ${{ github.token }}
           workflow: backup_weekly.yml
-          branch: ${{ github.event.inputs.artifact_source_branch || 'main' }}
+          branch: ${{ github.event.inputs.artifact_source_branch || github.ref_name }}
           name: DB_WEEKLY_BACKUP
           path: dl
 
@@ -69,7 +71,7 @@ jobs:
         with:
           github_token: ${{ github.token }}
           workflow: backup_daily.yml
-          branch: ${{ github.event.inputs.artifact_source_branch || 'main' }}
+          branch: ${{ github.event.inputs.artifact_source_branch || github.ref_name }}
           name: DB_DAILY_BACKUP
           path: dl
 
@@ -81,7 +83,7 @@ jobs:
         with:
           github_token: ${{ github.token }}
           workflow: backup_hourly.yml
-          branch: ${{ github.event.inputs.artifact_source_branch || 'main' }}
+          branch: ${{ github.event.inputs.artifact_source_branch || github.ref_name }}
           name: beaba-sqlite-backup-encrypted
           path: dl
 

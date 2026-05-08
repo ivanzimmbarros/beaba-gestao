@@ -1,6 +1,7 @@
 # E17.2 — Backup semanal (domingo 00:00 UTC), artefacto DB_WEEKLY_BACKUP, retenção 30 dias.
 # Usa o mesmo job reutilizável que backup_hourly / backup_daily (`backup_encrypt_callable.yml`):
 # pipeline Python, rebase antes do commit de telemetria, gate BEA1 + upload. Telemetria em develop.
+# Push em `develop`, `staging`, `main`. Cron semanal: só na branch por defeito do repo.
 
 name: backup_weekly
 
