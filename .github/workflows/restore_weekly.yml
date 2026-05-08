@@ -1,9 +1,5 @@
-# E17.1 — Restore de prova semanal (domingo 03:00 UTC): último artefacto de backup_hourly, decrypt, verify, telemetria + commit.
-# Requer Secret: BEABA_BACKUP_KEY (igual ao workflow de backup).
-#
-# Branch dos artefactos (download): em agendamentos GitHub Actions, backup_hourly/daily/weekly correm na
-# branch por defeito do repo; o artefacto fica associado a essa ref. Por defeito usamos a ref deste run
-# (schedule → default branch; workflow_dispatch → branch escolhida). Para forçar outra branch, use o input.
+# E17.1 — Restore de prova (domingo 03:00 UTC): uma matriz develop / staging / main — artefacto hourly por branch, telemetria no mesmo ref.
+# Nome do artefacto: beaba-sqlite-backup-encrypted-<branch> (alinhado a backup_hourly).
 
 name: restore_weekly
 
@@ -13,13 +9,12 @@ on:
   workflow_dispatch:
     inputs:
       artifact_source_branch:
-        description: "Branch onde correu o backup_hourly com o artefacto (vazio = github.ref_name)"
+        description: "Sobrescreve a ref do download (vazio = usa a branch da célula da matriz)"
         required: false
         default: ""
 
 concurrency:
   group: beaba-restore-telemetry-${{ github.ref }}
-  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -27,20 +22,46 @@ permissions:
 
 jobs:
   restore:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target_branch: develop
+            environment_name: develop
+          - target_branch: staging
+            environment_name: staging
+          - target_branch: main
+            environment_name: production
     concurrency:
-      group: beaba-e17-telemetry-push-${{ github.repository }}-develop
+      group: beaba-e17-telemetry-push-${{ github.repository }}-${{ matrix.target_branch }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
-    environment: ${{ (github.ref_name == 'main' && 'production') || (github.ref_name == 'staging' && 'staging') || 'develop' }}
+    environment: ${{ matrix.environment_name }}
     env:
       PYTHONPATH: ${{ github.workspace }}
       BEABA_REPO_ROOT: ${{ github.workspace }}
+      BEABA_GHA_TARGET_BRANCH: ${{ matrix.target_branch }}
 
     steps:
-      - name: Checkout develop
+      - name: Contexto restore E17
+        run: |
+          {
+            echo "## Restore de prova — contexto"
+            echo ""
+            echo "| Campo | Valor |"
+            echo "|--|--|"
+            echo "| **Origem** | passo «Contexto restore E17» em \`restore_weekly.yml\` |"
+            echo "| **Branch-alvo** | \`${{ matrix.target_branch }}\` |"
+            echo "| **Ambiente** | \`${{ matrix.environment_name }}\` |"
+            echo "| **Artefacto esperado** | \`beaba-sqlite-backup-encrypted-${{ matrix.target_branch }}\` |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=Restore E17 [${{ matrix.target_branch }}]::origem=restore_weekly.yml matrix"
+
+      - name: Checkout ${{ matrix.target_branch }}
         uses: actions/checkout@v4
         with:
-          ref: develop
+          ref: ${{ matrix.target_branch }}
           fetch-depth: 0
           token: ${{ github.token }}
 
@@ -52,15 +73,15 @@ jobs:
       - name: Dependências
         run: pip install -r requirements.txt
 
-      - name: Descarregar último backup encriptado
+      - name: Descarregar último backup encriptado (hourly, esta branch)
         id: dl
         continue-on-error: true
         uses: dawidd6/action-download-artifact@v3
         with:
           github_token: ${{ github.token }}
           workflow: backup_hourly.yml
-          branch: ${{ github.event.inputs.artifact_source_branch || github.ref_name }}
-          name: beaba-sqlite-backup-encrypted
+          branch: ${{ github.event.inputs.artifact_source_branch || matrix.target_branch }}
+          name: beaba-sqlite-backup-encrypted-${{ matrix.target_branch }}
           path: dl
 
       - name: Restore de prova + evidências
@@ -73,12 +94,12 @@ jobs:
           GITHUB_SERVER_URL: ${{ github.server_url }}
         run: python scripts/e17_1_gha_restore_job.py
 
-      - name: Sincronizar clone com origin (antes da telemetria)
+      - name: Sincronizar clone com origin (${{ matrix.target_branch }})
         if: always()
         run: |
           set -euo pipefail
-          git fetch origin develop
-          git pull --rebase origin develop
+          git fetch origin "${{ matrix.target_branch }}"
+          git pull --rebase origin "${{ matrix.target_branch }}"
 
       - name: Telemetria restore
         if: always()
@@ -86,14 +107,15 @@ jobs:
           GITHUB_RUN_ID: ${{ github.run_id }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_SERVER_URL: ${{ github.server_url }}
+          BEABA_GHA_TARGET_BRANCH: ${{ matrix.target_branch }}
         run: python scripts/e17_1_telemetry.py append-restore
 
-      - name: Commit backup_dr_history.json
+      - name: Commit backup_dr_history.json → ${{ matrix.target_branch }}
         if: always()
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          branch: develop
+          branch: ${{ matrix.target_branch }}
           commit_user_name: github-actions[bot]
           commit_user_email: github-actions[bot]@users.noreply.github.com
-          commit_message: "chore(telemetry): restore weekly run ${{ github.run_id }}"
+          commit_message: "chore(telemetry): restore weekly [${{ matrix.target_branch }}] run ${{ github.run_id }}"
           file_pattern: docs/governanca/telemetry/backup_dr_history.json

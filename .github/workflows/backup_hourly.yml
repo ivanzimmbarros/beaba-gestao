@@ -1,12 +1,6 @@
-# E17.2 — Backup horário (UTC): retenção 3 dias. Chama workflow reutilizável.
-# E-mail em falha: Secrets EMAIL_* (ver PAINEL).
-# Reindexação 2026-04-19 (E17.1): cron deslocado para o minuto :37 UTC — a documentação GitHub
-# indica que disparos no minuto :00 concentram carga e podem falhar ou atrasar; :37 reduz colisão.
-#
-# E17.1 — O *evento* do run pode aparecer em `main` (cron na branch por defeito). O *commit* de
-# telemetria é sempre em `telemetry_git_branch` (= develop). Comando local: `git pull origin develop`.
-# Push em `develop`, `staging`, `main` (ambiente GitHub mapeado no job). Agendamento `schedule`: só na
-# branch por defeito do repositório (regra GitHub Actions).
+# E17.2 — Backup horário (UTC). Push: só a branch alterada. Cron/dispatch: desenvolve, staging e main em paralelo.
+# Telemetria: backup_dr_history.json em **cada** branch (estruturas independentes).
+# Agendamento `schedule`: o workflow corre na branch por defeito do repo; a matriz abaixo executa os três refs alvo.
 
 name: backup_hourly
 
@@ -31,19 +25,56 @@ permissions:
   actions: write
 
 jobs:
+  prep-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      include: ${{ steps.set.outputs.include }}
+    steps:
+      - id: set
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          python3 << 'PY'
+          import json
+          import os
+
+          def env_for(ref: str) -> str:
+              return {"main": "production", "staging": "staging"}.get(ref, "develop")
+
+          e = os.environ["EVENT_NAME"]
+          out = open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8")
+          if e == "push":
+              ref = os.environ["REF_NAME"]
+              inc = [{"target_branch": ref, "environment_name": env_for(ref)}]
+          else:
+              inc = [
+                  {"target_branch": "develop", "environment_name": "develop"},
+                  {"target_branch": "staging", "environment_name": "staging"},
+                  {"target_branch": "main", "environment_name": "production"},
+              ]
+          out.write("include=" + json.dumps(inc) + "\n")
+          out.close()
+          PY
+
   backup:
+    needs: prep-matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.prep-matrix.outputs.include) }}
     uses: ./.github/workflows/backup_encrypt_callable.yml
     secrets: inherit
     with:
-      environment_name: ${{ (github.ref_name == 'main' && 'production') || (github.ref_name == 'staging' && 'staging') || 'develop' }}
-      artifact_name: beaba-sqlite-backup-encrypted
+      target_branch: ${{ matrix.target_branch }}
+      environment_name: ${{ matrix.environment_name }}
+      artifact_name: beaba-sqlite-backup-encrypted-${{ matrix.target_branch }}
       retention_days: 3
       retention_label: "HOURLY (3d)"
-      telemetry_git_branch: develop
 
   notify-failure:
-    needs: backup
-    if: failure()
+    needs: [prep-matrix, backup]
+    if: always() && (needs.backup.result == 'failure')
     runs-on: ubuntu-latest
     environment: ${{ (github.ref_name == 'main' && 'production') || (github.ref_name == 'staging' && 'staging') || 'develop' }}
     steps:
@@ -59,12 +90,15 @@ jobs:
           secure: true
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "(Atenção) Falha de Execucao de Backup - BeaBa"
+          subject: "(Atenção) Falha de backup HOURLY (BeaBa) — ver matriz no Actions"
           to: ivanzimmbarros@gmail.com
           from: ${{ secrets.EMAIL_FROM }}
           body: |
-            Falha no workflow backup_hourly (HOURLY, retenção 3d).
+            Falha no workflow backup_hourly (matrix: develop / staging / main no agendamento; uma branch no push).
 
             Hora (UTC): ${{ steps.utc.outputs.ts }}
-            Etapa provável: «Pipeline backup + encriptação» ou «Upload artefacto» (ver run).
-            Log / run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            Origem do e-mail: job «notify-failure» em backup_hourly.yml após falha do job reutilizável.
+
+            Ver qual célula da matriz falhou: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            Passos com prefixo [backup_encrypt_callable / Gate] e notices no sumário do job indicam a branch.

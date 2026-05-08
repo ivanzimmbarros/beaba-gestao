@@ -1,22 +1,23 @@
-# E17.2 — Workflow reutilizável: backup SQLite + encriptação + telemetria + commit na branch de governança.
-# Chamado por backup_hourly / backup_daily / backup_weekly.
-# Token: usar sempre github.token (GITHUB_TOKEN automático). secrets.GITHUB_TOKEN é inválido
-# excepto se existir secret manual com esse nome — deixa checkout/push sem credencial.
+# E17.2 — Workflow reutilizável: backup SQLite + encriptação + telemetria + commit na branch-alvo.
+# Chamado por backup_hourly / backup_daily / backup_weekly (cada um define target_branch + artefacto).
 #
-# O run do GitHub pode listar `main` (workflow na branch por defeito); checkout + push da telemetria
-# usam sempre `inputs.telemetry_git_branch` (defeito: develop).
+# Cada combinação (develop | staging | main) tem cópia de código, telemetria e commit na **mesma**
+# branch — rastreio independente em docs/governanca/telemetry/backup_dr_history.json por branch.
 #
-# Secret obrigatório (nível repositório): BEABA_BACKUP_KEY — base64 de 32 bytes ou hex 64 chars.
-# Não é GPG; é AES-256-GCM (scripts/e17_1_crypto.py). Sem este secret, encrypted_path fica vazio e o gate falha.
+# Secret obrigatório: BEABA_BACKUP_KEY — base64 32 bytes ou hex 64. Sem secret, encrypted_path vazio e o gate falha.
 
 on:
   workflow_call:
     inputs:
       environment_name:
-        description: "GitHub Environment a usar para secrets (production|staging|develop)."
+        description: "GitHub Environment (production|staging|develop) alinhado à branch-alvo."
         required: false
         type: string
         default: develop
+      target_branch:
+        description: "Branch do checkout, backup e commit de telemetria (develop | staging | main)."
+        required: true
+        type: string
       artifact_name:
         required: true
         type: string
@@ -26,11 +27,6 @@ on:
       retention_label:
         required: true
         type: string
-      telemetry_git_branch:
-        description: "Branch de governança — JSON telemetria (Monitor: git pull nesta branch)."
-        required: false
-        type: string
-        default: develop
     secrets:
       BEABA_BACKUP_KEY:
         required: true
@@ -41,10 +37,8 @@ permissions:
 
 jobs:
   backup:
-    # Um único run de commit em backup_dr_history.json por vez (evita push rejeitado quando hourly +
-    # daily + weekly disparam juntos, ou com rebase já integrado à telemetria).
     concurrency:
-      group: beaba-e17-telemetry-push-${{ github.repository }}-${{ inputs.telemetry_git_branch }}
+      group: beaba-e17-telemetry-push-${{ github.repository }}-${{ inputs.target_branch }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment_name || 'develop' }}
@@ -63,18 +57,38 @@ jobs:
       BEABA_CI_PREPARE_EMPTY_DB: "1"
       BEABA_GHA_RETENTION_LABEL: ${{ inputs.retention_label }}
       BEABA_GHA_ARTIFACT_NAME: ${{ inputs.artifact_name }}
+      BEABA_GHA_TARGET_BRANCH: ${{ inputs.target_branch }}
       BEABA_BACKUP_KEY: ${{ secrets.BEABA_BACKUP_KEY }}
       S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
       S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
       S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
 
     steps:
-      - name: Checkout branch de governança (telemetria)
+      - name: Checkout código na branch-alvo (${{ inputs.target_branch }})
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.telemetry_git_branch }}
+          ref: ${{ inputs.target_branch }}
           fetch-depth: 0
           token: ${{ github.token }}
+
+      - name: Contexto e rastreio (origem das mensagens)
+        run: |
+          set -euo pipefail
+          SUMMARY_FILE="${GITHUB_STEP_SUMMARY:-}"
+          {
+            echo "## Backup E17 — contexto do job"
+            echo ""
+            echo "| Campo | Valor |"
+            echo "|--|--|"
+            echo "| **Origem** | passo «Contexto e rastreio» em \`backup_encrypt_callable.yml\` |"
+            echo "| **Workflow chamador** | \`$GITHUB_WORKFLOW\` (#$GITHUB_RUN_ID) |"
+            echo "| **Branch-alvo** | \`${{ inputs.target_branch }}\` (código + telemetria no mesmo ref) |"
+            echo "| **GitHub Environment** | \`${{ inputs.environment_name }}\` |"
+            echo "| **Artefacto** | \`${{ inputs.artifact_name }}\` |"
+            echo "| **Retenção** | ${{ inputs.retention_label }} (${{ inputs.retention_days }}d) |"
+            echo ""
+          } >> "${SUMMARY_FILE}"
+          echo "::notice title=Backup E17 [${{ inputs.target_branch }}]::workflow=$GITHUB_WORKFLOW run=$GITHUB_RUN_ID artefact=${{ inputs.artifact_name }} env=${{ inputs.environment_name }}"
 
       - name: Python 3.12
         uses: actions/setup-python@v5
@@ -93,7 +107,7 @@ jobs:
         if: ${{ always() && steps.pipe.outcome == 'failure' }}
         uses: actions/upload-artifact@v4
         with:
-          name: erro-log
+          name: erro-log-${{ inputs.target_branch }}
           path: ERRO_CRIPTOGRAFIA.txt
           retention-days: 30
           if-no-files-found: ignore
@@ -109,14 +123,11 @@ jobs:
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: error
 
-      # Sincronizar *antes* de alterar backup_dr_history.json. Um pull --rebase *depois* do append
-      # com --autostash deixa o mesmo ficheiro em conflito (needs merge) quando vários workflows
-      # tocam na telemetria — git-auto-commit falha com "resolve your current index first".
-      - name: Sincronizar clone com origin (antes da telemetria)
+      - name: Sincronizar com origin (antes da telemetria)
         if: always()
         run: |
           set -euo pipefail
-          BR="${{ inputs.telemetry_git_branch }}"
+          BR="${{ inputs.target_branch }}"
           git fetch origin "$BR"
           git pull --rebase origin "$BR"
 
@@ -137,46 +148,50 @@ jobs:
           fi
           python scripts/e17_1_telemetry.py append-backup
 
-      - name: Commit backup_dr_history.json → branch de governança
+      - name: Commit backup_dr_history.json → branch ${{ inputs.target_branch }}
         if: always()
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          branch: ${{ inputs.telemetry_git_branch }}
+          branch: ${{ inputs.target_branch }}
           commit_user_name: github-actions[bot]
           commit_user_email: github-actions[bot]@users.noreply.github.com
-          commit_message: "chore(telemetry): backup ${{ inputs.artifact_name }} run ${{ github.run_id }}"
+          commit_message: "chore(telemetry): backup ${{ inputs.artifact_name }} [${{ inputs.target_branch }}] run ${{ github.run_id }}"
           file_pattern: docs/governanca/telemetry/backup_dr_history.json
 
       - name: Gate — pipeline, ficheiro BEA1 e upload obrigatórios
         if: always()
         run: |
           set -euo pipefail
+          B="${{ inputs.target_branch }}"
           if [ "${{ steps.pipe.outcome }}" != "success" ]; then
-            echo "::error::Pipeline backup + encriptação falhou (ver passo «Pipeline backup + encriptação» e gha_backup_state.json)."
+            echo "::error title=Gate backup [$B]::[backup_encrypt_callable / Gate] Pipeline backup + encriptação falhou — ver log do passo «Pipeline backup + encriptação» e gha_backup_state.json na branch $B."
             exit 1
           fi
           ENC="${{ steps.pipe.outputs.encrypted_path }}"
           if [ -z "$ENC" ]; then
-            echo "::error::encrypted_path vazio — configure o secret BEABA_BACKUP_KEY no repositório ou corrija o job de backup."
+            echo "::error title=Gate backup [$B]::[backup_encrypt_callable / Gate] encrypted_path vazio — secret BEABA_BACKUP_KEY ou pipeline na branch $B."
             exit 1
           fi
           F="$GITHUB_WORKSPACE/$ENC"
           if [ ! -f "$F" ]; then
-            echo "::error::Ficheiro encriptado ausente: $F"
+            echo "::error title=Gate backup [$B]::[backup_encrypt_callable / Gate] Ficheiro encriptado ausente: $F"
             exit 1
           fi
-          python3 -c "import pathlib,sys; b=pathlib.Path(sys.argv[1]).read_bytes()[:4]; assert b==b'BEA1', b" "$F" || { echo "::error::Header mágico BEA1 ausente"; exit 1; }
+          if ! python3 -c "import pathlib,sys; b=pathlib.Path(sys.argv[1]).read_bytes()[:4]; assert b==b'BEA1', b" "$F"; then
+            echo "::error title=Gate backup [$B]::[backup_encrypt_callable / Gate] Header mágico BEA1 ausente em $F"
+            exit 1
+          fi
           if [ "${{ steps.up.outcome }}" != "success" ]; then
-            echo "::error::Upload do artefacto falhou (actions/upload-artifact)."
+            echo "::error title=Gate backup [$B]::[backup_encrypt_callable / Gate] Upload do artefacto falhou (actions/upload-artifact)."
             exit 1
           fi
-          echo "OK — pipeline, BEA1 no disco e artefacto publicado."
+          echo "::notice title=Gate OK [$B]::[backup_encrypt_callable / Gate] Pipeline, BEA1 válido e artefacto publicado para branch $B."
 
-      - name: Prova — HEAD em origin/${{ inputs.telemetry_git_branch }}
+      - name: Prova — HEAD em origin/${{ inputs.target_branch }}
         if: success()
         run: |
           set -eux
-          BRANCH="${{ inputs.telemetry_git_branch }}"
+          BRANCH="${{ inputs.target_branch }}"
           git fetch origin "$BRANCH"
-          echo "BEABA_TELEMETRY_BRANCH=$BRANCH (git pull origin $BRANCH no PC local)"
+          echo "::notice title=Telemetria [$BRANCH]::Último commit em origin/$BRANCH (Monitor: git pull origin $BRANCH)"
           git log -1 --format='%H %h %s (%an)' "origin/$BRANCH"

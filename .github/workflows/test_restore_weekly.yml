@@ -1,7 +1,5 @@
-# E17.2 — Domingo 04:00 UTC: checkout backup-and-restore, descarregar último backup (weekly → daily → hourly), restore_sqlite + e-mail.
-# Secrets: BEABA_BACKUP_KEY, EMAIL_USERNAME, EMAIL_PASSWORD, EMAIL_FROM (igual backup_hourly).
-# Artefactos: a branch do download deve ser a mesma onde os backups produziram o ZIP (agenda/cron = branch por defeito;
-# vazio no input = github.ref_name deste run).
+# E17.2 — Teste de restore (domingo 04:00 UTC): matriz develop / staging / main — cascata weekly → daily → hourly por branch.
+# Código: branch backup-and-restore. Artefactos: sufixo -<branch> (alinhado aos backups).
 
 name: test_restore_weekly
 
@@ -11,13 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       artifact_source_branch:
-        description: "Branch dos workflows de backup (vazio = github.ref_name)"
+        description: "Ref dos artefactos (vazio = igual à branch da célula da matriz)"
         required: false
         default: ""
-
-concurrency:
-  group: beaba-test-restore-weekly-${{ github.ref }}
-  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -25,13 +19,40 @@ permissions:
 
 jobs:
   test-restore:
+    concurrency:
+      group: beaba-test-restore-${{ matrix.source_branch }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - source_branch: develop
+            environment_name: develop
+          - source_branch: staging
+            environment_name: staging
+          - source_branch: main
+            environment_name: production
     runs-on: ubuntu-latest
-    environment: ${{ (github.ref_name == 'main' && 'production') || (github.ref_name == 'staging' && 'staging') || 'develop' }}
+    environment: ${{ matrix.environment_name }}
     env:
       PYTHONPATH: ${{ github.workspace }}
       BEABA_REPO_ROOT: ${{ github.workspace }}
 
     steps:
+      - name: Contexto teste restore
+        run: |
+          {
+            echo "## Teste restore — contexto [${{ matrix.source_branch }}]"
+            echo ""
+            echo "| Campo | Valor |"
+            echo "|--|--|"
+            echo "| **Origem** | \`test_restore_weekly.yml\` |"
+            echo "| **Branch dos artefactos** | \`${{ github.event.inputs.artifact_source_branch || matrix.source_branch }}\` |"
+            echo "| **Código** | branch \`backup-and-restore\` |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=Test restore [${{ matrix.source_branch }}]::origem=test_restore_weekly.yml"
+
       - name: Checkout backup-and-restore
         uses: actions/checkout@v4
         with:
@@ -52,18 +73,18 @@ jobs:
           echo "utc=$(date -u +'%Y-%m-%d %H:%M UTC')" >> "$GITHUB_OUTPUT"
           echo "dia_hora=$(date -u +'%d/%m/%Y às %H:%M UTC')" >> "$GITHUB_OUTPUT"
 
-      - name: Artefacto DB_WEEKLY_BACKUP
+      - name: Artefacto DB_WEEKLY_BACKUP-${{ matrix.source_branch }}
         id: art_w
         continue-on-error: true
         uses: dawidd6/action-download-artifact@v3
         with:
           github_token: ${{ github.token }}
           workflow: backup_weekly.yml
-          branch: ${{ github.event.inputs.artifact_source_branch || github.ref_name }}
-          name: DB_WEEKLY_BACKUP
+          branch: ${{ github.event.inputs.artifact_source_branch || matrix.source_branch }}
+          name: DB_WEEKLY_BACKUP-${{ matrix.source_branch }}
           path: dl
 
-      - name: Artefacto DB_DAILY_BACKUP
+      - name: Artefacto DB_DAILY_BACKUP-${{ matrix.source_branch }}
         id: art_d
         if: steps.art_w.outcome == 'failure'
         continue-on-error: true
@@ -71,8 +92,8 @@ jobs:
         with:
           github_token: ${{ github.token }}
           workflow: backup_daily.yml
-          branch: ${{ github.event.inputs.artifact_source_branch || github.ref_name }}
-          name: DB_DAILY_BACKUP
+          branch: ${{ github.event.inputs.artifact_source_branch || matrix.source_branch }}
+          name: DB_DAILY_BACKUP-${{ matrix.source_branch }}
           path: dl
 
       - name: Artefacto backup horário
@@ -83,11 +104,11 @@ jobs:
         with:
           github_token: ${{ github.token }}
           workflow: backup_hourly.yml
-          branch: ${{ github.event.inputs.artifact_source_branch || github.ref_name }}
-          name: beaba-sqlite-backup-encrypted
+          branch: ${{ github.event.inputs.artifact_source_branch || matrix.source_branch }}
+          name: beaba-sqlite-backup-encrypted-${{ matrix.source_branch }}
           path: dl
 
-      - name: Cascata — falhar só se nenhum dos três artefactos existir
+      - name: Cascata — falhar só se nenhum BEA1
         id: art_ok
         continue-on-error: true
         run: |
@@ -107,9 +128,9 @@ jobs:
                       except OSError:
                           pass
           if not ok:
-              print("::error::Cascata: nenhum ficheiro BEA1 após weekly → daily → horário.")
+              print("::error title=Cascata [${{ matrix.source_branch }}]::[test_restore_weekly] Nenhum ficheiro BEA1 após weekly → daily → horário (branch ${{ matrix.source_branch }}).")
               sys.exit(1)
-          print("Artefacto encriptado encontrado em dl/")
+          print("::notice title=Cascata OK [${{ matrix.source_branch }}]::Artefacto encriptado encontrado em dl/")
           PY
 
       - name: Restore + validar (restore_sqlite.py)
@@ -118,7 +139,8 @@ jobs:
         continue-on-error: true
         env:
           BEABA_BACKUP_KEY: ${{ secrets.BEABA_BACKUP_KEY }}
-          GITHUB_REF_NAME: backup-and-restore
+          # Rastreio lógico (telemetria / relatórios); não substituir GITHUB_REF_NAME — restore_sqlite exige branch backup-and-restore ou git HEAD.
+          BEABA_GHA_TARGET_BRANCH: ${{ matrix.source_branch }}
         run: python scripts/restore_sqlite.py dl
 
       - name: Resumo para e-mail (sucesso)
@@ -133,6 +155,9 @@ jobs:
           tc = d.get("table_counts") or {}
           pct = d.get("consistency_success_pct")
           lines = [
+              f"Branch testada: ${{ matrix.source_branch }}",
+              f"Origem da mensagem: test_restore_weekly.yml (job test-restore, matriz)",
+              "",
               "Contagem de registros (tabelas principais):",
               json.dumps(tc, ensure_ascii=False, indent=2),
               "",
@@ -151,7 +176,7 @@ jobs:
           secure: true
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "(Sucesso) Teste de Restore - BeaBa (${{ steps.ts.outputs.dia_hora }})"
+          subject: "(Sucesso) Teste Restore BeaBa [${{ matrix.source_branch }}] — ${{ steps.ts.outputs.dia_hora }}"
           to: ivanzimmbarros@gmail.com
           from: ${{ secrets.EMAIL_FROM }}
           body: file://email_ok_body.txt
@@ -161,11 +186,13 @@ jobs:
         if: always() && (steps.art_ok.outcome == 'failure' || steps.rst.outcome == 'failure')
         run: |
           {
+            echo "Branch: ${{ matrix.source_branch }}"
+            echo "Origem: test_restore_weekly.yml (notify automático)"
             echo "Motivo:"
             if [ "${{ steps.art_ok.outcome }}" = "failure" ]; then
-              echo "  Nenhum artefacto disponível na cascata (DB_WEEKLY_BACKUP, DB_DAILY_BACKUP, beaba-sqlite-backup-encrypted)."
+              echo "  Cascata sem ficheiro BEA1 (weekly/daily/hourly) para esta branch — ver nomes DB_WEEKLY_BACKUP-${{ matrix.source_branch }}, etc."
             else
-              echo "  Falha do restore_sqlite.py ou validação SQLite / consistência."
+              echo "  restore_sqlite.py ou validação falhou."
             fi
             echo "Hora: ${{ steps.ts.outputs.utc }}"
             echo "Download weekly: ${{ steps.art_w.outcome }} | daily: ${{ steps.art_d.outcome }} | hourly: ${{ steps.art_h.outcome }}"
@@ -184,19 +211,19 @@ jobs:
           secure: true
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "(Atenção) Falha de Execução do Teste de Restore - BeaBa"
+          subject: "(Atenção) Falha Teste Restore BeaBa [${{ matrix.source_branch }}]"
           to: ivanzimmbarros@gmail.com
           from: ${{ secrets.EMAIL_FROM }}
           body: file://email_fail_body.txt
 
-      - name: Estado final do job (cascata + restore devem ter sucesso)
+      - name: Estado final do job
         if: always()
         run: |
           if [ "${{ steps.art_ok.outcome }}" != "success" ]; then
-            echo "::error::Cascata: nenhum artefacto DB_WEEKLY_BACKUP / DB_DAILY_BACKUP / horário."
+            echo "::error title=Test restore [${{ matrix.source_branch }}]::[test_restore_weekly] Cascata sem artefacto válido."
             exit 1
           fi
           if [ "${{ steps.rst.outcome }}" != "success" ]; then
-            echo "::error::restore_sqlite.py falhou ou validação não passou."
+            echo "::error title=Test restore [${{ matrix.source_branch }}]::[test_restore_weekly] restore_sqlite.py falhou."
             exit 1
           fi

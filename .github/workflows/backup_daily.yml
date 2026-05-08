@@ -1,7 +1,4 @@
-# E17.2 — Backup diário 00:00 UTC, artefacto DB_DAILY_BACKUP, retenção 7 dias.
-# Usa o mesmo job reutilizável que backup_hourly (`backup_encrypt_callable.yml`): pipeline Python,
-# rebase antes do commit de telemetria, gate BEA1 + upload. Telemetria em `telemetry_git_branch` (= develop).
-# Push em `develop`, `staging`, `main`. Cron diário: só na branch por defeito do repo.
+# E17.2 — Backup diário 00:00 UTC. Push: branch tocada. Cron/dispatch: três branches em paralelo.
 
 name: backup_daily
 
@@ -24,19 +21,56 @@ permissions:
   actions: write
 
 jobs:
+  prep-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      include: ${{ steps.set.outputs.include }}
+    steps:
+      - id: set
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          python3 << 'PY'
+          import json
+          import os
+
+          def env_for(ref: str) -> str:
+              return {"main": "production", "staging": "staging"}.get(ref, "develop")
+
+          e = os.environ["EVENT_NAME"]
+          out = open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8")
+          if e == "push":
+              ref = os.environ["REF_NAME"]
+              inc = [{"target_branch": ref, "environment_name": env_for(ref)}]
+          else:
+              inc = [
+                  {"target_branch": "develop", "environment_name": "develop"},
+                  {"target_branch": "staging", "environment_name": "staging"},
+                  {"target_branch": "main", "environment_name": "production"},
+              ]
+          out.write("include=" + json.dumps(inc) + "\n")
+          out.close()
+          PY
+
   backup:
+    needs: prep-matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.prep-matrix.outputs.include) }}
     uses: ./.github/workflows/backup_encrypt_callable.yml
     secrets: inherit
     with:
-      environment_name: ${{ (github.ref_name == 'main' && 'production') || (github.ref_name == 'staging' && 'staging') || 'develop' }}
-      artifact_name: DB_DAILY_BACKUP
+      target_branch: ${{ matrix.target_branch }}
+      environment_name: ${{ matrix.environment_name }}
+      artifact_name: DB_DAILY_BACKUP-${{ matrix.target_branch }}
       retention_days: 7
       retention_label: "DAILY (7d)"
-      telemetry_git_branch: develop
 
   notify-failure:
-    needs: backup
-    if: failure()
+    needs: [prep-matrix, backup]
+    if: always() && (needs.backup.result == 'failure')
     runs-on: ubuntu-latest
     environment: ${{ (github.ref_name == 'main' && 'production') || (github.ref_name == 'staging' && 'staging') || 'develop' }}
     steps:
@@ -52,12 +86,13 @@ jobs:
           secure: true
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "(Atenção) Falha de Execucao de Backup - BeaBa"
+          subject: "(Atenção) Falha de backup DAILY (BeaBa) — ver matriz no Actions"
           to: ivanzimmbarros@gmail.com
           from: ${{ secrets.EMAIL_FROM }}
           body: |
-            Falha no workflow backup_daily (DB_DAILY_BACKUP, retenção 7d).
+            Falha no workflow backup_daily (matriz develop / staging / main nos agendamentos).
 
             Hora (UTC): ${{ steps.utc.outputs.ts }}
-            Etapa provável: «Pipeline backup + encriptação», upload do artefacto ou commit de telemetria (ver run).
-            Log / run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            Origem: notify-failure em backup_daily.yml.
+
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
