@@ -104,6 +104,17 @@ jobs:
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: error
 
+      # Sincronizar *antes* de alterar backup_dr_history.json. Um pull --rebase *depois* do append
+      # com --autostash deixa o mesmo ficheiro em conflito (needs merge) quando vários workflows
+      # tocam na telemetria — git-auto-commit falha com "resolve your current index first".
+      - name: Sincronizar clone com origin (antes da telemetria)
+        if: always()
+        run: |
+          set -euo pipefail
+          BR="${{ inputs.telemetry_git_branch }}"
+          git fetch origin "$BR"
+          git pull --rebase origin "$BR"
+
       - name: Telemetria + persistência JSON
         if: always()
         env:
@@ -120,14 +131,6 @@ jobs:
             export TELEMETRY_UPLOAD_OK=0
           fi
           python scripts/e17_1_telemetry.py append-backup
-
-      - name: Rebase com origin (evita push non-fast-forward no commit de telemetria)
-        if: always()
-        run: |
-          set -euo pipefail
-          BR="${{ inputs.telemetry_git_branch }}"
-          git fetch origin "$BR"
-          git pull --rebase --autostash origin "$BR"
 
       - name: Commit backup_dr_history.json → branch de governança
         if: always()
