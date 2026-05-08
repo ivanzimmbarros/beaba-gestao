@@ -1,4 +1,6 @@
 # E17.2 — Backup diário 00:00 UTC, artefacto DB_DAILY_BACKUP, retenção 7 dias.
+# Usa o mesmo job reutilizável que backup_hourly (`backup_encrypt_callable.yml`): pipeline Python,
+# rebase antes do commit de telemetria, gate BEA1 + upload. Telemetria em `telemetry_git_branch` (= develop).
 
 name: backup_daily
 
@@ -56,5 +58,5 @@ jobs:
             Falha no workflow backup_daily (DB_DAILY_BACKUP, retenção 7d).
 
             Hora (UTC): ${{ steps.utc.outputs.ts }}
-            Etapa provável: pipeline de backup ou upload do artefacto.
+            Etapa provável: «Pipeline backup + encriptação», upload do artefacto ou commit de telemetria (ver run).
             Log / run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
