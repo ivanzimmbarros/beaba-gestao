@@ -121,6 +121,14 @@ jobs:
           fi
           python scripts/e17_1_telemetry.py append-backup
 
+      - name: Rebase com origin (evita push non-fast-forward no commit de telemetria)
+        if: always()
+        run: |
+          set -euo pipefail
+          BR="${{ inputs.telemetry_git_branch }}"
+          git fetch origin "$BR"
+          git pull --rebase --autostash origin "$BR"
+
       - name: Commit backup_dr_history.json → branch de governança
         if: always()
         uses: stefanzweifel/git-auto-commit-action@v5
