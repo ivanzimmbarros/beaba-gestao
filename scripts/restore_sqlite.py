@@ -1,7 +1,8 @@
 """
 E17.2 — Restore local do backup encriptado (BEA1 / .beaba.enc) para data/beaba_gestao.db.
 
-Trava: apenas na branch backup-and-restore (ou BEABA_ALLOW_RESTORE_OFF_BRANCH=1 para testes).
+Trava: apenas na branch backup-and-restore (ou BEABA_ALLOW_RESTORE_OFF_BRANCH=1 para testes locais).
+No CI, test_restore_weekly faz checkout só de backup-and-restore; a matriz altera apenas a origem dos artefactos.
 Compara contagens com o último registo de backup em backup_dr_history.json (snapshot_table_counts).
 
 Arquitectura UI (2026-04-12): legado `page_clientes.py` / `page_agendamentos.py` descontinuado;
@@ -157,12 +158,48 @@ def _consistency_pct(baseline: dict[str, int] | None, current: dict[str, int | N
     return round(100.0 * ok / total, 2), ok, total
 
 
-def _write_result(repo: Path, payload: dict) -> None:
-    """Grava sempre restore_result.json na raiz do repo (obrigatório em todos os exits)."""
+def _restore_audit_block() -> dict[str, str] | None:
+    """Metadados de rastreio no CI (ex.: test_restore_weekly): origem dos dados vs código em backup-and-restore."""
+    out: dict[str, str] = {}
+    t = (os.environ.get("BEABA_GHA_TARGET_BRANCH") or "").strip()
+    if t:
+        out["artifact_data_source_ref"] = t
+    kb = (os.environ.get("BEABA_GHA_RESTORE_KIT_BRANCH") or "").strip()
+    if kb:
+        out["restore_execution_branch"] = kb
+    ks = (os.environ.get("BEABA_GHA_RESTORE_KIT_SHA_SHORT") or "").strip()
+    if ks:
+        out["restore_kit_commit_short"] = ks
+    kf = (os.environ.get("BEABA_GHA_RESTORE_KIT_SHA_FULL") or "").strip()
+    if kf:
+        out["restore_kit_commit_full"] = kf
+    tw = (os.environ.get("BEABA_GHA_RESTORE_TEST_WORKFLOW") or "").strip()
+    if tw:
+        out["calling_workflow"] = tw
+    rid = (os.environ.get("GITHUB_RUN_ID") or "").strip()
+    if rid:
+        out["github_run_id"] = rid
+    repo = (os.environ.get("GITHUB_REPOSITORY") or "").strip()
+    srv = (os.environ.get("GITHUB_SERVER_URL") or "https://github.com").rstrip("/")
+    if repo and rid:
+        out["github_run_url"] = f"{srv}/{repo}/actions/runs/{rid}"
+    if not out:
+        return None
+    out["audit_message_source"] = "scripts/restore_sqlite.py#restore_audit"
+    return out
+
+
+def _write_result(repo: Path, payload: dict) -> dict:
+    """Grava restore_result.json. Injeta restore_audit quando variáveis CI estão definidas. Devolve o dict gravado."""
+    merged: dict = dict(payload)
+    if "consistency_success_pct" not in merged:
+        merged["consistency_success_pct"] = None
+    audit = _restore_audit_block()
+    if audit:
+        merged["restore_audit"] = audit
     out = repo / RESULT_JSON
-    if "consistency_success_pct" not in payload:
-        payload = {**payload, "consistency_success_pct": None}
-    out.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    out.write_text(json.dumps(merged, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return merged
 
 
 def main(argv: list[str]) -> int:
@@ -322,8 +359,8 @@ def main(argv: list[str]) -> int:
         "consistency_compared": compared,
         "consistency_success_pct": pct,
     }
-    _write_result(repo, payload)
-    print(json.dumps(payload, ensure_ascii=False))
+    merged = _write_result(repo, payload)
+    print(json.dumps(merged, ensure_ascii=False))
 
     if not integrity_ok:
         return 8
