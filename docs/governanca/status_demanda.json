@@ -69,6 +69,17 @@
     "descricao": "Demandas com status «Em Aberto» ou «Pendente» (foco operacional actual).",
     "itens": [
       {
+        "demanda_id": "2026-05-09_E24_colaboradores_setor5_relatorios_repasse",
+        "titulo": "Épico 24 — Colaboradores Setor 5: relatórios de realização + repasse (PDF landscape)",
+        "status_demanda": "Em Aberto",
+        "fase_actual": "0-plano-aguardando-aprovacao",
+        "pc_foco": "PC1–PC2",
+        "resumo_foco": "Fase 0: plano faseado em docs/governanca/demandas/2026-05-09_E24_colaboradores_setor5_relatorios_repasse/01_plano_fase0_epico.md — filtros período+dimension (especialidade|serviço|colaborador)+multiselect; tabela+PDF institucional; sem código até CONFIRMO/PROSSIGA Diretor.",
+        "refs_docs": [
+          "docs/governanca/demandas/2026-05-09_E24_colaboradores_setor5_relatorios_repasse/01_plano_fase0_epico.md"
+        ]
+      },
+      {
         "demanda_id": "2026-04-20_colaboradores_disponibilidade_operacional",
         "titulo": "Colaboradores — Disponibilidade operacional (planos, regras, alertas 15/10/5, calendário mestre)",
         "status_demanda": "Entregue",
@@ -195,7 +206,7 @@
   ],
   "pendente": "Consolidação UI — Fase Final Setores 3, 4 e 5 na página consolidada (Dados Pessoais em expander, Ficha, Gestão de Agendamentos). E22 Fase 2 — homologar Clientes/Colaboradores vs PDV. E17.1: fila.",
   "falha": "",
-  "ultima_actualizacao_iso": "2026-05-08",
+  "ultima_actualizacao_iso": "2026-05-09",
   "notas_dashboard": "Painel v2: secções «Épicos em execução» e «Histórico de épicos concluídos» em `status_demanda.json`. Apps: `scripts/app_governance.py`, `view_governance.py`, `monitor_demanda.py`, `monitor_governanca.py` (aba Governança).",
   "fase_governanca": "A",
   "pc_foco": "PC1–PC2",
@@ -275,6 +286,7 @@
     "2026-04-16 — Camada 3 Smoke UI: `tests/smoke_test_ui.py` (AppTest rotas `src/app.py`), `pytest.ini`, `.cursorrules` três camadas pre-push; `test_governanca` + scripts backup/certificado E17; pytest 237.",
     "2026-04-16 — Smoke Monitor de Voo: `test_smoke_monitor_governanca` (`monitor_governanca.py`); pytest 238.",
     "2026-04-16 — Catálogo: wizard cadastro (Nova especialidade | Novo serviço → Confirmar tipo de registo); `NATUREZAS_CATALOGO_FASE3` para especialidade; sem expander aninhado; `cat_ui_contract` + backup scripts.",
-    "2026-04-19 — Governança: execução de verificação final (Orientações Mestres Mandatórias), testes pytest 265/265 passed localmente; cron de backup horário ajustado para :37. Sincronização cloud concluída e ambientes normalizados."
+    "2026-04-19 — Governança: execução de verificação final (Orientações Mestres Mandatórias), testes pytest 265/265 passed localmente; cron de backup horário ajustado para :37. Sincronização cloud concluída e ambientes normalizados.",
+    "2026-05-09 — E24 Fase 0: dossier Colaboradores Setor 5 (relatórios realização+repasse, PDF landscape, multiselect) em docs/governanca/demandas/2026-05-09_E24_colaboradores_setor5_relatorios_repasse/01_plano_fase0_epico.md; entrada em secao_epicos_em_execucao; execução bloqueada até aprovação formal Diretor."
   ]
 }
