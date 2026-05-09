@@ -74,9 +74,19 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ (github.ref_name == 'main' && 'production') || (github.ref_name == 'staging' && 'staging') || 'develop' }}
     steps:
+      - uses: actions/checkout@v4
+
       - name: Hora UTC
         id: utc
         run: echo "ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Preparar e-mail de falha (resumo + HTML)
+        run: |
+          python3 scripts/gha_email_backup_alarm.py \
+            --tier daily \
+            --ts "${{ steps.utc.outputs.ts }}" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --run-id "${{ github.run_id }}"
 
       - name: E-mail — falha de backup diário
         uses: dawidd6/action-send-mail@v3
@@ -86,13 +96,8 @@ jobs:
           secure: true
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "(Atenção) Falha de backup DAILY (BeaBa) — ver matriz no Actions"
+          subject: "🔴 FALHA | Backup DAILY | ${{ steps.utc.outputs.ts }} | ver Actions"
           to: ivanzimmbarros@gmail.com
           from: ${{ secrets.EMAIL_FROM }}
-          body: |
-            Falha no workflow backup_daily (matriz develop / staging / main nos agendamentos).
-
-            Hora (UTC): ${{ steps.utc.outputs.ts }}
-            Origem: notify-failure em backup_daily.yml.
-
-            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          body: file://gha_backup_fail_plain.txt
+          html_body: file://gha_backup_fail_body.html

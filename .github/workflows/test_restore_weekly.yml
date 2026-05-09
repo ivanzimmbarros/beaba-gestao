@@ -243,46 +243,93 @@ jobs:
         if: steps.rst.outcome == 'success'
         run: |
           python << 'PY'
+          import html as html_lib
           import json
           from pathlib import Path
+
+          matrix_branch = "${{ matrix.source_branch }}"
+          matrix_env = "${{ matrix.environment_name }}"
+          utc = "${{ steps.ts.outputs.utc }}"
+          run_url = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          run_id = "${{ github.run_id }}"
+          artifact_ref = "${{ env.ARTIFACT_REF }}"
+          tier = "${{ steps.tier_pick.outputs.label }}"
+          artifact_name = "${{ steps.tier_pick.outputs.artifact_name }}"
+          git_short = "${{ steps.gitref.outputs.short }}"
+          git_full = "${{ steps.gitref.outputs.full }}"
+
           p = Path("restore_result.json")
           d = json.loads(p.read_text(encoding="utf-8")) if p.is_file() else {}
           aud = d.get("restore_audit") or {}
           tc = d.get("table_counts") or {}
           pct = d.get("consistency_success_pct")
-          lines = [
-              "=== Teste semanal de restore (BeaBa) — SUCESSO ===",
+
+          h = html_lib.escape
+
+          plain = [
+              "======================================================================",
+              "  ✅ SUCESSO  |  Teste semanal de RESTORE (BeaBa)",
+              "======================================================================",
               "",
-              "--- Rastreio obrigatório ---",
-              f"Workflow: test_restore_weekly.yml | Job matrix: ${{ matrix.source_branch }} (dados)",
-              f"GitHub Environment: ${{ matrix.environment_name }}",
-              f"Run URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
-              f"Run ID: ${{ github.run_id }}",
+              "  Operação.................: Teste de restore (BEA1 → SQLite)",
+              "  Resultado visual.........: SUCESSO",
+              f"  Branch dos dados.........: {matrix_branch}",
+              f"  Branch do código.........: backup-and-restore @ {git_short}",
+              f"  Tier da cascata..........: {tier or 'n/a'}",
+              f"  Momento (UTC)............: {utc}",
               "",
-              "Origem dos DADOS (ficheiro BEA1):",
-              f"  Ref GitHub usada no download: ${{ env.ARTIFACT_REF }}",
-              f"  Tier usado na cascata: ${{ steps.tier_pick.outputs.label }}",
-              f"  Artefacto: ${{ steps.tier_pick.outputs.artifact_name }}",
+              "  Esta célula concluiu a recuperação de prova com sucesso.",
               "",
-              "Execução do CODIGO (única branch permitida):",
-              f"  Branch: backup-and-restore",
-              f"  Commit kit: ${{ steps.gitref.outputs.short }} (${{ steps.gitref.outputs.full }})",
+              "--- Detalhes técnicos --------------------------------------------------",
+              f"GitHub Environment.........: {matrix_env}",
+              f"Run URL....................: {run_url}",
+              f"Run ID.....................: {run_id}",
               "",
-              "restore_audit (restore_result.json):",
-              json.dumps(aud, ensure_ascii=False, indent=2) if aud else "  (sem bloco — ver ficheiro anexo)",
+              "Origem dos dados:",
+              f"  Ref download .............: {artifact_ref}",
+              f"  Artefacto................: {artifact_name}",
               "",
-              "--- Resultado técnico ---",
-              "Contagens (tabelas principais):",
+              "restore_audit:",
+              json.dumps(aud, ensure_ascii=False, indent=2) if aud else "  (sem bloco — ver anexo JSON)",
+              "",
+              "Contagens:",
               json.dumps(tc, ensure_ascii=False, indent=2),
               "",
               f"Integridade SQLite: PRAGMA={d.get('integrity_check')} | FK={d.get('foreign_key_violations')}",
-              f"Consistência vs telemetria em backup-and-restore: {pct}%",
+              f"Consistência vs telemetria (backup-and-restore): {pct}%",
+              f"Commit kit (completo)......: {git_full}",
               "",
-              f"Hora (UTC): ${{ steps.ts.outputs.utc }}",
-              "",
-              "Conclusão: recuperação de prova concluída com sucesso nesta célula.",
           ]
-          Path("email_ok_body.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+          Path("email_ok_body.txt").write_text("\n".join(plain) + "\n", encoding="utf-8")
+
+          aud_txt = json.dumps(aud, ensure_ascii=False, indent=2) if aud else "{}"
+          tc_txt = json.dumps(tc, ensure_ascii=False, indent=2)
+          html_doc = f"""<!DOCTYPE html>
+<html lang="pt"><head><meta charset="utf-8"></head>
+<body style="font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:15px;color:#1f2937;">
+  <div style="background:#ecfdf5;border-left:8px solid #16a34a;padding:16px 18px;margin:0 0 20px 0;border-radius:4px;">
+    <div style="font-size:28px;line-height:1.2;margin-bottom:10px;"><span style="color:#16a34a;">&#9989;</span>
+      <span style="font-weight:bold;color:#15803d;vertical-align:middle;">SUCESSO</span></div>
+    <div style="font-size:17px;margin-bottom:14px;font-weight:600;">Teste semanal de restore (BeaBa)</div>
+    <table cellpadding="6" cellspacing="0" style="border-collapse:collapse;">
+      <tr><td style="color:#6b7280;vertical-align:top;">Operação</td><td>Restore de prova (BEA1)</td></tr>
+      <tr><td style="color:#6b7280;">Resultado</td><td><strong style="color:#15803d;">SUCESSO</strong></td></tr>
+      <tr><td style="color:#6b7280;">Branch dos dados</td><td><strong>{h(matrix_branch)}</strong></td></tr>
+      <tr><td style="color:#6b7280;">Código</td><td><code>backup-and-restore @ {h(git_short)}</code></td></tr>
+      <tr><td style="color:#6b7280;">Tier</td><td><strong>{h(tier or "n/a")}</strong> — <code>{h(artifact_name)}</code></td></tr>
+      <tr><td style="color:#6b7280;">Data/hora UTC</td><td><strong>{h(utc)}</strong></td></tr>
+      <tr><td style="color:#6b7280;">Run</td><td><a href="{h(run_url)}" style="color:#2563eb;">Abrir no GitHub Actions</a></td></tr>
+    </table>
+  </div>
+  <h3 style="color:#374151;margin-top:0;">Detalhes técnicos</h3>
+  <p style="color:#6b7280;font-size:13px;">Environment: {h(matrix_env)} · Ref download: {h(artifact_ref)}</p>
+  <p><strong>restore_audit</strong></p>
+  <pre style="background:#f9fafb;padding:12px;border-radius:4px;overflow:auto;font-size:12px;line-height:1.35;">{h(aud_txt)}</pre>
+  <p><strong>Contagens</strong></p>
+  <pre style="background:#f9fafb;padding:12px;border-radius:4px;overflow:auto;font-size:12px;line-height:1.35;">{h(tc_txt)}</pre>
+  <p style="color:#374151;">SQLite PRAGMA={h(str(d.get("integrity_check")))} · FK={h(str(d.get("foreign_key_violations")))} · Consistência={h(str(pct))}%</p>
+</body></html>"""
+          Path("email_ok_body.html").write_text(html_doc, encoding="utf-8")
           PY
 
       - name: E-mail — sucesso
@@ -294,53 +341,112 @@ jobs:
           secure: true
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "[OK] Restore semanal BeaBa | dados ${{ matrix.source_branch }} | kit ${{ steps.gitref.outputs.short }} | ${{ steps.ts.outputs.utc }}"
+          subject: "✅ SUCESSO | Teste restore semanal | dados ${{ matrix.source_branch }} | ${{ steps.ts.outputs.utc }}"
           to: ivanzimmbarros@gmail.com
           from: ${{ secrets.EMAIL_FROM }}
           body: file://email_ok_body.txt
+          html_body: file://email_ok_body.html
           attachments: restore_result.json
 
       - name: Corpo e-mail — falha
         if: always() && (steps.art_ok.outcome == 'failure' || steps.rst.outcome == 'failure')
         run: |
           python << 'PY'
-          from pathlib import Path
+          import html as html_lib
           import json
+          from pathlib import Path
+
+          matrix_branch = "${{ matrix.source_branch }}"
+          matrix_env = "${{ matrix.environment_name }}"
+          utc = "${{ steps.ts.outputs.utc }}"
+          run_url = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          run_id = "${{ github.run_id }}"
+          artifact_ref = "${{ env.ARTIFACT_REF }}"
+          git_short = "${{ steps.gitref.outputs.short }}"
+          git_full = "${{ steps.gitref.outputs.full }}"
+          art_ok = "${{ steps.art_ok.outcome }}"
+          rst = "${{ steps.rst.outcome }}"
+          w_o = "${{ steps.art_w.outcome }}"
+          d_o = "${{ steps.art_d.outcome }}"
+          h_o = "${{ steps.art_h.outcome }}"
+          tier = "${{ steps.tier_pick.outputs.label }}"
+          artifact_name = "${{ steps.tier_pick.outputs.artifact_name }}"
+
+          h = html_lib.escape
+
           p = Path("restore_result.json")
-          extra = ""
+          extra_plain = "(ficheiro ausente)"
+          extra_json_txt = "{}"
           if p.is_file():
               try:
-                  d = json.loads(p.read_text(encoding="utf-8"))
-                  extra = json.dumps(d, ensure_ascii=False, indent=2)
+                  d_fail = json.loads(p.read_text(encoding="utf-8"))
+                  extra_plain = json.dumps(d_fail, ensure_ascii=False, indent=2)
+                  extra_json_txt = extra_plain
               except Exception:
-                  extra = p.read_text(encoding="utf-8", errors="replace")
-          art_ok = "${{ steps.art_ok.outcome }}"
-          lines = [
-              "=== Teste semanal de restore (BeaBa) — FALHA ===",
-              "",
-              "--- Rastreio ---",
-              "Workflow: test_restore_weekly.yml",
-              f"Célula (dados): ${{ matrix.source_branch }} | Environment: ${{ matrix.environment_name }}",
-              f"Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
-              "",
-              "Política: código só em backup-and-restore;",
-              f"Kit commit (checkout): ${{ steps.gitref.outputs.short }} ${{ steps.gitref.outputs.full }}",
-              f"Ref download artefactos: ${{ env.ARTIFACT_REF }}",
-              "",
-              "Evolução cascata:",
-              f"  weekly download: ${{ steps.art_w.outcome }}",
-              f"  daily download: ${{ steps.art_d.outcome }}",
-              f"  hourly download: ${{ steps.art_h.outcome }}",
-              "",
-              "Diagnóstico:",
-          ]
+                  extra_plain = p.read_text(encoding="utf-8", errors="replace")
+                  extra_json_txt = extra_plain
+
           if art_ok == "failure":
-              lines.append("  Falha: nenhum BEA1 após cascata — verificar backups na ref indicada.")
+              diag = "Sem ficheiro BEA1 após cascata weekly → daily → hourly (verifique backups na ref)."
           else:
-              lines.append("  Falha: restore_sqlite.py ou validação (ver restore_result.json abaixo).")
-          lines += ["", "--- restore_result.json (se existir) ---", extra or "(ficheiro ausente)"]
-          lines += ["", f"Hora UTC: ${{ steps.ts.outputs.utc }}"]
-          Path("email_fail_body.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+              diag = "restore_sqlite.py ou validação falhou — ver logs do passo «Restore + validar» e JSON."
+
+          plain = [
+              "======================================================================",
+              "  🔴 FALHA  |  Teste semanal de RESTORE (BeaBa)",
+              "======================================================================",
+              "",
+              "  Operação.................: Teste de restore (BEA1)",
+              "  Resultado visual.........: FALHA",
+              f"  Branch dos dados.........: {matrix_branch}",
+              f"  Branch do código.........: backup-and-restore @ {git_short}",
+              f"  Momento (UTC)............: {utc}",
+              "",
+              f"  Diagnóstico..............: {diag}",
+              "",
+              "--- Cascata de downloads ----------------------------------------------",
+              f"  weekly : {w_o}",
+              f"  daily  : {d_o}",
+              f"  hourly : {h_o}",
+              "",
+              "--- Detalhes técnicos --------------------------------------------------",
+              f"GitHub Environment.........: {matrix_env}",
+              f"Run URL....................: {run_url}",
+              f"Run ID.....................: {run_id}",
+              f"Ref download artefactos....: {artifact_ref}",
+              f"Tier / artefacto (se aplicável): {tier or 'n/a'} / {artifact_name}",
+              f"art_ok step................: {art_ok} | restore step: {rst}",
+              f"Kit commit completo........: {git_full}",
+              "",
+              "--- restore_result.json (se existir) ---",
+              extra_plain,
+              "",
+          ]
+          Path("email_fail_body.txt").write_text("\n".join(plain) + "\n", encoding="utf-8")
+
+          html_doc = f"""<!DOCTYPE html>
+<html lang="pt"><head><meta charset="utf-8"></head>
+<body style="font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:15px;color:#1f2937;">
+  <div style="background:#fef2f2;border-left:8px solid #dc2626;padding:16px 18px;margin:0 0 20px 0;border-radius:4px;">
+    <div style="font-size:28px;line-height:1.2;margin-bottom:10px;"><span style="color:#dc2626;font-weight:bold;">&#128308;</span>
+      <span style="font-weight:bold;color:#991b1b;vertical-align:middle;">FALHA</span></div>
+    <div style="font-size:17px;margin-bottom:14px;font-weight:600;">Teste semanal de restore (BeaBa)</div>
+    <table cellpadding="6" cellspacing="0" style="border-collapse:collapse;">
+      <tr><td style="color:#6b7280;">Resultado</td><td><strong style="color:#b91c1c;">FALHA</strong></td></tr>
+      <tr><td style="color:#6b7280;">Branch dos dados</td><td><strong>{h(matrix_branch)}</strong></td></tr>
+      <tr><td style="color:#6b7280;">Código</td><td><code>backup-and-restore @ {h(git_short)}</code></td></tr>
+      <tr><td style="color:#6b7280;">Data/hora UTC</td><td><strong>{h(utc)}</strong></td></tr>
+      <tr><td style="color:#6b7280;">Run</td><td><a href="{h(run_url)}" style="color:#2563eb;">GitHub Actions</a></td></tr>
+      <tr><td style="color:#6b7280;vertical-align:top;">Diagnóstico</td><td>{h(diag)}</td></tr>
+    </table>
+    <p style="margin-top:14px;color:#991b1b;font-size:14px;"><strong>Cascata:</strong>
+      weekly=<code>{h(w_o)}</code> · daily=<code>{h(d_o)}</code> · hourly=<code>{h(h_o)}</code></p>
+  </div>
+  <h3 style="color:#374151;margin-top:0;">Detalhes técnicos</h3>
+  <p style="color:#6b7280;font-size:13px;">Environment: {h(matrix_env)} · Ref download: {h(artifact_ref)} · art_ok={h(art_ok)} restore={h(rst)}</p>
+  <pre style="background:#f9fafb;padding:12px;border-radius:4px;overflow:auto;font-size:12px;max-height:480px;">{h(extra_json_txt if len(extra_json_txt) < 120000 else extra_json_txt[:120000] + "...")}</pre>
+</body></html>"""
+          Path("email_fail_body.html").write_text(html_doc, encoding="utf-8")
           PY
 
       - name: E-mail — falha
@@ -352,7 +458,8 @@ jobs:
           secure: true
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "[FALHA] Restore semanal BeaBa | dados ${{ matrix.source_branch }} | ${{ steps.ts.outputs.utc }}"
+          subject: "🔴 FALHA | Teste restore semanal | dados ${{ matrix.source_branch }} | ${{ steps.ts.outputs.utc }}"
           to: ivanzimmbarros@gmail.com
           from: ${{ secrets.EMAIL_FROM }}
           body: file://email_fail_body.txt
+          html_body: file://email_fail_body.html

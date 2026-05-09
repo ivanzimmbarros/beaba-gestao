@@ -6,6 +6,8 @@
 #
 # Secret obrigatório: BEABA_BACKUP_KEY — base64 32 bytes ou hex 64. Sem secret, encrypted_path vazio e o gate falha.
 
+name: Backup E17 encrypt + telemetria
+
 on:
   workflow_call:
     inputs:
@@ -148,6 +150,54 @@ jobs:
           fi
           python scripts/e17_1_telemetry.py append-backup
 
+      - name: Mensagem de commit legível (assunto do e-mail GitHub)
+        id: commit_msg
+        if: always()
+        shell: bash
+        env:
+          BR: ${{ inputs.target_branch }}
+          ART: ${{ inputs.artifact_name }}
+          RL: ${{ inputs.retention_label }}
+          RD: ${{ inputs.retention_days }}
+          PIPE: ${{ steps.pipe.outcome }}
+          UP: ${{ steps.up.outcome }}
+          ENC: ${{ steps.pipe.outputs.encrypted_path }}
+        run: |
+          set -euo pipefail
+          TS=$(date -u +'%Y-%m-%d %H:%M UTC')
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          RID="${{ github.run_id }}"
+          if [[ "${PIPE}" == "success" && -n "${ENC}" && "${UP}" == "success" ]]; then
+            ICON="✅"; STAT="SUCESSO"
+          else
+            ICON="🔴"; STAT="FALHA"
+          fi
+          if [[ "${RL}" == *HOURLY* ]]; then HUMAN="Backup HOURLY"
+          elif [[ "${RL}" == *DAILY* ]]; then HUMAN="Backup DAILY"
+          elif [[ "${RL}" == *WEEKLY* ]]; then HUMAN="Backup WEEKLY"
+          else HUMAN="Backup"
+          fi
+          LINE1="${ICON} ${STAT} | ${HUMAN} | branch ${BR} | ${TS}"
+          REST=$(cat <<EOF
+
+          --- Detalhes técnicos ---
+          Workflow: Backup E17 encrypt + telemetria (reutilizável)
+          Branch-alvo: ${BR}
+          Artefacto: ${ART}
+          Retenção: ${RL} (${RD}d)
+          Pipeline encriptação: ${PIPE} | Upload artefacto: ${UP} | encrypted_path: ${ENC:-vazio}
+          Run ID: ${RID}
+          Run URL: ${RUN_URL}
+          chore(telemetry): backup_dr_history.json
+          EOF
+          )
+          FULL="${LINE1}${REST}"
+          {
+            echo "message<<BEABA_COMMIT_MSG_EOF"
+            printf '%s\n' "${FULL}"
+            echo "BEABA_COMMIT_MSG_EOF"
+          } >> "${GITHUB_OUTPUT}"
+
       - name: Commit backup_dr_history.json → branch ${{ inputs.target_branch }}
         if: always()
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -155,7 +205,7 @@ jobs:
           branch: ${{ inputs.target_branch }}
           commit_user_name: github-actions[bot]
           commit_user_email: github-actions[bot]@users.noreply.github.com
-          commit_message: "chore(telemetry): backup ${{ inputs.artifact_name }} [${{ inputs.target_branch }}] run ${{ github.run_id }}"
+          commit_message: ${{ steps.commit_msg.outputs.message }}
           file_pattern: docs/governanca/telemetry/backup_dr_history.json
 
       - name: Gate — pipeline, ficheiro BEA1 e upload obrigatórios

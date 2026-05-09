@@ -78,9 +78,19 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ (github.ref_name == 'main' && 'production') || (github.ref_name == 'staging' && 'staging') || 'develop' }}
     steps:
+      - uses: actions/checkout@v4
+
       - name: Hora UTC
         id: utc
         run: echo "ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Preparar e-mail de falha (resumo + HTML)
+        run: |
+          python3 scripts/gha_email_backup_alarm.py \
+            --tier hourly \
+            --ts "${{ steps.utc.outputs.ts }}" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --run-id "${{ github.run_id }}"
 
       - name: E-mail — falha de backup
         uses: dawidd6/action-send-mail@v3
@@ -90,15 +100,8 @@ jobs:
           secure: true
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "(Atenção) Falha de backup HOURLY (BeaBa) — ver matriz no Actions"
+          subject: "🔴 FALHA | Backup HOURLY | ${{ steps.utc.outputs.ts }} | ver Actions"
           to: ivanzimmbarros@gmail.com
           from: ${{ secrets.EMAIL_FROM }}
-          body: |
-            Falha no workflow backup_hourly (matrix: develop / staging / main no agendamento; uma branch no push).
-
-            Hora (UTC): ${{ steps.utc.outputs.ts }}
-            Origem do e-mail: job «notify-failure» em backup_hourly.yml após falha do job reutilizável.
-
-            Ver qual célula da matriz falhou: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-            Passos com prefixo [backup_encrypt_callable / Gate] e notices no sumário do job indicam a branch.
+          body: file://gha_backup_fail_plain.txt
+          html_body: file://gha_backup_fail_body.html

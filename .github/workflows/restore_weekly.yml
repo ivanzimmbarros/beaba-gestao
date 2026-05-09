@@ -110,6 +110,43 @@ jobs:
           BEABA_GHA_TARGET_BRANCH: ${{ matrix.target_branch }}
         run: python scripts/e17_1_telemetry.py append-restore
 
+      - name: Mensagem de commit legível (assunto do e-mail GitHub)
+        id: commit_msg
+        if: always()
+        shell: bash
+        env:
+          BR: ${{ matrix.target_branch }}
+          DL: ${{ steps.dl.outcome }}
+          RST: ${{ steps.restore.outcome }}
+        run: |
+          set -euo pipefail
+          TS=$(date -u +'%Y-%m-%d %H:%M UTC')
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          RID="${{ github.run_id }}"
+          if [[ "${DL}" == "success" && "${RST}" == "success" ]]; then
+            ICON="✅"; STAT="SUCESSO"
+          else
+            ICON="🔴"; STAT="FALHA"
+          fi
+          LINE1="${ICON} ${STAT} | Restore de prova WEEKLY | branch ${BR} | ${TS}"
+          REST=$(cat <<EOF
+
+          --- Detalhes técnicos ---
+          Workflow: restore_weekly.yml (job matrix)
+          Branch-alvo: ${BR}
+          Download artefacto hourly: ${DL} | Restore de prova (script): ${RST}
+          Run ID: ${RID}
+          Run URL: ${RUN_URL}
+          chore(telemetry): backup_dr_history.json
+          EOF
+          )
+          FULL="${LINE1}${REST}"
+          {
+            echo "message<<BEABA_COMMIT_MSG_EOF"
+            printf '%s\n' "${FULL}"
+            echo "BEABA_COMMIT_MSG_EOF"
+          } >> "${GITHUB_OUTPUT}"
+
       - name: Commit backup_dr_history.json → ${{ matrix.target_branch }}
         if: always()
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -117,5 +154,5 @@ jobs:
           branch: ${{ matrix.target_branch }}
           commit_user_name: github-actions[bot]
           commit_user_email: github-actions[bot]@users.noreply.github.com
-          commit_message: "chore(telemetry): restore weekly [${{ matrix.target_branch }}] run ${{ github.run_id }}"
+          commit_message: ${{ steps.commit_msg.outputs.message }}
           file_pattern: docs/governanca/telemetry/backup_dr_history.json
