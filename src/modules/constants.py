@@ -31,6 +31,12 @@ VENDAS_UI_MODALIDADES_PAGAMENTO_LINHA: tuple[str, ...] = ("integral", "parcial",
 # --- Agendamento: rótulo PT único para `REALIZADO_PENDENTE_PGTO` (UI e mensagens) ---
 ESTADO_AGENDAMENTO_REALIZADO_PENDENTE_LABEL_PT: str = "Realizado (pendente pagamento)"
 
+# Estados incluídos em «repasse efectivo»: linhas já materializadas em `repasse_linhas` apenas com estes valores de `agendamentos.status`.
+STATUS_AGENDAMENTO_REPASSE_CONTABILIZADO: tuple[str, ...] = (
+    "CONCLUIDO",
+    "REALIZADO_PENDENTE_PGTO",
+)
+
 __all__ = [
     "SEXOS",
     "ESPECIALIDADE_PADRAO_NOME",
@@ -41,4 +47,5 @@ __all__ = [
     "ESTADO_PAGAMENTO_VENDA_LABEL_PT",
     "VENDAS_UI_MODALIDADES_PAGAMENTO_LINHA",
     "ESTADO_AGENDAMENTO_REALIZADO_PENDENTE_LABEL_PT",
+    "STATUS_AGENDAMENTO_REPASSE_CONTABILIZADO",
 ]

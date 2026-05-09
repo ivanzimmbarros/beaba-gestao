@@ -5,8 +5,10 @@ from __future__ import annotations
 import sqlite3
 from datetime import date
 
-# Estados de agendamento: concluído ou realizado com pagamento ainda incompleto (parcial).
-_STATUS_REPASSE_UI = ("CONCLUIDO", "REALIZADO_PENDENTE_PGTO")
+from src.modules.constants import STATUS_AGENDAMENTO_REPASSE_CONTABILIZADO
+
+# Estados de agendamento incluídos em consultas Financeiro ↔ repasse_linhas (fonte única de verdade dominio — ver constants).
+_STATUS_REPASSE_UI = STATUS_AGENDAMENTO_REPASSE_CONTABILIZADO
 
 # Alinhado com Colaboradores / Catálogo — serviços sem especialidade na base.
 REPASSE_ESP_SEM_LABEL = "(Sem especialidade)"
