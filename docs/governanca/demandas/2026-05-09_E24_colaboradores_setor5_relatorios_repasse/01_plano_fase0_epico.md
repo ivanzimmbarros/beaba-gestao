@@ -193,7 +193,7 @@ Botão PDF: mime `application/pdf`; filename `bea_rel_colaboradores_YYYYMMDD_HHm
 
 ## 6. Critérios de aceite formais consolidados
 
-1. ✅ Setor 5 operacional apenas após todas as permissões esperadas decididas §8-perfis RBAC (**default provável todos roles actua Colaboradores** — confirm).
+1. ✅ Setor relatório/repasse (secção §4 página Colaboradores) operacional apenas com permissões decididas §8 — **implementação: apenas `admin`**.
 2. ✅ Paridade valores: soma(DataFrame campo repasse)==soma(repasse_linhas filtradas) ±0 cêntimos.
 3. ✅ Multiselect vazio ⇒ bloqueado.
 4. ✅ PDF sempre landscape + contém resumo + tabela todas colunas obrig M11.
@@ -214,29 +214,29 @@ Botão PDF: mime `application/pdf`; filename `bea_rel_colaboradores_YYYYMMDD_HHm
 
 ## 8. Decisões a fechar obrigatoriamente ANTES primeira linha de código (Fase1 kickoff checklist)
 
-Liste fechável com Diretor quando ele der **CONFIRMO** Fase ≥1:
+**Estado:** fechamento operacional registado pelo Diretor (chat 2026-05-09). Marcadores `[x]` consolidam estas escolhas.
 
-- [ ] **RBAC**: quais perfis vê Setor 5 (admin apenas? também `colaborador` limitado próprios dados?).
-- [ ] **Timezone** relatório oficial.
-- [ ] **Inclusão estado agendamentos** (lista enumerada permissiva/blocante).
-- [ ] Formato valores monetários (€ com duas casas; locale `pt_PT`).
-- [ ] Biblioteca PDF escolhida e dependência registada (`requirements.txt` rev bump).
-- [ ] Glossário público institucional título relatório («Relatório de realização profissional e repasses» exemplo).
-- [ ] Threshold alerta período volumétrico.
-- [ ] Ordem física inserção Setor vs Disponibilidade (proposta: disponibilidade permanece topo operacional dia-a-dia; relatórios ficam antes ou depois Diretor prefere?). **Marcar na aprovação.**
+- [x] **RBAC Setor relatório repasse**: acesso **exclusivo ao perfil `admin`**. Utilizadores com perfil `usuario` **não** acedem à visão de repasse global de terceiros (alinhado ao menu atual: página Colaboradores continua só em trajectos admin quando aplicável pelo produto — o bloco de relatório adicional só renderiza quando `auth_perfil == admin`).
+- [x] **Timezone**: visualização em **Europe/Lisbon** (rótulos e composição temporal na UI/PDF); a granularidade física persistida mantém‑se conforme modelo actual da BD até migrações dedicadas («fonte técnica em UTC onde aplicável nos campos já existentes» — ver docstring `colaboradores_relatorio`).
+- [x] **Inclusão de agendamentos no cálculo de repasse**: apenas estados **`CONCLUIDO`** e **`REALIZADO_PENDENTE_PGTO`** («Realizado (pendente pagamento)» na UI); **excluem‑se** `CANCELADO`, `AGENDADO`, `PRE_AGENDADO`, `CONFIRMADO`, etc., para contagens monetárias deste relatório.
+- [x] **Formato monetário**: valores em **EUR** com **duas casas decimais** e vírgula decimal na apresentação `pt_PT` (consistente com o sector Financeiro / repasses).
+- [x] **Biblioteca PDF**: **`fpdf2`** registada em `requirements.txt`; relatório **landscape (A4 paisagem)**.
+- [x] **Glossário / título canónico (UI + PDF)** — rótulos finos passíveis de harmonização institucional: **«Relatório de realização e repasses por colaborador»**.
+- [ ] Threshold alerta período volumétrico (>12 meses, etc.) — **adiado** a ciclo QA Fase 5–7 (valor numérico ainda não imposto pelo Diretor).
+- [x] **Ordem física na página**: bloco novo **entre** «3. Disponibilidade…» e o cadastro: secção numerada **`4.`** para relatórios; **«Cadastro de novo colaborador»** passa a **`5.`** para preservar ordenação lexical coerente.
+- [x] **Cadeia catálogo (agrupamento analítico)**: hierarquia **Especialidade → Serviço** nas quebras/resumos onde o domínio o exige (Fase 3 catálogo), com serviços sem especialidade alinhados ao sentinel `(Sem especialidade)` já utilizado na equipa Financeira.
 
 ---
 
 ## 9. Estado
 
-**Estado épico:** Fase 0 — **plano apenas**. Nenhuma implementação iniciada até **aprovação formal explícita** do Diretor (por texto no chat autorizando fase seguinte conforme política projeto).
+**Estado épico:** §8 **fechado** quanto aos itens marcados `[x]`; implementação iniciada (`develop`) com código alinhado a essas decisões. Itens opcionais/adiados mantêm `[ ]`.
 
 ---
 
-## 10. Pedido oficial ao Diretor (fecho Fase 0)
+## 10. Pedido oficial ao Diretor (fecho Fase 0 — histórico)
 
-Confirme por texto:
+Registo archive: comando **«PROSSIGA»** autorizando versionamento inicial do plano; posteriormente decisões §8 aplicadas pelo Diretor por texto (RBAC admin, fpdf2, filtros de estado agenda, TZ Lisboa na UI/PDF).
 
-1. **Faseamento** §5 (Ajustar ou aceitar textualmente).  
-2. **Lista §8 decisões obrigatórias** antes Fase 1 — preencher ou autorizar placeholders propostos.  
-3. **Autorização** para escrever Fase 1 após comando **CONFIRMO** ou **PROSSIGA FASE 1**.
+---
+**Próximo acto institucional (quando aplicável):** apenas fechar o item §8 pendente «threshold período volumétrico» e completar QA Fases 6–7 do épico antes de marca **CONCLUÍDO** em `status_demanda.json`.
