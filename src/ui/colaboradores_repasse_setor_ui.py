@@ -20,6 +20,7 @@ from src.modules.colaboradores_relatorio import (
     listar_servicos_opcoes_relatorio,
     linhas_para_grid_pdf,
 )
+from src.modules.colaboradores_relatorio_pdf import montar_pdf_relatorio_repasse_landscape
 
 _MODO_SEQUENCE: tuple[ModoDimensaoRepasse, ModoDimensaoRepasse, ModoDimensaoRepasse] = (
     "especialidade",
