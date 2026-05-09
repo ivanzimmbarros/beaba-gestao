@@ -65,7 +65,18 @@
 
 ## 2. Mapa completo da suite (regressão global — não só último épico)
 
-**Total actual (auditoria 2026-04-16, camada 3 Smoke UI):** **238** testes — `python -m pytest tests/ -v` (requer `pytest.ini` para colectar `smoke_test_ui.py`).
+**Total actual (auditoria 2026-05-09, suite completa venv):** **329** testes — `python -m pytest tests/ -v` (requer `pytest.ini` para colectar `smoke_test_ui.py`).
+
+### 2.0 Colaboradores E24 — relatório global de repasse + PDF (2026-05-09)
+
+| Camada | Ficheiros / testes |
+|:---|:---|
+| Unitário / domínio | `tests/test_colaboradores_relatorio.py` (`listar_linhas_*`, `agregar_metricas_*`, `linhas_para_grid_pdf`, PDF magic bytes, cabeçalho última coluna «Estado Pgto. Repasse») |
+| Contrato UI (ficheiro-fonte) | `tests/col_ui_contract.py` — `assert_col_relatorio_global_repasse_e24_contract`; `tests/test_col_visual_sereno.py::test_col_relatorio_global_repasse_e24_contrato` |
+| Smoke UI (camada 3) | `tests/smoke_test_ui.py::test_smoke_colaboradores_relatorio_repasse_setor_widgets` (datas período, multiselect dimensão default, CTA Gerar) |
+| E2E lógica / contrato | `tests/e2e_stress_test.py` — `_run_cag_consolidated_slice` (strings E24 em `colaboradores_repasse_setor_ui` + `colaboradores_relatorio.py`); `test_e2e_col_visual_shell_contract` inclui `assert_col_relatorio_global_repasse_e24_contract` |
+
+**Total histórico (auditoria 2026-04-16, referência):** 238 testes antes do alargamento contínuo da suite.
 
 | Ficheiro | Âmbito de negócio / técnico |
 |:---|:---|
