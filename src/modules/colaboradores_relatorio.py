@@ -290,7 +290,7 @@ def linhas_para_grid_pdf(rows: list[LinhaRelatorioRepasse]) -> list[list[str]]:
         "Repasse pactuado (%)",
         "Valor atend.",
         "Repasse (EUR)",
-        "Estado pgto.",
+        "Estado Pgto. Repasse",
     ]
     body: list[list[str]] = []
     for row in rows:

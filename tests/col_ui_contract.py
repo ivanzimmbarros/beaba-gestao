@@ -91,3 +91,23 @@ def assert_col_disponibilidade_setor_na_pagina() -> None:
     assert "bea-col-disp-flag" in sh
     assert "filt_resumo" in ui
     assert "listar_colaboradores_mapa_equipa(ids_nat)" in ui
+
+
+def assert_col_relatorio_global_repasse_e24_contract() -> None:
+    """E24 — Secção 4 (admin): UI `colaboradores_repasse_setor_ui`, domínio/PDF alinhados aos rótulos contractuais."""
+    root = Path(__file__).resolve().parents[1]
+    rp = (root / "src" / "ui" / "colaboradores_repasse_setor_ui.py").read_text(encoding="utf-8")
+    dom = (root / "src" / "modules" / "colaboradores_relatorio.py").read_text(encoding="utf-8")
+    pdfm = (root / "src" / "modules" / "colaboradores_relatorio_pdf.py").read_text(encoding="utf-8")
+    assert "4. Relatórios globais de repasse por colaborador" in rp
+    assert "Descarregar Relatorio" in rp
+    assert "Total de Registros de Atendimento Listados:" in rp
+    assert "Resumo Quadro de Repasses dos Atendimentos Selecionados" in rp
+    assert 'st.metric("Total de Atendimentos Listados"' in rp
+    assert "Relatorio de Calculo de Atendimentos e Repasses BeaBa - " in rp
+    assert "montar_pdf_relatorio_repasse_landscape" in rp
+    assert "Relatório Consolidado de Cálculo de Repasses - BeaBá" in rp
+    assert "Especialidades seleccionadas" in rp
+    assert "obrigatório" not in rp.lower()
+    assert "Estado Pgto. Repasse" in dom
+    assert "Filtros Aplicados" in pdfm

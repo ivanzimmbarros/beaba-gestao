@@ -117,6 +117,22 @@ def test_listar_linhas_modo_colaborador_vs_servico(rep_conn_cr) -> None:
     assert met["global"]["repasse_cent"] == sum(r["valor_repasse_centavos"] for r in rows_col)
 
 
+def test_linhas_para_grid_pdf_ultima_coluna_estado_repasse(rep_conn_cr) -> None:
+    """Contrato PDF E24: cabeçalho da última coluna alinhado ao documento institucional."""
+    _cid, sid = _seed_repasse_row(rep_conn_cr)
+    rows = listar_linhas_relatorio_repasse_global(
+        rep_conn_cr,
+        data_ini=date(2026, 1, 1),
+        data_fim=date(2026, 12, 31),
+        modo="servico",
+        especialidades_escolhidas=None,
+        servico_ids=[sid],
+        colaborador_ids=None,
+    )
+    grid = linhas_para_grid_pdf(rows)
+    assert grid and grid[0][-1] == "Estado Pgto. Repasse"
+
+
 def test_pdf_landscape_pdf_magic_bytes(rep_conn_cr) -> None:
     """Requer Arial/DejaVu no hospedeiro; caso contrário é skip declarado."""
     _cid, sid = _seed_repasse_row(rep_conn_cr)

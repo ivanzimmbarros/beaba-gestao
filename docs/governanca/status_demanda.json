@@ -39,7 +39,8 @@
       "resultado_2026_04_20_col_disponibilidade": "282 passed — Colaboradores: disponibilidade operacional (`colaborador_disponibilidade_plano` + `colaborador_disponibilidade_regra`, índices SQLite); `colaborador_disponibilidade.py`; UI `colaboradores_disponibilidade_ui.py` (ilha `bea-col-disp-flag`, expanders 3.1–3.3, calendário `bea-proto-scope`); `test_colaborador_disponibilidade.py`; `assert_col_disponibilidade_setor_na_pagina`; smoke `test_smoke_colaboradores_disponibilidade_sector`; E2E `test_e2e_col_visual_shell_contract`; seed wipe + `e17_1_sqlite_evidence` critical + docstrings backup/restore.",
       "resultado_2026_05_07_governance_cloud_dr": "(ver relatório ciclo QA) — Governança Sereno prod (`bea-cv-gov-slot`, `inject_constituicao_gov_page`, RBAC admin); núcleo DR `backup_sync_cloud` / `scheduler` / `restore_test_drill` / `sqlite_backup_verify` CLI; unit `tests/test_backup_drill_contract.py` + contrato `tests/gov_ui_contract.py`; smoke `test_smoke_governanca_admin_sector_widgets`; E2E `test_e2e_governanca_backup_visual_shell_contract`; CI `backup-health-main`; docstrings backup/restore cruzadas.",
       "resultado_2026_05_08_mfa_smtp": "302 passed — MFA/SMTP: `src/modules/email_utils.py` (Gmail predef., aliases `EMAIL_*`); unit `tests/test_email_utils.py` (+ mocks 465/587); smoke `test_smoke_auth_login_screen_boots`; E2E `test_e2e_mfa_email_smtp_contract`; docstrings backup/restore (`restore_sqlite`, `backup_sqlite_hourly`, `restore_operacional_de_copia`, `backup_sync_cloud`, `sqlite_backup_verify`, `restore_test_drill`, `e17_1_gha_restore_job`, `generate_e17_restore_certificate`); `page_auth` mensagem `.env`; suite `pytest tests/` venv 100%.",
-      "resultado_2026_05_09_col_repasse_e24": "327 passed — Colaboradores E24 relatório global repasse: `colaboradores_relatorio` + PDF fpdf2 landscape; UI secção 4 só admin (`colaboradores_repasse_setor_ui`); agendas `STATUS_AGENDAMENTO_REPASSE_CONTABILIZADO`; testes `test_colaboradores_relatorio.py` + COL contract + smoke + slice E20 col hero/boundary referência `page_colaboradores`/módulo repasse UI."
+      "resultado_2026_05_09_col_repasse_e24": "327 passed — Colaboradores E24 relatório global repasse: `colaboradores_relatorio` + PDF fpdf2 landscape; UI secção 4 só admin (`colaboradores_repasse_setor_ui`); agendas `STATUS_AGENDAMENTO_REPASSE_CONTABILIZADO`; testes `test_colaboradores_relatorio.py` + COL contract + smoke + slice E20 col hero/boundary referência `page_colaboradores`/módulo repasse UI.",
+      "resultado_2026_05_09_suite_e24_contratos_backup": "329 passed — Reforço QA E24: `assert_col_relatorio_global_repasse_e24_contract`, `test_col_relatorio_global_repasse_e24_contrato`, `test_linhas_para_grid_pdf_ultima_coluna_estado_repasse`, smoke E24 (datas + multiselect Especialidades), fatia E20 `_run_cag_consolidated_slice` + `test_e2e_col_visual_shell_contract`; docstrings `backup_sqlite_hourly.py`, `restore_sqlite.py`, `restore_operacional_de_copia.py`, `backup_sync_cloud.py`; comando `venv\\Scripts\\python.exe -m pytest tests/ -v` 100%."
     },
     "backup_restore": {
       "nuvem_codigo": "Artefactos encriptados GHA + telemetria backup_dr_history.json — cópia integral SQLite em backup horário (.gitignore *.db intencional).",
@@ -213,14 +214,14 @@
   "pc_foco": "PC1–PC2",
   "percurso": "normal",
   "ultima_entrega_marco": "E18",
-  "live_status": "2026-05-08 — MFA/SMTP entregue em `origin/develop` (commit ab552d52, pós-rebase); suite pytest 302 passed local; aguardar GitHub Actions verdes.",
+  "live_status": "2026-05-09 — Suite pytest `tests/` 329 passed (venv); contratos E24 + smoke + E2E col + docstrings backup/restore actualizados; push `origin/develop` pendente de credenciais/CI no ambiente do Diretor.",
   "etapas_pendentes": [
     "Confirmar no GitHub Actions: FLUXO OFICIAL DE GOVERNANCA + Validador Maestro V2 em develop.",
     "Diretor: homologar PDV vs protótipo (semáforo visível, comanda spa). Sem OK → sem avançar módulos.",
     "E22: após OK — um único módulo seguinte (ex. Catálogo / Agendamentos).",
     "Encerramento futuro E22: `python tests/e2e_stress_test.py` (≥1000 iterações) + `tests/last_stress_report.txt` sem bloqueios (além da suite pytest)."
   ],
-  "live_actualizado_iso": "2026-05-09T00:45:00Z",
+  "live_actualizado_iso": "2026-05-09T22:35:00Z",
   "epico_cockpit_boas_vindas": {
     "status": "CONCLUÍDO",
     "data_iso": "2026-04-12",

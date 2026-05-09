@@ -18,7 +18,8 @@ Referência técnica: `streamlit.testing.v1.AppTest` (Streamlit ≥ 1.28; projet
 Colaboradores — **Dados da Parceria:** `test_smoke_colaboradores_dados_parceria_ficha_widgets` confirma na ficha os
 selects obrigatórios (actividade económica / contrato), IBAN e documento complementar na linha do NIF
 (`page_colaboradores.py` + `colaborador.py`). **Disponibilidade:** `test_smoke_colaboradores_disponibilidade_sector`
-confirma expanders 3.1–3.3 e filtros do calendário mestre.
+confirma expanders 3.1–3.3 e filtros do calendário mestre. **E24 Repasse global:** `test_smoke_colaboradores_relatorio_repasse_setor_widgets`
+confirma filtros de período, dimensão, multiselect e CTA «Gerar relatório de repasses» na rota Colaboradores (admin).
 
 **Autenticação / MFA:** `test_smoke_auth_login_screen_boots` — ecrã de login Sereno (sem sessão autenticada; não envia SMTP).
 
@@ -209,8 +210,13 @@ def test_smoke_colaboradores_relatorio_repasse_setor_widgets() -> None:
     _prep_sessao_autenticada_smoke(at, "colaboradores")
     at.run()
     _assert_app_tree_clean(at, context="Colaboradores — relatório global repasse (setor 4)")
+    lbl_di = [str(getattr(d, "label", "") or "") for d in at.get("date_input")]
+    assert any("Data início (período)" in x for x in lbl_di), lbl_di
+    assert any("Data fim (período)" in x for x in lbl_di), lbl_di
     lbl_sb = [str(getattr(sb, "label", "") or "") for sb in at.get("selectbox")]
     assert "Dimensão de filtro exclusiva para o relatório" in lbl_sb
+    lbl_ms = [str(getattr(m, "label", "") or "") for m in at.get("multiselect")]
+    assert any(x == "Especialidades seleccionadas" for x in lbl_ms), lbl_ms
     btn_lbl = [str(getattr(b, "label", "") or "") for b in at.get("button")]
     assert "Gerar relatório de repasses" in btn_lbl
 

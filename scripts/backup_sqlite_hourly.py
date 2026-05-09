@@ -56,6 +56,12 @@ Colaboradores — **Disponibilidade** (2026-04+): tabelas `colaborador_disponibi
 `tests/test_colaborador_disponibilidade.py`, `assert_col_disponibilidade_setor_na_pagina`, smoke
 `test_smoke_colaboradores_disponibilidade_sector`; `scripts/seed_validacao_massiva.py` apaga/repõe estas tabelas no wipe.
 
+Colaboradores — **E24 relatório global repasse** (2026-05): dados em `repasse_linhas` / `agendamentos` (D1 integral);
+`src/modules/colaboradores_relatorio.py`, `colaboradores_relatorio_pdf.py`, `src/ui/colaboradores_repasse_setor_ui.py`
+(secção 4 em `page_colaboradores.py`, RBAC admin); regressão `tests/test_colaboradores_relatorio.py`,
+`assert_col_relatorio_global_repasse_e24_contract` (`tests/col_ui_contract.py`), smoke
+`test_smoke_colaboradores_relatorio_repasse_setor_widgets`, fatia E20 `_run_cag_consolidated_slice` / `test_e2e_col_visual_shell_contract`.
+
 Governança prod + Cloud DR (2026-05): página `src/ui/page_governanca.py` (Sereno `bea-cv-gov-slot` + `inject_constituicao_gov_page`),
 fluxo `backup_sync_cloud.py`, orquestrador `scheduler.py`, drill `restore_test_drill.py`, verificação final `sqlite_backup_verify.py` (CLI);
 regressão `tests/gov_ui_contract.py`, `tests/test_backup_drill_contract.py`,

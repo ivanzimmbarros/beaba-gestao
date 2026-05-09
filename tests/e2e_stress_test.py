@@ -438,6 +438,17 @@ def _run_cag_consolidated_slice(cliente_id: int, ag_id: int) -> str | None:
         return "col: relatório global repasse (E24/render admin) ausente em page_colaboradores"
     if "Gerar relatório de repasses" not in pcol_rep:
         return "col: CTA relatório global repasse (texto obrig.) ausente no módulo UI E24"
+    if "Descarregar Relatorio" not in pcol_rep:
+        return "col: E24 botão PDF — rótulo «Descarregar Relatorio» ausente"
+    if "Total de Registros de Atendimento Listados:" not in pcol_rep:
+        return "col: E24 mensagem pós-geração (total registos) ausente"
+    if "Resumo Quadro de Repasses dos Atendimentos Selecionados" not in pcol_rep:
+        return "col: E24 cabeçalho bloco KPI/resumo ausente"
+    if "Relatorio de Calculo de Atendimentos e Repasses BeaBa - " not in pcol_rep:
+        return "col: E24 prefixo nome ficheiro PDF ausente"
+    pcol_rel = (repo / "src" / "modules" / "colaboradores_relatorio.py").read_text(encoding="utf-8")
+    if "Estado Pgto. Repasse" not in pcol_rel:
+        return "col: E24 cabeçalho última coluna PDF ausente em colaboradores_relatorio.py"
     if "5. Cadastro de novo colaborador" not in pcol:
         return "col: renumeracao sector cadastro esperada (5.) após inserção do relatório E24"
 
@@ -732,6 +743,7 @@ def test_e2e_col_visual_shell_contract() -> None:
         assert_col_ficha_contacto_grupo_telefone,
         assert_col_mapa_equipa_na_pagina,
         assert_col_pesquisa_unificada_na_pagina,
+        assert_col_relatorio_global_repasse_e24_contract,
     )
     from tests.smoke_test_ui import (
         test_smoke_colaboradores_dados_parceria_ficha_widgets,
@@ -746,6 +758,7 @@ def test_e2e_col_visual_shell_contract() -> None:
     test_smoke_colaboradores_disponibilidade_sector()
     assert_col_mapa_equipa_na_pagina()
     assert_col_disponibilidade_setor_na_pagina()
+    assert_col_relatorio_global_repasse_e24_contract()
 
 
 def test_e2e_cat_visual_shell_contract() -> None:

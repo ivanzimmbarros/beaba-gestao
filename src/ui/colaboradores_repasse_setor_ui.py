@@ -1,4 +1,4 @@
-"""E24 — Secção Streamlit «4. Relatórios globais de repasse por colaborador» (somente perfil administrador)."""
+"""E24 — Secção Streamlit «4. Relatórios globais de repasse por colaborador»."""
 
 from __future__ import annotations
 
@@ -9,7 +9,6 @@ import streamlit as st
 
 from src.database.connection import get_connection
 from src.modules.colaboradores_relatorio import (
-    LABEL_TECNICO_TZ_PT,
     MODOS_REPASSE_LEGIVEL_PT,
     ModoDimensaoRepasse,
     agregar_metricas_repasse_linhas,
@@ -44,8 +43,7 @@ def render_setor4_relatorio_repasse_admin(*, fk: str) -> None:
     )
     st.markdown(
         '<div class="bea-col-setor-rel-titulo" data-testid="bea-col-setor-rel-titulo">'
-        "<strong>4. Relatórios globais de repasse por colaborador</strong> "
-        "<span style=\"font-size:0.82rem;opacity:.75\">(somente perfil administrador)</span>"
+        "<strong>4. Relatórios globais de repasse por colaborador</strong>"
         "</div>",
         unsafe_allow_html=True,
     )
@@ -94,7 +92,7 @@ def render_setor4_relatorio_repasse_admin(*, fk: str) -> None:
 
     if modo_k == "especialidade":
         sel_txt = st.multiselect(
-            "Especialidades seleccionadas (obrigatório ≥1)",
+            "Especialidades seleccionadas",
             options=especialidades_opc,
             key=f"{fk}_rep_esps_ms",
             placeholder="Escolha uma ou várias especialidades…",
@@ -102,7 +100,7 @@ def render_setor4_relatorio_repasse_admin(*, fk: str) -> None:
         sel_esps = list(sel_txt)
     elif modo_k == "servico":
         sel_srv_ids_ui = st.multiselect(
-            "Serviços seleccionados (obrigatório ≥1)",
+            "Serviços seleccionados",
             options=srv_opc_ids,
             format_func=lambda sid: next((n for s, n in serv_opc if s == sid), str(sid)),
             key=f"{fk}_rep_srv_ms",
@@ -111,7 +109,7 @@ def render_setor4_relatorio_repasse_admin(*, fk: str) -> None:
         sel_srv_ids = [int(x) for x in sel_srv_ids_ui]
     else:
         sel_c_ui = st.multiselect(
-            "Colaboradores seleccionados (obrigatório ≥1)",
+            "Colaboradores seleccionados",
             options=[cid for cid, _ in colab_opc],
             format_func=lambda cid: colab_nome_map.get(int(cid), str(cid)),
             key=f"{fk}_rep_col_ms",
@@ -185,7 +183,7 @@ def render_setor4_relatorio_repasse_admin(*, fk: str) -> None:
     sel_srv_eff = meta.get("sel_srv_ids") if modo_k_eff == "servico" else None
     sel_cols_eff = meta.get("sel_cids") if modo_k_eff == "colaborador" else None
 
-    st.success(f"{len(rows)} linha(s) materializada(s) em `repasse_linhas`.")
+    st.success(f"Total de Registros de Atendimento Listados: {len(rows)}")
 
     ordenado_cols = (
         "Colaborador",
@@ -219,10 +217,13 @@ def render_setor4_relatorio_repasse_admin(*, fk: str) -> None:
 
     met = agregar_metricas_repasse_linhas(rows)
     gb = met["global"]
-    st.markdown("##### KPI resumo período", unsafe_allow_html=True)
+    st.markdown(
+        "##### Resumo Quadro de Repasses dos Atendimentos Selecionados",
+        unsafe_allow_html=True,
+    )
     kpi1, kpi2, kpi3, kpi4 = st.columns(4)
     with kpi1:
-        st.metric("Linhas relatório", f"{gb['n_linhas']}")
+        st.metric("Total de Atendimentos Listados", f"{gb['n_linhas']}")
     with kpi2:
         st.metric("Total repasse", formato_euro_centavos_pt(gb["repasse_cent"]))
     with kpi3:
@@ -233,16 +234,15 @@ def render_setor4_relatorio_repasse_admin(*, fk: str) -> None:
     pdf_rows = linhas_para_grid_pdf(rows)
 
     filtros_txt = [
-        f"Título relatório institucional: realização profissional e repasses ({LABEL_TECNICO_TZ_PT})",
         (
-            "Período inclusivo (campo `data_agendamento` SQLite): "
+            "Periodo Selecionado: "
             f"{d_ini_eff.strftime('%d/%m/%Y')} — {d_fim_eff.strftime('%d/%m/%Y')}"
         ),
-        f"Dimensão activa: {MODOS_REPASSE_LEGIVEL_PT[modo_k_eff]}",
+        f"Filtro Selecionado: {MODOS_REPASSE_LEGIVEL_PT[modo_k_eff]}",
     ]
     if modo_k_eff == "especialidade" and isinstance(sel_esps_eff, list):
         filtros_txt.append(
-            "Especialidades aplicadas ao filtro SQL: " + "; ".join(str(x) for x in sel_esps_eff)
+            "Lista de Especialidades selecionadas: " + "; ".join(str(x) for x in sel_esps_eff)
         )
     elif modo_k_eff == "servico" and isinstance(sel_srv_eff, list):
         nomes_srv: list[str] = []
@@ -253,56 +253,59 @@ def render_setor4_relatorio_repasse_admin(*, fk: str) -> None:
                 nomes_srv.append(f"{sx} ({nom})")
             except (TypeError, ValueError):
                 nomes_srv.append(str(sid))
-        filtros_txt.append("Serviços aplicados ao filtro SQL: " + "; ".join(nomes_srv))
+        filtros_txt.append("Lista de Serviços selecionados: " + "; ".join(nomes_srv))
     elif modo_k_eff == "colaborador" and isinstance(sel_cols_eff, list):
         nomes_co = []
         for cid in sel_cols_eff:
             try:
                 ix = int(cid)
                 nom = colab_nome_map.get(ix, str(ix))
-                nomes_co.append(f"{nom} #{ix}")
+                nomes_co.append(str(nom))
             except (TypeError, ValueError):
                 nomes_co.append(str(cid))
-        filtros_txt.append("Colaboradores aplicados ao filtro SQL: " + "; ".join(nomes_co))
+        filtros_txt.append("Lista de Colaboradores selecionados: " + "; ".join(nomes_co))
 
     resumo_linhas = [
-        f"Linhas incluídas: {gb['n_linhas']}",
-        f"Soma base atendimento (referência técnica `base_calculo_centavos`): "
+        f"Quantidade de Atendimentos listados: {gb['n_linhas']}",
+        "Receita Total dos Atendimentos Realizados: "
         f"{formato_euro_centavos_pt(gb['base_cent'])}",
         (
-            "Soma repasse segundo `repasse_linhas.valor_repasse_centavos`: "
+            "Valor total de Repasse: "
             f"{formato_euro_centavos_pt(gb['repasse_cent'])} "
-            f"— já pago: {formato_euro_centavos_pt(gb['repasse_pago_cent'])} | "
-            f"pendente: {formato_euro_centavos_pt(gb['repasse_pend_cent'])}"
+            f"— Pgto Realizado: {formato_euro_centavos_pt(gb['repasse_pago_cent'])} | "
+            f"Pgto Pendente: {formato_euro_centavos_pt(gb['repasse_pend_cent'])}"
         ),
     ]
     for esp, buck in met["por_especialidade"].items():
         resumo_linhas.append(
-            f"[Área especialidade] {esp} — linhas {buck['n_linhas']}; repasse "
-            f"{formato_euro_centavos_pt(buck['repasse_cent'])} "
-            f"(pago {formato_euro_centavos_pt(buck['repasse_pago_cent'])} / "
-            f"pendente {formato_euro_centavos_pt(buck['repasse_pend_cent'])})"
+            f"Resumo por Especialidade: {esp} — Total de Atendimentos: {buck['n_linhas']}; "
+            f"Valor Previsto de Repasse: {formato_euro_centavos_pt(buck['repasse_cent'])} "
+            f"(Total Repasses Pago {formato_euro_centavos_pt(buck['repasse_pago_cent'])} / "
+            f"Total Repasses Pendente pgto: {formato_euro_centavos_pt(buck['repasse_pend_cent'])})"
         )
     for srv, buck in met["por_servico"].items():
         resumo_linhas.append(
-            f"[Serviço] {srv} — linhas {buck['n_linhas']}; repasse "
-            f"{formato_euro_centavos_pt(buck['repasse_cent'])} "
-            f"(pago / pendente: {formato_euro_centavos_pt(buck['repasse_pago_cent'])} / "
+            f"Resumo por Serviço: {srv} — Total de Atendimentos: {buck['n_linhas']}; "
+            f"Valor Previsto de Repasse {formato_euro_centavos_pt(buck['repasse_cent'])} "
+            f"(Total Repasse Pago / Total Repasses Pendente pgto: "
+            f"{formato_euro_centavos_pt(buck['repasse_pago_cent'])} / "
             f"{formato_euro_centavos_pt(buck['repasse_pend_cent'])})"
         )
 
     try:
-        nome_pdf = datetime.now().strftime("bea_rel_colaboradores_%Y%m%d_%H%M.pdf")
+        nome_pdf = (
+            "Relatorio de Calculo de Atendimentos e Repasses BeaBa - "
+            + datetime.now().strftime("%Y%m%d_%H%M%S")
+            + ".pdf"
+        )
         pdf_bytes = montar_pdf_relatorio_repasse_landscape(
-            titulo=(
-                "Relatório de realização profissional e repasses por colaborador — BeaBa Gestão"
-            ),
+            titulo="Relatório Consolidado de Cálculo de Repasses - BeaBá",
             meta_filtros_texto=filtros_txt,
             resumo_texto=resumo_linhas,
             linhas_tabela=pdf_rows,
         )
         st.download_button(
-            label="Descarregar PDF (paisagem)",
+            label="Descarregar Relatorio",
             data=pdf_bytes,
             file_name=nome_pdf,
             mime="application/pdf",

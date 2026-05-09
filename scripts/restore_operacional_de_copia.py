@@ -18,11 +18,13 @@ Arquitectura UI (2026-04-12): páginas legadas Clientes/Agendamentos substituíd
 Após recuperação, validar UI CAG Setor 4 (listagem dentro do expander «Agendamentos») com
 `tests/cag_setor4_ui_contract.py` / pytest nos ficheiros de teste CAG; Vendas `tests/vnd_ui_contract.py`;
 Colaboradores `tests/col_ui_contract.py` + smoke `test_smoke_colaboradores_dados_parceria_ficha_widgets` +
-`test_smoke_colaboradores_disponibilidade_sector` + `tests/test_colaborador_disponibilidade.py` (tabelas `colaborador_disponibilidade_*` em D1);
+`test_smoke_colaboradores_disponibilidade_sector` + `test_smoke_colaboradores_relatorio_repasse_setor_widgets` +
+`tests/test_colaborador_disponibilidade.py` (tabelas `colaborador_disponibilidade_*` em D1); E24 repasse global
+(`colaboradores_relatorio`, `assert_col_relatorio_global_repasse_e24_contract`, `test_colaboradores_relatorio.py`);
 Catálogo `tests/cat_ui_contract.py`; Início `tests/home_ui_contract.py`;
 Financeiro `tests/fin_ui_contract.py`, `tests/test_fin_visual_sereno.py`, `tests/test_financeiro_resultado_operacional.py`,
 `tests/test_financeiro_repasses_colaboradores.py` (sector **1. Resultado Operacional** + **3. Repasses**; UI repasse filtra colaboradores por habilitação ao serviço; cópia `.db` inclui `especialidades` / `servicos`, `colaboradores` com colunas **Dados da Parceria**).
-Smoke UI: `tests/smoke_test_ui.py` (`test_smoke_colaboradores_dados_parceria_ficha_widgets`, `test_smoke_colaboradores_disponibilidade_sector`, `test_smoke_financeiro_repasses_multiselect_chain`, `test_smoke_financeiro_resultado_operacional_panel`, `test_smoke_auth_login_screen_boots`) + `pytest.ini`. Catálogo: wizard tipo→confirmação em `page_catalogo.py`.
+Smoke UI: `tests/smoke_test_ui.py` (`test_smoke_colaboradores_dados_parceria_ficha_widgets`, `test_smoke_colaboradores_disponibilidade_sector`, `test_smoke_colaboradores_relatorio_repasse_setor_widgets`, `test_smoke_financeiro_repasses_multiselect_chain`, `test_smoke_financeiro_resultado_operacional_panel`, `test_smoke_auth_login_screen_boots`) + `pytest.ini`. Catálogo: wizard tipo→confirmação em `page_catalogo.py`.
 MFA/SMTP (2026-05): `tests/test_email_utils.py`, `e2e_stress_test.py::test_e2e_mfa_email_smtp_contract`; credenciais em `.env` apenas.
 """
 

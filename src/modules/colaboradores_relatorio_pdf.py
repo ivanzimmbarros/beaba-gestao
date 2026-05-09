@@ -1,4 +1,4 @@
-"""PDF landscape (fpdf2): relatório E24 repasse, paridade com consulta SQLite."""
+"""PDF landscape (fpdf2): relatório E24 repasse com texto íntegro (quebra linha sem truncar)."""
 
 from __future__ import annotations
 
@@ -33,9 +33,137 @@ def _fonte_ttf_unicode() -> Path:
     )
 
 
-def _encaixar(txt: object, n: int) -> str:
-    s = str(txt or "").replace("\n", " ").replace("\r", "").strip()
-    return s if len(s) <= n else s[: max(4, n - 1)] + "…"
+def _epw_safe(pdf: FPDF) -> float:
+    return float(pdf.w - pdf.l_margin - pdf.r_margin)
+
+
+def _bloco_esquerda(
+    pdf: FPDF,
+    *,
+    epub: float,
+    linhas_texto: list[str],
+    tamanho: float,
+    interline_mm: float,
+) -> None:
+    """Empilha parágrafos alinhados à esquerda, largura = área imprimível (sem texto cortado na margem)."""
+    pdf.set_x(pdf.l_margin)
+    pdf.set_font("bea_rep_pdf", size=tamanho)
+    for par in linhas_texto:
+        texto = str(par or "").replace("\r", "")
+        pdf.set_x(pdf.l_margin)
+        pdf.multi_cell(
+            epub,
+            interline_mm,
+            texto if texto.strip() else " ",
+            align="L",
+            new_x="LMARGIN",
+            new_y="NEXT",
+        )
+
+
+def _linhas_celulas_dry_run(
+    pdf: FPDF, *, largura_interna_mm: float, altura_linha_mm: float, texto: object
+) -> list[str]:
+    """Quebra texto à largura da célula (sem desenhar)."""
+    txt = str(texto if texto is not None else "").replace("\r", "").replace("\n", " ").strip()
+    if not txt:
+        return [""]
+    if largura_interna_mm <= 3:
+        largura_interna_mm = 3.0
+    out = pdf.multi_cell(
+        largura_interna_mm,
+        altura_linha_mm,
+        txt,
+        align="L",
+        dry_run=True,
+        output="LINES",
+    )
+    lines = list(out) if out else []
+    return lines if lines else [txt]
+
+
+def _tabela_linhas_com_wrap(
+    pdf: FPDF,
+    grid: list[list[str]],
+    *,
+    width_template: tuple[float, ...],
+) -> None:
+    """Tabela cabeça + dados: todas as colunas podem ocupar várias linhas; nada cortado com reticências."""
+    CELL_PAD_X = 0.9
+    CELL_PAD_Y = 0.55
+    LH_HEAD = 3.95
+    LH_BODY = 3.72
+    DISP = _epw_safe(pdf)
+    soma = sum(width_template)
+    fator = DISP / soma if soma > 0 else 1.0
+    widths_mm: tuple[float, ...] = tuple(round(w * fator, 3) for w in width_template)
+
+    for idx, row_raw in enumerate(grid):
+        padded = list(row_raw) + [""] * max(0, len(widths_mm) - len(row_raw))
+        cells = padded[: len(widths_mm)]
+
+        eh_cabeca = idx == 0
+        zebra_ok = idx > 0 and idx % 2 == 1
+
+        lh = LH_HEAD if eh_cabeca else LH_BODY
+        tam_fonte = 8.65 if eh_cabeca else 7.95
+        pdf.set_font("bea_rep_pdf", size=tam_fonte)
+
+        # número de linhas de texto por célula
+        conta_linhas_por_col: list[int] = []
+        linhas_explodidas: list[list[str]] = []
+        inner_w_each: list[float] = []
+        for col_i, dado in enumerate(cells):
+            wcol = widths_mm[col_i]
+            inner = max(4.5, float(wcol) - 2.0 * CELL_PAD_X)
+            inner_w_each.append(inner)
+            lis = _linhas_celulas_dry_run(pdf, largura_interna_mm=inner, altura_linha_mm=lh, texto=dado)
+            lista_norm = lis if lis else [""]
+            linhas_explodidas.append(lista_norm)
+            conta_linhas_por_col.append(len(lista_norm))
+
+        n_linhas_row = max(conta_linhas_por_col) if conta_linhas_por_col else 1
+        row_h_mm = CELL_PAD_Y * 2 + n_linhas_row * lh
+
+        y_page_bottom = pdf.h - pdf.b_margin
+        pdf.set_x(pdf.l_margin)
+        if pdf.get_y() + row_h_mm > y_page_bottom:
+            pdf.add_page()
+            pdf.set_font("bea_rep_pdf", size=tam_fonte)
+
+        y0 = float(pdf.get_y())
+        x_ini = float(pdf.l_margin)
+
+        if eh_cabeca:
+            pdf.set_fill_color(224, 234, 224)
+            pdf.set_draw_color(118, 148, 125)
+            pdf.set_text_color(32, 40, 35)
+        else:
+            pdf.set_draw_color(200, 200, 200)
+            pdf.set_text_color(35, 40, 36)
+            if zebra_ok:
+                pdf.set_fill_color(248, 250, 248)
+            else:
+                pdf.set_fill_color(255, 255, 255)
+
+        x_abs = x_ini
+        for col_i in range(len(cells)):
+            wcol = widths_mm[col_i]
+            pdf.rect(x_abs, y0, wcol, row_h_mm, style="FD")
+            inner = inner_w_each[col_i]
+            conteudo = "\n".join(linhas_explodidas[col_i]) if linhas_explodidas[col_i] else ""
+            pdf.set_xy(x_abs + CELL_PAD_X, y0 + CELL_PAD_Y)
+            pdf.multi_cell(
+                inner,
+                lh,
+                conteudo.strip() if conteudo.strip() else " ",
+                align="L",
+                border=0,
+                fill=False,
+            )
+            x_abs += wcol
+
+        pdf.set_y(y0 + row_h_mm)
 
 
 def montar_pdf_relatorio_repasse_landscape(
@@ -54,99 +182,76 @@ def montar_pdf_relatorio_repasse_landscape(
     pdf.add_font("bea_rep_pdf", fname=str(fname))
 
     pdf.add_page()
-    epub = float(pdf.epw)
-    pdf.set_font("bea_rep_pdf", size=12)
-    pdf.multi_cell(epub, 6.5, str(titulo))
-    pdf.set_font("bea_rep_pdf", size=8.5)
-    pdf.ln(0.6)
-    pdf.multi_cell(epub, 5, "Uso interno / tratamento RGPD-compatible (minimização de dados pessoais).")
-    stamp = datetime.now().strftime("%d/%m/%Y %H:%M")
-    pdf.multi_cell(epub, 5, f"Gerado em: {stamp} (perspectiva calendário / horário: Europe/Lisbon)")
-    pdf.ln(1.8)
+    epub = _epw_safe(pdf)
 
-    pdf.set_font("bea_rep_pdf", size=10.5)
-    pdf.multi_cell(epub, 7, "- Resumo dos filtros -")
-    pdf.set_font("bea_rep_pdf", size=9)
-    for ln in meta_filtros_texto:
-        pdf.multi_cell(epub, 5.2, str(ln))
-    pdf.ln(1)
+    meta_doc: list[str] = ["Gerado em: " + datetime.now().strftime("%d/%m/%Y %H:%M")]
 
-    pdf.set_font("bea_rep_pdf", size=10.5)
-    pdf.multi_cell(epub, 7, "- Resumo executivo -")
-    pdf.set_font("bea_rep_pdf", size=9)
-    for ln in resumo_texto:
-        pdf.multi_cell(epub, 5.2, str(ln))
+    pdf.set_xy(pdf.l_margin, pdf.get_y())
+    _bloco_esquerda(
+        pdf,
+        epub=epub,
+        linhas_texto=[str(titulo).strip()],
+        tamanho=12,
+        interline_mm=6.8,
+    )
+    _bloco_esquerda(pdf, epub=epub, linhas_texto=meta_doc, tamanho=8.5, interline_mm=5.2)
+    pdf.ln(1.5)
+
+    pdf.set_xy(pdf.l_margin, pdf.get_y())
+    _bloco_esquerda(pdf, epub=epub, linhas_texto=["Filtros Aplicados"], tamanho=10.8, interline_mm=5.8)
+    _bloco_esquerda(
+        pdf,
+        epub=epub,
+        linhas_texto=[_str_nl(x) for x in meta_filtros_texto],
+        tamanho=9,
+        interline_mm=5.1,
+    )
+    pdf.ln(2)
+
+    _bloco_esquerda(pdf, epub=epub, linhas_texto=["– Resumo executivo –"], tamanho=10.8, interline_mm=5.8)
+    _bloco_esquerda(
+        pdf,
+        epub=epub,
+        linhas_texto=[_str_nl(x) for x in resumo_texto],
+        tamanho=9,
+        interline_mm=5.1,
+    )
     pdf.ln(3)
 
-    pdf.set_font("bea_rep_pdf", size=10.5)
-    pdf.multi_cell(epub, 7, "- Detalhe linha-a-linha -")
-    pdf.ln(0.6)
+    _bloco_esquerda(
+        pdf,
+        epub=epub,
+        linhas_texto=["– Detalhe linha-a-linha –"],
+        tamanho=10.8,
+        interline_mm=6.6,
+    )
+    pdf.ln(1)
 
     if not linhas_tabela:
-        pdf.set_font("bea_rep_pdf", size=9)
-        pdf.multi_cell(epub, 6, "(Sem linhas para o período e filtros indicados.)")
+        _bloco_esquerda(
+            pdf,
+            epub=epub,
+            linhas_texto=["(Sem linhas para o período e filtros indicados.)"],
+            tamanho=9,
+            interline_mm=5.8,
+        )
     else:
-        _tabela_alveolar(pdf, linhas_tabela)
+        width_template = (
+            34.5,
+            38.8,
+            30.8,
+            33.8,
+            38.8,
+            24.9,
+            22.9,
+            22.9,
+            21.5,
+        )
+        _tabela_linhas_com_wrap(pdf, linhas_tabela, width_template=width_template)
 
     out = pdf.output()
     return bytes(out)
 
 
-_COL_MAX = (38, 40, 32, 36, 40, 26, 20, 20, 16)
-
-
-def _tabela_alveolar(pdf: FPDF, grid: list[list[str]]) -> None:
-    width_template = (
-        33.5,
-        40.0,
-        31.8,
-        34.8,
-        38.9,
-        25.9,
-        22.9,
-        22.9,
-        21.9,
-    )
-    disponivel = pdf.w - pdf.l_margin - pdf.r_margin
-    soma = sum(width_template)
-    fator = disponivel / soma if soma > 0 else 1.0
-    widths_mm = tuple(round(w * fator, 3) for w in width_template)
-
-    row_h_base = 5.95
-    for idx, row_raw in enumerate(grid):
-        padded = list(row_raw) + [""] * max(0, len(widths_mm) - len(row_raw))
-        cells = padded[: len(widths_mm)]
-        header = idx == 0
-        zebra = idx > 0 and idx % 2 == 1
-        if pdf.get_y() + row_h_base > pdf.h - pdf.b_margin:
-            pdf.add_page()
-        # Fonte externa TTF: evitar `style="B"` sem ficheiro `-bold` registado.
-        pdf.set_font("bea_rep_pdf", size=8.75 if header else 8.05)
-        if header:
-            pdf.set_fill_color(224, 234, 224)
-            pdf.set_draw_color(118, 148, 125)
-            pdf.set_text_color(32, 40, 35)
-        else:
-            pdf.set_draw_color(200, 200, 200)
-            pdf.set_text_color(40, 40, 40)
-            if zebra:
-                pdf.set_fill_color(248, 250, 248)
-            else:
-                pdf.set_fill_color(255, 255, 255)
-
-        pdf.set_x(pdf.l_margin)
-        last_ix = len(cells) - 1
-        for col_i, datum in enumerate(cells):
-            w = widths_mm[col_i]
-            cap = _COL_MAX[col_i] if col_i < len(_COL_MAX) else 28
-            txt = _encaixar(datum, cap) if datum or header else ""
-            ln = col_i == last_ix
-            pdf.cell(
-                w,
-                row_h_base,
-                text=(txt if txt else " "),
-                border=1,
-                fill=True,
-                align="L",
-                ln=int(ln),
-            )
+def _str_nl(x: object) -> str:
+    return str(x or "").strip()
