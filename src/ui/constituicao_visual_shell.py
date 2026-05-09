@@ -1573,6 +1573,16 @@ def inject_constituicao_gov_page() -> None:
     st.markdown(get_constituicao_gov_page_css(), unsafe_allow_html=True)
 
 
+def get_constituicao_usuarios_page_css() -> str:
+    """Gestão de utilizadores (admin) — mesma geometria Horizonte + Ilha Mãe que Catálogo (classes ``usu``)."""
+    css = get_constituicao_cat_page_css()
+    return css.replace("bea-cv-cat-", "bea-cv-usu-").replace("bea-cat-slot", "bea-usu-slot")
+
+
+def inject_constituicao_usuarios_page() -> None:
+    st.markdown(get_constituicao_usuarios_page_css(), unsafe_allow_html=True)
+
+
 def get_constituicao_fin_page_css() -> str:
     """Financeiro — Horizonte + Ilha Mãe (paridade CAT/COL/VND/CAG)."""
     return f"""

@@ -39,6 +39,9 @@ def gather_evidence(db_path: Path) -> dict:
             "credito_movimentos",
             "repasse_linhas",
             "venda_pagamento_linhas",
+            "usuarios",
+            "mfa_tokens",
+            "auditoria_sistema",
         )
         for name in tables:
             if name not in critical:

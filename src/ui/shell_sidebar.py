@@ -22,22 +22,32 @@ NAV_ITEMS: list[tuple[str, str]] = [
     ("financeiro", "Financeiro"),
 ]
 
+_NAV_USUARIOS_ADMIN: tuple[str, str] = ("usuarios", "Gestão de utilizadores")
+
+
+_PAGES_PERFIL_USUARIO: tuple[str, ...] = ("home", "vendas", "clientes_agendamentos")
+
+
+def _perfil_sidebar_normalizado(user_perfil: str | None) -> str:
+    raw = (user_perfil or "admin").strip().lower()
+    if raw == "colaborador":
+        return "usuario"
+    return raw
+
 
 def _nav_items_para_perfil(user_perfil: str | None) -> list[tuple[str, str]]:
-    p = (user_perfil or "admin").strip().lower()
-    nav: list[tuple[str, str]]
-    if p == "colaborador":
-        nav = [(k, v) for k, v in NAV_ITEMS if k != "financeiro"]
-    else:
-        nav = list(NAV_ITEMS)
+    p = _perfil_sidebar_normalizado(user_perfil)
+    if p == "usuario":
+        return [(k, v) for k, v in NAV_ITEMS if k in _PAGES_PERFIL_USUARIO]
     if p == "admin":
-        nav = nav + [("governanca", "Governança")]
-    return nav
+        return list(NAV_ITEMS) + [_NAV_USUARIOS_ADMIN, ("governanca", "Governança")]
+    return list(NAV_ITEMS)
 
 
 def render_shell_sidebar(*, current_page: str, user_perfil: str | None = None) -> None:
     """Renderiza `st.sidebar` com links de navegação (session_state.page)."""
     nav = _nav_items_para_perfil(user_perfil)
+    ep = _perfil_sidebar_normalizado(user_perfil)
     with st.sidebar:
         env_raw = get_beaba_env_type_raw()
         if env_raw in ("production", "prod", "main"):
@@ -102,12 +112,13 @@ def render_shell_sidebar(*, current_page: str, user_perfil: str | None = None) -
             '<p class="bea-sidebar-sector-title">Outros</p>',
             unsafe_allow_html=True,
         )
-        if st.button("Dashboards", key="bea_nav_dash", width="stretch"):
-            st.session_state.page = "dashboards"
-            st.rerun()
-        if st.button("Relatórios", key="bea_nav_rel", width="stretch"):
-            st.session_state.page = "relatorios"
-            st.rerun()
+        if ep != "usuario":
+            if st.button("Dashboards", key="bea_nav_dash", width="stretch"):
+                st.session_state.page = "dashboards"
+                st.rerun()
+            if st.button("Relatórios", key="bea_nav_rel", width="stretch"):
+                st.session_state.page = "relatorios"
+                st.rerun()
 
         st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
         if st.button("Sair", key="bea_nav_logout", width="stretch", type="secondary"):

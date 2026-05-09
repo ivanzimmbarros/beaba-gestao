@@ -20,6 +20,10 @@ def assert_gov_shell_slot_e_inject_na_app_constituicao() -> None:
 def assert_governanca_sector_operacional_na_pagina() -> None:
     root = Path(__file__).resolve().parents[1]
     pg = (root / "src" / "ui" / "page_governanca.py").read_text(encoding="utf-8")
+    assert "st.tabs" in pg
+    assert "listar_auditoria" in pg
+    assert "Filtrar registos por módulo" in pg
+    assert "Auditoria de utilizadores e acessos" in pg
     assert "Log horário" in pg
     assert "Estados de recuperação" in pg
     assert "Relatório de Auditoria de Dados (Drill)" in pg

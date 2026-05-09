@@ -16,6 +16,7 @@ import pandas as pd
 import streamlit as st
 
 from src.database.connection import env_type_display_label_pt, get_beaba_env_type_raw
+from src.modules.audit import listar_auditoria
 from src.ui.constituicao_visual_shell import inject_constituicao_gov_page
 
 
@@ -69,7 +70,7 @@ def _run_script(repo: Path, relative: str) -> tuple[int, str, str]:
 
 def render_page_governanca() -> None:
     inject_constituicao_gov_page()
-    st.title("Governança — cópias de segurança")
+    st.title("Governança")
     repo = _repo_root()
     env_slug = get_beaba_env_type_raw()
     env_folder = _env_folder_slug(env_slug)
@@ -77,6 +78,20 @@ def render_page_governanca() -> None:
     st.caption(
         f"Ambiente registado como **{env_type_display_label_pt()}** (`ENV_TYPE={env_slug}`)."
     )
+
+    tab_backups, tab_audit = st.tabs(
+        ["Cópias de segurança e recuperação", "Auditoria de utilizadores e acessos"]
+    )
+
+    with tab_backups:
+        _render_governanca_backups(repo, env_slug, env_folder)
+
+    with tab_audit:
+        _render_governanca_auditoria_acessos()
+
+
+def _render_governanca_backups(repo: Path, env_slug: str, env_folder: str) -> None:
+    st.subheader("Cópias de segurança e ferramentas")
 
     log_path = repo / "backups" / env_folder / "logs" / "backup_hourly.log"
     lines = _tail_log_lines(log_path)
@@ -219,3 +234,50 @@ def render_page_governanca() -> None:
         col_b.caption(
             "O drill de restore substitui o SQLite desta máquina; só está disponível com `ENV_TYPE=staging`."
         )
+
+
+def _render_governanca_auditoria_acessos() -> None:
+    st.subheader("Auditoria de utilizadores e acessos")
+    st.caption("Registo de operações relacionadas com autenticação e gestão de utilizadores.")
+
+    filtro_rotulo = {
+        "Todos": None,
+        "auth (login, senhas)": "auth",
+        "usuarios (CRUD utilizadores)": "usuarios",
+    }
+    op = st.selectbox(
+        "Filtrar registos por módulo",
+        options=list(filtro_rotulo.keys()),
+        index=0,
+        help="'auth': tentativas de login e alterações de senha. 'usuarios': criação e edição de contas.",
+    )
+    modulo = filtro_rotulo[op]
+
+    rows = listar_auditoria(limite=200, modulo_filtro=modulo)
+    if not rows:
+        st.info("Sem registos de auditoria neste filtro.")
+        return
+
+    df = pd.DataFrame(
+        [
+            {
+                "Data/Hora": r["criado_em_exibicao_pt"],
+                "Ator (E-mail)": r["ator_email"] or "—",
+                "Ação": r["acao"] or "—",
+                "Módulo": r["modulo"] or "—",
+                "Detalhes (ID)": (r["registro_id"].strip() if r["registro_id"].strip() else "—"),
+            }
+            for r in rows
+        ]
+    )
+    kw: dict[str, object] = {
+        "hide_index": True,
+        "width": "stretch",
+        "height": min(460, max(280, len(df) * 36 + 48)),
+        "disabled": True,
+    }
+    try:
+        st.dataframe(df, **kw)
+    except TypeError:
+        kw.pop("disabled", None)
+        st.dataframe(df, **kw)

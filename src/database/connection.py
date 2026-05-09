@@ -759,6 +759,91 @@ def _bootstrap_admin_email() -> str:
     return (os.environ.get("BEABA_BOOTSTRAP_ADMIN_EMAIL") or "ivanzimmbarros@gmail.com").strip().lower()
 
 
+def _migrate_usuarios_perfil_usuario_if_needed(cursor: sqlite3.Cursor) -> None:
+    """E23: perfil REST «colaborador» → ``usuario``, CHECK apenas ``admin``/``usuario``; opcionalmente coluna ``senha_anterior_hash``.
+
+    Recria ``usuarios`` quando o DDL antigo inclui literal ``'colaborador'`` na restrição de ``perfil``.
+    """
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='usuarios'")
+    if not cursor.fetchone():
+        return
+    cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='usuarios'")
+    row = cursor.fetchone()
+    ddl = (row[0] or "").replace("\n", " ")
+    needs_rebuild = "'colaborador'" in ddl
+    cols_before = _table_columns(cursor, "usuarios")
+
+    cursor.execute("PRAGMA foreign_keys=OFF")
+    try:
+        if needs_rebuild:
+            prev_sel = "senha_anterior_hash" if "senha_anterior_hash" in cols_before else "NULL"
+
+            cursor.execute(
+                """
+                CREATE TABLE usuarios_e23_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nome TEXT NOT NULL,
+                    email TEXT NOT NULL UNIQUE,
+                    senha_hash TEXT NOT NULL,
+                    senha_anterior_hash TEXT,
+                    perfil TEXT NOT NULL CHECK (perfil IN ('admin', 'usuario')),
+                    ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1)),
+                    must_change_password INTEGER NOT NULL DEFAULT 1 CHECK (must_change_password IN (0, 1)),
+                    data_cadastro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            cursor.execute(
+                f"""
+                INSERT INTO usuarios_e23_new (
+                    id, nome, email, senha_hash, senha_anterior_hash, perfil, ativo, must_change_password, data_cadastro
+                )
+                SELECT
+                    id,
+                    nome,
+                    email,
+                    senha_hash,
+                    {prev_sel},
+                    CASE
+                        WHEN LOWER(TRIM(perfil)) = 'colaborador' THEN 'usuario'
+                        ELSE perfil
+                    END,
+                    ativo,
+                    must_change_password,
+                    data_cadastro
+                FROM usuarios
+                """
+            )
+            cursor.execute("DROP TABLE usuarios")
+            cursor.execute("ALTER TABLE usuarios_e23_new RENAME TO usuarios")
+        cursor.execute(
+            "UPDATE usuarios SET perfil = 'usuario' "
+            "WHERE LOWER(TRIM(perfil)) = 'colaborador'"
+        )
+    finally:
+        cursor.execute("PRAGMA foreign_keys=ON")
+
+
+def _ensure_auditoria_sistema(cursor: sqlite3.Cursor) -> None:
+    """Tabela append-only de auditoria (E23 Fase 1)."""
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS auditoria_sistema (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ator_email TEXT,
+            acao TEXT NOT NULL,
+            modulo TEXT NOT NULL,
+            registro_id TEXT,
+            dados_antigos TEXT,
+            dados_novos TEXT,
+            criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_auditoria_sistema_ator ON auditoria_sistema(ator_email)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_auditoria_sistema_modulo ON auditoria_sistema(modulo)")
+
+
 def _migrate_legacy_admin_email(cursor: sqlite3.Cursor) -> None:
     """Renomeia admin@beaba.com legado para o e-mail de bootstrap, sem violar UNIQUE."""
     new_mail = _bootstrap_admin_email()
@@ -1338,7 +1423,8 @@ def create_tables():
             nome TEXT NOT NULL,
             email TEXT NOT NULL UNIQUE,
             senha_hash TEXT NOT NULL,
-            perfil TEXT NOT NULL CHECK (perfil IN ('admin', 'colaborador')),
+            senha_anterior_hash TEXT,
+            perfil TEXT NOT NULL CHECK (perfil IN ('admin', 'usuario')),
             ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1)),
             must_change_password INTEGER NOT NULL DEFAULT 1 CHECK (must_change_password IN (0, 1)),
             data_cadastro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -1346,6 +1432,9 @@ def create_tables():
         """
     )
     _ensure_column(cursor, "usuarios", "must_change_password", "INTEGER NOT NULL DEFAULT 1")
+    _migrate_usuarios_perfil_usuario_if_needed(cursor)
+    _ensure_column(cursor, "usuarios", "senha_anterior_hash", "TEXT")
+    _ensure_auditoria_sistema(cursor)
     _migrate_legacy_admin_email(cursor)
     cursor.execute(
         """

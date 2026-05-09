@@ -52,6 +52,7 @@ EXPECTED_PAGE_MODULES: frozenset[str] = frozenset(
         "page_financeiro",
         "page_governanca",
         "page_home",
+        "page_usuarios",
         "page_vendas",
     }
 )
@@ -65,6 +66,7 @@ SMOKE_APP_ROUTES: tuple[str, ...] = (
     "catalogo",
     "colaboradores",
     "financeiro",
+    "usuarios",
     "governanca",
     "dashboards",
     "relatorios",
@@ -99,6 +101,17 @@ def _assert_app_tree_clean(at: AppTest, *, context: str) -> None:
     assert not problems, f"{context}: " + "; ".join(problems)
 
 
+def _prep_sessao_perfil_usuario_smoke(at: AppTest, route: str) -> None:
+    """Sessão autenticada com perfil restrito ``usuario`` (RBAC páginas internas)."""
+    at.session_state["page"] = route
+    at.session_state["authenticated"] = True
+    at.session_state["auth_perfil"] = "usuario"
+    at.session_state["auth_user_id"] = 2
+    at.session_state["auth_user_email"] = "usuario.smoke@bea.pt"
+    at.session_state["must_change"] = False
+    at.session_state["auth_user_nome"] = "Smoke Usuario"
+
+
 def _prep_sessao_autenticada_smoke(at: AppTest, route: str) -> None:
     """Ecrã inicial de login + MFA obriga identidade fictícia nos smokes."""
     at.session_state["page"] = route
@@ -106,7 +119,7 @@ def _prep_sessao_autenticada_smoke(at: AppTest, route: str) -> None:
     at.session_state["auth_perfil"] = "admin"
     at.session_state["auth_user_id"] = 1
     at.session_state["auth_user_email"] = "ivanzimmbarros@gmail.com"
-    at.session_state["auth_must_change_password"] = False
+    at.session_state["must_change"] = False
     at.session_state["auth_user_nome"] = "Smoke"
 
 
@@ -122,6 +135,21 @@ def _run_app_smoke(route: str, *, timeout: int) -> None:
 def test_smoke_streamlit_app_route_boots(route: str) -> None:
     """Cada rota do menu faz boot via `src/app.py` (AppTest isolado por invocação)."""
     _run_app_smoke(route, timeout=120)
+
+
+def test_smoke_usuarios_rota_redirecciona_usuario_rest() -> None:
+    """Gestão de utilizadores: perfil ``usuario`` não permanece na rota nem rebenta o bootstrap."""
+    assert _APP_PY.is_file(), f"Em falta: {_APP_PY}"
+    at = AppTest.from_file(str(_APP_PY), default_timeout=120)
+    _prep_sessao_perfil_usuario_smoke(at, "usuarios")
+    at.run()
+    assert len(at.exception) == 0, "Área principal não deve expor st.exception"
+    assert len(at.get("error")) >= 1
+    try:
+        page_after = str(at.session_state["page"])
+    except Exception:
+        page_after = ""
+    assert page_after == "home"
 
 
 @pytest.mark.parametrize("legacy", SMOKE_LEGACY_REDIRECT_ROUTES)
@@ -248,8 +276,15 @@ def test_smoke_governanca_admin_sector_widgets() -> None:
         chunks.append(str(getattr(t, "value", "") or ""))
     for sh in at.get("subheader"):
         chunks.append(str(getattr(sh, "value", "") or ""))
+    for sb in at.get("selectbox"):
+        lb = getattr(sb, "label", "") or getattr(sb, "_label", "") or ""
+        lb = str(lb).strip()
+        if lb:
+            chunks.append(lb)
     digest = "\n".join(chunks)
-    assert "Governança — cópias" in digest
+    assert "Governança" in digest
+    assert "Auditoria de utilizadores e acessos" in digest
+    assert "Filtrar registos por módulo" in digest
     assert "backup_hourly.log" in digest or "Ainda não existe log legível" in digest
     assert "Estados de recuperação" in digest
 

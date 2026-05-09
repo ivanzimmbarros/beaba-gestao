@@ -6,16 +6,18 @@ from __future__ import annotations
 
 import streamlit as st
 
+from src.modules.audit import log_audit
 from src.modules.auth_db import (
     consume_mfa_token,
     discard_pending_mfa_tokens,
     get_usuario_por_id,
     issue_mfa_token,
+    reset_password_to_temp,
     try_login_credentials,
     update_password_clear_must_change,
 )
 from src.modules.auth_utils import generate_mfa_code
-from src.modules.email_utils import send_mfa_email
+from src.modules.email_utils import send_mfa_email, send_temp_password_email
 from src.ui.constituicao_visual_shell import CV_CREME, CV_SALVIA, CV_SOMBRA_COMPOSTA, CV_TITULO
 
 
@@ -80,11 +82,55 @@ def _reset_mfa_state() -> None:
 
 
 def render_login_screen() -> None:
-    """Campos e-mail/senha; MFA e envio de e-mail após validação."""
+    """Campos e-mail/senha; MFA e envio de e-mail após validação; recuperação de senha."""
     _inject_auth_shell_css()
 
     outer_l, outer_c, outer_r = st.columns([1, 2.2, 1])
     with outer_c:
+        flash = st.session_state.pop("auth_post_forgot_msg", None)
+        if flash:
+            st.success(str(flash))
+
+        if st.session_state.get("auth_view") == "forgot":
+            st.markdown(
+                f'<div class="bea-auth-island">'
+                f'<div class="bea-auth-kicker">BeaBa Sereno</div>'
+                f'<h1 class="bea-auth-title">Recuperar acesso</h1>'
+                "<p class=\"bea-auth-sub\">Indique o e-mail da sua conta. Se estiver cadastrado, "
+                "receberá uma senha temporária e deverá definir uma nova senha no próximo acesso.</p></div>",
+                unsafe_allow_html=True,
+            )
+            if st.button("Voltar ao início de sessão", key="bea_forgot_back", width="stretch"):
+                st.session_state.pop("auth_view", None)
+                st.rerun()
+            with st.form("bea_forgot_form"):
+                em_f = st.text_input("E-mail", key="bea_forgot_email")
+                sub_f = st.form_submit_button("Enviar instruções", type="primary", width="stretch")
+            if sub_f:
+                raw = (em_f or "").strip()
+                if not raw:
+                    st.warning("Indique o e-mail.")
+                else:
+                    temp = reset_password_to_temp(raw)
+                    if temp is not None:
+                        try:
+                            send_temp_password_email(raw, temp)
+                        except Exception as err:
+                            st.error(
+                                "Não foi possível enviar o e-mail. Verifique SMTP no `.env` (raiz do projecto) — "
+                                "SMTP_USER / EMAIL_USERNAME e SMTP_PASSWORD / EMAIL_PASSWORD. "
+                                f"Pormenores: {err!s}"
+                            )
+                            return
+                    msg_ok = (
+                        "Se o e-mail estiver cadastrado nos nossos registos, receberá em breve as instruções "
+                        "para voltar à sua conta."
+                    )
+                    st.session_state["auth_post_forgot_msg"] = msg_ok
+                    st.session_state.pop("auth_view", None)
+                    st.rerun()
+            return
+
         st.markdown(
             f'<div class="bea-auth-island">'
             f'<div class="bea-auth-kicker">BeaBa Sereno</div>'
@@ -97,6 +143,15 @@ def render_login_screen() -> None:
             email = st.text_input("E-mail")
             pwd = st.text_input("Senha", type="password")
             submitted = st.form_submit_button("Entrar", type="primary", width="stretch")
+        if st.button(
+            "Esqueci minha senha",
+            key="bea_login_forgot_link",
+            type="secondary",
+            width="stretch",
+        ):
+            st.session_state.auth_view = "forgot"
+            st.rerun()
+
         if submitted:
             if not (email.strip() and pwd.strip()):
                 st.warning("Informe e-mail e senha.")
@@ -176,9 +231,7 @@ def render_mfa_screen() -> None:
                     st.session_state.auth_user_email = row["email"]
                     st.session_state.auth_user_nome = row["nome"]
                     st.session_state.auth_perfil = row["perfil"]
-                    st.session_state.auth_must_change_password = bool(
-                        row.get("must_change_password", False)
-                    )
+                    st.session_state.must_change = bool(row.get("must_change_password", False))
                     st.rerun()
 
         if cb.button("Voltar ao início de sessão", width="stretch", key="bea_mfa_cancel"):
@@ -188,7 +241,7 @@ def render_mfa_screen() -> None:
 
 
 def render_force_password_change() -> None:
-    """Obrigatório após MFA quando ``must_change_password`` está activo (primeiro acesso ou conta nova)."""
+    """Obrigatório após MFA quando ``must_change_password`` está activo (senha temporária ou primeiro acesso)."""
     _inject_auth_shell_css()
     uid = int(st.session_state.get("auth_user_id") or 0)
     if not uid:
@@ -202,26 +255,37 @@ def render_force_password_change() -> None:
             f'<div class="bea-auth-kicker">Segurança</div>'
             f'<h1 class="bea-auth-title">Definir nova senha</h1>'
             "<p class=\"bea-auth-sub\">É obrigatório alterar a senha antes de continuar. "
-            "Utilize uma palavra-passe forte (mínimo 8 caracteres), diferente da actual.</p></div>",
+            "Utilize uma palavra-passe forte (mínimo 8 caracteres), diferente da senha temporária "
+            "ou da última utilizada.</p></div>",
             unsafe_allow_html=True,
         )
         with st.form("bea_force_password_form"):
-            cur = st.text_input("Senha actual", type="password")
             n1 = st.text_input("Nova senha", type="password")
-            n2 = st.text_input("Confirmar nova senha", type="password")
+            n2 = st.text_input("Confirme a nova senha", type="password")
             submitted = st.form_submit_button("Guardar e continuar", type="primary", width="stretch")
         if submitted:
-            if not (cur.strip() and n1.strip() and n2.strip()):
-                st.warning("Preencha todos os campos.")
+            if not (n1.strip() and n2.strip()):
+                st.warning("Preencha os dois campos.")
             elif n1.strip() != n2.strip():
                 st.error("A confirmação da nova senha não coincide.")
             else:
                 err = update_password_clear_must_change(
-                    uid, n1.strip(), current_password=cur.strip()
+                    uid,
+                    n1.strip(),
+                    current_password=None,
+                    trusted_post_mfa_must_change=True,
                 )
                 if err:
                     st.error(err)
                 else:
-                    st.session_state.auth_must_change_password = False
+                    mail = str(st.session_state.get("auth_user_email") or "").strip()
+                    if mail:
+                        log_audit(
+                            ator_email=mail,
+                            acao="PASSWORD_CHANGED",
+                            modulo="auth",
+                            registro_id=str(uid),
+                        )
+                    st.session_state.must_change = False
                     st.success("Senha actualizada. A redireccionar…")
                     st.rerun()

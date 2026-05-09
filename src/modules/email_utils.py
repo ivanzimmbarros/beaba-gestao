@@ -122,3 +122,38 @@ def send_mfa_email(destinatario: str, codigo: str) -> None:
             smtp.ehlo()
             smtp.login(user, password)
             smtp.send_message(msg)
+
+
+def send_temp_password_email(destinatario: str, senha_temp: str) -> None:
+    """Envia senha temporária após «Esqueci minha senha». Usa a mesma pilha SMTP que o MFA.
+
+    Raises:
+        ValueError: configuração incompleta.
+        OSError / smtplib.SMTPException: falha de rede ou servidor SMTP.
+    """
+    server, port, user, password, from_addr = resolve_smtp_settings()
+    body = (
+        "BeaBa Gestão — recuperação de acesso\n\n"
+        "Foi pedida uma nova senha temporária para a sua conta.\n\n"
+        f"A sua senha temporária é: {senha_temp}\n\n"
+        "Ao entrar com esta senha, será obrigatório definir uma nova senha de imediato.\n"
+        "Se não pediu este e-mail, ignore esta mensagem ou contacte o administrador."
+    )
+    msg = EmailMessage()
+    msg["Subject"] = "BeaBa Gestão — senha temporária"
+    msg["From"] = from_addr
+    msg["To"] = destinatario.strip()
+    msg.set_content(body)
+
+    ssl_ctx = ssl.create_default_context()
+    if port == 465:
+        with smtplib.SMTP_SSL(server, port, context=ssl_ctx, timeout=30) as smtp:
+            smtp.login(user, password)
+            smtp.send_message(msg)
+    else:
+        with smtplib.SMTP(server, port, timeout=30) as smtp:
+            smtp.ehlo()
+            smtp.starttls(context=ssl_ctx)
+            smtp.ehlo()
+            smtp.login(user, password)
+            smtp.send_message(msg)

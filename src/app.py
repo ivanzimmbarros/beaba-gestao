@@ -18,6 +18,7 @@ from src.ui.page_financeiro import render_page_financeiro
 from src.ui.page_governanca import render_page_governanca
 from src.ui.page_home import render_page_home
 from src.ui.page_auth import render_force_password_change, render_login_screen, render_mfa_screen
+from src.ui.page_usuarios import render_page_usuarios
 from src.ui.page_vendas import render_page_vendas
 from src.ui.shell_sidebar import render_shell_sidebar
 from src.pages.theme import inject_beaba_verde_sereno
@@ -46,6 +47,18 @@ def _shell_no_breadcrumb(*_a, **_k) -> None:
     return
 
 
+_PAGES_PERFIL_USUARIO_PERMITIDO: frozenset[str] = frozenset(
+    {"home", "vendas", "clientes_agendamentos", "clientes", "agendamentos"}
+)
+
+
+def _perfil_sessao_normalizado(raw: object) -> str:
+    p = str(raw or "admin").strip().lower()
+    if p == "colaborador":
+        return "usuario"
+    return p
+
+
 def main() -> None:
     if not st.session_state.get("authenticated"):
         if (
@@ -57,17 +70,30 @@ def main() -> None:
             render_login_screen()
         st.stop()
 
-    if st.session_state.get("auth_must_change_password"):
+    if st.session_state.get("must_change"):
         render_force_password_change()
         st.stop()
 
     page = st.session_state.page
     perfil = str(st.session_state.get("auth_perfil") or "admin").strip().lower()
-    if st.session_state.pop("bea_rbac_financeiro_denied", False) or st.session_state.pop(
-        "bea_rbac_governanca_denied", False
+    perfil_eff = _perfil_sessao_normalizado(perfil)
+
+    if (
+        perfil_eff == "usuario"
+        and str(page or "") not in _PAGES_PERFIL_USUARIO_PERMITIDO
+    ):
+        st.session_state.page = "home"
+        st.session_state["bea_rbac_usuario_denied"] = True
+        st.rerun()
+
+    if (
+        st.session_state.pop("bea_rbac_financeiro_denied", False)
+        or st.session_state.pop("bea_rbac_governanca_denied", False)
+        or st.session_state.pop("bea_rbac_usuarios_denied", False)
+        or st.session_state.pop("bea_rbac_usuario_denied", False)
     ):
         st.error("Acesso negado")
-    render_shell_sidebar(current_page=page, user_perfil=perfil)
+    render_shell_sidebar(current_page=page, user_perfil=perfil_eff)
     st.sidebar.caption(f"Ambiente: {env_type_display_label_pt()}")
     _, col_main, _ = st.columns([0.06, 0.88, 0.06])
     try:
@@ -139,6 +165,16 @@ def main() -> None:
                     unsafe_allow_html=True,
                 )
                 render_page_governanca()
+            elif page == "usuarios":
+                if perfil != "admin":
+                    st.session_state.page = "home"
+                    st.session_state["bea_rbac_usuarios_denied"] = True
+                    st.rerun()
+                st.markdown(
+                    '<div class="bea-cv-usu-slot" data-testid="bea-usu-slot" aria-hidden="true"></div>',
+                    unsafe_allow_html=True,
+                )
+                render_page_usuarios()
             elif page in ("clientes", "agendamentos"):
                 st.session_state.page = "clientes_agendamentos"
                 st.markdown(

@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import secrets
+import string
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from src.database.connection import get_connection
+from src.modules.audit import log_audit
 from src.modules.auth_utils import hash_password, verify_password
 
 _MFA_TTL_MIN = 10
@@ -56,6 +59,7 @@ def try_login_credentials(
 
     Mensagens são genéricas para não revelar se o e-mail existe.
     """
+    em = (email or "").strip()
     conn = get_connection()
     if not conn:
         return None, "Não foi possível ligar à base de dados. Tente novamente."
@@ -69,15 +73,33 @@ def try_login_credentials(
             FROM usuarios
             WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))
             """,
-            (email.strip(),),
+            (em,),
         )
         row = cursor.fetchone()
         if not row:
+            log_audit(
+                ator_email=em,
+                acao="LOGIN_FAILED",
+                modulo="auth",
+                registro_id=None,
+            )
             return None, "E-mail ou senha incorretos."
         uid, nome, mail, pwd_hash, perfil, ativo = row
         if not int(ativo):
+            log_audit(
+                ator_email=em,
+                acao="LOGIN_FAILED",
+                modulo="auth",
+                registro_id=str(int(uid)),
+            )
             return None, "Este utilizador está inactivo."
         if not verify_password(password, pwd_hash):
+            log_audit(
+                ator_email=em,
+                acao="LOGIN_FAILED",
+                modulo="auth",
+                registro_id=str(int(uid)),
+            )
             return None, "E-mail ou senha incorretos."
         data: dict[str, Any] = {
             "id": int(uid),
@@ -85,7 +107,81 @@ def try_login_credentials(
             "email": str(mail),
             "perfil": str(perfil),
         }
+        log_audit(
+            ator_email=em,
+            acao="LOGIN_SUCCESS",
+            modulo="auth",
+            registro_id=str(int(uid)),
+        )
         return data, None
+    finally:
+        conn.close()
+
+
+def reset_password_to_temp(email: str) -> str | None:
+    """Gera senha temporária, actualiza hash e ``must_change_password=1``.
+
+    Se o e-mail não existir ou o utilizador estiver inactivo, devolve ``None`` (sem auditoria).
+    Caso contrário regista ``PASSWORD_RESET_REQUESTED`` e devolve a senha em texto plano para envio por e-mail.
+    """
+    em = (email or "").strip()
+    if not em:
+        return None
+    conn = get_connection()
+    if not conn:
+        return None
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id, senha_hash, ativo
+            FROM usuarios
+            WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))
+            """,
+            (em,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        uid = int(row[0])
+        cur_hash = str(row[1])
+        if not int(row[2]):
+            return None
+
+        alphabet = string.ascii_letters + string.digits
+        temp_plain = "".join(secrets.choice(alphabet) for _ in range(8))
+        new_h = hash_password(temp_plain)
+        cols = {r[1] for r in cursor.execute("PRAGMA table_info(usuarios)").fetchall()}
+        discard_pending_mfa_tokens(uid)
+        if "senha_anterior_hash" in cols:
+            cursor.execute(
+                """
+                UPDATE usuarios
+                SET senha_anterior_hash = ?, senha_hash = ?, must_change_password = 1
+                WHERE id = ? AND ativo = 1
+                """,
+                (cur_hash, new_h, uid),
+            )
+        else:
+            cursor.execute(
+                """
+                UPDATE usuarios
+                SET senha_hash = ?, must_change_password = 1
+                WHERE id = ? AND ativo = 1
+                """,
+                (new_h, uid),
+            )
+        conn.commit()
+        log_audit(
+            ator_email="sistema",
+            acao="PASSWORD_RESET_REQUESTED",
+            modulo="auth",
+            registro_id=str(uid),
+        )
+        return temp_plain
+    except Exception:
+        conn.rollback()
+        return None
     finally:
         conn.close()
 
@@ -95,8 +191,12 @@ def update_password_clear_must_change(
     new_password: str,
     *,
     current_password: str | None = None,
+    trusted_post_mfa_must_change: bool = False,
 ) -> str | None:
-    """Define nova senha e ``must_change_password=0``. ``current_password`` obrigatório se ainda há troca pendente.
+    """Define nova senha e ``must_change_password=0``.
+
+    ``current_password`` obrigatório quando ``must_change_password=1`` excepto se
+    ``trusted_post_mfa_must_change`` (identidade já confirmada por MFA na mesma sessão).
 
     Devolve mensagem de erro ou ``None`` se OK.
     """
@@ -109,37 +209,53 @@ def update_password_clear_must_change(
     try:
         cursor = conn.cursor()
         cols = {r[1] for r in cursor.execute("PRAGMA table_info(usuarios)").fetchall()}
+        sel_parts = ["senha_hash"]
         if "must_change_password" in cols:
-            cursor.execute(
-                "SELECT senha_hash, must_change_password FROM usuarios WHERE id = ? AND ativo = 1",
-                (int(user_id),),
-            )
-        else:
-            cursor.execute(
-                "SELECT senha_hash FROM usuarios WHERE id = ? AND ativo = 1",
-                (int(user_id),),
-            )
+            sel_parts.append("must_change_password")
+        if "senha_anterior_hash" in cols:
+            sel_parts.append("senha_anterior_hash")
+        cursor.execute(
+            f"SELECT {', '.join(sel_parts)} FROM usuarios WHERE id = ? AND ativo = 1",
+            (int(user_id),),
+        )
         row = cursor.fetchone()
         if not row:
             return "Utilizador não encontrado."
-        pwd_hash = row[0]
-        mcp = int(row[1]) if len(row) > 1 and row[1] is not None else 0
-        if int(mcp) == 1:
+        ri = 0
+        pwd_hash = row[ri]
+        ri += 1
+        mcp = int(row[ri]) if "must_change_password" in cols and row[ri] is not None else 0
+        if "must_change_password" in cols:
+            ri += 1
+        prev_h = row[ri] if "senha_anterior_hash" in cols and len(row) > ri else None
+        if int(mcp) == 1 and not trusted_post_mfa_must_change:
             if current_password is None or not str(current_password).strip():
                 return "Indique a senha actual para confirmar a troca."
             if not verify_password(str(current_password).strip(), str(pwd_hash)):
                 return "Senha actual incorrecta."
         if verify_password(pwd, str(pwd_hash)):
             return "A nova senha deve ser diferente da senha actual."
+        if prev_h and verify_password(pwd, str(prev_h)):
+            return "A nova senha não pode coincidir com a última senha utilizada."
         new_h = hash_password(pwd)
-        cursor.execute(
-            """
-            UPDATE usuarios
-            SET senha_hash = ?, must_change_password = 0
-            WHERE id = ?
-            """,
-            (new_h, int(user_id)),
-        )
+        if "senha_anterior_hash" in cols:
+            cursor.execute(
+                """
+                UPDATE usuarios
+                SET senha_anterior_hash = ?, senha_hash = ?, must_change_password = 0
+                WHERE id = ?
+                """,
+                (str(pwd_hash), new_h, int(user_id)),
+            )
+        else:
+            cursor.execute(
+                """
+                UPDATE usuarios
+                SET senha_hash = ?, must_change_password = 0
+                WHERE id = ?
+                """,
+                (new_h, int(user_id)),
+            )
         conn.commit()
         return None
     except Exception:
@@ -157,10 +273,10 @@ def create_usuario(
 ) -> str | None:
     """Cria utilizador; no primeiro login será obrigatório alterar a senha (``must_change_password=1``).
 
-    ``perfil``: ``admin`` ou ``colaborador``. Devolve mensagem de erro ou ``None`` se OK.
+    ``perfil``: ``admin`` ou ``usuario``. Devolve mensagem de erro ou ``None`` se OK.
     """
     perfil_n = (perfil or "").strip().lower()
-    if perfil_n not in ("admin", "colaborador"):
+    if perfil_n not in ("admin", "usuario"):
         return "Perfil inválido."
     mail = (email or "").strip()
     nome_n = (nome or "").strip()
