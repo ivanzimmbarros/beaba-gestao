@@ -28,6 +28,7 @@ from src.modules.nif import normalizar_nif_armazenamento
 from src.modules.telefone import normalizar_telefone_legado_ou_e164
 from src.modules.validators import email_valido, parse_data_iso
 from src.ui.colaboradores_disponibilidade_ui import render_colaboradores_disponibilidade_setor
+from src.ui.colaboradores_repasse_setor_ui import render_setor4_relatorio_repasse_admin
 from src.ui.constituicao_visual_shell import inject_constituicao_col_page
 from src.ui.telefone_widgets import ler_e164_de_widgets, preencher_session_telefone_de_e164, render_grupo_telefone
 from src.ui.widgets.cliente_search import render_cliente_search_widget
@@ -538,6 +539,8 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
 
     render_colaboradores_disponibilidade_setor()
 
+    render_setor4_relatorio_repasse_admin(fk=fk)
+
     _resumo_col = listar_colaboradores_resumo()
     if not _resumo_col:
         st.info("Ainda não há colaboradores. Utilize o formulário abaixo para o primeiro cadastro.")
@@ -558,7 +561,7 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
         unsafe_allow_html=True,
     )
     st.markdown(
-        _col_section_title_html("4. Cadastro de novo colaborador"),
+        _col_section_title_html("5. Cadastro de novo colaborador"),
         unsafe_allow_html=True,
     )
     with st.expander(f"⋯ Item: {exp_nome} — Detalhes", expanded=True):
