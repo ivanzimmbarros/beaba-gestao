@@ -427,12 +427,19 @@ def _run_cag_consolidated_slice(cliente_id: int, ag_id: int) -> str | None:
         return "vnd: Painel de Vendas sem pesquisa unificada (nome + flag)"
 
     pcol = (repo / "src" / "ui" / "page_colaboradores.py").read_text(encoding="utf-8")
+    pcol_rep = (repo / "src" / "ui" / "colaboradores_repasse_setor_ui.py").read_text(encoding="utf-8")
     if "pesquisa_unificada=True" not in pcol or "col_busca_nome" not in pcol:
         return "col: Colaboradores sem pesquisa unificada (nome + flag)"
     if "Mapa da Equipa" not in pcol or "listar_colaboradores_mapa_equipa" not in pcol:
         return "col: Mapa da Equipa (filtros + listagem) ausente"
     if "render_colaboradores_disponibilidade_setor" not in pcol:
         return "col: setor Disponibilidade (render) ausente em page_colaboradores"
+    if "render_setor4_relatorio_repasse_admin" not in pcol:
+        return "col: relatório global repasse (E24/render admin) ausente em page_colaboradores"
+    if "Gerar relatório de repasses" not in pcol_rep:
+        return "col: CTA relatório global repasse (texto obrig.) ausente no módulo UI E24"
+    if "5. Cadastro de novo colaborador" not in pcol:
+        return "col: renumeracao sector cadastro esperada (5.) após inserção do relatório E24"
 
     return None
 

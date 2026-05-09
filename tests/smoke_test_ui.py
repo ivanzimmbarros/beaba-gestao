@@ -203,6 +203,18 @@ def test_smoke_colaboradores_disponibilidade_sector() -> None:
     assert sum(1 for t in exp_titles if "3.3 Calendário mestre" in t) >= 1, exp_titles
 
 
+def test_smoke_colaboradores_relatorio_repasse_setor_widgets() -> None:
+    """E24 — Sector 4: filtros período/modalidade/multiselect + CTA relatório PDF (boot admin smoke)."""
+    at = AppTest.from_file(str(_APP_PY), default_timeout=120)
+    _prep_sessao_autenticada_smoke(at, "colaboradores")
+    at.run()
+    _assert_app_tree_clean(at, context="Colaboradores — relatório global repasse (setor 4)")
+    lbl_sb = [str(getattr(sb, "label", "") or "") for sb in at.get("selectbox")]
+    assert "Dimensão de filtro exclusiva para o relatório" in lbl_sb
+    btn_lbl = [str(getattr(b, "label", "") or "") for b in at.get("button")]
+    assert "Gerar relatório de repasses" in btn_lbl
+
+
 def test_smoke_financeiro_resultado_operacional_panel() -> None:
     """Financeiro: painel sector 1 — mês/ano, cenário das entradas e rótulo do expander."""
     at = AppTest.from_file(str(_APP_PY), default_timeout=120)

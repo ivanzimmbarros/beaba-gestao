@@ -76,10 +76,14 @@ def assert_col_disponibilidade_setor_na_pagina() -> None:
     """Contrato: ilha «Disponibilidade e calendário operacional» fora da ficha + calendário em bea-proto-scope."""
     root = Path(__file__).resolve().parents[1]
     pg = (root / "src" / "ui" / "page_colaboradores.py").read_text(encoding="utf-8")
+    rp = (root / "src" / "ui" / "colaboradores_repasse_setor_ui.py").read_text(encoding="utf-8")
     ui = (root / "src" / "ui" / "colaboradores_disponibilidade_ui.py").read_text(encoding="utf-8")
     sh = (root / "src" / "ui" / "constituicao_visual_shell.py").read_text(encoding="utf-8")
     assert "render_colaboradores_disponibilidade_setor" in pg
-    assert "4. Cadastro de novo colaborador" in pg
+    assert "render_setor4_relatorio_repasse_admin" in pg
+    assert "Gerar relatório de repasses" in rp
+    assert "bea-col-rel-repasse-flag" in rp or "bea-col-setor-rel-titulo" in rp
+    assert "5. Cadastro de novo colaborador" in pg
     assert "3. Disponibilidade e calendário operacional" in ui
     assert "bea-col-disp-flag" in ui
     assert "bea-proto-scope" in ui
