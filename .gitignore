@@ -17,6 +17,7 @@ tests/last_stress_report.txt
 
 # E17 — logs de backup (réplicas .db em backups/ já cobertas por *.db)
 backups/logs/*.log
+backups/**/logs/*.log
 
 # E17.1 — estado efémero GHA e blobs encriptados locais
 gha_backup_state.json
