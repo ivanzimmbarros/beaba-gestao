@@ -44,6 +44,7 @@ if str(_REPO) not in sys.path:
 from scripts.e17_1_crypto import encrypt_file, parse_backup_key  # noqa: E402
 
 MANIFEST_REL = Path("backups") / "cloud_sync_manifest.json"
+MANIFEST_NAME = MANIFEST_REL.name
 
 
 def repo_root() -> Path:
@@ -148,6 +149,66 @@ def _needs_upload(stat: os.stat_result, entry: dict | None) -> bool:
     return False
 
 
+def _etag_from_head(client, bucket: str, remote_key: str) -> str:
+    head = client.head_object(Bucket=bucket, Key=remote_key)
+    raw_etag = head.get("ETag")
+    if isinstance(raw_etag, bytes):
+        raw_etag = raw_etag.decode("utf-8", errors="replace")
+    return str(raw_etag or "").strip('"')
+
+
+def _upload_encrypted_streaming(client, bucket: str, remote_key: str, local_path: Path) -> str:
+    """Envia ficheiro encriptado em streaming (multipart automático) e obtém ETag via head_object."""
+    client.upload_file(str(local_path), bucket, remote_key)
+    return _etag_from_head(client, bucket, remote_key)
+
+
+def _emit_manager_message(message: str, *, err: bool = False) -> None:
+    stream = sys.stderr if err else sys.stdout
+    try:
+        print(message, file=stream, flush=True)
+    except UnicodeEncodeError:
+        buf = getattr(stream, "buffer", None)
+        line = message + "\n"
+        if buf is not None:
+            buf.write(line.encode("utf-8", errors="replace"))
+            buf.flush()
+
+
+def _print_sync_success(env_slug: str, nome_arquivo: str) -> None:
+    _emit_manager_message(
+        f"✅ [Cloud S3 - Ambiente: {env_slug}] Backup dos dados do sistema enviado com sucesso. "
+        f"Arquivo: {nome_arquivo}"
+    )
+
+
+def _print_sync_critical_failure(erro: str) -> None:
+    _emit_manager_message(
+        "❌ [FALHA CRÍTICA - Cloud S3] Ocorreu um erro ao enviar o backup para a nuvem. "
+        "O sistema local está salvo, mas a cópia externa falhou. "
+        f"Motivo técnico: {erro}",
+        err=True,
+    )
+
+
+def _upload_state_snapshots(root: Path, client, bucket: str, env_slug: str) -> None:
+    """Espelha manifesto e drill JSON para arranque web (prefixo ``{env}/state/``)."""
+    pairs = [
+        (root / "backups" / env_slug / MANIFEST_REL.name, f"{env_slug}/state/{MANIFEST_REL.name}"),
+        (
+            root / "docs" / "governanca" / "telemetry" / "staging_restore_drill_state.json",
+            f"{env_slug}/state/staging_restore_drill_state.json",
+        ),
+    ]
+    for local, remote in pairs:
+        if not local.is_file():
+            continue
+        try:
+            client.upload_file(str(local), bucket, remote)
+        except Exception:
+            pass
+
+
 def run_sync(root: Path | None = None, *, dry_run: bool = False, force_all: bool = False) -> int:
     root = root or repo_root()
     load_dotenv(root / ".env", override=False)
@@ -162,7 +223,7 @@ def run_sync(root: Path | None = None, *, dry_run: bool = False, force_all: bool
 
     bucket = os.environ.get("S3_BUCKET_NAME", "").strip()
     if not bucket and not dry_run:
-        print("Erro: S3_BUCKET_NAME ausente.", file=sys.stderr)
+        _print_sync_critical_failure("configuração S3_BUCKET_NAME ausente no ambiente")
         return 2
 
     prefix = _prefix_norm(os.environ.get("S3_UPLOAD_PREFIX", ""))
@@ -173,8 +234,8 @@ def run_sync(root: Path | None = None, *, dry_run: bool = False, force_all: bool
     if not dry_run:
         try:
             bkey = parse_backup_key()
-        except ValueError:
-            print("Erro: BEABA_BACKUP_KEY obrigatório para encriptar cópias.", file=sys.stderr)
+        except ValueError as exc:
+            _print_sync_critical_failure(str(exc))
             return 2
 
     client = None
@@ -182,12 +243,14 @@ def run_sync(root: Path | None = None, *, dry_run: bool = False, force_all: bool
         try:
             client = boto3_client()
         except Exception as exc:
-            print(f"Erro boto3/cliente S3: {exc}", file=sys.stderr)
+            _print_sync_critical_failure(f"ligação ao armazenamento na nuvem: {exc}")
             return 1
 
     dbs = sorted(hourly.glob("beaba_gestao_*.db"))
     if not dbs:
-        print("Sem ficheiros beaba_gestao_*.db em backups/hourly/.")
+        print(
+            f"ℹ️ [Cloud S3 - Ambiente: {env_slug}] Nenhuma cópia local nova para enviar à nuvem neste momento."
+        )
         return 0
 
     for db_path in dbs:
@@ -204,7 +267,11 @@ def run_sync(root: Path | None = None, *, dry_run: bool = False, force_all: bool
         remote_key = f"{prefix}{stem}.beaba.enc"
 
         if dry_run:
-            print(f"[dry-run] {db_path.name} -> s3://{bucket or '<bucket>'}/{remote_key}")
+            nome_arquivo = Path(remote_key).name
+            print(
+                f"ℹ️ [Cloud S3 - Ambiente: {env_slug}] Simulação (sem envio real): "
+                f"o ficheiro {nome_arquivo} seria enviado a partir de {db_path.name}."
+            )
             continue
 
         assert bkey is not None and client is not None
@@ -214,11 +281,8 @@ def run_sync(root: Path | None = None, *, dry_run: bool = False, force_all: bool
         tmp_path = Path(tmp_raw)
         try:
             encrypt_file(db_path, tmp_path, bkey)
-            rsp = client.put_object(Bucket=bucket, Key=remote_key, Body=tmp_path.read_bytes())
-            raw_etag = rsp.get("ETag")
-            if isinstance(raw_etag, bytes):
-                raw_etag = raw_etag.decode("utf-8", errors="replace")
-            etag = str(raw_etag or "").strip('"')
+            nome_arquivo = Path(remote_key).name
+            etag = _upload_encrypted_streaming(client, bucket, remote_key, tmp_path)
             uploaded[name] = {
                 "key": remote_key,
                 "mtime_ns": _mtime_ns(stat),
@@ -226,9 +290,9 @@ def run_sync(root: Path | None = None, *, dry_run: bool = False, force_all: bool
                 "etag": etag,
                 "hostname": socket.gethostname(),
             }
-            print(f"OK uploaded {remote_key} etag={etag}")
+            _print_sync_success(env_slug, nome_arquivo)
         except Exception as exc:
-            print(f"Erro ao enviar {name}: {exc}", file=sys.stderr)
+            _print_sync_critical_failure(f"{name}: {exc}")
             _save_manifest(root, manifest)
             return 1
         finally:
@@ -237,6 +301,8 @@ def run_sync(root: Path | None = None, *, dry_run: bool = False, force_all: bool
     if dry_run:
         return 0
     _save_manifest(root, manifest)
+    if client is not None and bucket:
+        _upload_state_snapshots(root, client, bucket, env_slug)
     return 0
 
 

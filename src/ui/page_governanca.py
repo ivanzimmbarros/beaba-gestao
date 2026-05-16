@@ -167,6 +167,45 @@ def _render_governanca_backups(repo: Path, env_slug: str, env_folder: str) -> No
         st.markdown("Sem `staging_restore_drill_state.json` (drill automático ou manual em staging).")
 
     st.divider()
+    st.subheader("Painel executivo de resiliência")
+    manifest_path = repo / "backups" / env_folder / "cloud_sync_manifest.json"
+    manifest = _read_json(manifest_path)
+    uploaded_n = len((manifest or {}).get("uploaded") or {}) if isinstance(manifest, dict) else 0
+    if drill and drill.get("verify_ok") is True:
+        integrity_txt = "✅ ÍNTEGRO"
+    elif drill:
+        integrity_txt = "❌ CORROMPIDO"
+    else:
+        integrity_txt = "Sem validação recente"
+    st.markdown(f"**Status de Integridade dos Dados:** {integrity_txt}")
+    if uploaded_n:
+        st.markdown(
+            f"**Sincronia com o Sistema:** {uploaded_n} cópia(s) registada(s) no manifesto cloud "
+            f"({env_folder})."
+        )
+    else:
+        st.markdown(
+            "**Sincronia com o Sistema:** Sem manifesto cloud local — execute backup + sync ou "
+            "aguarde arranque web com restauração."
+        )
+    delay = drill.get("rpo_delay_minutes") if isinstance(drill, dict) else None
+    if delay is not None:
+        try:
+            dmin = int(delay)
+            st.markdown(
+                f"**⏱️ [TEMPO DE RECUPERAÇÃO]** O backup mais recente tem {dmin} minutos de atraso "
+                f"(Meta: menos de 60 min)."
+            )
+        except (TypeError, ValueError):
+            st.markdown("**⏱️ [TEMPO DE RECUPERAÇÃO]** Indisponível neste relatório.")
+    elif drill and drill.get("rpo_message"):
+        st.markdown(f"**⏱️ [TEMPO DE RECUPERAÇÃO]** {drill.get('rpo_message')}")
+    else:
+        st.markdown(
+            "**⏱️ [TEMPO DE RECUPERAÇÃO]** Sem medição RPO — aguardar drill em staging ou sync cloud."
+        )
+
+    st.divider()
     st.subheader("Relatório de Auditoria de Dados (Drill)")
     if not drill:
         st.info("Sem relatório de auditoria ainda (execute o drill em staging ou aguarde o cron semanal).")
@@ -186,9 +225,9 @@ def _render_governanca_backups(repo: Path, env_slug: str, env_folder: str) -> No
             except (TypeError, ValueError):
                 return "—"
 
-        if rpo_status:
+        if rpo_status and delay is None:
             icon = "✅" if rpo_status == "cumprido" else "⚠️"
-            st.markdown(f"**RPO (1h):** {icon} {rpo_msg or '—'}")
+            st.markdown(f"**RPO (detalhe técnico):** {icon} {rpo_msg or '—'}")
 
         if ok:
             msg = (

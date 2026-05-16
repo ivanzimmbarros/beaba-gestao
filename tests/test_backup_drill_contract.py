@@ -56,7 +56,7 @@ def test_backup_sync_manifest_skips_stable_file(hourly_dir: Path, monkeypatch: p
     manifest = hourly_dir / "backups" / "dev" / "cloud_sync_manifest.json"
     st = db.stat()
     mt = getattr(st, "st_mtime_ns", int(st.st_mtime * 1_000_000_000))
-    upload = MagicMock(side_effect=AssertionError("put_object não deveria ser chamado"))
+    upload = MagicMock(side_effect=AssertionError("upload_file não deveria ser chamado"))
 
     monkeypatch.chdir(hourly_dir)
 
@@ -70,7 +70,10 @@ def test_backup_sync_manifest_skips_stable_file(hourly_dir: Path, monkeypatch: p
     monkeypatch.setenv("BEABA_ENV", "dev")
 
     class _Cli:
-        def put_object(self, **_k):  # noqa: D401
+        def upload_file(self, *_a, **_k):  # noqa: D401
+            upload()
+
+        def head_object(self, **_k):  # noqa: D401
             upload()
 
     import scripts.backup_sync_cloud as mod
@@ -105,7 +108,7 @@ def test_backup_sync_upload_when_no_manifest(monkeypatch: pytest.MonkeyPatch, ho
     monkeypatch.setenv("BEABA_BACKUP_KEY", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
 
     cli = MagicMock()
-    cli.put_object.return_value = {"ETag": "\"testetag\""}
+    cli.head_object.return_value = {"ETag": '"testetag"'}
     monkeypatch.setenv("BEABA_REPO_ROOT", str(hourly_dir))
     monkeypatch.setenv("ENV_TYPE", "dev")
     monkeypatch.setenv("BEABA_ENV", "dev")
@@ -115,7 +118,36 @@ def test_backup_sync_upload_when_no_manifest(monkeypatch: pytest.MonkeyPatch, ho
 
     rc = mod.run_sync(hourly_dir, dry_run=False)
     assert rc == 0
-    assert cli.put_object.called
+    assert cli.upload_file.called
+    assert cli.head_object.called
+
+
+def test_management_language_in_logs(
+    monkeypatch: pytest.MonkeyPatch, hourly_dir: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.chdir(hourly_dir)
+    monkeypatch.setenv("S3_BUCKET_NAME", "buck")
+    monkeypatch.setenv("S3_UPLOAD_PREFIX", "dev/hourly/")
+    monkeypatch.setenv("S3_ACCESS_KEY", "ak")
+    monkeypatch.setenv("S3_SECRET_KEY", "sec")
+    monkeypatch.setenv("BEABA_BACKUP_KEY", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+    monkeypatch.setenv("BEABA_REPO_ROOT", str(hourly_dir))
+    monkeypatch.setenv("ENV_TYPE", "dev")
+    monkeypatch.setenv("BEABA_ENV", "dev")
+
+    cli = MagicMock()
+    cli.head_object.return_value = {"ETag": '"etag"'}
+
+    import scripts.backup_sync_cloud as mod
+
+    monkeypatch.setattr(mod, "boto3_client", lambda: cli)
+
+    rc = mod.run_sync(hourly_dir, dry_run=False, force_all=True)
+    captured = capsys.readouterr()
+    out = captured.out + captured.err
+    assert rc == 0
+    assert "✅" in out
+    assert "[Cloud S3 - Ambiente: dev]" in out
 
 
 def test_scheduler_once(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

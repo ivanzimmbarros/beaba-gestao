@@ -22,7 +22,13 @@ import os
 import subprocess
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
+
+_MSG_AGENDADOR_FALHA = (
+    "❌ [FALHA NO AGENDADOR] O ciclo de backup automático foi interrompido ou apresentou erro. "
+    "Nenhuma cópia está sendo enviada no momento."
+)
 
 
 def repo_root_from_env() -> str:
@@ -30,6 +36,18 @@ def repo_root_from_env() -> str:
     if raw.strip():
         return str(Path(raw).resolve())
     return str(Path(__file__).resolve().parents[1])
+
+
+def _hora_atual_legivel() -> str:
+    return datetime.now().strftime("%H:%M")
+
+
+def _print_agendador_sucesso() -> None:
+    print(f"✅ [AGENDADOR] Ciclo de backup concluído com sucesso às {_hora_atual_legivel()}.")
+
+
+def _print_agendador_falha() -> None:
+    print(_MSG_AGENDADOR_FALHA, file=sys.stderr)
 
 
 def run_backup_cycle(repo: str, py: str) -> int:
@@ -54,13 +72,20 @@ def main() -> int:
     args = ap.parse_args()
 
     if args.once:
-        return run_backup_cycle(repo, py)
+        rc = run_backup_cycle(repo, py)
+        if rc != 0:
+            _print_agendador_falha()
+            return rc
+        _print_agendador_sucesso()
+        return 0
 
     interval = max(60, args.interval_seconds)
     while True:
         rc = run_backup_cycle(repo, py)
         if rc != 0:
-            print(f"scheduler: ciclo terminou com rc={rc}", file=sys.stderr)
+            _print_agendador_falha()
+        else:
+            _print_agendador_sucesso()
         time.sleep(interval)
 
 

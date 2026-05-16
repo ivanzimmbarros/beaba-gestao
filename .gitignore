@@ -25,3 +25,16 @@ gha_restore_state.json
 
 venv/
 .venv/
+
+# Artefactos locais de teste / restore (não versionar)
+email_ok_body.html
+email_ok_body.txt
+restore_result.json
+*.db-shm
+*.db-wal
+data/.last_cloud_sync_trigger
+
+# Manifestos e cópias horárias locais (sync cloud)
+backups/**/cloud_sync_manifest.json
+backups/**/hourly/
+backups/**/web_startup/

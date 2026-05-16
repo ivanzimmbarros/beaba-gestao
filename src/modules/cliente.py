@@ -16,6 +16,15 @@ FilhoInput = tuple[str, int, str] | tuple[str, int, str, str | None]
 _DATA_NASC_TITULAR_MIN = date(1900, 1, 1)
 
 
+def _notify_cloud_sync() -> None:
+    try:
+        from scripts.sync_trigger import notify_data_changed
+
+        notify_data_changed()
+    except Exception:
+        pass
+
+
 def _validar_data_nascimento_titular(data_nascimento: str | None) -> tuple[bool, str, str | None]:
     """Data de nascimento do titular: obrigatória, ISO AAAA-MM-DD, ≥ 1900-01-01, não futura."""
     raw = (data_nascimento or "").strip()
@@ -255,6 +264,7 @@ def cadastrar_cliente(
                 (cid, i, enome, etel),
             )
         conn.commit()
+        _notify_cloud_sync()
         return True, "✅ Cliente cadastrado com sucesso."
     except sqlite3.IntegrityError:
         conn.rollback()
@@ -713,6 +723,7 @@ def atualizar_cliente(
                 (cid, i, enome, etel),
             )
         conn.commit()
+        _notify_cloud_sync()
         return True, "✅ Ficha de cliente atualizada."
     except sqlite3.IntegrityError:
         conn.rollback()

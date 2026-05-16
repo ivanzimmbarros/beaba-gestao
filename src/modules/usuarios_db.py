@@ -12,6 +12,15 @@ _SENHA_INICIAL_PADRAO = "BemVindo123"
 _PERFIS = frozenset({"admin", "usuario"})
 
 
+def _notify_cloud_sync() -> None:
+    try:
+        from scripts.sync_trigger import notify_data_changed
+
+        notify_data_changed()
+    except Exception:
+        pass
+
+
 def _row_to_public(row: tuple[Any, ...]) -> dict[str, Any]:
     uid, nome, mail, perfil, ativo, mcp, dc = row
     return {
@@ -116,6 +125,7 @@ def criar_usuario(nome: str, email: str, perfil: str, logged_user_email: str) ->
             registro_id=str(new_id),
             dados_novos={"nome": nome_n, "email": mail, "perfil": perf, "ativo": 1},
         )
+        _notify_cloud_sync()
         return new_id
     except ValueError:
         raise
@@ -176,6 +186,7 @@ def atualizar_perfil(usuario_id: int, novo_perfil: str, logged_user_email: str) 
             dados_antigos={"perfil": old_p},
             dados_novos={"perfil": perf},
         )
+        _notify_cloud_sync()
         return True
     except Exception:
         conn.rollback()
@@ -230,6 +241,7 @@ def alternar_status_ativo(usuario_id: int, novo_status: int, logged_user_email: 
             dados_antigos={"ativo": old_ativo},
             dados_novos={"ativo": int(novo_status)},
         )
+        _notify_cloud_sync()
         return True
     except Exception:
         conn.rollback()

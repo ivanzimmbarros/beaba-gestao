@@ -1,4 +1,4 @@
-"""E17.2 — restore_sqlite.py: trava de branch e fluxo mínimo com flag de teste.
+"""E17.2 — restore_sqlite.py: consciência de ambiente e fluxo mínimo com artefacto encriptado.
 
 Pós-restore operacional: a UI CAG Setor 4 (lista no expander «Agendamentos») cobre-se com
 `tests/cag_setor4_ui_contract.py` e `generate_e17_restore_certificate.py` (pytest alargado).
@@ -26,6 +26,7 @@ def _env_for_restore_subprocess(repo_root: Path, **extra: str) -> dict[str, str]
     base = {k: v for k, v in os.environ.items() if k not in ("GITHUB_WORKSPACE", "PYTHONPATH")}
     base["BEABA_REPO_ROOT"] = str(repo_root)
     base["PYTHONPATH"] = str(REPO)
+    base["PYTHONIOENCODING"] = "utf-8"
     base.update(extra)
     return base
 
@@ -89,25 +90,25 @@ def tiny_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return tmp_path
 
 
-def test_restore_blocks_without_allowed_branch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.delenv("BEABA_ALLOW_RESTORE_OFF_BRANCH", raising=False)
-    monkeypatch.delenv("GITHUB_REF_NAME", raising=False)
-    env = _env_for_restore_subprocess(tmp_path)
-    env.pop("BEABA_ALLOW_RESTORE_OFF_BRANCH", None)
-    env.pop("GITHUB_REF_NAME", None)
+def test_restore_without_branch_lock_fails_on_missing_encrypted(tmp_path: Path):
+    """Fase 2: restore não exige branch backup-and-restore; falha se o artefacto BEA1 não existir."""
+    env = _env_for_restore_subprocess(tmp_path, BEABA_ENV="dev")
     r = subprocess.run(
         [sys.executable, str(RESTORE_SCRIPT), str(tmp_path / "noop")],
         cwd=str(REPO),
         env=env,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
-    assert r.returncode == 2
+    assert r.returncode == 3
     rr = tmp_path / "restore_result.json"
-    assert rr.is_file(), "restore_result.json é obrigatório mesmo na trava de branch"
+    assert rr.is_file(), "restore_result.json é obrigatório mesmo sem artefacto encriptado"
     data = json.loads(rr.read_text(encoding="utf-8"))
-    assert data.get("step") == "branch_lock"
+    assert data.get("step") == "resolve_encrypted"
     assert data.get("consistency_success_pct") is None
+    assert "RECUPERA" in (r.stdout or "")
 
 
 def test_restore_ok_with_allow_flag_and_encrypted_file(tiny_repo: Path, monkeypatch: pytest.MonkeyPatch):
@@ -126,6 +127,8 @@ def test_restore_ok_with_allow_flag_and_encrypted_file(tiny_repo: Path, monkeypa
         env=env,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     assert r.returncode == 0, r.stderr + r.stdout
     db_out = tiny_repo / "data" / "beaba_gestao.db"

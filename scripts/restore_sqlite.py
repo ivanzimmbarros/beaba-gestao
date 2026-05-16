@@ -1,8 +1,10 @@
 """
 E17.2 — Restore local do backup encriptado (BEA1 / .beaba.enc) para data/beaba_gestao.db.
 
-Trava: apenas na branch backup-and-restore (ou BEABA_ALLOW_RESTORE_OFF_BRANCH=1 para testes locais).
-No CI, test_restore_weekly faz checkout só de backup-and-restore; a matriz altera apenas a origem dos artefactos.
+Contexto: ambiente identificado por ENV_TYPE / BEABA_ENV (dev, stg, prod). Restore permitido em
+qualquer branch (incl. MAIN em desastre) desde que seja fornecido o artefacto encriptado BEA1.
+No CI, test_restore_weekly pode fazer checkout da branch backup-and-restore para o kit de código;
+a matriz altera apenas a origem dos artefactos de dados.
 Compara contagens com o último registo de backup em backup_dr_history.json (snapshot_table_counts).
 
 Arquitectura UI (2026-04-12): legado `page_clientes.py` / `page_agendamentos.py` descontinuado;
@@ -47,7 +49,6 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -74,27 +75,58 @@ def _repo_root() -> Path:
     ).resolve()
 
 
-def _branch_allowed(repo: Path) -> bool:
-    raw = os.environ.get("BEABA_ALLOW_RESTORE_OFF_BRANCH", "").strip().lower()
-    if raw in ("1", "true", "yes"):
-        return True
-    ref = (os.environ.get("GITHUB_REF_NAME") or "").strip()
-    if ref == "backup-and-restore":
-        return True
+def _env_folder_slug() -> str:
+    raw = (os.environ.get("ENV_TYPE") or os.environ.get("BEABA_ENV") or "dev").strip().lower()
+    if raw in ("production", "prod", "main"):
+        return "prod"
+    if raw in ("staging", "stg"):
+        return "stg"
+    if raw in ("develop", "dev", "development", "local"):
+        return "dev"
+    return "dev"
+
+
+def _emit_manager_message(message: str, *, err: bool = False) -> None:
+    """Mensagem legível para gestão; tolera consola Windows (cp1252) sem abortar o restore."""
+    stream = sys.stderr if err else sys.stdout
     try:
-        p = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=repo,
-            capture_output=True,
-            text=True,
-            timeout=8,
-            check=False,
+        print(message, file=stream, flush=True)
+    except UnicodeEncodeError:
+        buf = getattr(stream, "buffer", None)
+        line = message + "\n"
+        if buf is not None:
+            buf.write(line.encode("utf-8", errors="replace"))
+            buf.flush()
+        else:
+            print(line.encode("ascii", errors="replace").decode("ascii"), file=stream, flush=True)
+
+
+def _print_restore_start(env_slug: str) -> None:
+    if env_slug == "prod":
+        _emit_manager_message(
+            "⚠️ [RECUPERAÇÃO DE PRODUÇÃO] Iniciando restauração CRÍTICA dos dados reais dos clientes "
+            "no ambiente MAIN..."
         )
-        if p.returncode == 0 and p.stdout.strip() == "backup-and-restore":
-            return True
-    except (OSError, subprocess.TimeoutExpired):
-        pass
-    return False
+    else:
+        _emit_manager_message(
+            "🛠️ [RECUPERAÇÃO DE TESTE] Iniciando restauração no ambiente de "
+            "homologação/desenvolvimento..."
+        )
+
+
+def _print_restore_success() -> None:
+    _emit_manager_message(
+        "✅ [RESTORE CONCLUÍDO] Os dados foram recuperados e validados com sucesso. "
+        "O sistema está pronto para uso."
+    )
+
+
+def _print_restore_failure(step: str, error: str) -> None:
+    _emit_manager_message(
+        f"❌ [FALHA NO RESTORE] Não foi possível recuperar o banco de dados. "
+        f"Etapa falha: {step}. Motivo técnico: {error}",
+        err=True,
+    )
 
 
 def _is_bea1_file(path: Path) -> bool:
@@ -206,13 +238,11 @@ def _write_result(repo: Path, payload: dict) -> dict:
 
 def main(argv: list[str]) -> int:
     repo = _repo_root()
+    env_slug = _env_folder_slug()
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     if len(argv) < 2:
-        print(
-            f"Uso: restore_sqlite.py <ficheiro.beaba.enc|pasta_com_artefacto>",
-            file=sys.stderr,
-        )
+        _print_restore_failure("usage", "argumentos em falta — indique o ficheiro ou pasta encriptada")
         _write_result(
             repo,
             {
@@ -225,30 +255,14 @@ def main(argv: list[str]) -> int:
         )
         return 1
 
-    if not _branch_allowed(repo):
-        print(
-            "restore_sqlite.py: bloqueado — executar apenas na branch backup-and-restore "
-            "(excepção: BEABA_ALLOW_RESTORE_OFF_BRANCH=1 em testes locais).",
-            file=sys.stderr,
-        )
-        _write_result(
-            repo,
-            {
-                "ok": False,
-                "finished_at_utc": now,
-                "step": "branch_lock",
-                "error": "branch != backup-and-restore",
-                "consistency_success_pct": None,
-            },
-        )
-        return 2
+    _print_restore_start(env_slug)
 
     enc_arg = Path(argv[1]).expanduser()
     if not enc_arg.is_absolute():
         enc_arg = (repo / enc_arg).resolve()
     enc_path = _resolve_encrypted(enc_arg)
     if enc_path is None:
-        print(f"restore_sqlite.py: ficheiro encriptado BEA1 não encontrado em {enc_arg}", file=sys.stderr)
+        _print_restore_failure("resolve_encrypted", f"ficheiro encriptado BEA1 não encontrado em {enc_arg}")
         _write_result(
             repo,
             {
@@ -272,7 +286,7 @@ def main(argv: list[str]) -> int:
     try:
         key = parse_backup_key()
     except ValueError as exc:
-        print(f"restore_sqlite.py: chave: {exc}", file=sys.stderr)
+        _print_restore_failure("parse_key", str(exc))
         _write_result(
             repo,
             {
@@ -293,7 +307,7 @@ def main(argv: list[str]) -> int:
         try:
             decrypt_file(enc_path, decrypted, key)
         except Exception as exc:
-            print(f"restore_sqlite.py: decrypt falhou: {exc}", file=sys.stderr)
+            _print_restore_failure("decrypt", str(exc))
             _write_result(
                 repo,
                 {
@@ -309,7 +323,7 @@ def main(argv: list[str]) -> int:
         try:
             shutil.copy2(decrypted, db_target)
         except OSError as exc:
-            print(f"restore_sqlite.py: cópia para {db_target}: {exc}", file=sys.stderr)
+            _print_restore_failure("copy_db", str(exc))
             _write_result(
                 repo,
                 {
@@ -325,7 +339,7 @@ def main(argv: list[str]) -> int:
     try:
         ev = gather_evidence(db_target)
     except Exception as exc:
-        print(f"restore_sqlite.py: evidência SQLite: {exc}", file=sys.stderr)
+        _print_restore_failure("gather_evidence", str(exc))
         _write_result(
             repo,
             {
@@ -362,6 +376,19 @@ def main(argv: list[str]) -> int:
         "consistency_success_pct": pct,
     }
     merged = _write_result(repo, payload)
+    if ok:
+        _print_restore_success()
+    else:
+        if not integrity_ok:
+            detail = f"integrity_check={ic!r}, foreign_key_violations={fk}"
+            _print_restore_failure("validação_integridade", detail)
+        elif compared > 0 and pct < 100.0:
+            _print_restore_failure(
+                "validação_consistência",
+                f"consistência {pct}% ({matched}/{compared} tabelas alinhadas com o último backup)",
+            )
+        else:
+            _print_restore_failure("validação_final", "falha não classificada após restore")
     print(json.dumps(merged, ensure_ascii=False))
 
     if not integrity_ok:

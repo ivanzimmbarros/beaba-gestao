@@ -14,6 +14,15 @@ from src.modules.constants import (
 from src.modules.validators import parse_data_iso
 
 
+def _notify_cloud_sync() -> None:
+    try:
+        from scripts.sync_trigger import notify_data_changed
+
+        notify_data_changed()
+    except Exception:
+        pass
+
+
 def _resolver_especialidade_id_para_servico(
     cur: sqlite3.Cursor, natureza: str, especialidade_id: int | None
 ) -> tuple[bool, str, int]:
@@ -109,6 +118,7 @@ def cadastrar_especialidade(
             (nat, nm, desc, ativo_i, ord_v),
         )
         conn.commit()
+        _notify_cloud_sync()
         return True, "✅ Especialidade registada."
     except sqlite3.IntegrityError:
         conn.rollback()
@@ -332,6 +342,7 @@ def cadastrar_pacote(
                 (pid_pac, prod_row[0], prod_row[1]),
             )
         conn.commit()
+        _notify_cloud_sync()
         return True, "✅ Pacote registado no catálogo."
     except sqlite3.IntegrityError:
         conn.rollback()
@@ -470,6 +481,7 @@ def cadastrar_evento(
                 (eid, tipo, colab_id, pn, rpct, rval, ordem),
             )
         conn.commit()
+        _notify_cloud_sync()
         return True, "✅ Evento registado no catálogo."
     except sqlite3.IntegrityError:
         conn.rollback()
@@ -683,6 +695,7 @@ def cadastrar_servico_fase1(
             ),
         )
         conn.commit()
+        _notify_cloud_sync()
         return True, "✅ Serviço registado no catálogo."
     except sqlite3.IntegrityError:
         conn.rollback()

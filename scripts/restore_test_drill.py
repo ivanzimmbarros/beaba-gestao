@@ -112,18 +112,39 @@ def _obj_last_modified_utc(objs: list[dict[str, object]], key: str) -> datetime 
     return None
 
 
+def _emit_drill_message(message: str, *, err: bool = False) -> None:
+    stream = sys.stderr if err else sys.stdout
+    try:
+        print(message, file=stream, flush=True)
+    except UnicodeEncodeError:
+        buf = getattr(stream, "buffer", None)
+        line = message + "\n"
+        if buf is not None:
+            buf.write(line.encode("utf-8", errors="replace"))
+            buf.flush()
+        else:
+            print(line.encode("ascii", errors="replace").decode("ascii"), file=stream, flush=True)
+
+
+def _rpo_executive_message(delay_min: int | None) -> str:
+    if delay_min is None:
+        return (
+            "⏱️ [TEMPO DE RECUPERAÇÃO] Não foi possível calcular o atraso do backup mais recente "
+            "(Meta: menos de 60 min)."
+        )
+    return (
+        f"⏱️ [TEMPO DE RECUPERAÇÃO] O backup mais recente tem {delay_min} minutos de atraso "
+        f"(Meta: menos de 60 min)."
+    )
+
+
 def _rpo_eval(now_utc: datetime, last_modified_utc: datetime | None) -> tuple[str, str, int | None]:
     if last_modified_utc is None:
-        return "alerta", "ALERTA: timestamp do backup não disponível para cálculo de RPO.", None
+        return "alerta", "timestamp do backup indisponível", None
     delay_min = int(round((now_utc - last_modified_utc).total_seconds() / 60.0))
     if delay_min <= 65:
-        msg = (
-            f"Recuperação garantida: Backup de {last_modified_utc.strftime('%Y-%m-%dT%H:%M:%SZ')} "
-            f"(atraso de {delay_min} min) cumpre a meta de 1h"
-        )
-        return "cumprido", msg, delay_min
-    msg = f"ALERTA: Backup com atraso de {delay_min} min. Excede a meta de 1h"
-    return "alerta", msg, delay_min
+        return "cumprido", f"atraso {delay_min} min dentro da meta", delay_min
+    return "alerta", f"atraso {delay_min} min excede a meta", delay_min
 
 
 def _write_state(root: Path, payload: dict) -> None:
@@ -183,6 +204,11 @@ def run_drill(root: Path | None = None) -> int:
 
     target_db = root / "data" / "beaba_gestao.db"
 
+    _emit_drill_message(
+        "⚠️ [SIMULAÇÃO DE DESASTRE] Iniciando teste de recuperação de dados reais de Produção "
+        "no ambiente de Staging..."
+    )
+
     try:
         client = boto3_client()
         rk, lst = _latest_prod_enc_key(bucket, key_prefix, client)
@@ -200,7 +226,7 @@ def run_drill(root: Path | None = None) -> int:
         stub["rpo_status"] = rpo_status
         stub["rpo_message"] = rpo_message
         stub["rpo_delay_minutes"] = rpo_delay
-        print(rpo_message)
+        _emit_drill_message(_rpo_executive_message(rpo_delay))
 
         obj = client.get_object(Bucket=bucket, Key=rk)
         with enc_local.open("wb") as fh:
@@ -258,7 +284,10 @@ def run_drill(root: Path | None = None) -> int:
 
         stub["finished_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         _write_state(root, stub)
-        print(f"OK drill: restaurado a partir de s3://{bucket}/{rk} → {target_db}")
+        _emit_drill_message(
+            "✅ [SIMULAÇÃO BEM-SUCEDIDA] Os dados de Produção foram recuperados e validados com "
+            "sucesso no ambiente de Staging."
+        )
         return 0
     except Exception as exc:
         stub["error"] = str(exc)

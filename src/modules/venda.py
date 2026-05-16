@@ -21,6 +21,15 @@ EstadoPagamento = Literal["integral", "pendente", "parcial", "parcelado"]
 MeioPagamento = Literal["dinheiro", "cartao_credito", "mbway", "iban"]
 
 
+def _notify_cloud_sync() -> None:
+    try:
+        from scripts.sync_trigger import notify_data_changed
+
+        notify_data_changed()
+    except Exception:
+        pass
+
+
 def _desconto_percent_sobre(bruto: int, basis: int) -> int:
     if bruto <= 0 or basis <= 0:
         return 0
@@ -487,6 +496,7 @@ def registrar_venda(
                 )
 
         conn.commit()
+        _notify_cloud_sync()
         return True, f"✅ Venda #{vid} registada — total {total_final / 100:.2f} €.", vid
     except Exception as e:
         conn.rollback()
@@ -521,6 +531,7 @@ def reconciliar_estado_pagamento_venda(venda_id: int) -> None:
             pass
         conn.commit()
         aplicou_integral = True
+        _notify_cloud_sync()
     except Exception:
         conn.rollback()
     finally:
@@ -590,6 +601,7 @@ def liquidar_pendencias_pos_venda_registo(
             )
 
         conn.commit()
+        _notify_cloud_sync()
     except Exception as e:
         conn.rollback()
         return [f"❌ Erro na liquidação de pendências: {e}"]

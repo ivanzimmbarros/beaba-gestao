@@ -26,6 +26,10 @@ def assert_governanca_sector_operacional_na_pagina() -> None:
     assert "Auditoria de utilizadores e acessos" in pg
     assert "Log horário" in pg
     assert "Estados de recuperação" in pg
+    assert "Painel executivo de resiliência" in pg
+    assert "Status de Integridade dos Dados" in pg
+    assert "Sincronia com o Sistema" in pg
+    assert "⏱️ [TEMPO DE RECUPERAÇÃO]" in pg
     assert "Relatório de Auditoria de Dados (Drill)" in pg
     assert "Executar Backup Agora" in pg
     assert "restore_test_drill.py" in pg

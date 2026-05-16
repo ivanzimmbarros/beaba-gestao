@@ -13,6 +13,15 @@ from src.modules.financeiro_saldos_clientes import (
 _MEIOS_VALOR_RECEBIDO: tuple[str, ...] = ("DINHEIRO_MBWAY", "IBAN", "CARTAO_CREDITO")
 
 
+def _notify_cloud_sync() -> None:
+    try:
+        from scripts.sync_trigger import notify_data_changed
+
+        notify_data_changed()
+    except Exception:
+        pass
+
+
 def _sum_valor_recebido_efectivo_venda_centavos(
     cur: sqlite3.Cursor, venda_id: int, *, cache: dict[int, int]
 ) -> int:
@@ -343,6 +352,7 @@ def atualizar_fatura_venda(conn: sqlite3.Connection, venda_id: int, fatura_emiti
             """,
             (int(fatura_emitida), fn, int(venda_id))
         )
+        _notify_cloud_sync()
         return True, "Informações de faturamento atualizadas com sucesso."
     except Exception as e:
         return False, f"Erro ao atualizar informações de faturamento: {e}"

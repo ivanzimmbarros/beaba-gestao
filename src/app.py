@@ -31,7 +31,6 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-create_tables()
 inject_bea_theme()
 inject_beaba_verde_sereno()
 inject_constituicao_shell()
@@ -60,6 +59,20 @@ def _perfil_sessao_normalizado(raw: object) -> str:
 
 
 def main() -> None:
+    from scripts.web_startup import ensure_web_environment_status
+
+    ready, startup_alert = ensure_web_environment_status()
+    if not ready:
+        st.error(
+            "Não foi possível preparar a base de dados. Verifique as credenciais S3/backup "
+            "no Streamlit Secrets ou no ficheiro `.env` local."
+        )
+        st.stop()
+    if startup_alert:
+        st.warning(startup_alert)
+
+    create_tables()
+
     if not st.session_state.get("authenticated"):
         if (
             st.session_state.get("aguardando_mfa")

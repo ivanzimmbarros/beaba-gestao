@@ -22,6 +22,15 @@ from src.modules.validators import (
 _NOME_COLAB_UI_SUFIXO_ID = re.compile(r"\s*\(#\d+\)\s*$", re.IGNORECASE)
 
 
+def _notify_cloud_sync() -> None:
+    try:
+        from scripts.sync_trigger import notify_data_changed
+
+        notify_data_changed()
+    except Exception:
+        pass
+
+
 def nome_colaborador_sem_sufixo_id_ui(nome: object) -> str:
     """
     Remove sufixo « (#n) » que algumas UIs acrescentavam ao rótulo (ex.: selectboxes),
@@ -430,6 +439,7 @@ def cadastrar_colaborador(
                 (cid, sid, cent, ordem, dl),
             )
         conn.commit()
+        _notify_cloud_sync()
         return True, "✅ Colaborador cadastrado com sucesso."
     except sqlite3.IntegrityError:
         conn.rollback()
@@ -870,6 +880,7 @@ def atualizar_colaborador(
                 (cid, sid, cent, ordem, dl),
             )
         conn.commit()
+        _notify_cloud_sync()
         return True, "✅ Colaborador atualizado com sucesso."
     except sqlite3.IntegrityError:
         conn.rollback()

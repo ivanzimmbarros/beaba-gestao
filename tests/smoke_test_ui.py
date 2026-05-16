@@ -31,6 +31,7 @@ correcta (regressão da cadeia de filtros em `page_financeiro.py`).
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -273,8 +274,36 @@ def test_smoke_financeiro_entradas_sector_widgets() -> None:
     assert any("Limpar Pesquisa" in l for l in btn_labels)
 
 
-def test_smoke_governanca_admin_sector_widgets() -> None:
+def test_smoke_governanca_admin_sector_widgets(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Governança (admin): título, subtítulos sector log/estado, botão cópia manual (sem executar scripts)."""
+    drill = (
+        tmp_path
+        / "docs"
+        / "governanca"
+        / "telemetry"
+        / "staging_restore_drill_state.json"
+    )
+    drill.parent.mkdir(parents=True, exist_ok=True)
+    drill.write_text(
+        json.dumps(
+            {
+                "ok": True,
+                "verify_ok": True,
+                "rpo_delay_minutes": 25,
+                "finished_at": "2026-05-16T12:00:00Z",
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("BEABA_REPO_ROOT", str(tmp_path))
+    monkeypatch.setattr(
+        "scripts.web_startup.ensure_web_environment_status",
+        lambda repo=None: (True, None),
+    )
+
     at = AppTest.from_file(str(_APP_PY), default_timeout=120)
     _prep_sessao_autenticada_smoke(at, "governanca")
     at.run()
@@ -305,6 +334,34 @@ def test_smoke_governanca_admin_sector_widgets() -> None:
     assert "Filtrar registos por módulo" in digest
     assert "backup_hourly.log" in digest or "Ainda não existe log legível" in digest
     assert "Estados de recuperação" in digest
+    assert "Status de Integridade dos Dados" in digest
+    assert "Sincronia com o Sistema" in digest
+    assert "⏱️ [TEMPO DE RECUPERAÇÃO]" in digest
+    assert "✅ ÍNTEGRO" in digest
+
+
+def test_smoke_vendas_painel_faturas_totais_boot(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Painel de Vendas: totais semânticos e fluxo de fatura carregam após gatilhos de sync."""
+    monkeypatch.setattr(
+        "scripts.web_startup.ensure_web_environment_status",
+        lambda repo=None: (True, None),
+    )
+    at = AppTest.from_file(str(_APP_PY), default_timeout=120)
+    _prep_sessao_autenticada_smoke(at, "vendas")
+    at.run()
+    _assert_app_tree_clean(at, context="Vendas — painel faturas e totais")
+    chunks: list[str] = []
+    for m in at.get("markdown"):
+        v = getattr(m, "value", None)
+        txt = v if isinstance(v, str) else str(getattr(m, "body", "") or "")
+        if "<style>" in txt and "bea-cv-vnd-slot" in txt:
+            continue
+        chunks.append(txt)
+    digest = "\n".join(chunks)
+    assert "Total pedido" in digest
+    assert "Total registado" in digest
+    assert "4. Desconto sobre o total" in digest
+    assert "5. Pagamento" in digest
 
 
 def test_smoke_ui_page_modules_sync_with_disk() -> None:

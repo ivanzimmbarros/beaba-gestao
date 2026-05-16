@@ -30,6 +30,15 @@ TipoOrigem = Literal["sessao_avulsa", "pacote", "coworking", "evento"]
 _HHMM = re.compile(r"^\d{1,2}:\d{2}$")
 
 
+def _notify_cloud_sync() -> None:
+    try:
+        from scripts.sync_trigger import notify_data_changed
+
+        notify_data_changed()
+    except Exception:
+        pass
+
+
 def _norm_hhmm(s: str) -> str:
     t = (s or "").strip()
     if not _HHMM.match(t):
@@ -1008,6 +1017,7 @@ def criar_agendamento(
                 (aid, int(cid), ordem),
             )
         conn.commit()
+        _notify_cloud_sync()
         return True, f"✅ Agendamento #{aid} criado (AGENDADO)."
     except Exception as e:
         conn.rollback()
@@ -1101,6 +1111,7 @@ def atualizar_agendamento(
                 (tdb, sdb, int(ag_id)),
             )
         conn.commit()
+        _notify_cloud_sync()
         return True, "✅ Agendamento atualizado."
     except Exception as e:
         conn.rollback()
@@ -1343,6 +1354,7 @@ def alterar_status(
                 )
                 _gerar_repasse_linhas(cur, int(ag_id))
                 conn.commit()
+                _notify_cloud_sync()
                 pac = " — venda do pacote ainda não totalmente liquidada." if tipo_o == "pacote" else ""
                 return (
                     True,
@@ -1365,6 +1377,7 @@ def alterar_status(
         if n in ("REALIZADO_PENDENTE_PGTO", "CONCLUIDO"):
             _gerar_repasse_linhas(cur, int(ag_id))
         conn.commit()
+        _notify_cloud_sync()
         return True, f"✅ Estado: {n}."
     except Exception as e:
         conn.rollback()
@@ -1443,6 +1456,7 @@ def cancelar_agendamento(
                 else "✅ Cancelado — crédito não devolvido ao buffer."
             )
             msg += extra_cred
+        _notify_cloud_sync()
         return True, msg
     except Exception as e:
         conn.rollback()
@@ -1575,6 +1589,7 @@ def criar_agendamento_pre_venda(
                 (aid, int(colab), ordem),
             )
         conn.commit()
+        _notify_cloud_sync()
         return True, f"✅ Pré-venda #{aid} criada (AGENDADO)."
     except Exception as e:
         conn.rollback()
@@ -1633,6 +1648,7 @@ def associar_agendamento_pre_venda_a_item(
             (venda_id, int(venda_item_id), int(ag_id)),
         )
         conn.commit()
+        _notify_cloud_sync()
         return True, "✅ Pré-venda associada à linha de venda — modo crédito."
     except Exception as e:
         conn.rollback()
@@ -1828,6 +1844,7 @@ def converter_agendamento_avulso_para_consumo_pacote(
                 actor=actor,
             )
         conn.commit()
+        _notify_cloud_sync()
         return True, f"✅ Agendamento #{aid} convertido para consumo do pacote (linha #{vi_pac})."
     except Exception as e:
         conn.rollback()
@@ -1923,6 +1940,8 @@ def pos_venda_associar_agendamentos_por_linha(
         else:
             out.append(f"✅ Ag #{ag_id}: {msg_s}")
 
+    if any(str(x).startswith("✅") for x in out):
+        _notify_cloud_sync()
     return out
 
 
