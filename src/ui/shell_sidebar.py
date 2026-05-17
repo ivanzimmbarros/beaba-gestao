@@ -91,19 +91,34 @@ def _nav_items_para_perfil(user_perfil: str | None) -> list[tuple[str, str]]:
     return list(NAV_ITEMS)
 
 
-def render_shell_sidebar(*, current_page: str, user_perfil: str | None = None) -> None:
-    """Renderiza `st.sidebar` com links de navegação (session_state.page)."""
+def _render_shell_sidebar_header() -> None:
+    """Marca Sereno + selo de ambiente (produção sem selo)."""
+    badge = _sidebar_env_badge_spec(get_beaba_env_type_raw())
+    if badge is not None:
+        badge_bg, badge_fg, badge_txt = badge
+        _render_sidebar_env_badge(badge_bg, badge_fg, badge_txt)
+    st.markdown(
+        '<p class="bea-sidebar-app-title">Sistema de Gestão do BeaBa Materno</p>',
+        unsafe_allow_html=True,
+    )
+
+
+def render_shell_sidebar(
+    *,
+    current_page: str,
+    user_perfil: str | None = None,
+    branding_only: bool = False,
+) -> None:
+    """Renderiza `st.sidebar` com links de navegação (session_state.page).
+
+    ``branding_only=True`` — só faixa Sálvia + título (login/MFA); mantém a shell visível.
+    """
     nav = _nav_items_para_perfil(user_perfil)
     ep = _perfil_sidebar_normalizado(user_perfil)
     with st.sidebar:
-        badge = _sidebar_env_badge_spec(get_beaba_env_type_raw())
-        if badge is not None:
-            badge_bg, badge_fg, badge_txt = badge
-            _render_sidebar_env_badge(badge_bg, badge_fg, badge_txt)
-        st.markdown(
-            '<p class="bea-sidebar-app-title">Sistema de Gestão do BeaBa Materno</p>',
-            unsafe_allow_html=True,
-        )
+        _render_shell_sidebar_header()
+        if branding_only:
+            return
         st.markdown(
             '<p class="bea-sidebar-sector-title">Navegação</p>',
             unsafe_allow_html=True,

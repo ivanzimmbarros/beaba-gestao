@@ -96,6 +96,7 @@ def main() -> None:
     create_tables()
 
     if not st.session_state.get("authenticated"):
+        render_shell_sidebar(current_page="home", branding_only=True)
         if (
             st.session_state.get("aguardando_mfa")
             and st.session_state.get("pending_mfa_user_id") is not None
@@ -106,6 +107,7 @@ def main() -> None:
         st.stop()
 
     if st.session_state.get("must_change"):
+        render_shell_sidebar(current_page="home", branding_only=True)
         render_force_password_change()
         st.stop()
 
