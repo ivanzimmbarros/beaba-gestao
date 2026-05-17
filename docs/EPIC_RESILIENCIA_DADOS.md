@@ -41,8 +41,8 @@
 ### Comportamento no arranque (`src/app.py`)
 
 1. **Antes de criar tabelas**, corre `scripts/web_startup.ensure_web_environment_status()`.
-2. Se `data/beaba_gestao.db` **já existe** → continua normalmente.
-3. Se **não existe** e há credenciais R2 (Secrets ou `.env`):
+2. Se `data/beaba_gestao.db` **já tem dados de negócio** (ex.: clientes) → continua normalmente.
+3. Se o ficheiro **não existe**, está vazio ou só tem bootstrap (0 clientes) e há credenciais R2:
    - Mensagem: `🛠️ [WEB STARTUP] Restaurando ambiente...`
    - Descarrega o `.beaba.enc` mais recente do prefixo `{env}/hourly/`
    - Repõe `backups/{env}/cloud_sync_manifest.json` e `staging_restore_drill_state.json` de `{env}/state/` no bucket (quando existirem)
@@ -54,7 +54,9 @@
 
 ### Sync automático pós-escrita (`scripts/sync_trigger.py`)
 
-Em `BEABA_ENV=production` (ou `prod` / `main`), após cada gravação bem-sucedida nos módulos **cliente**, **agendamento**, **venda** (venda directa, reconciliação, liquidação de pendências), **financeiro_entradas_convertidas** (status de fatura), **colaborador**, **catálogo**, **usuarios_db** (criar, perfil, activar/inactivar) e **auth_db** (senha, reset, `create_usuario`), o sistema tenta `backup_sqlite_hourly.py` + `backup_sync_cloud.py`, respeitando **debounce de 120 segundos** entre envios.
+Com **bucket S3/R2** configurado (produção, staging ou Streamlit Cloud), após cada gravação bem-sucedida nos módulos **cliente**, **agendamento**, **venda** (venda directa, reconciliação, liquidação de pendências), **financeiro_entradas_convertidas** (status de fatura), **colaborador**, **catálogo**, **usuarios_db** (criar, perfil, activar/inactivar) e **auth_db** (senha, reset, `create_usuario`), o sistema tenta `backup_sqlite_hourly.py` + `backup_sync_cloud.py`. Alterações de **credenciais** fazem backup **imediato** (sem debounce); o resto respeita **120 segundos** entre envios.
+
+**Importante (Streamlit Cloud):** o disco do contentor é **efémero** — cada reboot apaga `data/beaba_gestao.db`. Sem Secrets R2 + `ENV_TYPE=production`, ou sem backup na nuvem após trocar a senha, o login volta ao estado inicial (`changeme123` no bootstrap).
 
 **Painel de Vendas (`page_vendas.py`):** cadastro/actualização de cliente, **Finalizar Venda** (`registrar_venda` + fatura solicitada), associação pós-venda e liquidação de pendências — todas com gatilho nos módulos de domínio. Não existe exclusão de venda na BD neste ecrã (remover item do carrinho é só estado de sessão).
 

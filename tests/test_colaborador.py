@@ -48,7 +48,7 @@ def _colab(**kw):
         freguesia="Selho",
         distrito="",
         pais="Portugal",
-        email="prof@beaba.pt",
+        email="prof@example.com",
         nif_ou_documento="123456789",
         identificacao_internacional=False,
         numero_contato="11999887766",

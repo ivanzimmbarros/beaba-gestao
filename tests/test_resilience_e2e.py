@@ -8,7 +8,12 @@ from pathlib import Path
 import pytest
 
 from scripts import sync_trigger as st_mod
-from scripts.web_startup import ALERT_NETWORK_NO_BOOT_BLOCK, ensure_web_environment_status
+from scripts.web_startup import (
+    ALERT_NETWORK_NO_BOOT_BLOCK,
+    _local_db_ready,
+    _sqlite_operational_data_missing,
+    ensure_web_environment_status,
+)
 from src.database.connection import create_tables, get_connection
 from src.modules.cliente import atualizar_cliente, cadastrar_cliente
 from src.modules.usuarios_db import criar_usuario
@@ -20,11 +25,12 @@ def test_sync_trigger_on_cliente_update(monkeypatch: pytest.MonkeyPatch) -> None
     """Alteração de cliente em produção dispara o gatilho de sincronia."""
     calls: list[int] = []
 
-    def _track() -> None:
+    def _track(*_a, **_k) -> None:
         calls.append(1)
 
     monkeypatch.setattr(st_mod, "sync_to_cloud_after_change", _track)
     monkeypatch.setenv("BEABA_ENV", "prod")
+    monkeypatch.setenv("S3_BUCKET_NAME", "bucket-test")
 
     suffix = str(int(time.time() * 1000) % 1_000_000)
     tel = f"+351910{suffix.zfill(6)}"
@@ -136,11 +142,12 @@ def test_sync_trigger_on_venda_update(
 
     calls: list[int] = []
 
-    def _track() -> None:
+    def _track(*_a, **_k) -> None:
         calls.append(1)
 
     monkeypatch.setattr(st_mod, "sync_to_cloud_after_change", _track)
     monkeypatch.setenv("BEABA_ENV", "prod")
+    monkeypatch.setenv("S3_BUCKET_NAME", "bucket-test")
 
     conn = get_connection()
     assert conn is not None
@@ -181,11 +188,12 @@ def test_sync_trigger_on_user_management(monkeypatch: pytest.MonkeyPatch) -> Non
     """Criação de utilizador no painel admin dispara gatilho de backup cloud (mock)."""
     calls: list[int] = []
 
-    def _track() -> None:
+    def _track(*_a, **_k) -> None:
         calls.append(1)
 
     monkeypatch.setattr(st_mod, "sync_to_cloud_after_change", _track)
     monkeypatch.setenv("BEABA_ENV", "prod")
+    monkeypatch.setenv("S3_BUCKET_NAME", "bucket-test")
 
     suffix = str(int(time.time() * 1000) % 1_000_000)
     mail = f"resiliencia.user.{suffix}@example.com"
@@ -199,11 +207,51 @@ def test_sync_trigger_on_user_management(monkeypatch: pytest.MonkeyPatch) -> Non
     assert len(calls) == 1
 
 
+def test_sync_trigger_auth_force_bypasses_debounce(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("BEABA_ENV", "prod")
+    monkeypatch.setenv("S3_BUCKET_NAME", "bucket-test")
+    monkeypatch.setenv("BEABA_REPO_ROOT", str(tmp_path))
+    (tmp_path / "data").mkdir(parents=True, exist_ok=True)
+    runs: list[int] = []
+
+    def _fake_cycle(repo: str, py: str) -> int:
+        runs.append(1)
+        return 0
+
+    monkeypatch.setattr(st_mod, "_run_backup_cycle", _fake_cycle)
+    st_mod.notify_auth_data_changed()
+    st_mod.notify_auth_data_changed()
+    assert len(runs) == 2
+
+
+def test_sqlite_operational_data_missing_detects_bootstrap_only(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    db = tmp_path / "bootstrap.db"
+    monkeypatch.setenv("BEABA_SQLITE_PATH", str(db))
+    create_tables()
+    assert _sqlite_operational_data_missing(db) is True
+    conn = get_connection()
+    assert conn is not None
+    try:
+        conn.execute(
+            "INSERT INTO clientes (nome, whatsapp) VALUES ('A', '+351910000001')"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    assert _sqlite_operational_data_missing(db) is False
+    assert _local_db_ready(db) is True
+
+
 def test_sync_trigger_debounce_single_cloud_attempt(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """Duas alterações rápidas em prod só disparam um ciclo backup+sync."""
     monkeypatch.setenv("BEABA_ENV", "prod")
+    monkeypatch.setenv("S3_BUCKET_NAME", "bucket-test")
     monkeypatch.setenv("BEABA_REPO_ROOT", str(tmp_path))
     (tmp_path / "data").mkdir(parents=True, exist_ok=True)
 

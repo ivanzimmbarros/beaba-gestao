@@ -97,7 +97,7 @@ jobs:
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
           subject: "🔴 FALHA | Backup DAILY | ${{ steps.utc.outputs.ts }} | ver Actions"
-          to: ivanzimmbarros@gmail.com
+          to: ${{ secrets.EMAIL_USERNAME }}
           from: ${{ secrets.EMAIL_FROM }}
           body: file://gha_backup_fail_plain.txt
           html_body: file://gha_backup_fail_body.html

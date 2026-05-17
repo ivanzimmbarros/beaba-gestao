@@ -39,6 +39,19 @@ ALERT_NETWORK_NO_BOOT_BLOCK = (
     "Quando a rede voltar, restaure a cópia mais recente ou aguarde o próximo sync."
 )
 
+ALERT_NO_REMOTE_BACKUP_YET = (
+    "⚠️ Ainda não há cópia encriptada no R2/S3 (ou o prefixo está incorrecto). "
+    "A app arranca com base vazia; após login e alterações, o backup automático guardará na nuvem."
+)
+
+_REQUIRED_CLOUD_KEYS = (
+    "S3_BUCKET_NAME",
+    "S3_ACCESS_KEY",
+    "S3_SECRET_KEY",
+    "S3_ENDPOINT_URL",
+    "BEABA_BACKUP_KEY",
+)
+
 _SECRET_KEYS = (
     "S3_ACCESS_KEY",
     "S3_SECRET_KEY",
@@ -66,6 +79,18 @@ def _emit(message: str, *, err: bool = False) -> None:
 
 def _is_streamlit_runtime() -> bool:
     return bool(os.environ.get("STREAMLIT_RUNTIME_ENV") or os.environ.get("STREAMLIT_SERVER_PORT"))
+
+
+def missing_cloud_secret_keys() -> list[str]:
+    """Chaves planas em falta (Secrets Streamlit ou ``.env``) para arranque cloud."""
+    _hydrate_config()
+    try:
+        from src.database.connection import hydrate_beaba_runtime_env
+
+        hydrate_beaba_runtime_env(force=True)
+    except Exception:
+        pass
+    return [k for k in _REQUIRED_CLOUD_KEYS if not (os.environ.get(k) or "").strip()]
 
 
 def _hydrate_config() -> None:
@@ -154,6 +179,43 @@ def _is_network_error(exc: BaseException) -> bool:
     )
 
 
+def _sqlite_operational_data_missing(db_path: Path) -> bool:
+    """True quando o SQLite não tem dados de negócio (reboot Streamlit com base vazia ou só bootstrap)."""
+    if not db_path.is_file():
+        return True
+    try:
+        if db_path.stat().st_size == 0:
+            return True
+    except OSError:
+        return True
+    import sqlite3
+
+    try:
+        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    except sqlite3.Error:
+        return True
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='clientes' LIMIT 1"
+        )
+        if not cur.fetchone():
+            return True
+        cur.execute("SELECT COUNT(*) FROM clientes")
+        row = cur.fetchone()
+        return int(row[0] if row else 0) == 0
+    except sqlite3.Error:
+        return True
+    finally:
+        conn.close()
+
+
+def _local_db_ready(db_path: Path) -> bool:
+    return db_path.is_file() and db_path.stat().st_size > 0 and not _sqlite_operational_data_missing(
+        db_path
+    )
+
+
 def ensure_web_environment_status(repo: Path | None = None) -> tuple[bool, str | None]:
     """
     Garante ambiente para ``create_tables()`` / UI.
@@ -162,12 +224,24 @@ def ensure_web_environment_status(repo: Path | None = None) -> tuple[bool, str |
     """
     root = repo or repo_root()
     os.environ.setdefault("BEABA_REPO_ROOT", str(root))
+    _hydrate_config()
+    try:
+        from src.database.connection import hydrate_beaba_runtime_env
+
+        hydrate_beaba_runtime_env(force=True)
+    except Exception:
+        pass
+
     db_path = root / "data" / "beaba_gestao.db"
 
-    if db_path.is_file() and db_path.stat().st_size > 0:
+    if _local_db_ready(db_path):
         return True, None
 
-    _hydrate_config()
+    if _sqlite_operational_data_missing(db_path) and _is_streamlit_runtime():
+        _emit(
+            "ℹ️ [WEB STARTUP] Base local vazia ou só bootstrap — a tentar cópia na nuvem..."
+        )
+
     bucket = (os.environ.get("S3_BUCKET_NAME") or "").strip()
     if not bucket:
         if _is_streamlit_runtime():
@@ -210,6 +284,8 @@ def ensure_web_environment_status(repo: Path | None = None) -> tuple[bool, str |
             f"❌ [WEB STARTUP] Nenhum backup encriptado em s3://{bucket}/{prefix}",
             err=True,
         )
+        if _is_streamlit_runtime():
+            return True, ALERT_NO_REMOTE_BACKUP_YET
         return False, None
 
     env_slug = _env_folder_slug()

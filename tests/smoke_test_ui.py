@@ -109,7 +109,7 @@ def _prep_sessao_perfil_usuario_smoke(at: AppTest, route: str) -> None:
     at.session_state["authenticated"] = True
     at.session_state["auth_perfil"] = "usuario"
     at.session_state["auth_user_id"] = 2
-    at.session_state["auth_user_email"] = "usuario.smoke@bea.pt"
+    at.session_state["auth_user_email"] = "usuario.smoke@example.com"
     at.session_state["must_change"] = False
     at.session_state["auth_user_nome"] = "Smoke Usuario"
 
@@ -120,7 +120,7 @@ def _prep_sessao_autenticada_smoke(at: AppTest, route: str) -> None:
     at.session_state["authenticated"] = True
     at.session_state["auth_perfil"] = "admin"
     at.session_state["auth_user_id"] = 1
-    at.session_state["auth_user_email"] = "ivanzimmbarros@gmail.com"
+    at.session_state["auth_user_email"] = "admin.smoke@example.com"
     at.session_state["must_change"] = False
     at.session_state["auth_user_nome"] = "Smoke"
 

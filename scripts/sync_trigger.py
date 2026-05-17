@@ -27,9 +27,28 @@ def _stamp_path(root: Path) -> Path:
     return root / "data" / _STAMP_NAME
 
 
-def _is_prod_env() -> bool:
+def _is_streamlit_runtime() -> bool:
+    return bool(os.environ.get("STREAMLIT_RUNTIME_ENV") or os.environ.get("STREAMLIT_SERVER_PORT"))
+
+
+def _cloud_bucket_configured() -> bool:
+    return bool((os.environ.get("S3_BUCKET_NAME") or "").strip())
+
+
+def _should_sync_to_cloud() -> bool:
+    """Produção/staging ou qualquer deploy Streamlit com bucket S3 configurado."""
+    if not _cloud_bucket_configured():
+        return False
+    try:
+        from src.database.connection import hydrate_beaba_runtime_env
+
+        hydrate_beaba_runtime_env()
+    except Exception:
+        pass
     raw = (os.environ.get("BEABA_ENV") or os.environ.get("ENV_TYPE") or "").strip().lower()
-    return raw in ("production", "prod", "main")
+    if raw in ("production", "prod", "main", "staging", "stg"):
+        return True
+    return _is_streamlit_runtime()
 
 
 def _within_debounce(root: Path) -> bool:
@@ -67,14 +86,16 @@ def _run_backup_cycle(repo: str, py: str) -> int:
     return sync.returncode
 
 
-def sync_to_cloud_after_change() -> None:
+def sync_to_cloud_after_change(*, force: bool = False) -> None:
     """
-    Em ``BEABA_ENV=prod``, executa backup SQLite + sync S3 se passaram ≥120s desde o último envio.
+    Com bucket S3 configurado (prod/staging/Streamlit Cloud), backup SQLite + sync R2/S3.
+
+    ``force=True`` ignora o debounce de 120s (senhas e utilizadores).
     """
-    if not _is_prod_env():
+    if not _should_sync_to_cloud():
         return
     root = repo_root()
-    if _within_debounce(root):
+    if not force and _within_debounce(root):
         return
     repo = str(root)
     py = sys.executable
@@ -86,3 +107,8 @@ def sync_to_cloud_after_change() -> None:
 def notify_data_changed() -> None:
     """Alias para hooks nos módulos de domínio."""
     sync_to_cloud_after_change()
+
+
+def notify_auth_data_changed() -> None:
+    """Credenciais/utilizadores — backup imediato para sobreviver a reboot do Streamlit Cloud."""
+    sync_to_cloud_after_change(force=True)

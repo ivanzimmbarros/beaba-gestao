@@ -266,7 +266,7 @@ jobs:
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
           subject: "✅ SUCESSO | Teste restore semanal | dados ${{ matrix.source_branch }} | ${{ steps.ts.outputs.utc }}"
-          to: ivanzimmbarros@gmail.com
+          to: ${{ secrets.EMAIL_USERNAME }}
           from: ${{ secrets.EMAIL_FROM }}
           body: file://email_ok_body.txt
           html_body: file://email_ok_body.html
@@ -303,7 +303,7 @@ jobs:
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
           subject: "🔴 FALHA | Teste restore semanal | dados ${{ matrix.source_branch }} | ${{ steps.ts.outputs.utc }}"
-          to: ivanzimmbarros@gmail.com
+          to: ${{ secrets.EMAIL_USERNAME }}
           from: ${{ secrets.EMAIL_FROM }}
           body: file://email_fail_body.txt
           html_body: file://email_fail_body.html
