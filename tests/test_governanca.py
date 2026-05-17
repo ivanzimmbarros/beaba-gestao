@@ -84,7 +84,9 @@ def test_backup_dr_history_json_existe_e_schema_minimo():
     """E17.1 — telemetria canónica (schema v1; runs lista, entradas com type + groups)."""
     root = Path(__file__).resolve().parents[1]
     p = root / "docs" / "governanca" / "telemetry" / "backup_dr_history.json"
-    assert p.is_file()
+    if not p.is_file():
+        p = root / "docs" / "governanca" / "telemetry" / "backup_dr_history.json.example"
+    assert p.is_file(), "Falta backup_dr_history.json (local) ou .json.example (repo público)"
     data = json.loads(p.read_text(encoding="utf-8"))
     assert data.get("schema_version") == 1
     assert isinstance(data.get("runs"), list)

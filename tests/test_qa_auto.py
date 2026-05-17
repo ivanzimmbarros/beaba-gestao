@@ -16,7 +16,7 @@ def _cli(**kw):
         freguesia="Oliveira do Castelo",
         distrito="Braga",
         pais="Portugal",
-        email="diretor@beaba.pt",
+        email="diretor@example.com",
         sexo="Masculino",
         tem_filhos=False,
         filhos=[],

@@ -16,7 +16,7 @@ if str(root_path) not in sys.path:
 
 import streamlit as st
 
-from src.database.connection import create_tables, env_type_display_label_pt
+from src.database.connection import create_tables, env_type_display_label_pt, hydrate_beaba_runtime_env
 from src.ui.constituicao_visual_shell import inject_cag_visual_mount, inject_constituicao_shell
 from src.ui.page_catalogo import render_page_catalogo
 from src.ui.page_clientes_agendamentos import render_page_clientes_agendamentos
@@ -67,14 +67,28 @@ def _perfil_sessao_normalizado(raw: object) -> str:
 
 
 def main() -> None:
+    hydrate_beaba_runtime_env()
     from scripts.web_startup import ensure_web_environment_status
 
     ready, startup_alert = ensure_web_environment_status()
     if not ready:
-        st.error(
-            "Não foi possível preparar a base de dados. Verifique as credenciais S3/backup "
-            "no Streamlit Secrets ou no ficheiro `.env` local."
+        from scripts.web_startup import missing_cloud_secret_keys
+
+        missing = missing_cloud_secret_keys()
+        msg = (
+            "Não foi possível preparar a base de dados. No **Streamlit Cloud** → "
+            "**Manage app** → **Settings** → **Secrets**, configure as credenciais R2/S3 "
+            "(chaves planas no TOML, sem secções aninhadas)."
         )
+        if missing:
+            msg += "\n\n**Chaves em falta:** " + ", ".join(f"`{k}`" for k in missing)
+        else:
+            msg += (
+                "\n\nAs chaves parecem definidas, mas a ligação ou o backup falhou — "
+                "confira `S3_ENDPOINT_URL`, `BEABA_BACKUP_KEY` e se existe `.beaba.enc` "
+                "no prefixo (`S3_UPLOAD_PREFIX`, ex.: `prod/hourly/`)."
+            )
+        st.error(msg)
         st.stop()
     if startup_alert:
         st.warning(startup_alert)
@@ -82,6 +96,7 @@ def main() -> None:
     create_tables()
 
     if not st.session_state.get("authenticated"):
+        render_shell_sidebar(current_page="home", branding_only=True)
         if (
             st.session_state.get("aguardando_mfa")
             and st.session_state.get("pending_mfa_user_id") is not None
@@ -92,6 +107,7 @@ def main() -> None:
         st.stop()
 
     if st.session_state.get("must_change"):
+        render_shell_sidebar(current_page="home", branding_only=True)
         render_force_password_change()
         st.stop()
 

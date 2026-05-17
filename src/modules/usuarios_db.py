@@ -12,11 +12,14 @@ _SENHA_INICIAL_PADRAO = "BemVindo123"
 _PERFIS = frozenset({"admin", "usuario"})
 
 
-def _notify_cloud_sync() -> None:
+def _notify_cloud_sync(*, auth_critical: bool = False) -> None:
     try:
-        from scripts.sync_trigger import notify_data_changed
+        from scripts.sync_trigger import notify_auth_data_changed, notify_data_changed
 
-        notify_data_changed()
+        if auth_critical:
+            notify_auth_data_changed()
+        else:
+            notify_data_changed()
     except Exception:
         pass
 
@@ -125,7 +128,7 @@ def criar_usuario(nome: str, email: str, perfil: str, logged_user_email: str) ->
             registro_id=str(new_id),
             dados_novos={"nome": nome_n, "email": mail, "perfil": perf, "ativo": 1},
         )
-        _notify_cloud_sync()
+        _notify_cloud_sync(auth_critical=True)
         return new_id
     except ValueError:
         raise

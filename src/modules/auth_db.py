@@ -14,11 +14,14 @@ from src.modules.auth_utils import hash_password, verify_password
 _MFA_TTL_MIN = 10
 
 
-def _notify_cloud_sync() -> None:
+def _notify_cloud_sync(*, auth_critical: bool = False) -> None:
     try:
-        from scripts.sync_trigger import notify_data_changed
+        from scripts.sync_trigger import notify_auth_data_changed, notify_data_changed
 
-        notify_data_changed()
+        if auth_critical:
+            notify_auth_data_changed()
+        else:
+            notify_data_changed()
     except Exception:
         pass
 
@@ -187,7 +190,7 @@ def reset_password_to_temp(email: str) -> str | None:
             modulo="auth",
             registro_id=str(uid),
         )
-        _notify_cloud_sync()
+        _notify_cloud_sync(auth_critical=True)
         return temp_plain
     except Exception:
         conn.rollback()
@@ -267,7 +270,7 @@ def update_password_clear_must_change(
                 (new_h, int(user_id)),
             )
         conn.commit()
-        _notify_cloud_sync()
+        _notify_cloud_sync(auth_critical=True)
         return None
     except Exception:
         conn.rollback()
@@ -312,7 +315,7 @@ def create_usuario(
             (nome_n, mail.lower(), hash_password(pwd), perfil_n),
         )
         conn.commit()
-        _notify_cloud_sync()
+        _notify_cloud_sync(auth_critical=True)
         return None
     except Exception:
         conn.rollback()

@@ -47,11 +47,11 @@ def uso_db(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
         "VALUES (?,?,?,?,1,0), (?,?,?,?,1,1)",
         (
             "Alpha",
-            "alfa@bea.pt",
+            "alfa@example.com",
             hash_password("seed12ab"),
             "admin",
             "Beta",
-            "beta@bea.pt",
+            "beta@example.com",
             hash_password("seed12bb"),
             "usuario",
         ),
@@ -77,7 +77,7 @@ def test_cria_com_senha_padrao_audit_e_duplicidade(
     monkeypatch.setenv("BEABA_SQLITE_PATH", str(uso_db))
     from src.modules import usuarios_db
 
-    nid = usuarios_db.criar_usuario("Novo", " novo@bea.pt ", "usuario", "alfa@bea.pt")
+    nid = usuarios_db.criar_usuario("Novo", " novo@example.com ", "usuario", "alfa@example.com")
     assert nid == 3
     pwd = usuarios_db.senha_padrao_inicial()
     conn = sqlite3.connect(str(uso_db))
@@ -91,14 +91,14 @@ def test_cria_com_senha_padrao_audit_e_duplicidade(
     assert int(n_aud) >= 1
 
     with pytest.raises(ValueError, match="já está cadastrado"):
-        usuarios_db.criar_usuario("X", "novo@bea.pt", "admin", "alfa@bea.pt")
+        usuarios_db.criar_usuario("X", "novo@example.com", "admin", "alfa@example.com")
 
 
 def test_atualizar_perfil_audit(uso_db: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("BEABA_SQLITE_PATH", str(uso_db))
     from src.modules import usuarios_db
 
-    assert usuarios_db.atualizar_perfil(2, "admin", "alfa@bea.pt")
+    assert usuarios_db.atualizar_perfil(2, "admin", "alfa@example.com")
     conn = sqlite3.connect(str(uso_db))
     assert conn.execute("SELECT perfil FROM usuarios WHERE id=2").fetchone()[0] == "admin"
     n_up = conn.execute(
@@ -112,7 +112,7 @@ def test_alternar_ativo_audit(uso_db: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("BEABA_SQLITE_PATH", str(uso_db))
     from src.modules import usuarios_db
 
-    assert usuarios_db.alternar_status_ativo(2, 0, "alfa@bea.pt")
+    assert usuarios_db.alternar_status_ativo(2, 0, "alfa@example.com")
     conn = sqlite3.connect(str(uso_db))
     assert int(conn.execute("SELECT ativo FROM usuarios WHERE id=2").fetchone()[0]) == 0
     conn.close()

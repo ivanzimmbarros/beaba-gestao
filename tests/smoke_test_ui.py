@@ -109,7 +109,7 @@ def _prep_sessao_perfil_usuario_smoke(at: AppTest, route: str) -> None:
     at.session_state["authenticated"] = True
     at.session_state["auth_perfil"] = "usuario"
     at.session_state["auth_user_id"] = 2
-    at.session_state["auth_user_email"] = "usuario.smoke@bea.pt"
+    at.session_state["auth_user_email"] = "usuario.smoke@example.com"
     at.session_state["must_change"] = False
     at.session_state["auth_user_nome"] = "Smoke Usuario"
 
@@ -120,7 +120,7 @@ def _prep_sessao_autenticada_smoke(at: AppTest, route: str) -> None:
     at.session_state["authenticated"] = True
     at.session_state["auth_perfil"] = "admin"
     at.session_state["auth_user_id"] = 1
-    at.session_state["auth_user_email"] = "ivanzimmbarros@gmail.com"
+    at.session_state["auth_user_email"] = "admin.smoke@example.com"
     at.session_state["must_change"] = False
     at.session_state["auth_user_nome"] = "Smoke"
 
@@ -177,6 +177,10 @@ def test_smoke_auth_login_screen_boots() -> None:
     ti_labels = [str(getattr(ti, "label", "") or "") for ti in at.get("text_input")]
     assert any("E-mail" in t for t in ti_labels), ti_labels
     assert any("Senha" in t for t in ti_labels), ti_labels
+    sb = at.sidebar
+    assert sb is not None, "Sidebar Sereno deve estar visível no login (branding_only)"
+    sb_md = " ".join(str(getattr(m, "value", "") or "") for m in sb.get("markdown"))
+    assert "Sistema de Gestão do BeaBa Materno" in sb_md, sb_md
 
 
 def test_smoke_colaboradores_dados_parceria_ficha_widgets() -> None:

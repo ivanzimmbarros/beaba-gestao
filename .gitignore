@@ -1,41 +1,45 @@
 __pycache__/
 
-# Variáveis locais / staging — nunca enviar `.env` com segredos
+# --- Open Source seguro: nunca versionar segredos locais ---
 .env
-.env.staging
-.env.production
+.env.*
+!.env.example
 
-# E20 — relatório gerado por stress E2E (reexecutável localmente)
-tests/last_stress_report.txt
-
-# SQLite — todos os .db ficam fora do Git (intencional):
-#   - data/beaba_gestao.db (operacional, vivo) nunca versionado;
-#   - backups/hourly/*.db e backups/cloud_queue/*.db (réplicas para DR) também *.db —
-#     sincronização «nuvem» = OneDrive/rclone/S3 na pasta backups/ ou artefactos GHA,
-#     não commit em origin.
+# SQLite (operacional, WAL, cópias locais)
 *.db
+*.db-wal
+*.db-shm
+data/*
+!data/.gitkeep
 
-# E17 — logs de backup (réplicas .db em backups/ já cobertas por *.db)
-backups/logs/*.log
-backups/**/logs/*.log
+# Backups locais (réplicas, filas, logs internos)
+backups/
+!backups/.gitkeep
+!backups/**/.gitkeep
 
-# E17.1 — estado efémero GHA e blobs encriptados locais
+# Logs operacionais
+logs/
+*.log
+backups/logs/
+backups/**/logs/
+
+# Blobs encriptados e estado efémero de backup
+*.beaba.enc
 gha_backup_state.json
 gha_restore_state.json
-*.beaba.enc
+data/.last_cloud_sync_trigger
+
+# Telemetria de governança (metadados de CI — gerar localmente)
+docs/governanca/telemetry/*.json
+!docs/governanca/telemetry/*.json.example
+
+# E20 — relatório gerado por stress E2E
+tests/last_stress_report.txt
 
 venv/
 .venv/
 
-# Artefactos locais de teste / restore (não versionar)
+# Artefactos locais de teste / restore
 email_ok_body.html
 email_ok_body.txt
 restore_result.json
-*.db-shm
-*.db-wal
-data/.last_cloud_sync_trigger
-
-# Manifestos e cópias horárias locais (sync cloud)
-backups/**/cloud_sync_manifest.json
-backups/**/hourly/
-backups/**/web_startup/

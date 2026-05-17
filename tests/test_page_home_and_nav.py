@@ -35,5 +35,26 @@ def test_shell_sidebar_nav_items_inicio_posicao_zero():
     assert ("financeiro", "Financeiro") in NAV_ITEMS
 
 
+def test_sidebar_env_badge_spec_por_ambiente():
+    from src.ui.shell_sidebar import _sidebar_env_badge_spec
+
+    assert _sidebar_env_badge_spec("production") is None
+    assert _sidebar_env_badge_spec("main") is None
+    assert _sidebar_env_badge_spec("prod") is None
+
+    stg = _sidebar_env_badge_spec("staging")
+    assert stg is not None
+    assert stg[2] == "AMBIENTE DE TESTE"
+    assert stg == _sidebar_env_badge_spec("stg")
+
+    dev = _sidebar_env_badge_spec("dev")
+    assert dev is not None
+    assert dev[2] == "DESENVOLVIMENTO"
+    assert dev[0] == "#FEF3C7" and dev[1] == "#B45309"
+    assert dev == _sidebar_env_badge_spec("develop")
+    assert dev == _sidebar_env_badge_spec("local")
+    assert stg[0] == dev[0] and stg[1] == dev[1] and stg[2] != dev[2]
+
+
 def test_nav_clientes_agendamentos_respeita_contrato_setor4_expander():
     assert_cag_setor4_lista_dentro_expander_agendamentos()

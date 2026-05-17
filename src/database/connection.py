@@ -11,6 +11,49 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 # Preferir variáveis já definidas no processo/container; `.env` preenche omissões (desenvolvimento local).
 load_dotenv(_REPO_ROOT / ".env", override=False)
 
+_RUNTIME_SECRET_KEYS = ("ENV_TYPE", "BEABA_ENV", "S3_UPLOAD_PREFIX")
+_runtime_env_hydrated = False
+
+
+def hydrate_beaba_runtime_env(*, force: bool = False) -> None:
+    """Copia chaves de ambiente de ``st.secrets`` para ``os.environ`` (Streamlit Cloud).
+
+    Idempotente. Deve correr antes de ler o ambiente na UI — o ``web_startup`` antigo
+    só hidratava quando a base ainda não existia.
+    """
+    global _runtime_env_hydrated
+    if _runtime_env_hydrated and not force:
+        return
+    _runtime_env_hydrated = True
+    try:
+        secrets = getattr(st, "secrets", None)
+        if secrets is None:
+            return
+        for key in _RUNTIME_SECRET_KEYS:
+            try:
+                val = secrets[key]
+            except (KeyError, TypeError, FileNotFoundError):
+                continue
+            if val is not None and str(val).strip():
+                os.environ[key] = str(val).strip()
+    except Exception:
+        pass
+
+
+def _env_from_s3_upload_prefix() -> str | None:
+    """Inferência quando só ``S3_UPLOAD_PREFIX`` está nos Secrets (ex.: ``production/hourly``)."""
+    prefix = (os.environ.get("S3_UPLOAD_PREFIX") or "").strip().lower().replace("\\", "/")
+    if not prefix:
+        return None
+    head = prefix.split("/")[0]
+    if head in ("production", "prod", "main"):
+        return "production"
+    if head in ("staging", "stg"):
+        return "staging"
+    if head in ("develop", "dev", "development", "local"):
+        return "dev"
+    return None
+
 
 def get_sqlite_database_path() -> str:
     """Caminho absoluto/normalizado do ficheiro SQLite para a aplicação.
@@ -28,9 +71,15 @@ def get_sqlite_database_path() -> str:
 
 
 def get_beaba_env_type_raw() -> str:
-    """Identificador de ambiente (minúsculo), vindo de ``ENV_TYPE`` ou ``BEABA_ENV``."""
-    v = (os.environ.get("ENV_TYPE") or os.environ.get("BEABA_ENV") or "local").strip().lower()
-    return v if v else "local"
+    """Identificador de ambiente (minúsculo): ``ENV_TYPE`` / ``BEABA_ENV``, Secrets ou prefixo S3."""
+    hydrate_beaba_runtime_env()
+    v = (os.environ.get("ENV_TYPE") or os.environ.get("BEABA_ENV") or "").strip().lower()
+    if v:
+        return v
+    inferred = _env_from_s3_upload_prefix()
+    if inferred:
+        return inferred
+    return "local"
 
 
 def env_type_display_label_pt() -> str:
@@ -39,10 +88,12 @@ def env_type_display_label_pt() -> str:
         "local": "Local",
         "dev": "Desenvolvimento",
         "development": "Desenvolvimento",
+        "develop": "Desenvolvimento",
         "staging": "Staging",
         "stg": "Staging",
         "production": "Produção",
         "prod": "Produção",
+        "main": "Produção",
     }
     key = get_beaba_env_type_raw()
     return aliases.get(key, key.replace("_", " ").title())
@@ -756,7 +807,9 @@ def _ensure_financeiro_case_insensitive_unique_indexes(cursor: sqlite3.Cursor) -
 
 
 def _bootstrap_admin_email() -> str:
-    return (os.environ.get("BEABA_BOOTSTRAP_ADMIN_EMAIL") or "ivanzimmbarros@gmail.com").strip().lower()
+    return (
+        os.environ.get("BEABA_BOOTSTRAP_ADMIN_EMAIL") or "bootstrap.admin@example.com"
+    ).strip().lower()
 
 
 def _migrate_usuarios_perfil_usuario_if_needed(cursor: sqlite3.Cursor) -> None:
