@@ -6,6 +6,14 @@ Referência normativa: Template Master + `.cursorrules` (faixa 300px, creme #FAF
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+# Garante que a raiz do projeto seja reconhecida pelo Python na nuvem
+root_path = Path(__file__).resolve().parents[1]
+if str(root_path) not in sys.path:
+    sys.path.insert(0, str(root_path))
+
 import streamlit as st
 
 from src.database.connection import create_tables, env_type_display_label_pt

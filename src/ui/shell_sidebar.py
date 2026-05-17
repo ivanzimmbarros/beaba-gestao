@@ -27,6 +27,53 @@ _NAV_USUARIOS_ADMIN: tuple[str, str] = ("usuarios", "Gestão de utilizadores")
 
 _PAGES_PERFIL_USUARIO: tuple[str, ...] = ("home", "vendas", "clientes_agendamentos")
 
+_PRODUCTION_ENVS = frozenset({"production", "prod", "main"})
+_STAGING_ENVS = frozenset({"staging", "stg"})
+_DEV_ENVS = frozenset({"dev", "develop", "development", "local"})
+
+
+def _sidebar_env_badge_spec(env_raw: str) -> tuple[str, str, str] | None:
+    """Selo de ambiente (bg, fg, texto) ou ``None`` quando produção/main (sidebar limpa)."""
+    key = (env_raw or "local").strip().lower()
+    if key in _PRODUCTION_ENVS:
+        return None
+    if key in _STAGING_ENVS:
+        # Alerta âmbar — contraste legível sobre a faixa sálvia da sidebar (Sereno).
+        return ("#FEF3C7", "#B45309", "AMBIENTE DE TESTE")
+    if key in _DEV_ENVS:
+        return ("#2563EB", "#FFFFFF", "DESENVOLVIMENTO")
+    # Ambiente desconhecido: selo de desenvolvimento (nunca silenciar como produção).
+    return ("#2563EB", "#FFFFFF", "DESENVOLVIMENTO")
+
+
+def _render_sidebar_env_badge(badge_bg: str, badge_fg: str, badge_txt: str) -> None:
+    st.markdown(
+        f"""
+        <div style="
+          display:flex;
+          justify-content:center;
+          align-items:center;
+          padding:10px 10px 6px 10px;">
+          <div style="
+            background:{badge_bg};
+            color:{badge_fg};
+            font-weight:800;
+            letter-spacing:0.6px;
+            border-radius:999px;
+            padding:6px 12px;
+            font-size:12px;
+            text-transform:uppercase;
+            width:100%;
+            text-align:center;
+            font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+            box-shadow: 0 1px 2px rgba(45, 51, 47, 0.12);">
+            {badge_txt}
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
 
 def _perfil_sidebar_normalizado(user_perfil: str | None) -> str:
     raw = (user_perfil or "admin").strip().lower()
@@ -49,44 +96,10 @@ def render_shell_sidebar(*, current_page: str, user_perfil: str | None = None) -
     nav = _nav_items_para_perfil(user_perfil)
     ep = _perfil_sidebar_normalizado(user_perfil)
     with st.sidebar:
-        env_raw = get_beaba_env_type_raw()
-        if env_raw in ("production", "prod", "main"):
-            badge_bg = "#B91C1C"
-            badge_fg = "#FFFFFF"
-            badge_txt = "PRODUÇÃO - DADOS REAIS"
-        elif env_raw in ("staging", "stg"):
-            badge_bg = "#FBBF24"
-            badge_fg = "#111827"
-            badge_txt = "STAGING - AUDITORIA"
-        else:
-            badge_bg = "#2563EB"
-            badge_fg = "#FFFFFF"
-            badge_txt = "DESENVOLVIMENTO"
-
-        st.markdown(
-            f"""
-            <div style="
-              display:flex;
-              justify-content:center;
-              align-items:center;
-              padding:10px 10px 6px 10px;">
-              <div style="
-                background:{badge_bg};
-                color:{badge_fg};
-                font-weight:800;
-                letter-spacing:0.6px;
-                border-radius:999px;
-                padding:6px 12px;
-                font-size:12px;
-                text-transform:uppercase;
-                width:100%;
-                text-align:center;">
-                {badge_txt}
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        badge = _sidebar_env_badge_spec(get_beaba_env_type_raw())
+        if badge is not None:
+            badge_bg, badge_fg, badge_txt = badge
+            _render_sidebar_env_badge(badge_bg, badge_fg, badge_txt)
         st.markdown(
             '<p class="bea-sidebar-app-title">Sistema de Gestão do BeaBa Materno</p>',
             unsafe_allow_html=True,
