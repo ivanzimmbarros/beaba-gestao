@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "runs": [
+    {
+      "id": "gha-25987934961-backup-20260517T100936",
+      "type": "backup",
+      "started_at": "2026-05-17T10:09:36Z",
+      "finished_at": "2026-05-17T10:09:37Z",
+      "duration_seconds": 0,
+      "git_ref": "main",
+      "git_sha": "d4f2e8ab503efa1ef1ea13a1a5a96be58f74fc79",
+      "workflow_run_url": "https://github.com/ivanzimmbarros/beaba-gestao/actions/runs/25987934961",
+      "log_url": "https://github.com/ivanzimmbarros/beaba-gestao/actions/runs/25987934961",
+      "overall": "ok",
+      "groups": {
+        "ambiente": {
+          "status": "ok",
+          "detail": "Python 3.12.13; pip check rc=0"
+        },
+        "estrutura": {
+          "status": "ok",
+          "detail": "Pastas vitais (scripts, docs/governanca/telemetry, src/database)"
+        },
+        "configuracao": {
+          "status": "ok",
+          "detail": "Secret BEABA_BACKUP_KEY presente"
+        },
+        "arquivos": {
+          "status": "ok",
+          "detail": "requirements.txt=sim; .env.example=sim"
+        },
+        "user_data": {
+          "status": "ok",
+          "detail": "backup_rc=0; encrypt_rc=0"
+        },
+        "logs": {
+          "status": "ok",
+          "detail": "Run: https://github.com/ivanzimmbarros/beaba-gestao/actions/runs/25987934961",
+          "workflow_run_url": "https://github.com/ivanzimmbarros/beaba-gestao/actions/runs/25987934961",
+          "log_url": "https://github.com/ivanzimmbarros/beaba-gestao/actions/runs/25987934961"
+        }
+      }
+    },
+    {
+      "id": "gha-25987675008-backup-20260517T095753",
+      "type": "backup",
+      "started_at": "2026-05-17T09:57:53Z",
+      "finished_at": "2026-05-17T09:57:53Z",
+      "duration_seconds": 0,
+      "git_ref": "staging",
+      "git_sha": "7113c040dae84857f12ce83a1b51a0a994368428",
+      "workflow_run_url": "https://github.com/ivanzimmbarros/beaba-gestao/actions/runs/25987675008",
+      "log_url": "https://github.com/ivanzimmbarros/beaba-gestao/actions/runs/25987675008",
+      "overall": "ok",
+      "groups": {
+        "ambiente": {
+          "status": "ok",
+          "detail": "Python 3.12.13; pip check rc=0"
+        },
+        "estrutura": {
+          "status": "ok",
+          "detail": "Pastas vitais (scripts, docs/governanca/telemetry, src/database)"
+        },
+        "configuracao": {
+          "status": "ok",
+          "detail": "Secret BEABA_BACKUP_KEY presente"
+        },
+        "arquivos": {
+          "status": "ok",
+          "detail": "requirements.txt=sim; .env.example=sim"
+        },
+        "user_data": {
+          "status": "ok",
+          "detail": "backup_rc=0; encrypt_rc=0"
+        },
+        "logs": {
+          "status": "ok",
+          "detail": "Run: https://github.com/ivanzimmbarros/beaba-gestao/actions/runs/25987675008",
+          "workflow_run_url": "https://github.com/ivanzimmbarros/beaba-gestao/actions/runs/25987675008",
+          "log_url": "https://github.com/ivanzimmbarros/beaba-gestao/actions/runs/25987675008"
+        }
+      }
+    },
+    {
+      "id": "gha-25987675001-backup-20260517T095703",
+      "type": "backup",
+      "started_at": "2026-05-17T09:57:03Z",
+      "finished_at": "2026-05-17T09:57:03Z",
+      "duration_seconds": 0,
+      "git_ref": "staging",
+      "git_sha": "7113c040dae84857f12ce83a1b51a0a994368428",
+      "workflow_run_url": "https://github.com/ivanzimmbarros/beaba-gestao/actions/runs/25987675001",
+      "log_url": "https://github.com/ivanzimmbarros/beaba-gestao/actions/runs/25987675001",
+      "overall": "fail",
+      "groups": {
+        "ambiente": {
+          "status": "ok",
+          "detail": "Python 3.12.13; pip check rc=0"
+        },
+        "estrutura": {
+          "status": "fail",
+          "detail": "Falta pasta vital ou sem permissão"
+        },
+        "configuracao": {
+          "status": "ok",
+          "detail": "Secret BEABA_BACKUP_KEY presente"
+        },
+        "arquivos": {
+          "status": "ok",
+          "detail": "requirements.txt=sim; .env.example=sim"
+        },
+        "user_data": {
+          "status": "ok",
+          "detail": "backup_rc=0; encrypt_rc=0"
+        },
+        "logs": {
+          "status": "ok",
+          "detail": "Run: https://github.com/ivanzimmbarros/beaba-gestao/actions/runs/25987675001",
+          "workflow_run_url": "https://github.com/ivanzimmbarros/beaba-gestao/actions/runs/25987675001",
+          "log_url": "https://github.com/ivanzimmbarros/beaba-gestao/actions/runs/25987675001"
+        }
+      }
+    }
+  ]
+}
