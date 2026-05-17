@@ -177,6 +177,10 @@ def test_smoke_auth_login_screen_boots() -> None:
     ti_labels = [str(getattr(ti, "label", "") or "") for ti in at.get("text_input")]
     assert any("E-mail" in t for t in ti_labels), ti_labels
     assert any("Senha" in t for t in ti_labels), ti_labels
+    sb = at.sidebar
+    assert sb is not None, "Sidebar Sereno deve estar visível no login (branding_only)"
+    sb_md = " ".join(str(getattr(m, "value", "") or "") for m in sb.get("markdown"))
+    assert "Sistema de Gestão do BeaBa Materno" in sb_md, sb_md
 
 
 def test_smoke_colaboradores_dados_parceria_ficha_widgets() -> None:
