@@ -41,9 +41,10 @@ def _sidebar_env_badge_spec(env_raw: str) -> tuple[str, str, str] | None:
         # Alerta âmbar — contraste legível sobre a faixa sálvia da sidebar (Sereno).
         return ("#FEF3C7", "#B45309", "AMBIENTE DE TESTE")
     if key in _DEV_ENVS:
-        return ("#2563EB", "#FFFFFF", "DESENVOLVIMENTO")
+        # Mesmo componente visual que staging; texto distinto para branch dev/develop.
+        return ("#FEF3C7", "#B45309", "DESENVOLVIMENTO")
     # Ambiente desconhecido: selo de desenvolvimento (nunca silenciar como produção).
-    return ("#2563EB", "#FFFFFF", "DESENVOLVIMENTO")
+    return ("#FEF3C7", "#B45309", "DESENVOLVIMENTO")
 
 
 def _render_sidebar_env_badge(badge_bg: str, badge_fg: str, badge_txt: str) -> None:

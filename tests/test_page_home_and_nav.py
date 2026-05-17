@@ -50,8 +50,10 @@ def test_sidebar_env_badge_spec_por_ambiente():
     dev = _sidebar_env_badge_spec("dev")
     assert dev is not None
     assert dev[2] == "DESENVOLVIMENTO"
+    assert dev[0] == "#FEF3C7" and dev[1] == "#B45309"
     assert dev == _sidebar_env_badge_spec("develop")
     assert dev == _sidebar_env_badge_spec("local")
+    assert stg[0] == dev[0] and stg[1] == dev[1] and stg[2] != dev[2]
 
 
 def test_nav_clientes_agendamentos_respeita_contrato_setor4_expander():
