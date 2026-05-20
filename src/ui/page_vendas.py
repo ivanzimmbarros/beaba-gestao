@@ -1667,7 +1667,7 @@ def render_page_vendas(
                                 st.caption(
                                     "Produto: venda directa — sem associação a agendamento."
                                 )
-                            elif nat == "Pacote":
+                            elif nat in ("Pack", "Pacote"):
                                 st.markdown("**Composição do pacote**")
                                 for plinha in listar_sessoes_do_pacote_catalogo(int(it["servico_id"])):
                                     q_lin = int(plinha.get("quantidade", 1))

@@ -180,7 +180,7 @@ def test_pacote_ok_e_listagem():
     nomes = [x["nome"] for x in itens]
     assert "Pacote Integração" in nomes
     row = next(x for x in itens if x["nome"] == "Pacote Integração")
-    assert row["natureza"] == "Pacote"
+    assert row["natureza"] == "Pack"
     assert "2×" in str(row["detalhes"]) and "Óleo" in str(row["detalhes"])
 
     cur2 = __import__("sqlite3").connect(os.environ["BEABA_SQLITE_PATH"])
@@ -188,7 +188,7 @@ def test_pacote_ok_e_listagem():
     cur2.close()
     form = obter_servico_para_formulario(pk_id)
     assert form is not None
-    assert form["natureza"] == "Pacote"
+    assert form["natureza"] == "Pack"
     assert form.get("pacote_linhas"), "Pacote deve trazer linhas de composição para a ficha (validade do pacote)"
     assert "pacote_valor_euros" in form and "pacote_repasse_ref_pct" in form
 

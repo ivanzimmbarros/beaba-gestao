@@ -68,10 +68,12 @@ def _sql_condicao_referente_a_pacote_sim() -> str:
 def _split_naturezas_filtro_pacote_vs_resto(
     naturezas: list[str],
 ) -> tuple[bool, list[str]]:
-    """Separa «Pacote» (ancora em referente-a-pacote) das demais naturezas (via serviço prestado)."""
+    """Separa «Pack» (ancora em referente-a-pacote) das demais naturezas (via serviço prestado)."""
+    from src.modules.constants import NATUREZA_PACK, canon_natureza_catalogo
+
     fn = [str(x).strip() for x in naturezas if str(x).strip()]
-    wants_pac = any(str(x).strip().lower() == "pacote" for x in fn)
-    outras = [str(x).strip() for x in fn if str(x).strip().lower() != "pacote"]
+    wants_pac = any(canon_natureza_catalogo(x) == NATUREZA_PACK for x in fn)
+    outras = [x for x in fn if canon_natureza_catalogo(x) != NATUREZA_PACK]
     return wants_pac, outras
 
 
@@ -90,7 +92,7 @@ def _split_servico_ids_sessao_vs_pacote(
     sess: list[int] = []
     pkg: list[int] = []
     for sid, nat in cur.fetchall():
-        if str(nat or "").strip() == "Pacote":
+        if str(nat or "").strip() in ("Pack", "Pacote"):
             pkg.append(int(sid))
         else:
             sess.append(int(sid))
@@ -216,7 +218,7 @@ def listar_linhas_gestao_saldos_clientes_ativos(
         LEFT JOIN especialidades e ON e.id = s.especialidade_id
         LEFT JOIN venda_itens vi_pkg ON vi_pkg.id = a.venda_item_id
         LEFT JOIN servicos spkg
-          ON spkg.id = vi_pkg.servico_id AND TRIM(spkg.natureza) = 'Pacote'
+          ON spkg.id = vi_pkg.servico_id AND TRIM(spkg.natureza) IN ('Pack', 'Pacote')
         WHERE cm.tipo_movimento = 'CREDITO_CANCELAMENTO'
           AND cm.id IN ({ph})
     """
