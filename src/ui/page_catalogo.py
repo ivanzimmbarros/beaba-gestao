@@ -89,13 +89,28 @@ def _cat_render_pending_flash(fk: str) -> None:
         st.error(msg)
 
 
-def _cat_sync_text_from_select(select_key: str, text_key: str, preset: str) -> None:
-    """Preenche o text_input quando o utilizador muda a opção no selectbox."""
-    track = f"{text_key}__from__{select_key}"
-    cur = st.session_state.get(select_key)
-    if st.session_state.get(track) != cur:
-        st.session_state[text_key] = preset
-        st.session_state[track] = cur
+def _cat_is_opcao_nova(label: str) -> bool:
+    return str(label or "").strip().startswith("—")
+
+
+def _cat_push_select_label_to_text(select_lbl_key: str, text_key: str) -> None:
+    """
+    Sincroniza selectbox (rótulo) → text_input.
+    Remove a chave do widget antes de escrever (Streamlit só actualiza o campo assim).
+    """
+    lb = str(st.session_state.get(select_lbl_key, "") or "")
+    track = f"{text_key}__track__{select_lbl_key}"
+    if st.session_state.get(track) == lb:
+        return
+    if text_key in st.session_state:
+        del st.session_state[text_key]
+    st.session_state[text_key] = "" if _cat_is_opcao_nova(lb) else lb
+    st.session_state[track] = lb
+
+
+def _cat_on_select_label_changed(select_lbl_key: str, text_key: str) -> None:
+    """Callback do selectbox: dispara no mesmo rerun com o valor já actualizado."""
+    _cat_push_select_label_to_text(select_lbl_key, text_key)
 
 
 def _cat_finish_save(ok: bool, msg: str, fk: str, focus_key: str) -> None:
@@ -334,18 +349,20 @@ def _ensure_cat_form_widget_defaults(fk: str, natureza: str) -> None:
 def _render_cat_modo_natureza(fk: str) -> None:
     rows = [r for r in listar_naturezas_catalogo() if int(r.get("id") or 0) > 0]
     labels = ["— Nova natureza —"] + [str(r["nome"]) for r in rows]
-    ids: list[int | None] = [None] + [int(r["id"]) for r in rows]
-    sel_ix = st.selectbox(
-        "Naturezas cadastradas",
-        range(len(labels)),
-        format_func=lambda i, lb=labels: lb[int(i)],
-        key=f"{fk}_nat_sel_ix",
-    )
-    ix = int(sel_ix)
-    sel_id: int | None = ids[ix] if ix > 0 else None
-    preset = labels[ix] if ix > 0 else ""
+    id_by_label = {str(r["nome"]): int(r["id"]) for r in rows}
+    sel_lbl_key = f"{fk}_nat_sel_lbl"
     nome_key = f"{fk}_nat_nome_txt"
-    _cat_sync_text_from_select(f"{fk}_nat_sel_ix", nome_key, preset)
+    st.session_state.setdefault(sel_lbl_key, labels[0])
+    st.selectbox(
+        "Naturezas cadastradas",
+        labels,
+        key=sel_lbl_key,
+        on_change=_cat_on_select_label_changed,
+        args=(sel_lbl_key, nome_key),
+    )
+    _cat_push_select_label_to_text(sel_lbl_key, nome_key)
+    sel_lbl = str(st.session_state.get(sel_lbl_key, labels[0]) or labels[0])
+    sel_id: int | None = None if _cat_is_opcao_nova(sel_lbl) else id_by_label.get(sel_lbl)
     nome_nat = st.text_input(
         "Nome da natureza *",
         key=nome_key,
@@ -363,25 +380,31 @@ def _render_cat_modo_especialidade(fk: str) -> None:
         return
     nat_esp = st.selectbox("Natureza *", nat_opts, key=f"{fk}_esp_nat")
     nat_prev_key = f"{fk}_esp_nat_prev"
+    sel_lbl_key = f"{fk}_esp_sel_lbl"
+    nome_key = f"{fk}_esp_nome_txt"
     if st.session_state.get(nat_prev_key) != nat_esp:
         st.session_state[nat_prev_key] = nat_esp
-        st.session_state[f"{fk}_esp_sel_ix"] = 0
-        st.session_state.pop(f"{fk}_esp_nome_txt", None)
-        st.session_state.pop(f"{fk}_esp_nome_txt__from__{fk}_esp_sel_ix", None)
+        for k in (
+            sel_lbl_key,
+            nome_key,
+            f"{nome_key}__track__{sel_lbl_key}",
+        ):
+            st.session_state.pop(k, None)
     rows = listar_especialidades_por_natureza(nat_esp)
     labels = ["— Nova especialidade —"] + [str(r["nome"]) for r in rows]
-    ids: list[int | None] = [None] + [int(r["id"]) for r in rows]
-    sel_ix = st.selectbox(
+    id_by_label = {str(r["nome"]): int(r["id"]) for r in rows}
+    if sel_lbl_key not in st.session_state or st.session_state.get(sel_lbl_key) not in labels:
+        st.session_state[sel_lbl_key] = labels[0]
+    st.selectbox(
         "Especialidades",
-        range(len(labels)),
-        format_func=lambda i, lb=labels: lb[int(i)],
-        key=f"{fk}_esp_sel_ix",
+        labels,
+        key=sel_lbl_key,
+        on_change=_cat_on_select_label_changed,
+        args=(sel_lbl_key, nome_key),
     )
-    ix = int(sel_ix)
-    sel_id: int | None = ids[ix] if ix > 0 else None
-    preset = labels[ix] if ix > 0 else ""
-    nome_key = f"{fk}_esp_nome_txt"
-    _cat_sync_text_from_select(f"{fk}_esp_sel_ix", nome_key, preset)
+    _cat_push_select_label_to_text(sel_lbl_key, nome_key)
+    sel_lbl = str(st.session_state.get(sel_lbl_key, labels[0]) or labels[0])
+    sel_id: int | None = None if _cat_is_opcao_nova(sel_lbl) else id_by_label.get(sel_lbl)
     nome_esp = st.text_input("Nome da especialidade *", key=nome_key, placeholder="Ex.: Massagem pré-natal")
     if st.button("Actualizar Catálogo", type="primary", key=f"{fk}_esp_submit"):
         ok, msg = salvar_especialidade_catalogo(
