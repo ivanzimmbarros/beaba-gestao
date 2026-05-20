@@ -769,7 +769,7 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
                         st.session_state.page = "catalogo"
                 with b_add:
                     if st.button(
-                        "➕ Adicionar item de serviço",
+                        "Adicionar novo serviço",
                         key=f"{fk}_add_svc",
                         type="secondary",
                         width="stretch",
