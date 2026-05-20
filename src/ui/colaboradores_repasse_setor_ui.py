@@ -1,4 +1,4 @@
-"""E24 — Secção Streamlit «4. Relatórios globais de repasse por colaborador»."""
+"""E24 — Secção Streamlit «5. Relatórios globais de repasse por colaborador»."""
 
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ def render_setor4_relatorio_repasse_admin(*, fk: str) -> None:
     )
     st.markdown(
         '<div class="bea-col-setor-rel-titulo" data-testid="bea-col-setor-rel-titulo">'
-        "<strong>4. Relatórios globais de repasse por colaborador</strong>"
+        "<strong>5. Relatórios globais de repasse por colaborador</strong>"
         "</div>",
         unsafe_allow_html=True,
     )
@@ -150,9 +150,6 @@ def render_setor4_relatorio_repasse_admin(*, fk: str) -> None:
 
     saved_obj = st.session_state.get(f"{fk}_rep_saved_rows")
     if not saved_obj:
-        st.caption(
-            "Indique período válido, escolha o modo único + valores no multiselect e prima **Gerar**."
-        )
         return
 
     rows = saved_obj

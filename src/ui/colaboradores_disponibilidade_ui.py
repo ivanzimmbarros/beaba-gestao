@@ -94,11 +94,28 @@ def _html_bloco_calendario_disp(bl: dict[str, object], *, compact: bool) -> str:
     )
 
 
-def _disp_mapa_especialidades_opts(rows: list[tuple[int, str, str, str]]) -> list[str]:
-    nomes = sorted({str(r[3]).strip() for r in rows if str(r[3]).strip()})
-    out = list(nomes)
+def _disp_mapa_especialidades_opts(
+    rows: list[tuple[int, str, str, str]],
+    *,
+    natureza: str | None = None,
+) -> list[str]:
+    from src.modules.catalogo import listar_especialidades_por_natureza
+
+    nomes: set[str] = set()
+    nat = str(natureza or "").strip()
+    if nat:
+        for r in listar_especialidades_por_natureza(nat):
+            nm = str(r.get("nome") or "").strip()
+            if nm:
+                nomes.add(nm)
+    for r in rows:
+        ep = str(r[3]).strip()
+        if ep:
+            nomes.add(ep)
+    out = sorted(nomes, key=str.casefold)
     if any(not str(r[3]).strip() for r in rows):
-        out.append(MAPA_EQUI_ESP_SEM_LABEL)
+        if MAPA_EQUI_ESP_SEM_LABEL not in out:
+            out.append(MAPA_EQUI_ESP_SEM_LABEL)
     return out
 
 
@@ -218,17 +235,17 @@ def render_colaboradores_disponibilidade_setor() -> None:
         unsafe_allow_html=True,
     )
     st.markdown(
-        _col_section_title_html("3. Disponibilidade e calendário operacional"),
+        _col_section_title_html("4. Disponibilidade e calendário operacional"),
         unsafe_allow_html=True,
     )
     resumo = listar_colaboradores_resumo()
     if not resumo:
         st.info("Cadastre colaboradores para gerir disponibilidade.")
-        with st.expander("3.1 Pesquisa de Disponibilidade de Colaboradores", expanded=False):
+        with st.expander("4.1 Pesquisa de Disponibilidade de Colaboradores", expanded=False):
             st.caption("Disponível após o primeiro cadastro na secção «Equipa» ou na ficha abaixo.")
-        with st.expander("3.2 Plano de disponibilidade", expanded=False):
+        with st.expander("4.2 Plano de disponibilidade", expanded=False):
             st.caption("—")
-        with st.expander("3.3 Calendário mestre (semanal / mensal)", expanded=False):
+        with st.expander("4.3 Calendário mestre (semanal / mensal)", expanded=False):
             st.caption("—")
         return
 
@@ -242,13 +259,13 @@ def render_colaboradores_disponibilidade_setor() -> None:
     if "col_disp_valido_ate" not in st.session_state:
         st.session_state.col_disp_valido_ate = today + timedelta(days=30)
 
-    with st.expander("3.1 Pesquisa de Disponibilidade de Colaboradores", expanded=False):
+    with st.expander("4.1 Pesquisa de Disponibilidade de Colaboradores", expanded=False):
         st.markdown(
             "**Natureza → Especialidade → Serviço**",
             unsafe_allow_html=True,
         )
         st.caption(
-            "Estes filtros afinam a lista «Colaborador alvo» para editar disponibilidade em 3.2. O calendário em 3.3 mostra "
+            "Estes filtros afinam a lista «Colaborador alvo» para editar disponibilidade em 4.2. O calendário em 4.3 mostra "
             "toda a equipa com planos confirmados, salvo se activar a restrição opcional nessa secção."
         )
         _nat_ph = "— Todas as naturezas —"
@@ -260,7 +277,10 @@ def render_colaboradores_disponibilidade_setor() -> None:
         svc_rows = listar_servicos_para_mapa_equipa(nat_q)
 
         esp_ph = "— Todas as especialidades —"
-        esp_labels = [esp_ph] + _disp_mapa_especialidades_opts(svc_rows)
+        esp_labels = [esp_ph] + _disp_mapa_especialidades_opts(
+            svc_rows,
+            natureza=nat_l if nat_l != _nat_ph else None,
+        )
         st.selectbox("Especialidade (calendário)", esp_labels, key="col_disp_cal_esp")
         esp_l = str(st.session_state.get("col_disp_cal_esp") or esp_ph)
         if esp_l == esp_ph:
@@ -318,7 +338,7 @@ def render_colaboradores_disponibilidade_setor() -> None:
 
     cid_sel = int(st.session_state.get("col_disp_cid") or resumo[0][0])
 
-    with st.expander("3.2 Plano de disponibilidade", expanded=True):
+    with st.expander("4.2 Plano de disponibilidade", expanded=True):
         c1, c2 = st.columns(2)
         with c1:
             vd = st.date_input("Data Inicio", key="col_disp_valido_de", format="DD/MM/YYYY")
@@ -387,7 +407,7 @@ def render_colaboradores_disponibilidade_setor() -> None:
                             else:
                                 st.error(msg_c)
 
-    with st.expander("3.3 Calendário mestre (semanal / mensal)", expanded=False):
+    with st.expander("4.3 Calendário mestre (semanal / mensal)", expanded=False):
         st.radio(
             "Período de visualização",
             ["Semanal", "Mensal"],
@@ -397,7 +417,7 @@ def render_colaboradores_disponibilidade_setor() -> None:
         modo = str(st.session_state.get("col_disp_mode") or "Semanal")
 
         usar_filtro_ctx = st.checkbox(
-            "Restringir o calendário ao filtro Natureza / Especialidade (3.1)",
+            "Restringir o calendário ao filtro Natureza / Especialidade (4.1)",
             key="col_disp_cal_apply_ctx_filter",
             help="Por defeito o mapa mostra todos os colaboradores que tenham período confirmado e os respetivos agendamentos. "
             "Active esta opção se quiser focar apenas quem aparece nos filtros de contexto.",
