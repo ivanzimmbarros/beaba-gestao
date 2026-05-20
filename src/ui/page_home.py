@@ -288,14 +288,14 @@ def render_page_home() -> None:
                 unsafe_allow_html=True,
             )
             if st.button(
-                    "$$ Atendimentos Não Confirmados",
+                    "Atendimentos Não Confirmados (EUR)",
                     key="home_drill_estimativa",
                     width="stretch",
                 ):
                     _navigate_cag_drill(
-                        banner=(
-                            "Pesquise um cliente e reveja a lista de agendamentos pendentes de confirmação "
-                            f"desse mês (**{m_lbl}**)."
+                        banner=html.escape(
+                            "Pesquise um cliente e reveja a lista de agendamentos pendentes "
+                            "confirmação desse mês."
                         ),
                         seed_month=ym,
                     )
@@ -317,8 +317,9 @@ def render_page_home() -> None:
                 ):
                     _navigate_cag_drill(
                         banner=(
-                            f"Existem **{int(snap.card2_total_nao_confirmados_mes)}** agendamentos no mês "
-                            f"**{m_lbl}** fora de Confirmado, pendentes de confirmação."
+                            f"Existem <strong>{int(snap.card2_total_nao_confirmados_mes)}</strong> "
+                            f"agendamentos no mês <strong>{html.escape(m_lbl)}</strong> fora de Confirmado, "
+                            "pendentes de confirmação."
                         ),
                         seed_month=ym,
                     )
@@ -340,8 +341,8 @@ def render_page_home() -> None:
                 ):
                     _navigate_cag_drill(
                         banner=(
-                            f"**{int(snap.card3_pre_agendados_mes)}** marcações em **Pré-agendado** "
-                            f"no mês **{m_lbl}**."
+                            f"<strong>{int(snap.card3_pre_agendados_mes)}</strong> marcações em "
+                            f"<strong>Pré-agendado</strong> no mês <strong>{html.escape(m_lbl)}</strong>."
                         ),
                         seed_month=ym,
                     )
@@ -357,13 +358,13 @@ def render_page_home() -> None:
                 unsafe_allow_html=True,
             )
             if st.button(
-                    "Total Crédito Acumulado dos Clientes",
+                    "Crédito Acumulado dos Clientes",
                     key="home_drill_credito",
                     width="stretch",
                 ):
                     _navigate_cag_drill(
-                        banner=(
-                            "**Panorama (cockpit):** Saldo acumulado dos créditos em aberto com os clientes. "
+                        banner=html.escape(
+                            "Saldo acumulado dos créditos em aberto com os clientes. "
                             "Pesquise pelo cliente para informações detalhadas."
                         ),
                         seed_month=None,

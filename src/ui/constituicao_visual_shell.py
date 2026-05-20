@@ -623,6 +623,30 @@ def get_constituicao_cag_page_css() -> str:
         padding: 0;
         pointer-events: none;
     }}
+    /* Drill-down Panorama (Início) → faixa azul centrada no topo da CAG */
+    .bea-cv-cag-home-drill-banner {{
+        background: rgba(28, 131, 225, 0.12);
+        border: 1px solid rgba(28, 131, 225, 0.35);
+        border-radius: 0.5rem;
+        padding: 0.85rem 1.15rem;
+        margin: 0 0 1rem 0;
+        text-align: center;
+        width: 100%;
+        box-sizing: border-box;
+    }}
+    .bea-cv-cag-home-drill-banner-t {{
+        margin: 0 auto;
+        padding: 0;
+        font-family: var(--cv-sans, Montserrat, system-ui, sans-serif);
+        font-size: 0.95rem;
+        line-height: 1.45;
+        color: rgb(12, 68, 125);
+        text-align: center;
+        max-width: 52rem;
+    }}
+    body.bea-cv-cag-page .bea-cv-cag-home-drill-banner-t strong {{
+        font-weight: 600;
+    }}
     /* Horizonte Sereno: sálvia 10% no topo + creme (stMain + filho directo — Streamlit 1.3x–1.6x) */
     section[data-testid="stMain"]:has(.bea-cv-cag-slot),
     section[data-testid="stMain"]:has(.bea-cv-cag-slot) > div,

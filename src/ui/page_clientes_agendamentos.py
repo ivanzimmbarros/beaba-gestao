@@ -54,6 +54,7 @@ from src.modules.validators import email_valido, parse_data_iso
 from src.ui.telefone_widgets import ler_e164_de_widgets, preencher_session_telefone_de_e164, render_grupo_telefone
 from src.ui.theme import agenda_pagamento_dot, agenda_status_style, agenda_tipo_icon
 from src.ui.constituicao_visual_shell import inject_constituicao_cag_page
+from src.ui.home_cockpit_ui_helpers import cag_home_drill_banner_html
 from src.ui.fmt_euro_constituicao import fmt_euro_centavos
 from src.ui.widgets.cliente_search import CLIENTE_SEARCH_DATE_MIN, render_cliente_search_widget
 
@@ -3074,7 +3075,7 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
     inject_constituicao_cag_page()
     _drill = st.session_state.pop("cag_home_drill_banner", None)
     if _drill:
-        st.info(str(_drill))
+        st.markdown(cag_home_drill_banner_html(str(_drill)), unsafe_allow_html=True)
     render_back_and_breadcrumb(
         ["Home", "Clientes e Agendamentos", "Cadastro"],
         back_key="bea_back_clientes_agendamentos",
