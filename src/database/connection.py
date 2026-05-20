@@ -249,6 +249,16 @@ def _migrate_agendamentos_e11_if_needed(cursor) -> None:
     cursor.execute("PRAGMA foreign_keys=ON")
 
 
+def _skip_example_catalog_seeds() -> bool:
+    """Quando ``BEABA_SKIP_EXAMPLE_SEEDS=1``, não inserir especialidades/serviços de exemplo (wipe de teste)."""
+    return (os.environ.get("BEABA_SKIP_EXAMPLE_SEEDS") or "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
 def _migrate_especialidades_if_needed(cursor) -> None:
     """Garante tabela `especialidades`, coluna `servicos.especialidade_id` e backfill «Geral» por natureza."""
     from src.modules.constants import ESPECIALIDADE_PADRAO_NOME, NATUREZAS_CATALOGO_FASE3
@@ -257,6 +267,8 @@ def _migrate_especialidades_if_needed(cursor) -> None:
     if "especialidades" not in tabs or "servicos" not in tabs:
         return
     if "especialidade_id" not in _table_columns(cursor, "servicos"):
+        return
+    if _skip_example_catalog_seeds():
         return
     pad = ESPECIALIDADE_PADRAO_NOME
     for nat in NATUREZAS_CATALOGO_FASE3:
@@ -300,6 +312,8 @@ def _migrate_especialidades_if_needed(cursor) -> None:
 
 def _seed_servicos_exemplo(cursor) -> None:
     """Serviços de exemplo até o módulo Catálogo estar completo."""
+    if _skip_example_catalog_seeds():
+        return
     cursor.execute("SELECT COUNT(*) FROM servicos")
     if cursor.fetchone()[0] > 0:
         return
@@ -1487,6 +1501,7 @@ def create_tables():
     _ensure_column(cursor, "usuarios", "must_change_password", "INTEGER NOT NULL DEFAULT 1")
     _migrate_usuarios_perfil_usuario_if_needed(cursor)
     _ensure_column(cursor, "usuarios", "senha_anterior_hash", "TEXT")
+    _ensure_column(cursor, "usuarios", "credencial_temp_expira_em", "TEXT")
     _ensure_auditoria_sistema(cursor)
     _migrate_legacy_admin_email(cursor)
     cursor.execute(

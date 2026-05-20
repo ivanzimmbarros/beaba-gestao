@@ -180,7 +180,11 @@ def _is_network_error(exc: BaseException) -> bool:
 
 
 def _sqlite_operational_data_missing(db_path: Path) -> bool:
-    """True quando o SQLite não tem dados de negócio (reboot Streamlit com base vazia ou só bootstrap)."""
+    """True quando o SQLite não tem dados utilizáveis (precisa restore da nuvem).
+
+    Ambientes de teste pós-wipe têm ``clientes=0`` mas ``usuarios`` activos — **não**
+    devem ser substituídos no arranque/re-run do Streamlit (apagaria tokens MFA e senhas).
+    """
     if not db_path.is_file():
         return True
     try:
@@ -196,10 +200,23 @@ def _sqlite_operational_data_missing(db_path: Path) -> bool:
         return True
     try:
         cur = conn.cursor()
-        cur.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='clientes' LIMIT 1"
-        )
-        if not cur.fetchone():
+        tabs = {
+            r[0]
+            for r in cur.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        if "usuarios" in tabs:
+            cur.execute("SELECT COUNT(*) FROM usuarios WHERE ativo = 1")
+            if int(cur.fetchone()[0] or 0) > 0:
+                return False
+        if "mfa_tokens" in tabs:
+            cur.execute(
+                "SELECT COUNT(*) FROM mfa_tokens WHERE usado = 0"
+            )
+            if int(cur.fetchone()[0] or 0) > 0:
+                return False
+        if "clientes" not in tabs:
             return True
         cur.execute("SELECT COUNT(*) FROM clientes")
         row = cur.fetchone()

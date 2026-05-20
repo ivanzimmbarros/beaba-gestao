@@ -226,12 +226,30 @@ def test_sync_trigger_auth_force_bypasses_debounce(
     assert len(runs) == 2
 
 
+def test_sqlite_operational_data_missing_wiped_env_with_usuarios_is_ready(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Pós-wipe: sem clientes mas com utilizadores — não forçar restore cloud no rerun."""
+    db = tmp_path / "wiped.db"
+    monkeypatch.setenv("BEABA_SQLITE_PATH", str(db))
+    create_tables()
+    assert _sqlite_operational_data_missing(db) is False
+    assert _local_db_ready(db) is True
+
+
 def test_sqlite_operational_data_missing_detects_bootstrap_only(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     db = tmp_path / "bootstrap.db"
     monkeypatch.setenv("BEABA_SQLITE_PATH", str(db))
     create_tables()
+    conn = get_connection()
+    assert conn is not None
+    try:
+        conn.execute("DELETE FROM usuarios")
+        conn.commit()
+    finally:
+        conn.close()
     assert _sqlite_operational_data_missing(db) is True
     conn = get_connection()
     assert conn is not None

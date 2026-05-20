@@ -176,7 +176,7 @@ def test_reset_password_to_temp_defines_must_change_and_audit(
 
     plain = auth_db.reset_password_to_temp("r@r.com")
     assert plain is not None
-    assert len(plain) == 8
+    assert len(plain) == 12
 
     conn = sqlite3.connect(str(auth_db_path))
     mcp = int(conn.execute("SELECT must_change_password FROM usuarios WHERE email='r@r.com'").fetchone()[0])

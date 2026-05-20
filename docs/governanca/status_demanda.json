@@ -71,6 +71,18 @@
     "descricao": "Demandas com status «Em Aberto» ou «Pendente» (foco operacional actual).",
     "itens": [
       {
+        "demanda_id": "2026-05-20_E25_rodada_testes_integrados",
+        "titulo": "Épico 25 — Rodada de testes integrados (backlog vivo pós-wipe DEV/STG)",
+        "status_demanda": "Em Aberto",
+        "fase_actual": "login-mfa-smtp-entregue-aguarda-validacao-diretor",
+        "pc_foco": "PC1–PC2",
+        "resumo_foco": "Épico único para ajustes descobertos nos testes manuais. Entrega inicial: Login/MFA/reset — form MFA, TTL 60s, reenviar código, link recuperação, senha temporária com expiração, mensagens PT; testes `test_auth_mfa.py`. Fila aberta para novas áreas informadas pelo Diretor.",
+        "refs_docs": [
+          "docs/governanca/demandas/2026-05-20_E25_rodada_testes_integrados/00_indice.md",
+          "docs/governanca/demandas/2026-05-20_E25_rodada_testes_integrados/01_demanda_diretor.md"
+        ]
+      },
+      {
         "demanda_id": "2026-05-09_E24_colaboradores_setor5_relatorios_repasse",
         "titulo": "Épico 24 — Colaboradores Setor 5: relatórios de realização + repasse (PDF landscape)",
         "status_demanda": "Em Aberto",
