@@ -21,6 +21,30 @@ def canon_natureza_catalogo(nat: str) -> str:
         return NATUREZA_PACK
     return n
 
+
+def natureza_requer_especialidade_servico(nat: str) -> bool:
+    """Sessão, Produto, Coworking (ou rótulo renomeado) exigem especialidade; Pack e Evento não."""
+    return canon_natureza_catalogo(nat) not in (NATUREZA_PACK, "Evento")
+
+
+def tipo_servico_catalogo_por_natureza(nat: str) -> str:
+    """
+    Tipo de formulário / validação: sessao, produto, coworking, pack, evento ou vazio.
+    Usa rótulo canónico quando o nome na BD foi personalizado (ex.: Coworking → Coworkin).
+    """
+    c = canon_natureza_catalogo(nat)
+    if c == "Sessão":
+        return "sessao"
+    if c == "Produto":
+        return "produto"
+    if c == "Coworking":
+        return "coworking"
+    if c == NATUREZA_PACK:
+        return "pack"
+    if c == "Evento":
+        return "evento"
+    return ""
+
 # Catálogo — camada Natureza → Especialidade → Serviço (épico Especialidades).
 ESPECIALIDADE_PADRAO_NOME: str = "Geral"
 
@@ -51,6 +75,8 @@ __all__ = [
     "ESPECIALIDADE_PADRAO_NOME",
     "NATUREZA_PACK",
     "canon_natureza_catalogo",
+    "natureza_requer_especialidade_servico",
+    "tipo_servico_catalogo_por_natureza",
     "NATUREZAS_CATALOGO_FASE1",
     "NATUREZAS_CATALOGO_FASE2",
     "NATUREZAS_CATALOGO_FASE3",

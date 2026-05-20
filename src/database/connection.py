@@ -305,6 +305,35 @@ def _migrate_catalogo_pack_audit_naturezas(cursor) -> None:
         "UPDATE catalogo_naturezas SET nome = ? WHERE TRIM(nome) = 'Pacote'",
         (NATUREZA_PACK,),
     )
+    _ensure_column(cursor, "catalogo_naturezas", "tipo_servico", "TEXT DEFAULT ''")
+    for nome, tipo in (
+        ("Sessão", "sessao"),
+        ("Produto", "produto"),
+        ("Coworking", "coworking"),
+        (NATUREZA_PACK, "pack"),
+        ("Evento", "evento"),
+    ):
+        cursor.execute(
+            """
+            UPDATE catalogo_naturezas SET tipo_servico = ?
+            WHERE TRIM(nome) = ? AND IFNULL(TRIM(tipo_servico), '') = ''
+            """,
+            (tipo, nome),
+        )
+    cursor.execute(
+        """
+        UPDATE catalogo_naturezas SET tipo_servico = 'coworking'
+        WHERE IFNULL(TRIM(tipo_servico), '') = ''
+          AND (
+            LOWER(TRIM(nome)) LIKE 'cowork%'
+            OR EXISTS (
+                SELECT 1 FROM servicos s
+                WHERE TRIM(s.natureza) = TRIM(catalogo_naturezas.nome)
+                  AND IFNULL(TRIM(s.cowork_sala_nome), '') != ''
+            )
+          )
+        """
+    )
 
 
 def _migrate_especialidades_if_needed(cursor) -> None:

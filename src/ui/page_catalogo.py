@@ -26,14 +26,15 @@ from src.modules.catalogo import (
     listar_servicos_sessao_para_pacote,
     obter_servico_para_formulario,
     repasse_medio_ponderado_pacote,
+    resolver_tipo_servico_natureza,
     salvar_especialidade_catalogo,
     salvar_natureza_catalogo,
 )
 from src.modules.colaborador import listar_colaboradores_resumo
 from src.modules.constants import (
     NATUREZA_PACK,
-    NATUREZAS_CATALOGO_FASE1,
     canon_natureza_catalogo,
+    natureza_requer_especialidade_servico,
 )
 from src.modules.validators import parse_data_iso
 from src.ui.constituicao_visual_shell import inject_constituicao_cat_page
@@ -86,6 +87,15 @@ def _cat_render_pending_flash(fk: str) -> None:
             st.rerun()
     else:
         st.error(msg)
+
+
+def _cat_sync_text_from_select(select_key: str, text_key: str, preset: str) -> None:
+    """Preenche o text_input quando o utilizador muda a opção no selectbox."""
+    track = f"{text_key}__from__{select_key}"
+    cur = st.session_state.get(select_key)
+    if st.session_state.get(track) != cur:
+        st.session_state[text_key] = preset
+        st.session_state[track] = cur
 
 
 def _cat_finish_save(ok: bool, msg: str, fk: str, focus_key: str) -> None:
@@ -213,16 +223,17 @@ def _prime_cat_form(fk: str, d: dict) -> None:
     """Preenche `st.session_state` para as chaves `fk_*` antes de renderizar o expander."""
     nat = d["natureza"]
     st.session_state[f"{fk}_nat"] = nat
-    if str(nat) in NATUREZAS_CATALOGO_FASE1 and d.get("especialidade_id") is not None:
+    if natureza_requer_especialidade_servico(str(nat)) and d.get("especialidade_id") is not None:
         st.session_state[f"{fk}_esp_{nat}"] = int(d["especialidade_id"])
     st.session_state[f"{fk}_nome"] = d["nome"]
     st.session_state[f"{fk}_desc"] = d["descritivo"]
     st.session_state[f"{fk}_ativo"] = bool(d.get("ativo", True))
+    tipo_p = resolver_tipo_servico_natureza(str(nat))
 
-    if nat == "Sessão":
+    if tipo_p == "sessao":
         st.session_state[f"{fk}_sdh_disp"] = _cat_format_duration_hm_h(float(d.get("sessao_duracao_horas", 1.0)))
         st.session_state[f"{fk}_sve"] = float(d.get("sessao_valor_euros", 45.0))
-    elif nat == "Produto":
+    elif tipo_p == "produto":
         st.session_state[f"{fk}_ptipo"] = d.get("produto_tipo", "")
         st.session_state[f"{fk}_pdesc"] = d.get("produto_descricao", "")
         st.session_state[f"{fk}_pve"] = float(d.get("produto_valor_euros", 10.0))
@@ -236,12 +247,12 @@ def _prime_cat_form(fk: str, d: dict) -> None:
             else:
                 st.session_state[f"{fk}_pmod"] = "Percentual"
                 st.session_state[f"{fk}_prpct"] = float(d.get("produto_repasse_pct", 30.0))
-    elif nat == "Coworking":
+    elif tipo_p == "coworking":
         st.session_state[f"{fk}_cws"] = d.get("cowork_sala_nome", "")
         cwc = d.get("cowork_cobranca", "hora")
         st.session_state[f"{fk}_cwc"] = "Por hora" if cwc == "hora" else "Por dia"
         st.session_state[f"{fk}_cwv"] = float(d.get("cowork_valor_euros", 8.0))
-    elif canon_natureza_catalogo(nat) == NATUREZA_PACK:
+    elif tipo_p == "pack":
         linhas = d.get("pacote_linhas") or []
         st.session_state.cat_pac_row_ids = [uuid.uuid4().hex[:12] for _ in linhas]
         for prid, ln in zip(st.session_state.cat_pac_row_ids, linhas):
@@ -257,7 +268,7 @@ def _prime_cat_form(fk: str, d: dict) -> None:
             st.session_state[f"{fk}_pqn"] = int(pop["quantidade"])
         else:
             st.session_state[f"{fk}_pinc_prod"] = False
-    elif nat == "Evento":
+    elif tipo_p == "evento":
         ds = (d.get("evento_data_iso") or "")[:10]
         if parse_data_iso(ds):
             st.session_state[f"{fk}_edt"] = datetime.strptime(ds, "%Y-%m-%d").date()
@@ -295,23 +306,24 @@ def _prime_cat_form(fk: str, d: dict) -> None:
 def _ensure_cat_form_widget_defaults(fk: str, natureza: str) -> None:
     """Preenche defaults no session_state para widgets com `key` sem usar `value=` (evita conflito com prime)."""
     st.session_state.setdefault(f"{fk}_ativo", True)
-    if natureza == "Sessão":
+    tipo = resolver_tipo_servico_natureza(natureza)
+    if tipo == "sessao":
         st.session_state.setdefault(f"{fk}_sdh_disp", "1:00h")
         st.session_state.setdefault(f"{fk}_sve", 45.0)
-    elif natureza == "Produto":
+    elif tipo == "produto":
         st.session_state.setdefault(f"{fk}_pve", 10.0)
         st.session_state.setdefault(f"{fk}_porig", "Estoque próprio")
         st.session_state.setdefault(f"{fk}_pmod", "Percentual")
         st.session_state.setdefault(f"{fk}_prpct", 30.0)
         st.session_state.setdefault(f"{fk}_prve", 5.0)
-    elif natureza == "Coworking":
+    elif tipo == "coworking":
         st.session_state.setdefault(f"{fk}_cwc", "Por hora")
         st.session_state.setdefault(f"{fk}_cwv", 8.0)
-    elif natureza == NATUREZA_PACK:
+    elif tipo == "pack":
         st.session_state.setdefault(f"{fk}_pval", 100.0)
         st.session_state.setdefault(f"{fk}_pinc_prod", False)
         st.session_state.setdefault(f"{fk}_pqn", 1)
-    elif natureza == "Evento":
+    elif tipo == "evento":
         st.session_state.setdefault(f"{fk}_edt", date.today())
         st.session_state.setdefault(f"{fk}_eesc", "Interno (membros e colaboradores internos)")
         st.session_state.setdefault(f"{fk}_epc", 10.0)
@@ -320,20 +332,20 @@ def _ensure_cat_form_widget_defaults(fk: str, natureza: str) -> None:
 
 
 def _render_cat_modo_natureza(fk: str) -> None:
-    rows = listar_naturezas_catalogo()
+    rows = [r for r in listar_naturezas_catalogo() if int(r.get("id") or 0) > 0]
     labels = ["— Nova natureza —"] + [str(r["nome"]) for r in rows]
-    ids = [None] + [int(r["id"]) for r in rows]
+    ids: list[int | None] = [None] + [int(r["id"]) for r in rows]
     sel_ix = st.selectbox(
         "Naturezas cadastradas",
         range(len(labels)),
         format_func=lambda i, lb=labels: lb[int(i)],
         key=f"{fk}_nat_sel_ix",
     )
-    sel_id = ids[int(sel_ix)] if int(sel_ix) > 0 else None
-    preset = labels[int(sel_ix)] if int(sel_ix) > 0 else ""
+    ix = int(sel_ix)
+    sel_id: int | None = ids[ix] if ix > 0 else None
+    preset = labels[ix] if ix > 0 else ""
     nome_key = f"{fk}_nat_nome_txt"
-    if sel_id and not st.session_state.get(nome_key):
-        st.session_state[nome_key] = preset
+    _cat_sync_text_from_select(f"{fk}_nat_sel_ix", nome_key, preset)
     nome_nat = st.text_input(
         "Nome da natureza *",
         key=nome_key,
@@ -350,20 +362,26 @@ def _render_cat_modo_especialidade(fk: str) -> None:
         st.warning("Cadastre pelo menos uma natureza antes de criar especialidades.")
         return
     nat_esp = st.selectbox("Natureza *", nat_opts, key=f"{fk}_esp_nat")
+    nat_prev_key = f"{fk}_esp_nat_prev"
+    if st.session_state.get(nat_prev_key) != nat_esp:
+        st.session_state[nat_prev_key] = nat_esp
+        st.session_state[f"{fk}_esp_sel_ix"] = 0
+        st.session_state.pop(f"{fk}_esp_nome_txt", None)
+        st.session_state.pop(f"{fk}_esp_nome_txt__from__{fk}_esp_sel_ix", None)
     rows = listar_especialidades_por_natureza(nat_esp)
     labels = ["— Nova especialidade —"] + [str(r["nome"]) for r in rows]
-    ids = [None] + [int(r["id"]) for r in rows]
+    ids: list[int | None] = [None] + [int(r["id"]) for r in rows]
     sel_ix = st.selectbox(
         "Especialidades",
         range(len(labels)),
         format_func=lambda i, lb=labels: lb[int(i)],
         key=f"{fk}_esp_sel_ix",
     )
-    sel_id = ids[int(sel_ix)] if int(sel_ix) > 0 else None
-    preset = labels[int(sel_ix)] if int(sel_ix) > 0 else ""
+    ix = int(sel_ix)
+    sel_id: int | None = ids[ix] if ix > 0 else None
+    preset = labels[ix] if ix > 0 else ""
     nome_key = f"{fk}_esp_nome_txt"
-    if sel_id and nome_key not in st.session_state:
-        st.session_state[nome_key] = preset
+    _cat_sync_text_from_select(f"{fk}_esp_sel_ix", nome_key, preset)
     nome_esp = st.text_input("Nome da especialidade *", key=nome_key, placeholder="Ex.: Massagem pré-natal")
     if st.button("Actualizar Catálogo", type="primary", key=f"{fk}_esp_submit"):
         ok, msg = salvar_especialidade_catalogo(
@@ -396,29 +414,32 @@ def _render_cat_expander_cadastro(fk: str) -> None:
         _ensure_cat_form_widget_defaults(fk, natureza)
 
     esp_id_ui: int | None = None
-    rows_esp: list = []
-    if natureza in NATUREZAS_CATALOGO_FASE1:
-        rows_esp = listar_especialidades_por_natureza(natureza)
+    requer_esp = natureza_requer_especialidade_servico(natureza)
+    rows_esp: list = listar_especialidades_por_natureza(natureza) if requer_esp else []
     with col_esp:
-        if natureza in NATUREZAS_CATALOGO_FASE1 and rows_esp:
-            id_to_label = {int(r["id"]): str(r["nome"]) for r in rows_esp}
-            ids_esp = [int(r["id"]) for r in rows_esp]
-            pref = st.session_state.get(f"{fk}_esp_{natureza}")
-            default_ix = 0
-            if pref in ids_esp:
-                default_ix = ids_esp.index(int(pref))
-            esp_id_ui = int(
-                st.selectbox(
-                    "2. Especialidade *",
-                    ids_esp,
-                    index=default_ix,
-                    format_func=lambda x, _m=id_to_label: _m.get(int(x), str(x)),
-                    key=f"{fk}_esp_{natureza}",
-                    help="Ligação Natureza → Especialidade → Serviço.",
+        if requer_esp:
+            if rows_esp:
+                id_to_label = {int(r["id"]): str(r["nome"]) for r in rows_esp}
+                ids_esp = [int(r["id"]) for r in rows_esp]
+                pref = st.session_state.get(f"{fk}_esp_{natureza}")
+                default_ix = 0
+                if pref in ids_esp:
+                    default_ix = ids_esp.index(int(pref))
+                esp_id_ui = int(
+                    st.selectbox(
+                        "2. Especialidade *",
+                        ids_esp,
+                        index=default_ix,
+                        format_func=lambda x, _m=id_to_label: _m.get(int(x), str(x)),
+                        key=f"{fk}_esp_{natureza}",
+                        help="Ligação Natureza → Especialidade → Serviço.",
+                    )
                 )
-            )
-    if natureza in NATUREZAS_CATALOGO_FASE1 and not rows_esp:
-        st.warning("Sem especialidades para esta natureza — execute a migração ou contacte o suporte.")
+            else:
+                st.warning(
+                    "Sem especialidades para esta natureza — cadastre uma em "
+                    "«Especialidade» antes de registar o serviço."
+                )
 
     nome = st.text_input("3. Nome do Serviço ou Produto *", key=f"{fk}_nome")
     descritivo = st.text_area(
@@ -455,14 +476,16 @@ def _render_cat_expander_cadastro(fk: str) -> None:
     evt_pa = 15.0
     evt_pdf = 0.0
 
-    if natureza == "Sessão":
+    tipo_form = resolver_tipo_servico_natureza(natureza)
+
+    if tipo_form == "sessao":
         st.text_input(
             "Duração (HH:MM) *",
             key=f"{fk}_sdh_disp",
             placeholder="Ex.: 1:30h",
         )
         sessao_ve = float(st.number_input("Valor por sessão (€) *", min_value=0.01, step=0.5, key=f"{fk}_sve"))
-    elif natureza == "Produto":
+    elif tipo_form == "produto":
         ptipo = st.text_input("Tipo do produto *", key=f"{fk}_ptipo", placeholder="Ex.: cosmética, suplemento")
         pdesc = st.text_area("Descrição do produto", key=f"{fk}_pdesc", height=70)
         pve = float(st.number_input("Valor de venda (€) *", min_value=0.01, step=0.5, key=f"{fk}_pve"))
@@ -476,12 +499,12 @@ def _render_cat_expander_cadastro(fk: str) -> None:
                 )
             else:
                 pr_ve = float(st.number_input("Valor de repasse (€) *", min_value=0.01, step=0.5, key=f"{fk}_prve"))
-    elif natureza == "Coworking":
+    elif tipo_form == "coworking":
         cws = st.text_input("Nome da sala *", key=f"{fk}_cws")
         cwc_l = st.radio("Cobrança *", ["Por hora", "Por dia"], horizontal=True, key=f"{fk}_cwc")
         cwc = "hora" if cwc_l == "Por hora" else "dia"
         cwv = float(st.number_input("Valor (€) *", min_value=0.01, step=0.5, key=f"{fk}_cwv"))
-    elif natureza == NATUREZA_PACK:
+    elif tipo_form == "pack":
         opts_sess = listar_servicos_sessao_para_pacote()
         if not opts_sess:
             st.warning("Cadastre pelo menos uma **Sessão** completa no catálogo antes de montar um pacote.")
@@ -590,7 +613,7 @@ def _render_cat_expander_cadastro(fk: str) -> None:
             elif incluir_p and not prod_opts:
                 st.info("Não há produtos ativos no catálogo. Crie um item **Produto** primeiro.")
 
-    elif natureza == "Evento":
+    elif tipo_form == "evento":
         st.markdown(_cat_section_title_html("Dados do evento"), unsafe_allow_html=True)
         ed = st.date_input(
             "Data do evento *",
@@ -700,7 +723,7 @@ def _render_cat_expander_cadastro(fk: str) -> None:
     actor = _cat_actor_email()
     if st.button("Actualizar Catálogo", type="primary", key=f"{fk}_submit"):
         skip_submit = False
-        if natureza == "Sessão":
+        if tipo_form == "sessao":
             raw_sdh = str(st.session_state.get(f"{fk}_sdh_disp", "") or "").strip()
             ok_sdh, sdh_val, err_sdh = _cat_parse_duration_hm_h(raw_sdh)
             if not ok_sdh:
@@ -710,7 +733,7 @@ def _render_cat_expander_cadastro(fk: str) -> None:
                 sessao_dh = sdh_val
         if skip_submit:
             pass
-        elif natureza == NATUREZA_PACK:
+        elif tipo_form == "pack":
             if not pac_el:
                 st.error("Defina a composição do pacote (sessões).")
             else:
@@ -739,7 +762,7 @@ def _render_cat_expander_cadastro(fk: str) -> None:
                 if ok:
                     st.session_state.cat_pac_row_ids = [uuid.uuid4().hex[:12]]
                 _cat_finish_save(ok, msg, fk, f"{fk}_nome")
-        elif natureza == "Evento":
+        elif tipo_form == "evento":
             if edit_id_submit:
                 ok, msg = atualizar_evento_existente(
                     int(edit_id_submit),
@@ -781,18 +804,18 @@ def _render_cat_expander_cadastro(fk: str) -> None:
                     descritivo,
                     ativo,
                     alterado_por=actor,
-                    especialidade_id=esp_id_ui if natureza in NATUREZAS_CATALOGO_FASE1 else None,
-                    sessao_duracao_horas=sessao_dh if natureza == "Sessão" else None,
-                    sessao_valor_euros=sessao_ve if natureza == "Sessão" else None,
-                    produto_tipo=ptipo if natureza == "Produto" else "",
-                    produto_descricao=pdesc if natureza == "Produto" else "",
-                    produto_valor_euros=pve if natureza == "Produto" else None,
-                    produto_origem=porig if natureza == "Produto" else "",
-                    produto_repasse_pct=pr_pct if natureza == "Produto" and porig == "repasse" and pr_pct > 0 else None,
-                    produto_repasse_valor_euros=pr_ve if natureza == "Produto" and porig == "repasse" and pr_ve > 0 else None,
-                    cowork_sala_nome=cws if natureza == "Coworking" else "",
-                    cowork_cobranca=cwc if natureza == "Coworking" else "",
-                    cowork_valor_euros=cwv if natureza == "Coworking" else None,
+                    especialidade_id=esp_id_ui if requer_esp else None,
+                    sessao_duracao_horas=sessao_dh if tipo_form == "sessao" else None,
+                    sessao_valor_euros=sessao_ve if tipo_form == "sessao" else None,
+                    produto_tipo=ptipo if tipo_form == "produto" else "",
+                    produto_descricao=pdesc if tipo_form == "produto" else "",
+                    produto_valor_euros=pve if tipo_form == "produto" else None,
+                    produto_origem=porig if tipo_form == "produto" else "",
+                    produto_repasse_pct=pr_pct if tipo_form == "produto" and porig == "repasse" and pr_pct > 0 else None,
+                    produto_repasse_valor_euros=pr_ve if tipo_form == "produto" and porig == "repasse" and pr_ve > 0 else None,
+                    cowork_sala_nome=cws if tipo_form == "coworking" else "",
+                    cowork_cobranca=cwc if tipo_form == "coworking" else "",
+                    cowork_valor_euros=cwv if tipo_form == "coworking" else None,
                 )
             else:
                 ok, msg = cadastrar_servico_fase1(
@@ -801,18 +824,18 @@ def _render_cat_expander_cadastro(fk: str) -> None:
                     descritivo,
                     ativo,
                     cadastrado_por=actor,
-                    especialidade_id=esp_id_ui if natureza in NATUREZAS_CATALOGO_FASE1 else None,
-                    sessao_duracao_horas=sessao_dh if natureza == "Sessão" else None,
-                    sessao_valor_euros=sessao_ve if natureza == "Sessão" else None,
-                    produto_tipo=ptipo if natureza == "Produto" else "",
-                    produto_descricao=pdesc if natureza == "Produto" else "",
-                    produto_valor_euros=pve if natureza == "Produto" else None,
-                    produto_origem=porig if natureza == "Produto" else "",
-                    produto_repasse_pct=pr_pct if natureza == "Produto" and porig == "repasse" and pr_pct > 0 else None,
-                    produto_repasse_valor_euros=pr_ve if natureza == "Produto" and porig == "repasse" and pr_ve > 0 else None,
-                    cowork_sala_nome=cws if natureza == "Coworking" else "",
-                    cowork_cobranca=cwc if natureza == "Coworking" else "",
-                    cowork_valor_euros=cwv if natureza == "Coworking" else None,
+                    especialidade_id=esp_id_ui if requer_esp else None,
+                    sessao_duracao_horas=sessao_dh if tipo_form == "sessao" else None,
+                    sessao_valor_euros=sessao_ve if tipo_form == "sessao" else None,
+                    produto_tipo=ptipo if tipo_form == "produto" else "",
+                    produto_descricao=pdesc if tipo_form == "produto" else "",
+                    produto_valor_euros=pve if tipo_form == "produto" else None,
+                    produto_origem=porig if tipo_form == "produto" else "",
+                    produto_repasse_pct=pr_pct if tipo_form == "produto" and porig == "repasse" and pr_pct > 0 else None,
+                    produto_repasse_valor_euros=pr_ve if tipo_form == "produto" and porig == "repasse" and pr_ve > 0 else None,
+                    cowork_sala_nome=cws if tipo_form == "coworking" else "",
+                    cowork_cobranca=cwc if tipo_form == "coworking" else "",
+                    cowork_valor_euros=cwv if tipo_form == "coworking" else None,
                 )
             _cat_finish_save(ok, msg, fk, f"{fk}_nome")
 

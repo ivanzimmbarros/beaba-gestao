@@ -10,9 +10,11 @@ from src.modules.colaborador import media_repasse_percentual_servico
 from src.modules.constants import (
     ESPECIALIDADE_PADRAO_NOME,
     NATUREZA_PACK,
-    NATUREZAS_CATALOGO_FASE1,
     NATUREZAS_CATALOGO_FASE3,
+    NATUREZA_PACK,
     canon_natureza_catalogo,
+    natureza_requer_especialidade_servico,
+    tipo_servico_catalogo_por_natureza,
 )
 from src.modules.validators import parse_data_iso
 
@@ -93,13 +95,27 @@ def listar_naturezas_catalogo() -> list[dict[str, int | str]]:
         conn.commit()
         cur.execute(
             """
-            SELECT id, nome FROM catalogo_naturezas
+            SELECT id, nome, IFNULL(tipo_servico, '') FROM catalogo_naturezas
             WHERE ativo = 1
             ORDER BY ordem, nome COLLATE NOCASE
             """
         )
-        rows = [{"id": int(r[0]), "nome": canon_natureza_catalogo(str(r[1]))} for r in cur.fetchall()]
-        return rows or [{"id": 0, "nome": n} for n in NATUREZAS_CATALOGO_FASE3]
+        rows = [
+            {
+                "id": int(r[0]),
+                "nome": canon_natureza_catalogo(str(r[1])),
+                "tipo_servico": str(r[2] or "").strip(),
+            }
+            for r in cur.fetchall()
+        ]
+        return rows or [
+            {
+                "id": -1,
+                "nome": n,
+                "tipo_servico": tipo_servico_catalogo_por_natureza(n),
+            }
+            for n in NATUREZAS_CATALOGO_FASE3
+        ]
     except Exception:
         return [{"id": 0, "nome": n} for n in NATUREZAS_CATALOGO_FASE3]
     finally:
@@ -121,7 +137,7 @@ def salvar_natureza_catalogo(
         if _existe_nome_ci(cur, "catalogo_naturezas", "nome", nm, exclude_id=natureza_id):
             conn.rollback()
             return False, MSG_REGISTRO_DUPLICADO
-        if natureza_id:
+        if natureza_id is not None:
             cur.execute("SELECT nome FROM catalogo_naturezas WHERE id = ?", (int(natureza_id),))
             row = cur.fetchone()
             if not row:
@@ -140,9 +156,13 @@ def salvar_natureza_catalogo(
                     (new, old),
                 )
         else:
+            tipo_ins = tipo_servico_catalogo_por_natureza(nm)
             cur.execute(
-                "INSERT INTO catalogo_naturezas (nome, ativo, ordem) VALUES (?, 1, 999)",
-                (canon_natureza_catalogo(nm),),
+                """
+                INSERT INTO catalogo_naturezas (nome, ativo, ordem, tipo_servico)
+                VALUES (?, 1, 999, ?)
+                """,
+                (canon_natureza_catalogo(nm), tipo_ins),
             )
             nat_ins = canon_natureza_catalogo(nm)
             cur.execute(
@@ -196,7 +216,7 @@ def salvar_especialidade_catalogo(
         ):
             conn.rollback()
             return False, MSG_REGISTRO_DUPLICADO
-        if especialidade_id:
+        if especialidade_id is not None:
             cur.execute(
                 """
                 UPDATE especialidades
@@ -229,11 +249,39 @@ def salvar_especialidade_catalogo(
         conn.close()
 
 
+def resolver_tipo_servico_natureza(natureza: str) -> str:
+    """Tipo de formulário (sessao, produto, …) mesmo com rótulo personalizado na BD."""
+    nat = (natureza or "").strip()
+    t = tipo_servico_catalogo_por_natureza(nat)
+    if t:
+        return t
+    conn = get_connection()
+    if not conn:
+        return ""
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT IFNULL(tipo_servico, '') FROM catalogo_naturezas
+            WHERE LOWER(TRIM(nome)) = LOWER(TRIM(?)) AND ativo = 1
+            LIMIT 1
+            """,
+            (nat,),
+        )
+        row = cur.fetchone()
+        return str(row[0] or "").strip() if row else ""
+    except Exception:
+        return ""
+    finally:
+        conn.close()
+
+
 def _resolver_especialidade_id_para_servico(
     cur: sqlite3.Cursor, natureza: str, especialidade_id: int | None
 ) -> tuple[bool, str, int]:
     """Garante linhas «Geral» por natureza canónica; valida ou usa especialidade explícita."""
     pad = ESPECIALIDADE_PADRAO_NOME
+    nat_use = (natureza or "").strip()
     for nat in NATUREZAS_CATALOGO_FASE3:
         cur.execute(
             """
@@ -241,6 +289,14 @@ def _resolver_especialidade_id_para_servico(
             VALUES (?, ?, '', 1, 0)
             """,
             (nat, pad),
+        )
+    if nat_use:
+        cur.execute(
+            """
+            INSERT OR IGNORE INTO especialidades (natureza, nome, descritivo, ativo, ordem)
+            VALUES (?, ?, '', 1, 0)
+            """,
+            (nat_use, pad),
         )
     if especialidade_id is None:
         cur.execute(
@@ -799,7 +855,8 @@ def cadastrar_servico_fase1(
     cowork_valor_euros: float | None = None,
     cadastrado_por: str = "",
 ) -> tuple[bool, str]:
-    if natureza not in NATUREZAS_CATALOGO_FASE1:
+    tipo_nat = resolver_tipo_servico_natureza(natureza)
+    if tipo_nat in ("pack", "evento") or not natureza_requer_especialidade_servico(natureza):
         return False, "❌ Natureza inválida para esta fase do catálogo."
 
     nome = (nome or "").strip()
@@ -823,7 +880,7 @@ def cadastrar_servico_fase1(
     cwc = ""
     cwv: int | None = None
 
-    if natureza == "Sessão":
+    if tipo_nat == "sessao":
         if sessao_duracao_horas is None or float(sessao_duracao_horas) <= 0:
             return False, "❌ Indique a duração da sessão em horas (> 0)."
         sessao_d = float(sessao_duracao_horas)
@@ -832,7 +889,7 @@ def cadastrar_servico_fase1(
             return False, "❌ Indique o valor por sessão (> 0 €)."
         sessao_vc = vc
 
-    elif natureza == "Produto":
+    elif tipo_nat == "produto":
         ptipo = (produto_tipo or "").strip()
         if not ptipo:
             return False, "❌ O tipo do produto é obrigatório."
@@ -855,7 +912,7 @@ def cadastrar_servico_fase1(
             else:
                 return False, "❌ Em repasse, indique percentual ou valor acordado com o proprietário."
 
-    elif natureza == "Coworking":
+    elif tipo_nat == "coworking":
         cws = (cowork_sala_nome or "").strip()
         if not cws:
             return False, "❌ O nome da sala é obrigatório."
@@ -1446,4 +1503,5 @@ __all__ = [
     "percentual_para_centesimos_ref",
     "repasse_medio_ponderado_pacote",
     "resolver_snapshot_venda",
+    "resolver_tipo_servico_natureza",
 ]
