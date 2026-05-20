@@ -82,7 +82,6 @@ def render_setor4_relatorio_repasse_admin(*, fk: str) -> None:
         "Dimensão de filtro exclusiva para o relatório",
         modo_labels_pt,
         key=f"{fk}_rep_dim",
-        help="Escolha exatamente um modo antes de usar o multiselect.",
     )
     modo_k = modo_label_to_key[modo_lbl]
 

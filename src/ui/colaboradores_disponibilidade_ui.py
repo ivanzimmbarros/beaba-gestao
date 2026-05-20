@@ -411,7 +411,7 @@ def render_colaboradores_disponibilidade_setor() -> None:
         usar_filtro_ctx = st.checkbox(
             "Mostrar somente colaboradores alinhados com os filtros seleccionados",
             key="col_disp_cal_apply_ctx_filter",
-            help="Se a opção for desmarcada, o calendário irá listar todos os colaboradores ativos, "
+            help="Se a opção for desmarcada o calendário irá listar todos os colaboradores ativos, "
             "independentemente dos filtros seleccionados.",
         )
 
