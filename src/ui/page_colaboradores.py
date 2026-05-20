@@ -678,18 +678,10 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
             st.text_input("Dados Bancários — IBAN *", key=f"{fk}_iban", placeholder="PT50 …")
 
         st.markdown(_col_ficha_subsec_html("Serviços habilitados e repasse"), unsafe_allow_html=True)
-        if st.button("Abrir Catálogo de Serviços", key=f"{fk}_goto_cat"):
-            st.session_state.page = "catalogo"
-
-        c_add, _ = st.columns([2, 3])
-        with c_add:
-            if st.button("➕ Adicionar item de serviço", key=f"{fk}_add_svc"):
-                st.session_state.col_row_ids.append(uuid.uuid4().hex[:12])
 
         repasse: list[tuple[int, float, str]] = []
         row_ids = list(st.session_state.col_row_ids)
         for pos, row_id in enumerate(row_ids):
-            st.markdown(f"**Item {pos + 1}**")
             nat_labels_r = [_COL_MAPA_NAT_PH] + listar_naturezas_servicos_mapa_equipa()
             rnk = f"{fk}_lnat_{row_id}"
             rek = f"{fk}_lesp_{row_id}"
@@ -765,6 +757,24 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
                     format="DD/MM/YYYY",
                     min_value=date(1900, 1, 1),
                 )
+            if pos == 0:
+                b_cat, b_add, _ = st.columns(_COL_BTN_ROW_HALF, gap="small")
+                with b_cat:
+                    if st.button(
+                        "Abrir Catálogo de Serviços",
+                        key=f"{fk}_goto_cat",
+                        type="secondary",
+                        width="stretch",
+                    ):
+                        st.session_state.page = "catalogo"
+                with b_add:
+                    if st.button(
+                        "➕ Adicionar item de serviço",
+                        key=f"{fk}_add_svc",
+                        type="secondary",
+                        width="stretch",
+                    ):
+                        st.session_state.col_row_ids.append(uuid.uuid4().hex[:12])
             rb1, rb2 = st.columns([1, 4])
             with rb1:
                 if len(row_ids) > 1 and st.button("Remover item", key=f"{fk}_rm_{row_id}"):
@@ -775,7 +785,7 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
 
         st.markdown(_col_ficha_subsec_html("Observações"), unsafe_allow_html=True)
         c_obs = st.text_area(
-            "Observações",
+            "Informações complementares ligadas ao colaborador",
             key=f"{fk}_obs",
             height=100,
             placeholder="Texto livre (opcional).",
