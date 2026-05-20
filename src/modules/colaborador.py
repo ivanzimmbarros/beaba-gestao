@@ -8,7 +8,7 @@ from collections import OrderedDict
 from datetime import date, datetime
 
 from src.database.connection import get_connection
-from src.modules.constants import NATUREZAS_CATALOGO_FASE1, SEXOS
+from src.modules.constants import SEXOS
 from src.modules.nif import normalizar_nif_armazenamento
 from src.modules.telefone import normalizar_telefone_legado_ou_e164
 from src.modules.validators import (
@@ -499,13 +499,24 @@ def listar_colaboradores_vitrine() -> list[tuple[int, str, str]]:
 
 def listar_naturezas_servicos_mapa_equipa() -> list[str]:
     """
-    Naturezas possíveis para o Mapa da Equipa e para habilitações na ficha (UI Col).
-
-    Usa o conjunto canónico do catálogo (Sessão, Produto, Coworking), alinhado à exclusão
-    de Pacote e Evento nas listagens de serviços do mapa — não depende de já existir
-    serviço activo com cada natureza na base.
+    Naturezas activas do catálogo (exclui Pack e Evento) para Mapa da Equipa e habilitações.
     """
-    return list(NATUREZAS_CATALOGO_FASE1)
+    from src.modules.catalogo import listar_naturezas_catalogo
+    from src.modules.constants import natureza_requer_especialidade_servico
+
+    rows = listar_naturezas_catalogo()
+    out: list[str] = []
+    seen: set[str] = set()
+    for r in rows:
+        nm = str(r.get("nome") or "").strip()
+        if not nm or not natureza_requer_especialidade_servico(nm):
+            continue
+        key = nm.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(nm)
+    return out
 
 
 def listar_servicos_para_mapa_equipa(
