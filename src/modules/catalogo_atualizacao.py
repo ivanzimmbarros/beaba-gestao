@@ -9,7 +9,7 @@ from __future__ import annotations
 import sqlite3
 
 from src.database.connection import get_connection
-from src.modules.constants import NATUREZA_PACK, NATUREZAS_CATALOGO_FASE1, canon_natureza_catalogo
+from src.modules.constants import NATUREZA_PACK, canon_natureza_catalogo, natureza_requer_especialidade_servico
 from src.modules.validators import parse_data_iso
 
 
@@ -45,7 +45,8 @@ def atualizar_servico_fase1_existente(
     MSG_DUP = c.MSG_REGISTRO_DUPLICADO
     CAT_OK = c.CAT_MSG_SUCESSO
 
-    if natureza not in NATUREZAS_CATALOGO_FASE1:
+    tipo_nat = c.resolver_tipo_servico_natureza(natureza)
+    if tipo_nat in ("pack", "evento") or not natureza_requer_especialidade_servico(natureza):
         return False, "❌ Natureza inválida."
     nome = (nome or "").strip()
     if not nome:
@@ -67,7 +68,7 @@ def atualizar_servico_fase1_existente(
     cwc = ""
     cwv: int | None = None
 
-    if natureza == "Sessão":
+    if tipo_nat == "sessao":
         if sessao_duracao_horas is None or float(sessao_duracao_horas) <= 0:
             return False, "❌ Indique a duração da sessão em horas (> 0)."
         sessao_d = float(sessao_duracao_horas)
@@ -75,7 +76,7 @@ def atualizar_servico_fase1_existente(
         if vc is None or vc < 1:
             return False, "❌ Indique o valor por sessão (> 0 €)."
         sessao_vc = vc
-    elif natureza == "Produto":
+    elif tipo_nat == "produto":
         ptipo = (produto_tipo or "").strip()
         if not ptipo:
             return False, "❌ O tipo do produto é obrigatório."
@@ -97,7 +98,7 @@ def atualizar_servico_fase1_existente(
                     return False, "❌ Indique um valor de repasse válido."
             else:
                 return False, "❌ Em repasse, indique percentual ou valor acordado com o proprietário."
-    elif natureza == "Coworking":
+    elif tipo_nat == "coworking":
         cws = (cowork_sala_nome or "").strip()
         if not cws:
             return False, "❌ O nome da sala é obrigatório."
