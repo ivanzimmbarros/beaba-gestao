@@ -259,6 +259,54 @@ def _skip_example_catalog_seeds() -> bool:
     )
 
 
+def _migrate_catalogo_pack_audit_naturezas(cursor) -> None:
+    """Pack (ex-Pacote), auditoria em `servicos` e tabela `catalogo_naturezas`."""
+    from src.modules.constants import NATUREZA_PACK, NATUREZAS_CATALOGO_FASE3
+
+    for col, definition in (
+        ("cadastrado_por", "TEXT DEFAULT ''"),
+        ("criado_em", "TEXT DEFAULT ''"),
+        ("alterado_por", "TEXT DEFAULT ''"),
+        ("alterado_em", "TEXT DEFAULT ''"),
+    ):
+        _ensure_column(cursor, "servicos", col, definition)
+
+    cursor.execute(
+        "UPDATE servicos SET natureza = ? WHERE TRIM(IFNULL(natureza, '')) = 'Pacote'",
+        (NATUREZA_PACK,),
+    )
+    cursor.execute(
+        "UPDATE especialidades SET natureza = ? WHERE TRIM(IFNULL(natureza, '')) = 'Pacote'",
+        (NATUREZA_PACK,),
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS catalogo_naturezas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL,
+            ativo INTEGER NOT NULL DEFAULT 1,
+            ordem INTEGER NOT NULL DEFAULT 0
+        )
+        """
+    )
+    cursor.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_catalogo_naturezas_nome ON catalogo_naturezas(nome)"
+    )
+    for i, nat in enumerate(NATUREZAS_CATALOGO_FASE3):
+        cursor.execute(
+            """
+            INSERT OR IGNORE INTO catalogo_naturezas (nome, ativo, ordem)
+            VALUES (?, 1, ?)
+            """,
+            (nat, i),
+        )
+    cursor.execute(
+        "UPDATE catalogo_naturezas SET nome = ? WHERE TRIM(nome) = 'Pacote'",
+        (NATUREZA_PACK,),
+    )
+
+
 def _migrate_especialidades_if_needed(cursor) -> None:
     """Garante tabela `especialidades`, coluna `servicos.especialidade_id` e backfill «Geral» por natureza."""
     from src.modules.constants import ESPECIALIDADE_PADRAO_NOME, NATUREZAS_CATALOGO_FASE3
@@ -1060,6 +1108,7 @@ def create_tables():
     ):
         _ensure_column(cursor, "servicos", col, definition)
     _ensure_column(cursor, "servicos", "especialidade_id", "INTEGER")
+    _migrate_catalogo_pack_audit_naturezas(cursor)
     _migrate_especialidades_if_needed(cursor)
     cursor.execute(
         """

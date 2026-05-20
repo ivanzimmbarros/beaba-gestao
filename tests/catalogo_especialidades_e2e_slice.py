@@ -17,8 +17,8 @@ def run_catalogo_especialidades_domain_slice() -> str | None:
         listar_servicos_para_venda,
     )
 
-    if not any(str(r.get("nome") or "") == "Geral" for r in listar_especialidades_por_natureza("Pacote")):
-        return "e2e esp: falta «Geral» em Pacote após migração"
+    if not any(str(r.get("nome") or "") == "Geral" for r in listar_especialidades_por_natureza("Pack")):
+        return "e2e esp: falta «Geral» em Pack após migração"
 
     ok, msg = cadastrar_especialidade("Sessão", "E2E Slice Dup Nome X", "")
     if not ok:

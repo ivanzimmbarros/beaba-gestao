@@ -129,7 +129,7 @@ def test_fifo_saldo_restante_apos_uso_venda(saldo_conn: sqlite3.Connection) -> N
     assert int(usos[0]["valor_final_com_saldo_abatido_centavos"]) == 7_000
 
     linhas_so_pacote = listar_linhas_gestao_saldos_clientes_ativos(
-        saldo_conn, cliente_ids=[cid], naturezas=["Pacote"], servico_ids=None, mes=None, ano=None
+        saldo_conn, cliente_ids=[cid], naturezas=["Pack"], servico_ids=None, mes=None, ano=None
     )
     assert len(linhas_so_pacote) == 0
 
@@ -143,7 +143,7 @@ def test_linha_saldo_cancelamento_pacote_referente_e_nome(saldo_conn: sqlite3.Co
     e_sess = int(cur.lastrowid)
     cur.execute(
         "INSERT INTO especialidades (natureza, nome, descritivo) VALUES (?, ?, ?)",
-        ("Pacote", "EspPacoteFin", ""),
+        ("Pack", "EspPacoteFin", ""),
     )
     e_pac = int(cur.lastrowid)
     cur.execute(
@@ -157,7 +157,7 @@ def test_linha_saldo_cancelamento_pacote_referente_e_nome(saldo_conn: sqlite3.Co
     cur.execute(
         """
         INSERT INTO servicos (nome, natureza, especialidade_id)
-        VALUES (?, 'Pacote', ?)
+        VALUES (?, 'Pack', ?)
         """,
         ("Pacote Catálogo Fin", e_pac),
     )
@@ -236,7 +236,7 @@ def test_linha_saldo_cancelamento_pacote_referente_e_nome(saldo_conn: sqlite3.Co
     cur.execute(
         """
         INSERT INTO servicos (nome, natureza, especialidade_id)
-        VALUES (?, 'Pacote', ?)
+        VALUES (?, 'Pack', ?)
         """,
         ("Outro Pacote Só Filtro", e_pac),
     )
@@ -261,6 +261,6 @@ def test_linha_saldo_cancelamento_pacote_referente_e_nome(saldo_conn: sqlite3.Co
 
     # Natureza «Pacote» no filtro = linhas com «Referente a Pacote?» = Sim (não s.natureza da sessão).
     por_nat_pac = listar_linhas_gestao_saldos_clientes_ativos(
-        saldo_conn, cliente_ids=[cid], naturezas=["Pacote"], servico_ids=None, mes=None, ano=None
+        saldo_conn, cliente_ids=[cid], naturezas=["Pack"], servico_ids=None, mes=None, ano=None
     )
     assert len(por_nat_pac) == 1

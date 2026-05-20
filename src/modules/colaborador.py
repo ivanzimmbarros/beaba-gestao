@@ -252,7 +252,7 @@ def listar_servicos() -> list[tuple[int, str]]:
             """
             SELECT id, nome FROM servicos
             WHERE ativo = 1
-              AND IFNULL(natureza, '') NOT IN ('Pacote', 'Evento')
+              AND IFNULL(natureza, '') NOT IN ('Pack', 'Pacote', 'Evento')
             ORDER BY nome
             """
         )
@@ -526,7 +526,7 @@ def listar_servicos_para_mapa_equipa(
             FROM servicos s
             LEFT JOIN especialidades e ON e.id = s.especialidade_id
             WHERE s.ativo = 1
-              AND IFNULL(s.natureza, '') NOT IN ('Pacote', 'Evento')
+              AND IFNULL(s.natureza, '') NOT IN ('Pack', 'Pacote', 'Evento')
         """
         if nats:
             ph = ",".join("?" * len(nats))

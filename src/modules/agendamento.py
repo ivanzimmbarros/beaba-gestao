@@ -9,7 +9,11 @@ from typing import Any, Literal
 from src.database.connection import get_connection
 from src.modules.catalogo import obter_servico_para_formulario
 from src.modules.colaborador import nome_colaborador_sem_sufixo_id_ui
-from src.modules.constants import ESTADO_AGENDAMENTO_REALIZADO_PENDENTE_LABEL_PT
+from src.modules.constants import (
+    ESTADO_AGENDAMENTO_REALIZADO_PENDENTE_LABEL_PT,
+    NATUREZA_PACK,
+    canon_natureza_catalogo,
+)
 from src.modules.credito_ledger import (
     obter_aberto_liquidacao_venda_centavos,
     registrar_credito_por_cancelamento_agendamento,
@@ -159,7 +163,7 @@ def direito_total_bucket(
     qty, sid, nat = int(row[0]), int(row[1]), str(row[2])
     if nat == "Produto":
         return 0
-    if nat == "Pacote":
+    if canon_natureza_catalogo(nat) == NATUREZA_PACK:
         if pacote_sessao_id is None:
             return 0
         cur.execute(
@@ -315,7 +319,7 @@ def listar_buckets_credito_cliente(cliente_id: int) -> list[dict[str, Any]]:
             nat = str(nat)
             if nat == "Produto":
                 continue
-            if nat == "Pacote":
+            if canon_natureza_catalogo(nat) == NATUREZA_PACK:
                 cur.execute(
                     """
                     SELECT sps.id, sps.sessao_servico_id, sps.quantidade, se.nome
@@ -509,7 +513,7 @@ def _sap_data_registo_celula_cag(
     dd_contr = _sap_fmt_data_contratacao_dd_mm_yyyy(
         str(data_contr_iso).strip()[:10] if data_contr_iso is not None else None
     )
-    if str(nat_s or "").strip() == "Pacote":
+    if canon_natureza_catalogo(str(nat_s or "")) == NATUREZA_PACK:
         return dd_contr
     if str(pag_lab or "").strip() == "Pago":
         return dd_contr
@@ -580,7 +584,7 @@ def listar_opcoes_servicos_adquiridos_pendente_pre_agendamento(
                 str(data_contr_iso).strip()[:10] if data_contr_iso is not None else None
             )
 
-            if nat_s == "Pacote":
+            if canon_natureza_catalogo(nat_s) == NATUREZA_PACK:
                 cur.execute(
                     """
                     SELECT sps.id, sps.sessao_servico_id, sps.quantidade, se.nome
@@ -622,7 +626,7 @@ def listar_opcoes_servicos_adquiridos_pendente_pre_agendamento(
                         {
                             "token": tok,
                             "rotulo": rot,
-                            "natureza": "Pacote",
+                            "natureza": NATUREZA_PACK,
                             "servico_esc": f"{sid_i}|{nome_snap_s}",
                             "pacote_sessao_esc": None,
                             "venda_item_id": vi_id_i,
@@ -1163,7 +1167,7 @@ def _divisor_valor_unitario_credito_venda_item_cur(
     if not r:
         return 1
     qty_i, nat, sid_pkg = max(1, int(r[0] or 1)), str(r[1] or "").strip(), int(r[2])
-    if str(tipo_origem or "").strip().lower() == "pacote" and nat == "Pacote":
+    if str(tipo_origem or "").strip().lower() == "pacote" and canon_natureza_catalogo(nat) == NATUREZA_PACK:
         cur.execute(
             """
             SELECT COALESCE(SUM(sps.quantidade), 0)
@@ -1530,7 +1534,7 @@ def criar_agendamento_pre_venda(
                 return False, "❌ Serviço não encontrado."
             natureza = str(rnat[0])
             if natureza not in ("Sessão", "Coworking", "Evento"):
-                if natureza in ("Produto", "Pacote"):
+                if natureza in ("Produto", NATUREZA_PACK, "Pacote"):
                     return (
                         False,
                         "❌ Neste ecrã a pré-venda só é suportada para Sessão, Coworking e Evento, "
@@ -1772,7 +1776,7 @@ def converter_agendamento_avulso_para_consumo_pacote(
         if not row:
             return False, "❌ Linha de venda do pacote não encontrada."
         venda_id, sid_item, natureza, cli_v = int(row[0]), int(row[1]), str(row[2]), int(row[3])
-        if natureza != "Pacote":
+        if canon_natureza_catalogo(natureza) != NATUREZA_PACK:
             return False, "❌ A linha seleccionada não é um pacote."
         if int(ag["cliente_id"]) != cli_v:
             return False, "❌ Cliente do agendamento difere do cliente da venda do pacote."

@@ -7,10 +7,19 @@ SEXOS: tuple[str, ...] = (
     "Prefiro não informar",
 )
 
-# Catálogo — E06 incremental. Fase 1: Sessão, Produto, Coworking. Fase 2: Pacote. Fase 3: Evento.
+# Catálogo — E06 incremental. Fase 1: Sessão, Produto, Coworking. Fase 2: Pack. Fase 3: Evento.
+NATUREZA_PACK: str = "Pack"
 NATUREZAS_CATALOGO_FASE1: tuple[str, ...] = ("Sessão", "Produto", "Coworking")
-NATUREZAS_CATALOGO_FASE2: tuple[str, ...] = (*NATUREZAS_CATALOGO_FASE1, "Pacote")
+NATUREZAS_CATALOGO_FASE2: tuple[str, ...] = (*NATUREZAS_CATALOGO_FASE1, NATUREZA_PACK)
 NATUREZAS_CATALOGO_FASE3: tuple[str, ...] = (*NATUREZAS_CATALOGO_FASE2, "Evento")
+
+
+def canon_natureza_catalogo(nat: str) -> str:
+    """Normaliza rótulo de natureza (legado «Pacote» → «Pack»)."""
+    n = " ".join(str(nat or "").strip().split())
+    if n.casefold() == "pacote":
+        return NATUREZA_PACK
+    return n
 
 # Catálogo — camada Natureza → Especialidade → Serviço (épico Especialidades).
 ESPECIALIDADE_PADRAO_NOME: str = "Geral"
@@ -40,6 +49,8 @@ STATUS_AGENDAMENTO_REPASSE_CONTABILIZADO: tuple[str, ...] = (
 __all__ = [
     "SEXOS",
     "ESPECIALIDADE_PADRAO_NOME",
+    "NATUREZA_PACK",
+    "canon_natureza_catalogo",
     "NATUREZAS_CATALOGO_FASE1",
     "NATUREZAS_CATALOGO_FASE2",
     "NATUREZAS_CATALOGO_FASE3",
