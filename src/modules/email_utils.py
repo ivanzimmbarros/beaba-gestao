@@ -14,6 +14,9 @@ import smtplib
 import ssl
 from email.message import EmailMessage
 
+from src.modules.auth_db import auth_code_ttl_seconds
+from src.modules.auth_public_url import password_change_entry_url
+
 
 def _truthy(raw: str | None) -> bool:
     return (raw or "").strip().lower() in ("1", "true", "yes", "on")
@@ -99,10 +102,13 @@ def send_mfa_email(destinatario: str, codigo: str) -> None:
     """
     server, port, user, password, from_addr = resolve_smtp_settings()
 
+    ttl = auth_code_ttl_seconds()
     body = (
         "BeaBa Gestão — verificação em duas etapas\n\n"
         f"O seu código de acesso é: {codigo}\n\n"
-        "Este código expira em poucos minutos. Se não pediu este e-mail, ignore esta mensagem."
+        f"VALIDADE: este código expira em {ttl} segundos (1 minuto). "
+        "Após esse prazo, use «Reenviar código» no ecrã de verificação.\n\n"
+        "Se não pediu este e-mail, ignore esta mensagem."
     )
     msg = EmailMessage()
     msg["Subject"] = "BeaBa Gestão — código de verificação"
@@ -132,11 +138,23 @@ def send_temp_password_email(destinatario: str, senha_temp: str) -> None:
         OSError / smtplib.SMTPException: falha de rede ou servidor SMTP.
     """
     server, port, user, password, from_addr = resolve_smtp_settings()
+    ttl = auth_code_ttl_seconds()
+    troca_url = password_change_entry_url()
+    link_block = (
+        f"\n\nAbra este link para iniciar sessão e definir a nova senha:\n{troca_url}\n"
+        if troca_url
+        else "\n\nEntre na app BeaBa Gestão, use a senha temporária abaixo e conclua o código MFA; "
+        "será direccionado para «Definir nova senha».\n"
+    )
     body = (
         "BeaBa Gestão — recuperação de acesso\n\n"
         "Foi pedida uma nova senha temporária para a sua conta.\n\n"
         f"A sua senha temporária é: {senha_temp}\n\n"
-        "Ao entrar com esta senha, será obrigatório definir uma nova senha de imediato.\n"
+        f"VALIDADE: esta senha temporária expira em {ttl} segundos (1 minuto). "
+        "Se expirar, solicite novamente em «Esqueci minha senha».\n"
+        "Ao entrar com esta senha, será obrigatório definir uma nova senha de imediato "
+        "(após validar o código enviado por e-mail)."
+        f"{link_block}\n"
         "Se não pediu este e-mail, ignore esta mensagem ou contacte o administrador."
     )
     msg = EmailMessage()

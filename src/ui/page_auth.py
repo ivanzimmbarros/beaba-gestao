@@ -8,13 +8,15 @@ import streamlit as st
 
 from src.modules.audit import log_audit
 from src.modules.auth_db import (
-    consume_mfa_token,
+    auth_code_ttl_seconds,
     discard_pending_mfa_tokens,
     get_usuario_por_id,
     issue_mfa_token,
+    resend_mfa_code,
     reset_password_to_temp,
     try_login_credentials,
     update_password_clear_must_change,
+    validate_mfa_token,
 )
 from src.modules.auth_utils import generate_mfa_code
 from src.modules.email_utils import send_mfa_email, send_temp_password_email
@@ -81,15 +83,64 @@ def _reset_mfa_state() -> None:
     st.session_state.pop("aguardando_mfa", None)
 
 
+def _consume_recuperar_query_param() -> None:
+    """``?bea_recuperar=1`` — destaque do fluxo pós e-mail de senha temporária."""
+    try:
+        qp = st.query_params
+        raw = qp.get("bea_recuperar")
+    except Exception:
+        return
+    if raw is None:
+        return
+    val = (raw[0] if isinstance(raw, list) else str(raw)).strip().lower()
+    if val in ("1", "true", "sim", "yes"):
+        st.session_state["auth_recuperar_hint"] = True
+        try:
+            qp.clear()
+        except Exception:
+            pass
+
+
+def _send_mfa_and_enter_pending(user: dict) -> None:
+    code = generate_mfa_code()
+    dberr = issue_mfa_token(int(user["id"]), code)
+    if dberr:
+        st.error(dberr)
+        return
+    try:
+        send_mfa_email(str(user["email"]), code)
+    except Exception as err:
+        discard_pending_mfa_tokens(int(user["id"]))
+        st.error(
+            "Não foi possível enviar o e-mail com o código. No `.env` (raiz do projecto): "
+            "SMTP_USER ou EMAIL_USERNAME + SMTP_PASSWORD ou EMAIL_PASSWORD (Gmail = palavra-passe "
+            "de *aplicação*, 16 caracteres sem espaços); confirme pasta de trabalho antes de iniciar Streamlit. "
+            f"Pormenores: {err!s}"
+        )
+        return
+    st.session_state.pending_mfa_user_id = int(user["id"])
+    st.session_state.pending_mfa_email = str(user["email"])
+    st.session_state.aguardando_mfa = True
+    ttl = auth_code_ttl_seconds()
+    st.success(f"Enviamos um código de verificação para o seu e-mail (válido {ttl} segundos).")
+    st.rerun()
+
+
 def render_login_screen() -> None:
     """Campos e-mail/senha; MFA e envio de e-mail após validação; recuperação de senha."""
     _inject_auth_shell_css()
+    _consume_recuperar_query_param()
 
     outer_l, outer_c, outer_r = st.columns([1, 2.2, 1])
     with outer_c:
         flash = st.session_state.pop("auth_post_forgot_msg", None)
         if flash:
             st.success(str(flash))
+        if st.session_state.pop("auth_recuperar_hint", False):
+            st.info(
+                "Utilize a **senha temporária** recebida por e-mail (válida **1 minuto**). "
+                "Após o código MFA, será direccionado para **Definir nova senha**."
+            )
 
         if st.session_state.get("auth_view") == "forgot":
             st.markdown(
@@ -136,7 +187,7 @@ def render_login_screen() -> None:
             f'<div class="bea-auth-kicker">BeaBa Sereno</div>'
             f'<h1 class="bea-auth-title">Entrar na gestão</h1>'
             '<p class="bea-auth-sub">Credenciais da sua equipa. Segue-se uma verificação '
-            "do código enviado para o seu e-mail.</p></div>",
+            "do código enviado para o seu e-mail (validade <strong>1 minuto</strong>).</p></div>",
             unsafe_allow_html=True,
         )
         with st.form("bea_login_form"):
@@ -156,34 +207,14 @@ def render_login_screen() -> None:
             if not (email.strip() and pwd.strip()):
                 st.warning("Informe e-mail e senha.")
                 return
-            user, msg = try_login_credentials(email.strip(), pwd)
+            user, msg = try_login_credentials(email.strip(), pwd.strip())
             if not user:
                 if msg:
                     st.error(msg)
                 else:
                     st.error("Não foi possível validar o acesso.")
                 return
-            code = generate_mfa_code()
-            dberr = issue_mfa_token(int(user["id"]), code)
-            if dberr:
-                st.error(dberr)
-                return
-            try:
-                send_mfa_email(str(user["email"]), code)
-            except Exception as err:
-                discard_pending_mfa_tokens(int(user["id"]))
-                st.error(
-                    "Não foi possível enviar o e-mail com o código. No `.env` (raiz do projecto): "
-                    "SMTP_USER ou EMAIL_USERNAME + SMTP_PASSWORD ou EMAIL_PASSWORD (Gmail = palavra-passe "
-                    "de *aplicação*, 16 caracteres sem espaços); confirme pasta de trabalho antes de iniciar Streamlit. "
-                    f"Pormenores: {err!s}"
-                )
-                return
-            st.session_state.pending_mfa_user_id = int(user["id"])
-            st.session_state.pending_mfa_email = str(user["email"])
-            st.session_state.aguardando_mfa = True
-            st.success("Enviamos um código de verificação para o seu e-mail.")
-            st.rerun()
+            _send_mfa_and_enter_pending(user)
 
 
 def render_mfa_screen() -> None:
@@ -200,26 +231,33 @@ def render_mfa_screen() -> None:
             f'<h1 class="bea-auth-title">Código de acesso</h1>'
             f'<p class="bea-auth-sub">'
         )
+        ttl = auth_code_ttl_seconds()
         frag += (
-            f'Introduza os 6 dígitos enviados para <strong>{hint}</strong>.'
+            f'Introduza os 6 dígitos enviados para <strong>{hint}</strong> '
+            f"(válidos <strong>{ttl} segundos</strong>)."
             if hint
-            else "Introduza os 6 dígitos enviados por e-mail."
+            else f"Introduza os 6 dígitos enviados por e-mail (válidos <strong>{ttl} segundos</strong>)."
         )
         frag += "</p></div>"
         st.markdown(frag, unsafe_allow_html=True)
 
-        code_in = st.text_input(
-            "Código de 6 dígitos",
-            max_chars=6,
-            key="bea_mfa_code_input",
-        )
+        with st.form("bea_mfa_form", clear_on_submit=False):
+            code_in = st.text_input(
+                "Código de 6 dígitos",
+                max_chars=12,
+                key="bea_mfa_code_input",
+                placeholder="000000",
+            )
+            submitted_mfa = st.form_submit_button(
+                "Validar código",
+                type="primary",
+                width="stretch",
+            )
 
-        ca, cb = st.columns(2)
-        if ca.button("Validar código", type="primary", width="stretch", key="bea_mfa_submit"):
-            if not (code_in and code_in.strip().isdigit() and len(code_in.strip()) == 6):
-                st.error("Informe um código numérico de 6 dígitos.")
-            elif not consume_mfa_token(uid, code_in.strip()):
-                st.error("Código incorreto ou expirado.")
+        if submitted_mfa:
+            err_msg = validate_mfa_token(uid, code_in or "")
+            if err_msg:
+                st.error(err_msg)
             else:
                 row = get_usuario_por_id(uid)
                 if not row:
@@ -233,6 +271,25 @@ def render_mfa_screen() -> None:
                     st.session_state.auth_perfil = row["perfil"]
                     st.session_state.must_change = bool(row.get("must_change_password", False))
                     st.rerun()
+
+        cr, cb = st.columns(2)
+        if cr.button("Reenviar código", width="stretch", key="bea_mfa_resend"):
+            mail = hint or ""
+            new_code, dberr = resend_mfa_code(uid, mail)
+            if dberr:
+                st.error(dberr)
+            elif new_code is None:
+                st.error("Não foi possível gerar um novo código.")
+            else:
+                try:
+                    send_mfa_email(mail, new_code)
+                    st.success(
+                        f"Novo código enviado para {mail}. O código anterior deixou de ser válido "
+                        f"(validade {ttl} segundos)."
+                    )
+                except Exception as err:
+                    discard_pending_mfa_tokens(uid)
+                    st.error(f"Não foi possível reenviar o e-mail: {err!s}")
 
         if cb.button("Voltar ao início de sessão", width="stretch", key="bea_mfa_cancel"):
             discard_pending_mfa_tokens(uid)
@@ -256,7 +313,7 @@ def render_force_password_change() -> None:
             f'<h1 class="bea-auth-title">Definir nova senha</h1>'
             "<p class=\"bea-auth-sub\">É obrigatório alterar a senha antes de continuar. "
             "Utilize uma palavra-passe forte (mínimo 8 caracteres), diferente da senha temporária "
-            "ou da última utilizada.</p></div>",
+            f"(válida {auth_code_ttl_seconds()} segundos) ou da última utilizada.</p></div>",
             unsafe_allow_html=True,
         )
         with st.form("bea_force_password_form"):
