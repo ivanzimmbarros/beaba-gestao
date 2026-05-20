@@ -138,15 +138,20 @@ def render_setor4_relatorio_repasse_admin(*, fk: str) -> None:
             st.session_state.pop(f"{fk}_rep_saved_rows", None)
             st.session_state.pop(f"{fk}_rep_meta", None)
         else:
-            st.session_state[f"{fk}_rep_saved_rows"] = list(rows)
-            st.session_state[f"{fk}_rep_meta"] = {
-                "d_ini_iso": d_ini.isoformat(),
-                "d_fim_iso": d_fim.isoformat(),
-                "modo": modo_k,
-                "sel_esps": list(sel_esps or []),
-                "sel_srv_ids": list(sel_srv_ids or []),
-                "sel_cids": list(sel_cids or []),
-            }
+            if not rows:
+                st.info("Não existem informações de repasse para as opções seleccionadas.")
+                st.session_state.pop(f"{fk}_rep_saved_rows", None)
+                st.session_state.pop(f"{fk}_rep_meta", None)
+            else:
+                st.session_state[f"{fk}_rep_saved_rows"] = list(rows)
+                st.session_state[f"{fk}_rep_meta"] = {
+                    "d_ini_iso": d_ini.isoformat(),
+                    "d_fim_iso": d_fim.isoformat(),
+                    "modo": modo_k,
+                    "sel_esps": list(sel_esps or []),
+                    "sel_srv_ids": list(sel_srv_ids or []),
+                    "sel_cids": list(sel_cids or []),
+                }
 
     saved_obj = st.session_state.get(f"{fk}_rep_saved_rows")
     if not saved_obj:

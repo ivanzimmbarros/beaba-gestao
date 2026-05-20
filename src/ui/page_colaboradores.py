@@ -629,7 +629,7 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
         with r2c2:
             c_conc = st.text_input("Concelho *", key=f"{fk}_conc")
         with r2c3:
-            c_freg = st.text_input("Freguesia", key=f"{fk}_freg")
+            c_freg = st.text_input("Freguesia (opcional)", key=f"{fk}_freg")
         r3c1, r3c2 = st.columns(2)
         with r3c1:
             c_dist = st.text_input("Distrito (opcional)", key=f"{fk}_dist")
@@ -760,7 +760,7 @@ def render_page_colaboradores(*, render_back_and_breadcrumb) -> None:
                 )
             with rep_c4:
                 dlin = st.date_input(
-                    "Data de Ativação do serviço",
+                    "Data de Habilitação",
                     key=f"{fk}_dlin_{row_id}",
                     format="DD/MM/YYYY",
                     min_value=date(1900, 1, 1),

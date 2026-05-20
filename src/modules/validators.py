@@ -48,4 +48,6 @@ def normalizar_iban_dados_bancarios(raw: str) -> tuple[bool, str, str]:
         return False, "❌ IBAN inválido (comprimento).", ""
     if not re.fullmatch(r"[A-Z]{2}\d{2}[A-Z0-9]+", t):
         return False, "❌ IBAN inválido (use o formato internacional, ex.: PT50…).", ""
+    if t.startswith("PT") and len(t) != 25:
+        return False, "❌ IBAN português deve ter exactamente 25 caracteres.", ""
     return True, "", t
