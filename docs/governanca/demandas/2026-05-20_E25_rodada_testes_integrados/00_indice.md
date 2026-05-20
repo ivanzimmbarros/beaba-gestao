@@ -14,6 +14,7 @@ Concentrar **todos os ajustes** descobertos durante a rodada de testes manuais e
 |------|------|--------|
 | 2026-05-20 | Login / MFA / SMTP | Correção validação MFA (form Streamlit + ISO UTC); TTL 1 min; reenviar código; reset senha + link `?bea_recuperar=1`; mensagens «Código expirado.» / senha temporária expirada |
 | 2026-05-20 | Cloud DEV | **web_startup:** não restaurar R2 quando `usuarios` activos (pós-wipe); evita apagar MFA no rerun. Sync imediato após `issue_mfa_token`. **Deploy:** push `develop`/`main` obrigatório — alterações anteriores só estavam locais. |
+| 2026-05-20 | Início — Panorama Global | Textos/ botões drill-down CAG; alinhamento centralizado ícones, títulos, valores e botões (`constituicao_visual_shell` + `page_home`). |
 
 ## Fila (a preencher nos testes)
 

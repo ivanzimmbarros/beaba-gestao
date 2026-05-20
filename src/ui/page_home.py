@@ -281,22 +281,21 @@ def render_page_home() -> None:
             st.markdown(
                 panorama_card_block_html(
                     material_icon="euro_symbol",
-                    title="Estimativa de atendimentos não confirmados no Mês",
+                    title="Atendimentos não confirmados no Mês",
                     value_display=snap.card1_valor_fmt(),
                     testid="bea-home-card-estimativa",
                 ),
                 unsafe_allow_html=True,
             )
             if st.button(
-                    f"Explorar — estimativa ({m_lbl})",
+                    "$$ Atendimentos Não Confirmados",
                     key="home_drill_estimativa",
                     width="stretch",
                 ):
                     _navigate_cag_drill(
                         banner=(
-                            "**Panorama (cockpit):** estimativa de faturação em compromissos ainda **não confirmados** "
-                            f"no mês **{m_lbl}**. Pesquise um cliente e reveja a lista de agendamentos desse mês "
-                            "(estados ≠ Confirmado, excluindo cancelados)."
+                            "Pesquise um cliente e reveja a lista de agendamentos pendentes de confirmação "
+                            f"desse mês (**{m_lbl}**)."
                         ),
                         seed_month=ym,
                     )
@@ -312,16 +311,14 @@ def render_page_home() -> None:
                 unsafe_allow_html=True,
             )
             if st.button(
-                    f"Explorar — não confirmados ({m_lbl})",
+                    "Qtde Atendimentos Não Confirmados",
                     key="home_drill_nao_conf",
                     width="stretch",
                 ):
                     _navigate_cag_drill(
                         banner=(
-                            "**Panorama (cockpit):** existem **"
-                            f"{int(snap.card2_total_nao_confirmados_mes)}** agendamentos no mês **{m_lbl}** "
-                            "fora do estado Confirmado (cancelados excluídos do indicador). "
-                            "Na Área Única, carregue um cliente e ordene a lista por **Estado**."
+                            f"Existem **{int(snap.card2_total_nao_confirmados_mes)}** agendamentos no mês "
+                            f"**{m_lbl}** fora de Confirmado, pendentes de confirmação."
                         ),
                         seed_month=ym,
                     )
@@ -337,15 +334,14 @@ def render_page_home() -> None:
                 unsafe_allow_html=True,
             )
             if st.button(
-                    f"Explorar — pré-agendados ({m_lbl})",
+                    "Atendimentos Pré-Agendados",
                     key="home_drill_pre_ag",
                     width="stretch",
                 ):
                     _navigate_cag_drill(
                         banner=(
-                            "**Panorama (cockpit):** **"
-                            f"{int(snap.card3_pre_agendados_mes)}** marcações em **Pré-agendado** no mês **{m_lbl}**. "
-                            "Na Área Única, confirme ou ajuste após carregar o cliente."
+                            f"**{int(snap.card3_pre_agendados_mes)}** marcações em **Pré-agendado** "
+                            f"no mês **{m_lbl}**."
                         ),
                         seed_month=ym,
                     )
@@ -361,16 +357,16 @@ def render_page_home() -> None:
                 unsafe_allow_html=True,
             )
             if st.button(
-                    "Explorar — créditos em carteira",
+                    "Total Crédito Acumulado dos Clientes",
                     key="home_drill_credito",
                     width="stretch",
                 ):
                     _navigate_cag_drill(
                         banner=(
-                            "**Panorama (cockpit):** saldo agregado de **crédito** em clientes com histórico de "
-                            "**crédito por cancelamento (fluxo SIM)**. Pesquise o cliente e consulte o saldo na ficha."
+                            "**Panorama (cockpit):** Saldo acumulado dos créditos em aberto com os clientes. "
+                            "Pesquise pelo cliente para informações detalhadas."
                         ),
-                        seed_month=ym,
+                        seed_month=None,
                     )
 
         evo_html = ""
