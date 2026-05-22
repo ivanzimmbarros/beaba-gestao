@@ -214,7 +214,7 @@ def test_cag_agrupar_listagem_tres_sessoes_pacote_canceladas_uma_linha():
     assert len(out) == 1
     assert out[0]["id"] == 10
     assert out[0]["servico_nome"] == "Pacote 3"
-    assert out[0]["servico_natureza"] == "Pacote"
+    assert out[0]["servico_natureza"] == "Pack"
     assert out[0]["hora_inicio"] == "09:00"
     assert out[0]["hora_fim"] == "12:00"
     assert set(out[0].get("_cag_lista_pacote_ids_agrupados") or []) == {10, 11, 12}

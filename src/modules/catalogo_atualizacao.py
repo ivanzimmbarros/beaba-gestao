@@ -1,4 +1,4 @@
-"""Actualização de itens do catálogo (Sessão/Produto/Coworking, Pacote, Evento).
+"""Actualização de itens do catálogo (Sessão/Produto/Coworking, Pack, Evento).
 
 Implementação isolada com import preguiçoso de `catalogo` para evitar ciclos de importação
 e garantir que `from src.modules.catalogo import atualizar_*` funcione de forma fiável.
@@ -9,7 +9,7 @@ from __future__ import annotations
 import sqlite3
 
 from src.database.connection import get_connection
-from src.modules.constants import NATUREZAS_CATALOGO_FASE1
+from src.modules.constants import NATUREZA_PACK, canon_natureza_catalogo, natureza_requer_especialidade_servico
 from src.modules.validators import parse_data_iso
 
 
@@ -38,11 +38,15 @@ def atualizar_servico_fase1_existente(
     cowork_sala_nome: str = "",
     cowork_cobranca: str = "",
     cowork_valor_euros: float | None = None,
+    alterado_por: str = "",
 ) -> tuple[bool, str]:
     c = _catalogo()
     euros_para_centavos = c.euros_para_centavos
+    MSG_DUP = c.MSG_REGISTRO_DUPLICADO
+    CAT_OK = c.CAT_MSG_SUCESSO
 
-    if natureza not in NATUREZAS_CATALOGO_FASE1:
+    tipo_nat = c.resolver_tipo_servico_natureza(natureza)
+    if tipo_nat in ("pack", "evento") or not natureza_requer_especialidade_servico(natureza):
         return False, "❌ Natureza inválida."
     nome = (nome or "").strip()
     if not nome:
@@ -64,7 +68,7 @@ def atualizar_servico_fase1_existente(
     cwc = ""
     cwv: int | None = None
 
-    if natureza == "Sessão":
+    if tipo_nat == "sessao":
         if sessao_duracao_horas is None or float(sessao_duracao_horas) <= 0:
             return False, "❌ Indique a duração da sessão em horas (> 0)."
         sessao_d = float(sessao_duracao_horas)
@@ -72,7 +76,7 @@ def atualizar_servico_fase1_existente(
         if vc is None or vc < 1:
             return False, "❌ Indique o valor por sessão (> 0 €)."
         sessao_vc = vc
-    elif natureza == "Produto":
+    elif tipo_nat == "produto":
         ptipo = (produto_tipo or "").strip()
         if not ptipo:
             return False, "❌ O tipo do produto é obrigatório."
@@ -94,7 +98,7 @@ def atualizar_servico_fase1_existente(
                     return False, "❌ Indique um valor de repasse válido."
             else:
                 return False, "❌ Em repasse, indique percentual ou valor acordado com o proprietário."
-    elif natureza == "Coworking":
+    elif tipo_nat == "coworking":
         cws = (cowork_sala_nome or "").strip()
         if not cws:
             return False, "❌ O nome da sala é obrigatório."
@@ -114,14 +118,14 @@ def atualizar_servico_fase1_existente(
         r = cur.fetchone()
         if not r:
             return False, "❌ Serviço não encontrado."
-        if str(r[0] or "") != natureza:
+        if canon_natureza_catalogo(str(r[0] or "")) != canon_natureza_catalogo(natureza):
             return False, "❌ A natureza do registo não corresponde ao formulário."
-        import importlib
-
-        cat = importlib.import_module("src.modules.catalogo")
-        ok_e, msg_e, eid_ins = cat._resolver_especialidade_id_para_servico(cur, natureza, especialidade_id)
+        if c._existe_nome_ci(cur, "servicos", "nome", nome, exclude_id=int(servico_id)):
+            return False, MSG_DUP
+        ok_e, msg_e, eid_ins = c._resolver_especialidade_id_para_servico(cur, natureza, especialidade_id)
         if not ok_e:
             return False, msg_e
+        ts = c._audit_now_iso()
         cur.execute(
             """
             UPDATE servicos SET
@@ -129,12 +133,13 @@ def atualizar_servico_fase1_existente(
                 sessao_duracao_horas = ?, sessao_valor_centavos = ?,
                 produto_tipo = ?, produto_descricao = ?, produto_valor_centavos = ?,
                 produto_origem = ?, produto_repasse_pct_centesimos = ?, produto_repasse_valor_centavos = ?,
-                cowork_sala_nome = ?, cowork_cobranca = ?, cowork_valor_centavos = ?
+                cowork_sala_nome = ?, cowork_cobranca = ?, cowork_valor_centavos = ?,
+                alterado_por = ?, alterado_em = ?
             WHERE id = ?
             """,
             (
                 nome,
-                natureza,
+                canon_natureza_catalogo(natureza),
                 ativo_i,
                 desc,
                 eid_ins,
@@ -149,14 +154,17 @@ def atualizar_servico_fase1_existente(
                 cws,
                 cwc,
                 cwv,
+                (alterado_por or "").strip(),
+                ts,
                 int(servico_id),
             ),
         )
         conn.commit()
-        return True, "✅ Serviço actualizado no catálogo."
+        c._notify_cloud_sync()
+        return True, CAT_OK
     except sqlite3.IntegrityError:
         conn.rollback()
-        return False, "⚠️ Já existe um serviço com este nome."
+        return False, MSG_DUP
     except Exception as e:
         conn.rollback()
         return False, f"❌ Erro ao guardar: {e}"
@@ -206,8 +214,8 @@ def atualizar_pacote_existente(
         cur = conn.cursor()
         cur.execute("SELECT natureza FROM servicos WHERE id = ?", (pid,))
         row = cur.fetchone()
-        if not row or str(row[0] or "") != "Pacote":
-            return False, "❌ Pacote inválido."
+        if not row or canon_natureza_catalogo(str(row[0] or "")) != NATUREZA_PACK:
+            return False, "❌ Pack inválido."
 
         for sid, qty, dh_ov in linhas_sessao:
             sid = int(sid)
@@ -267,10 +275,11 @@ def atualizar_pacote_existente(
                 (pid, prod_row[0], prod_row[1]),
             )
         conn.commit()
-        return True, "✅ Pacote actualizado no catálogo."
+        c._notify_cloud_sync()
+        return True, c.CAT_MSG_SUCESSO
     except sqlite3.IntegrityError:
         conn.rollback()
-        return False, "⚠️ Já existe um serviço com este nome."
+        return False, c.MSG_REGISTRO_DUPLICADO
     except Exception as e:
         conn.rollback()
         return False, f"❌ Erro ao guardar: {e}"
@@ -398,10 +407,11 @@ def atualizar_evento_existente(
                 (eid, tipo, colab_id, pn, rpct, rval, ordem),
             )
         conn.commit()
-        return True, "✅ Evento actualizado no catálogo."
+        c._notify_cloud_sync()
+        return True, c.CAT_MSG_SUCESSO
     except sqlite3.IntegrityError:
         conn.rollback()
-        return False, "⚠️ Já existe um serviço com este nome."
+        return False, c.MSG_REGISTRO_DUPLICADO
     except Exception as e:
         conn.rollback()
         return False, f"❌ Erro ao guardar: {e}"

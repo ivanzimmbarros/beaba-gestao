@@ -79,6 +79,7 @@ def render_cliente_search_widget(
     pesquisa_linha_procurar_limpar: bool = False,
     clear_session_flag_key: str | None = None,
     clear_button_label: str = "Limpar seleção",
+    search_button_placement: Literal["inline", "below"] = "inline",
 ) -> bool:
     """
     Com `pesquisa_unificada=True` (ou legado `pesquisa_unificada_cag=True`): rótulos numa linha; inputs +
@@ -113,6 +114,7 @@ def render_cliente_search_widget(
             pesquisa_linha_procurar_limpar=pesquisa_linha_procurar_limpar,
             clear_session_flag_key=clear_session_flag_key,
             clear_button_label=clear_button_label,
+            search_button_placement=search_button_placement,
         )
 
     return _render_widget_legacy(
@@ -134,14 +136,15 @@ def _render_widget_pesquisa_unificada(
     pesquisa_linha_procurar_limpar: bool = False,
     clear_session_flag_key: str | None = None,
     clear_button_label: str = "Limpar seleção",
+    search_button_placement: Literal["inline", "below"] = "inline",
 ) -> bool:
     clicked = False
     go_key = f"{key_prefix}_go"
     gap = "small"
     lbl = _BUSCA_LBL_CAG if minimal else _BUSCA_LBL_HTML
-
-    if pesquisa_linha_procurar_limpar:
-        # Grelha mais estreita nos campos para «Procurar» + «Limpar seleção» na mesma linha (rótulos numa linha).
+    fields_only = search_button_placement == "below"
+    col_weights = [0.95, 0.95, 0.92, 0.92] if fields_only else [0.95, 0.95, 0.92, 0.92, 1.0]
+    if pesquisa_linha_procurar_limpar and not fields_only:
         col_weights = [0.86, 0.86, 0.82, 0.82, 0.72, 0.72]
         ln, lf, le, lt, lb1, lb2 = st.columns(col_weights, gap=gap, vertical_alignment="top")
         with ln:
@@ -221,12 +224,12 @@ def _render_widget_pesquisa_unificada(
             _render_nome_facilitador(key_prefix=key_prefix)
         return bool(clicked)
 
-    # Última coluna com peso semelhante às anteriores para o botão «Procurar» alinhar ao tamanho típico
-    # de botões de navegação (ex.: «Semana Anterior» no calendário CAG), sem mudar de linha.
-    col_weights = [0.95, 0.95, 0.92, 0.92, 1.0]
-
-    # Linha 1 — só rótulos (col. do botão: vão com a mesma altura visual da faixa de rótulo).
-    ln, lf, le, lt, lb = st.columns(col_weights, gap=gap, vertical_alignment="top")
+    # Linha 1 — rótulos; com `below` só quatro colunas (sem botão).
+    if fields_only:
+        ln, lf, le, lt = st.columns(col_weights, gap=gap, vertical_alignment="top")
+        lb = None
+    else:
+        ln, lf, le, lt, lb = st.columns(col_weights, gap=gap, vertical_alignment="top")
     with ln:
         st.markdown(lbl.format("Nome"), unsafe_allow_html=True)
     with lf:
@@ -235,14 +238,17 @@ def _render_widget_pesquisa_unificada(
         st.markdown(lbl.format("Email"), unsafe_allow_html=True)
     with lt:
         st.markdown(lbl.format("Telefone"), unsafe_allow_html=True)
-    with lb:
-        st.markdown(
-            '<div style="height:calc(1.35rem + 4px);margin:0;padding:0;" aria-hidden="true"></div>',
-            unsafe_allow_html=True,
-        )
+    if lb is not None:
+        with lb:
+            st.markdown(
+                '<div style="height:calc(1.35rem + 4px);margin:0;padding:0;" aria-hidden="true"></div>',
+                unsafe_allow_html=True,
+            )
 
-    # Linha 2 — só inputs + botão; «center» alinha verticalmente o botão mais baixo ao meio dos text_input.
-    cn, cf, ce, ct, cb = st.columns(col_weights, gap=gap, vertical_alignment="center")
+    if fields_only:
+        cn, cf, ce, ct = st.columns(col_weights, gap=gap, vertical_alignment="center")
+    else:
+        cn, cf, ce, ct, cb = st.columns(col_weights, gap=gap, vertical_alignment="center")
 
     def _on_nome_change() -> None:
         _refresh_nome_suggestions(key_prefix, entidade=entidade_nome)
@@ -281,15 +287,16 @@ def _render_widget_pesquisa_unificada(
             placeholder="+351 912 345 678",
         )
 
-    with cb:
-        clicked = st.button(
-            button_label,
-            type=button_type,
-            key=go_key,
-            width="stretch",
-        )
+    if not fields_only:
+        with cb:
+            clicked = st.button(
+                button_label,
+                type=button_type,
+                key=go_key,
+                width="stretch",
+            )
 
-    r2n, _, _, _, _ = st.columns(col_weights, gap=gap, vertical_alignment="top")
+    r2n, *_ = st.columns(col_weights, gap=gap, vertical_alignment="top")
     with r2n:
         _render_nome_facilitador(key_prefix=key_prefix)
 

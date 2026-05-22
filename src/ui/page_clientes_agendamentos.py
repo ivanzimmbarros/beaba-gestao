@@ -54,6 +54,7 @@ from src.modules.validators import email_valido, parse_data_iso
 from src.ui.telefone_widgets import ler_e164_de_widgets, preencher_session_telefone_de_e164, render_grupo_telefone
 from src.ui.theme import agenda_pagamento_dot, agenda_status_style, agenda_tipo_icon
 from src.ui.constituicao_visual_shell import inject_constituicao_cag_page
+from src.ui.home_cockpit_ui_helpers import cag_home_drill_banner_html
 from src.ui.fmt_euro_constituicao import fmt_euro_centavos
 from src.ui.widgets.cliente_search import CLIENTE_SEARCH_DATE_MIN, render_cliente_search_widget
 
@@ -87,8 +88,10 @@ _CAG_SAP_TBL_COL_PAY = "Status do Pagamento"
 
 
 def _cag_natureza_cmp_key(label: str) -> str:
-    """Alinha rótulo da UI com `servicos.natureza` (espaços, capitalização)."""
-    return " ".join(str(label or "").strip().split()).casefold()
+    """Alinha rótulo da UI com `servicos.natureza` (espaços, capitalização, legado Pacote→Pack)."""
+    from src.modules.constants import canon_natureza_catalogo
+
+    return canon_natureza_catalogo(label).casefold()
 
 
 def _cag_ag_build_esp_labels_ui(filtrados: list[dict[str, str | int]]) -> list[str]:
@@ -344,7 +347,7 @@ def _cag_aplicar_linha_servico_adquirido_pendente(
     st.session_state.cag_ag_natureza = str(row.get("natureza") or "Sessão")
     st.session_state.cag_ag_servico_esc = str(row.get("servico_esc") or "")
     nat_row = str(st.session_state.cag_ag_natureza or "")
-    if _cag_natureza_cmp_key(nat_row) == _cag_natureza_cmp_key("Pacote"):
+    if _cag_natureza_cmp_key(nat_row) == _cag_natureza_cmp_key("Pack"):
         try:
             scid = int(row.get("servico_catalog_id") or 0)
         except (TypeError, ValueError):
@@ -446,7 +449,7 @@ def _cag_credito_venda_item_ainda_pendente_na_lista(
             continue
         op_tok = str(op.get("token") or "")
         op_pkg_agg = (
-            _cag_natureza_cmp_key(str(op.get("natureza") or "")) == _cag_natureza_cmp_key("Pacote")
+            _cag_natureza_cmp_key(str(op.get("natureza") or "")) == _cag_natureza_cmp_key("Pack")
             and op_tok.endswith("|pkg")
         )
         if not op_pkg_agg and esc != str(op.get("servico_esc") or ""):
@@ -1477,7 +1480,7 @@ def _cag_agrupar_listagem_cancelados_mesmo_pacote(rows: list[dict[str, Any]]) ->
                 base["hora_fim"] = f"{hf_best[0]:02d}:{hf_best[1]:02d}"
             base["id"] = hid
             base["servico_nome"] = pkg
-            base["servico_natureza"] = "Pacote"
+            base["servico_natureza"] = "Pack"
             base["_cag_lista_pacote_ids_agrupados"] = ids_g
             out.append(base)
         else:
@@ -1508,7 +1511,7 @@ def _cag_add_hours_to_hhmm(hi: str, hours: float) -> str:
 
 def _cag_ag_ui_natureza_e_pacote() -> bool:
     nat = str(st.session_state.get("cag_ag_natureza") or "")
-    return _cag_natureza_cmp_key(nat) == _cag_natureza_cmp_key("Pacote")
+    return _cag_natureza_cmp_key(nat) == _cag_natureza_cmp_key("Pack")
 
 
 def _cag_parse_pacote_sessao_esc_val(raw: str) -> tuple[int | None, int | None]:
@@ -1612,7 +1615,7 @@ def _cag_hidratar_form_ag(ag: dict[str, Any]) -> None:
     pkg_cat = ag.get("pacote_servico_catalogo_id")
     nome_pkg = str(ag.get("nome_do_pacote") or "").strip()
     if psid and pkg_cat:
-        st.session_state.cag_ag_natureza = "Pacote"
+        st.session_state.cag_ag_natureza = "Pack"
         st.session_state.cag_ag_servico_esc = f"{int(pkg_cat)}|{nome_pkg or 'Pacote'}"
         st.session_state[CAG_AG_PACOTE_CATALOG_SERVICO_ID_KEY] = int(pkg_cat)
         cid_h = int(ag.get("cliente_id") or 0)
@@ -2305,7 +2308,7 @@ def _cag_render_dados_ag_linha1_novo_fora_form(
         or (
             row_sel_sap is not None
             and _cag_natureza_cmp_key(str(row_sel_sap.get("natureza") or ""))
-            == _cag_natureza_cmp_key("Pacote")
+            == _cag_natureza_cmp_key("Pack")
             and "|" in str(st.session_state.get("cag_ag_servico_esc") or "")
         )
     ):
@@ -2336,7 +2339,7 @@ def _cag_render_dados_ag_linha1_novo_fora_form(
     esp_labels_ui = _cag_ag_build_esp_labels_ui(filtrados)
     _raw_esp = st.session_state.get("cag_ag_especialidade_esc")
     if _raw_esp is not None and str(_raw_esp) not in esp_labels_ui:
-        if nk == _cag_natureza_cmp_key("Pacote"):
+        if nk == _cag_natureza_cmp_key("Pack"):
             esp_labels_ui = list(esp_labels_ui) + [str(_raw_esp)]
         else:
             st.session_state.pop("cag_ag_especialidade_esc", None)
@@ -2349,12 +2352,12 @@ def _cag_render_dados_ag_linha1_novo_fora_form(
     elif str(_esp_ch) != _esp_lbl:
         st.session_state.cag_ag_chain_especialidade = _esp_lbl
         st.session_state.pop("cag_ag_servico_esc", None)
-    if nk == _cag_natureza_cmp_key("Pacote"):
+    if nk == _cag_natureza_cmp_key("Pack"):
         filtrados_esp = list(filtrados)
     else:
         filtrados_esp = _cag_ag_filtrar_servicos_por_especialidade(filtrados, _esp_lbl)
     choices_real = [f"{int(s['id'])}|{s['nome']}" for s in filtrados_esp]
-    if nk == _cag_natureza_cmp_key("Pacote"):
+    if nk == _cag_natureza_cmp_key("Pack"):
         pesc_ch = str(st.session_state.get("cag_ag_pacote_sessao_esc") or "")
         _ps_ch, sid_ch = _cag_parse_pacote_sessao_esc_val(pesc_ch)
         if sid_ch is not None and int(sid_ch) > 0:
@@ -2415,7 +2418,7 @@ def _cag_render_dados_ag_linha1_novo_fora_form(
         opts_st = list(dict.fromkeys(opts_st))
         st.selectbox("Estado", opts_st, key=CAG_AG_STATUS_UI_KEY, disabled=dis_ag)
     nat_f = str(st.session_state.get("cag_ag_natureza") or "Sessão")
-    if _cag_natureza_cmp_key(nat_f) != _cag_natureza_cmp_key("Pacote"):
+    if _cag_natureza_cmp_key(nat_f) != _cag_natureza_cmp_key("Pack"):
         st.session_state.pop("cag_ag_pacote_sessao_esc", None)
         st.session_state.pop("_cag_ag_pkg_sess_sig", None)
         st.session_state.pop(CAG_AG_PACOTE_CATALOG_SERVICO_ID_KEY, None)
@@ -2653,7 +2656,7 @@ def _cag_setor4_render_dados_ag_form_e_wizards(
                                 sid_sub = None
                         elif modo_novo:
                             nat_ui = str(st.session_state.get("cag_ag_natureza") or "")
-                            es_pac = _cag_natureza_cmp_key(nat_ui) == _cag_natureza_cmp_key("Pacote")
+                            es_pac = _cag_natureza_cmp_key(nat_ui) == _cag_natureza_cmp_key("Pack")
                             sid_sub = None
                             if es_pac:
                                 pesc = str(st.session_state.get("cag_ag_pacote_sessao_esc") or "")
@@ -2719,7 +2722,7 @@ def _cag_setor4_render_dados_ag_form_e_wizards(
                         elif modo_novo:
                             esc = str(st.session_state.get("cag_ag_servico_esc") or "")
                             nat_ui = str(st.session_state.get("cag_ag_natureza") or "")
-                            es_pac = _cag_natureza_cmp_key(nat_ui) == _cag_natureza_cmp_key("Pacote")
+                            es_pac = _cag_natureza_cmp_key(nat_ui) == _cag_natureza_cmp_key("Pack")
                             vi_star = _cag_opt_pos_int(st.session_state.get("cag_ag_credito_vi_id"))
                             ps_use = _cag_opt_pos_int(st.session_state.get("cag_ag_credito_ps_id"))
                             ok_cred = vi_star is not None and _cag_credito_venda_item_ainda_pendente_na_lista(
@@ -3074,7 +3077,7 @@ def render_page_clientes_agendamentos(*, render_back_and_breadcrumb) -> None:
     inject_constituicao_cag_page()
     _drill = st.session_state.pop("cag_home_drill_banner", None)
     if _drill:
-        st.info(str(_drill))
+        st.markdown(cag_home_drill_banner_html(str(_drill)), unsafe_allow_html=True)
     render_back_and_breadcrumb(
         ["Home", "Clientes e Agendamentos", "Cadastro"],
         back_key="bea_back_clientes_agendamentos",

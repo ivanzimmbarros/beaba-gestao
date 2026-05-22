@@ -21,6 +21,15 @@ _STATUS_AG_VISIVEL_CALENDARIO_DISP = (
 )
 
 
+def _notify_cloud_sync() -> None:
+    try:
+        from scripts.sync_trigger import notify_data_changed
+
+        notify_data_changed()
+    except Exception:
+        pass
+
+
 def _parse_iso_date(s: str | None) -> date | None:
     if not s or not str(s).strip():
         return None
@@ -300,6 +309,7 @@ def criar_ou_atualizar_rascunho(
                 (vd.isoformat(), va.isoformat(), pid),
             )
             conn.commit()
+            _notify_cloud_sync()
             return True, "Rascunho actualizado.", pid
         cur = conn.execute(
             """
@@ -310,6 +320,7 @@ def criar_ou_atualizar_rascunho(
             (int(colaborador_id), vd.isoformat(), va.isoformat()),
         )
         conn.commit()
+        _notify_cloud_sync()
         return True, "Rascunho criado.", int(cur.lastrowid)
     except sqlite3.IntegrityError as e:
         return False, str(e), None
@@ -367,6 +378,7 @@ def adicionar_regra(
             ),
         )
         conn.commit()
+        _notify_cloud_sync()
         return True, "Regra adicionada."
     finally:
         conn.close()
@@ -392,6 +404,7 @@ def remover_regra(regra_id: int) -> tuple[bool, str]:
             return False, "Só pode remover regras de rascunhos."
         conn.execute("DELETE FROM colaborador_disponibilidade_regra WHERE id = ?", (int(regra_id),))
         conn.commit()
+        _notify_cloud_sync()
         return True, "Regra removida."
     finally:
         conn.close()
@@ -444,6 +457,7 @@ def confirmar_plano_publicado(plano_id: int) -> tuple[bool, str]:
             (now, int(plano_id)),
         )
         conn.commit()
+        _notify_cloud_sync()
         return True, "Plano confirmado e publicado no calendário mestre. Planos confirmados sobrepostos foram arquivados."
     finally:
         conn.close()

@@ -12,10 +12,10 @@ def assert_cat_especialidade_form_contract() -> None:
     assert "1. Natureza *" in page
     assert "3. Nome do Serviço ou Produto *" in page
     assert "listar_especialidades_por_natureza" in page
-    assert "cadastrar_especialidade" in page
-    assert "Confirmar tipo de registo" in page
-    assert "Registar no catálogo" in page
-    assert "Nova especialidade" in page and "Novo serviço" in page
+    assert "salvar_especialidade_catalogo" in page
+    assert "O que pretende cadastrar ou editar?" in page
+    assert "Actualizar Catálogo" in page
+    assert "_CAT_MODE_NAT" in page and "_CAT_MODE_ESP" in page and "_CAT_MODE_SRV" in page
     assert "_render_cat_expander_cadastro" in page
     assert "col_nat, col_esp = st.columns(2)" in page
     assert "cat_ui_filt_esp" in page

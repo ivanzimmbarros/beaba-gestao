@@ -204,9 +204,9 @@ def test_smoke_colaboradores_disponibilidade_sector() -> None:
     at.run()
     _assert_app_tree_clean(at, context="Colaboradores — disponibilidade (setor 3)")
     exp_titles = [str(getattr(e, "label", "") or "") for e in at.get("expander")]
-    assert sum(1 for t in exp_titles if "3.1 Pesquisa de Disponibilidade de Colaboradores" in t) >= 1, exp_titles
-    assert sum(1 for t in exp_titles if "3.2 Plano de disponibilidade" in t) >= 1, exp_titles
-    assert sum(1 for t in exp_titles if "3.3 Calendário mestre" in t) >= 1, exp_titles
+    assert sum(1 for t in exp_titles if "4.1 Pesquisa de Disponibilidade de Colaboradores" in t) >= 1, exp_titles
+    assert sum(1 for t in exp_titles if "4.2 Plano de disponibilidade" in t) >= 1, exp_titles
+    assert sum(1 for t in exp_titles if "4.3 Calendário mestre" in t) >= 1, exp_titles
 
 
 def test_smoke_colaboradores_relatorio_repasse_setor_widgets() -> None:

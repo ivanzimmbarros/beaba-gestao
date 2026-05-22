@@ -377,6 +377,16 @@ def get_constituicao_home_cockpit_extra_css() -> str:
         text-align: center !important;
         margin-top: 0.35rem !important;
     }}
+    .bea-cv-pano-card {{
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0 0.4rem;
+        flex: 1 1 auto;
+    }}
     .bea-cv-pano-icon-wrap {{
         width: 48px;
         height: 48px;
@@ -385,7 +395,8 @@ def get_constituicao_home_cockpit_extra_css() -> str:
         display: flex;
         align-items: center;
         justify-content: center;
-        margin-bottom: 14px;
+        margin: 0 auto 14px auto;
+        flex-shrink: 0;
     }}
     .bea-cv-pano-icon-wrap .material-symbols-outlined {{
         font-size: 26px;
@@ -400,6 +411,9 @@ def get_constituicao_home_cockpit_extra_css() -> str:
         color: {CV_TITULO} !important;
         margin: 0 0 10px 0 !important;
         letter-spacing: 0.01em !important;
+        text-align: center !important;
+        width: 100%;
+        min-height: 2.75rem;
     }}
     .bea-cv-home-block-h {{
         font-family: var(--cv-serif) !important;
@@ -414,26 +428,50 @@ def get_constituicao_home_cockpit_extra_css() -> str:
         font-weight: 700 !important;
         color: {CV_TITULO} !important;
         letter-spacing: 0.02em !important;
+        text-align: center !important;
+        width: 100%;
+        margin: 0 0 4px 0;
     }}
-    /* Panorama Global: mesma linha de base dos botões «Explorar» (títulos com alturas diferentes) */
+    /* Panorama Global: 3 linhas centradas + botões na mesma base */
     section[data-testid="stMain"]:has(.bea-cv-cockpit-active) div[data-testid="stHorizontalBlock"]:has(.bea-cv-pano-card) {{
         align-items: stretch !important;
+        gap: 0.5rem !important;
     }}
     section[data-testid="stMain"]:has(.bea-cv-cockpit-active) div[data-testid="stHorizontalBlock"]:has(.bea-cv-pano-card) > div[data-testid="column"],
     section[data-testid="stMain"]:has(.bea-cv-cockpit-active) div[data-testid="stHorizontalBlock"]:has(.bea-cv-pano-card) > div[data-testid="stColumn"] {{
         display: flex !important;
         flex-direction: column !important;
+        align-items: center !important;
         align-self: stretch !important;
+        text-align: center !important;
     }}
     section[data-testid="stMain"]:has(.bea-cv-cockpit-active) div[data-testid="stHorizontalBlock"]:has(.bea-cv-pano-card) > div[data-testid="column"] > div,
     section[data-testid="stMain"]:has(.bea-cv-cockpit-active) div[data-testid="stHorizontalBlock"]:has(.bea-cv-pano-card) > div[data-testid="stColumn"] > div {{
         flex: 1 1 auto !important;
         display: flex !important;
         flex-direction: column !important;
+        align-items: center !important;
+        width: 100% !important;
         min-height: 0 !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-cockpit-active) div[data-testid="stHorizontalBlock"]:has(.bea-cv-pano-card) [data-testid="element-container"]:has(.bea-cv-pano-card) {{
+        width: 100% !important;
+        display: flex !important;
+        justify-content: center !important;
     }}
     section[data-testid="stMain"]:has(.bea-cv-cockpit-active) div[data-testid="stHorizontalBlock"]:has(.bea-cv-pano-card) [data-testid="element-container"]:has([data-testid="stButton"]) {{
         margin-top: auto !important;
+        width: 100% !important;
+        align-self: stretch !important;
+        padding-top: 0.35rem !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-cockpit-active) div[data-testid="stHorizontalBlock"]:has(.bea-cv-pano-card) [data-testid="stButton"] {{
+        width: 100% !important;
+    }}
+    section[data-testid="stMain"]:has(.bea-cv-cockpit-active) div[data-testid="stHorizontalBlock"]:has(.bea-cv-pano-card) [data-testid="stButton"] button {{
+        width: 100% !important;
+        justify-content: center !important;
+        text-align: center !important;
     }}
     /* Badges Master (mesmos tokens da CAG; Home não injecta CSS da Área Única) */
     .bea-cv-badge-verde {{
@@ -584,6 +622,30 @@ def get_constituicao_cag_page_css() -> str:
         margin: 0;
         padding: 0;
         pointer-events: none;
+    }}
+    /* Drill-down Panorama (Início) → faixa azul centrada no topo da CAG */
+    .bea-cv-cag-home-drill-banner {{
+        background: rgba(28, 131, 225, 0.12);
+        border: 1px solid rgba(28, 131, 225, 0.35);
+        border-radius: 0.5rem;
+        padding: 0.85rem 1.15rem;
+        margin: 0 0 1rem 0;
+        text-align: center;
+        width: 100%;
+        box-sizing: border-box;
+    }}
+    .bea-cv-cag-home-drill-banner-t {{
+        margin: 0 auto;
+        padding: 0;
+        font-family: var(--cv-sans, Montserrat, system-ui, sans-serif);
+        font-size: 0.95rem;
+        line-height: 1.45;
+        color: rgb(12, 68, 125);
+        text-align: center;
+        max-width: 52rem;
+    }}
+    body.bea-cv-cag-page .bea-cv-cag-home-drill-banner-t strong {{
+        font-weight: 600;
     }}
     /* Horizonte Sereno: sálvia 10% no topo + creme (stMain + filho directo — Streamlit 1.3x–1.6x) */
     section[data-testid="stMain"]:has(.bea-cv-cag-slot),

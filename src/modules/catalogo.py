@@ -1,17 +1,25 @@
-"""Catálogo de serviços — E06: Fases 1–3 (Sessão, Produto, Coworking, Pacote, Evento)."""
+"""Catálogo de serviços — E06: Fases 1–3 (Sessão, Produto, Coworking, Pack, Evento)."""
 
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime, timezone
 
 from src.database.connection import get_connection
 from src.modules.colaborador import media_repasse_percentual_servico
 from src.modules.constants import (
     ESPECIALIDADE_PADRAO_NOME,
-    NATUREZAS_CATALOGO_FASE1,
+    NATUREZA_PACK,
     NATUREZAS_CATALOGO_FASE3,
+    NATUREZA_PACK,
+    canon_natureza_catalogo,
+    natureza_requer_especialidade_servico,
+    tipo_servico_catalogo_por_natureza,
 )
 from src.modules.validators import parse_data_iso
+
+MSG_REGISTRO_DUPLICADO = "Não é possível concluir a operação. Registro já cadastrado."
+CAT_MSG_SUCESSO = "Catálogo atualizado com sucesso"
 
 
 def _notify_cloud_sync() -> None:
@@ -23,11 +31,257 @@ def _notify_cloud_sync() -> None:
         pass
 
 
+def _audit_now_iso() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _format_audit_ts(iso: str | None) -> str:
+    raw = (iso or "").strip()
+    if not raw:
+        return "—"
+    try:
+        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        return dt.strftime("%d/%m/%Y %H:%M")
+    except ValueError:
+        return raw
+
+
+def _existe_nome_ci(
+    cur: sqlite3.Cursor,
+    table: str,
+    column: str,
+    nome: str,
+    *,
+    exclude_id: int | None = None,
+    extra_sql: str = "",
+    extra_params: tuple[object, ...] = (),
+) -> bool:
+    nm = (nome or "").strip()
+    if not nm:
+        return False
+    sql = (
+        f"SELECT 1 FROM {table} WHERE LOWER(TRIM({column})) = LOWER(TRIM(?))"
+        f"{extra_sql} LIMIT 1"
+    )
+    params: list[object] = [nm, *extra_params]
+    if exclude_id is not None:
+        sql = (
+            f"SELECT 1 FROM {table} WHERE LOWER(TRIM({column})) = LOWER(TRIM(?))"
+            f" AND id != ?{extra_sql} LIMIT 1"
+        )
+        params = [nm, int(exclude_id), *extra_params]
+    cur.execute(sql, params)
+    return cur.fetchone() is not None
+
+
+def _ensure_catalogo_naturezas_seed(cur: sqlite3.Cursor) -> None:
+    for i, nat in enumerate(NATUREZAS_CATALOGO_FASE3):
+        cur.execute(
+            """
+            INSERT OR IGNORE INTO catalogo_naturezas (nome, ativo, ordem)
+            VALUES (?, 1, ?)
+            """,
+            (nat, i),
+        )
+
+
+def listar_naturezas_catalogo() -> list[dict[str, int | str]]:
+    conn = get_connection()
+    if not conn:
+        return [{"id": 0, "nome": n} for n in NATUREZAS_CATALOGO_FASE3]
+    try:
+        cur = conn.cursor()
+        _ensure_catalogo_naturezas_seed(cur)
+        conn.commit()
+        cur.execute(
+            """
+            SELECT id, nome, IFNULL(tipo_servico, '') FROM catalogo_naturezas
+            WHERE ativo = 1
+            ORDER BY ordem, nome COLLATE NOCASE
+            """
+        )
+        rows = [
+            {
+                "id": int(r[0]),
+                "nome": canon_natureza_catalogo(str(r[1])),
+                "tipo_servico": str(r[2] or "").strip(),
+            }
+            for r in cur.fetchall()
+        ]
+        return rows or [
+            {
+                "id": -1,
+                "nome": n,
+                "tipo_servico": tipo_servico_catalogo_por_natureza(n),
+            }
+            for n in NATUREZAS_CATALOGO_FASE3
+        ]
+    except Exception:
+        return [{"id": 0, "nome": n} for n in NATUREZAS_CATALOGO_FASE3]
+    finally:
+        conn.close()
+
+
+def salvar_natureza_catalogo(
+    nome: str, *, natureza_id: int | None = None
+) -> tuple[bool, str]:
+    nm = (nome or "").strip()
+    if not nm:
+        return False, "❌ O nome da natureza é obrigatório."
+    conn = get_connection()
+    if not conn:
+        return False, "❌ Não foi possível ligar à base de dados."
+    try:
+        cur = conn.cursor()
+        _ensure_catalogo_naturezas_seed(cur)
+        if _existe_nome_ci(cur, "catalogo_naturezas", "nome", nm, exclude_id=natureza_id):
+            conn.rollback()
+            return False, MSG_REGISTRO_DUPLICADO
+        if natureza_id is not None:
+            cur.execute("SELECT nome FROM catalogo_naturezas WHERE id = ?", (int(natureza_id),))
+            row = cur.fetchone()
+            if not row:
+                conn.rollback()
+                return False, "❌ Natureza não encontrada."
+            old = canon_natureza_catalogo(str(row[0]))
+            new = canon_natureza_catalogo(nm)
+            cur.execute("UPDATE catalogo_naturezas SET nome = ? WHERE id = ?", (new, int(natureza_id)))
+            if old != new:
+                cur.execute(
+                    "UPDATE especialidades SET natureza = ? WHERE natureza = ?",
+                    (new, old),
+                )
+                cur.execute(
+                    "UPDATE servicos SET natureza = ? WHERE natureza = ?",
+                    (new, old),
+                )
+        else:
+            tipo_ins = tipo_servico_catalogo_por_natureza(nm)
+            cur.execute(
+                """
+                INSERT INTO catalogo_naturezas (nome, ativo, ordem, tipo_servico)
+                VALUES (?, 1, 999, ?)
+                """,
+                (canon_natureza_catalogo(nm), tipo_ins),
+            )
+            nat_ins = canon_natureza_catalogo(nm)
+            cur.execute(
+                """
+                INSERT OR IGNORE INTO especialidades (natureza, nome, descritivo, ativo, ordem)
+                VALUES (?, ?, '', 1, 0)
+                """,
+                (nat_ins, ESPECIALIDADE_PADRAO_NOME),
+            )
+        conn.commit()
+        _notify_cloud_sync()
+        return True, CAT_MSG_SUCESSO
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        return False, MSG_REGISTRO_DUPLICADO
+    except Exception as e:
+        conn.rollback()
+        return False, f"❌ Erro ao guardar: {e}"
+    finally:
+        conn.close()
+
+
+def salvar_especialidade_catalogo(
+    natureza: str,
+    nome: str,
+    *,
+    especialidade_id: int | None = None,
+    descritivo: str = "",
+) -> tuple[bool, str]:
+    nat = canon_natureza_catalogo(natureza)
+    if not nat:
+        return False, "❌ A selecção da natureza é obrigatória para cadastrar uma nova especialidade."
+    nm = (nome or "").strip()
+    if not nm:
+        return False, "❌ O nome da especialidade é obrigatório."
+    desc = (descritivo or "").strip()
+    conn = get_connection()
+    if not conn:
+        return False, "❌ Não foi possível ligar à base de dados."
+    try:
+        cur = conn.cursor()
+        extra = " AND natureza = ?"
+        if _existe_nome_ci(
+            cur,
+            "especialidades",
+            "nome",
+            nm,
+            exclude_id=especialidade_id,
+            extra_sql=extra,
+            extra_params=(nat,),
+        ):
+            conn.rollback()
+            return False, MSG_REGISTRO_DUPLICADO
+        if especialidade_id is not None:
+            cur.execute(
+                """
+                UPDATE especialidades
+                SET natureza = ?, nome = ?, descritivo = ?
+                WHERE id = ?
+                """,
+                (nat, nm, desc, int(especialidade_id)),
+            )
+            if cur.rowcount < 1:
+                conn.rollback()
+                return False, "❌ Especialidade não encontrada."
+        else:
+            cur.execute(
+                """
+                INSERT INTO especialidades (natureza, nome, descritivo, ativo, ordem)
+                VALUES (?, ?, ?, 1, 0)
+                """,
+                (nat, nm, desc),
+            )
+        conn.commit()
+        _notify_cloud_sync()
+        return True, CAT_MSG_SUCESSO
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        return False, MSG_REGISTRO_DUPLICADO
+    except Exception as e:
+        conn.rollback()
+        return False, f"❌ Erro ao guardar: {e}"
+    finally:
+        conn.close()
+
+
+def resolver_tipo_servico_natureza(natureza: str) -> str:
+    """Tipo de formulário (sessao, produto, …) mesmo com rótulo personalizado na BD."""
+    nat = (natureza or "").strip()
+    t = tipo_servico_catalogo_por_natureza(nat)
+    if t:
+        return t
+    conn = get_connection()
+    if not conn:
+        return ""
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT IFNULL(tipo_servico, '') FROM catalogo_naturezas
+            WHERE LOWER(TRIM(nome)) = LOWER(TRIM(?)) AND ativo = 1
+            LIMIT 1
+            """,
+            (nat,),
+        )
+        row = cur.fetchone()
+        return str(row[0] or "").strip() if row else ""
+    except Exception:
+        return ""
+    finally:
+        conn.close()
+
+
 def _resolver_especialidade_id_para_servico(
     cur: sqlite3.Cursor, natureza: str, especialidade_id: int | None
 ) -> tuple[bool, str, int]:
     """Garante linhas «Geral» por natureza canónica; valida ou usa especialidade explícita."""
     pad = ESPECIALIDADE_PADRAO_NOME
+    nat_use = (natureza or "").strip()
     for nat in NATUREZAS_CATALOGO_FASE3:
         cur.execute(
             """
@@ -35,6 +289,14 @@ def _resolver_especialidade_id_para_servico(
             VALUES (?, ?, '', 1, 0)
             """,
             (nat, pad),
+        )
+    if nat_use:
+        cur.execute(
+            """
+            INSERT OR IGNORE INTO especialidades (natureza, nome, descritivo, ativo, ordem)
+            VALUES (?, ?, '', 1, 0)
+            """,
+            (nat_use, pad),
         )
     if especialidade_id is None:
         cur.execute(
@@ -309,18 +571,22 @@ def cadastrar_pacote(
                 return False, msgp
             prod_row = (pid, pq)
 
-        ok_e, msg_e, eid_pac = _resolver_especialidade_id_para_servico(cur, "Pacote", None)
+        if _existe_nome_ci(cur, "servicos", "nome", nome):
+            conn.rollback()
+            return False, MSG_REGISTRO_DUPLICADO
+        ok_e, msg_e, eid_pac = _resolver_especialidade_id_para_servico(cur, NATUREZA_PACK, None)
         if not ok_e:
             return False, msg_e
+        ts = _audit_now_iso()
         cur.execute(
             """
             INSERT INTO servicos (
                 nome, natureza, ativo, descritivo,
                 pacote_valor_venda_centavos, pacote_repasse_ref_pct_centesimos,
-                especialidade_id
-            ) VALUES (?, 'Pacote', ?, ?, ?, ?, ?)
+                especialidade_id, criado_em, alterado_em
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (nome, ativo_i, desc, val_c, rep_c, eid_pac),
+            (nome, NATUREZA_PACK, ativo_i, desc, val_c, rep_c, eid_pac, ts, ts),
         )
         pid_pac = int(cur.lastrowid)
         for ordem, (sid, qty, dh_stored) in enumerate(linhas_norm, start=1):
@@ -343,10 +609,10 @@ def cadastrar_pacote(
             )
         conn.commit()
         _notify_cloud_sync()
-        return True, "✅ Pacote registado no catálogo."
+        return True, CAT_MSG_SUCESSO
     except sqlite3.IntegrityError:
         conn.rollback()
-        return False, "⚠️ Já existe um serviço com este nome."
+        return False, MSG_REGISTRO_DUPLICADO
     except Exception as e:
         conn.rollback()
         return False, f"❌ Erro ao guardar: {e}"
@@ -587,8 +853,10 @@ def cadastrar_servico_fase1(
     cowork_sala_nome: str = "",
     cowork_cobranca: str = "",
     cowork_valor_euros: float | None = None,
+    cadastrado_por: str = "",
 ) -> tuple[bool, str]:
-    if natureza not in NATUREZAS_CATALOGO_FASE1:
+    tipo_nat = resolver_tipo_servico_natureza(natureza)
+    if tipo_nat in ("pack", "evento") or not natureza_requer_especialidade_servico(natureza):
         return False, "❌ Natureza inválida para esta fase do catálogo."
 
     nome = (nome or "").strip()
@@ -612,7 +880,7 @@ def cadastrar_servico_fase1(
     cwc = ""
     cwv: int | None = None
 
-    if natureza == "Sessão":
+    if tipo_nat == "sessao":
         if sessao_duracao_horas is None or float(sessao_duracao_horas) <= 0:
             return False, "❌ Indique a duração da sessão em horas (> 0)."
         sessao_d = float(sessao_duracao_horas)
@@ -621,7 +889,7 @@ def cadastrar_servico_fase1(
             return False, "❌ Indique o valor por sessão (> 0 €)."
         sessao_vc = vc
 
-    elif natureza == "Produto":
+    elif tipo_nat == "produto":
         ptipo = (produto_tipo or "").strip()
         if not ptipo:
             return False, "❌ O tipo do produto é obrigatório."
@@ -644,7 +912,7 @@ def cadastrar_servico_fase1(
             else:
                 return False, "❌ Em repasse, indique percentual ou valor acordado com o proprietário."
 
-    elif natureza == "Coworking":
+    elif tipo_nat == "coworking":
         cws = (cowork_sala_nome or "").strip()
         if not cws:
             return False, "❌ O nome da sala é obrigatório."
@@ -661,10 +929,14 @@ def cadastrar_servico_fase1(
 
     try:
         cur = conn.cursor()
+        if _existe_nome_ci(cur, "servicos", "nome", nome):
+            conn.rollback()
+            return False, MSG_REGISTRO_DUPLICADO
         ok_e, msg_e, eid_ins = _resolver_especialidade_id_para_servico(cur, natureza, especialidade_id)
         if not ok_e:
             conn.rollback()
             return False, msg_e
+        ts = _audit_now_iso()
         cur.execute(
             """
             INSERT INTO servicos (
@@ -672,12 +944,13 @@ def cadastrar_servico_fase1(
                 sessao_duracao_horas, sessao_valor_centavos,
                 produto_tipo, produto_descricao, produto_valor_centavos,
                 produto_origem, produto_repasse_pct_centesimos, produto_repasse_valor_centavos,
-                cowork_sala_nome, cowork_cobranca, cowork_valor_centavos
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                cowork_sala_nome, cowork_cobranca, cowork_valor_centavos,
+                cadastrado_por, criado_em, alterado_em
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 nome,
-                natureza,
+                canon_natureza_catalogo(natureza),
                 ativo_i,
                 desc,
                 eid_ins,
@@ -692,14 +965,17 @@ def cadastrar_servico_fase1(
                 cws,
                 cwc,
                 cwv,
+                (cadastrado_por or "").strip(),
+                ts,
+                ts,
             ),
         )
         conn.commit()
         _notify_cloud_sync()
-        return True, "✅ Serviço registado no catálogo."
+        return True, CAT_MSG_SUCESSO
     except sqlite3.IntegrityError:
         conn.rollback()
-        return False, "⚠️ Já existe um serviço com este nome."
+        return False, MSG_REGISTRO_DUPLICADO
     except Exception as e:
         conn.rollback()
         return False, f"❌ Erro ao guardar: {e}"
@@ -725,7 +1001,8 @@ def listar_itens_catalogo() -> list[dict[str, str | int | float | None]]:
                    s.pacote_valor_venda_centavos, s.pacote_repasse_ref_pct_centesimos,
                    s.evento_data, s.evento_local, s.evento_observacoes, s.evento_escopo,
                    s.evento_preco_crianca_centavos, s.evento_preco_adulto_centavos,
-                   s.evento_desconto_filho_adicional_centavos
+                   s.evento_desconto_filho_adicional_centavos,
+                   s.cadastrado_por, s.criado_em, s.alterado_por, s.alterado_em
             FROM servicos s
             LEFT JOIN especialidades e ON e.id = s.especialidade_id
             ORDER BY s.natureza, e.nome, s.nome
@@ -761,7 +1038,12 @@ def listar_itens_catalogo() -> list[dict[str, str | int | float | None]]:
                 _epcc,
                 _epca,
                 _edfa,
+                cad_por,
+                criado_em,
+                alt_por,
+                alterado_em,
             ) = r
+            natureza = canon_natureza_catalogo(str(natureza))
             detalhe = ""
             if natureza == "Sessão":
                 if sdh and svc:
@@ -779,7 +1061,7 @@ def listar_itens_catalogo() -> list[dict[str, str | int | float | None]]:
             elif natureza == "Coworking":
                 un = "hora" if cwc == "hora" else "dia" if cwc == "dia" else cwc or "—"
                 detalhe = f"{cws} · {un} · {centavos_para_texto_euros(cwv)}"
-            elif natureza == "Pacote":
+            elif canon_natureza_catalogo(str(natureza)) == NATUREZA_PACK:
                 detalhe = _detalhe_pacote(cur, int(sid), prefc, pvalc)
             elif natureza == "Evento":
                 detalhe = _detalhe_evento(cur, int(sid))
@@ -791,7 +1073,7 @@ def listar_itens_catalogo() -> list[dict[str, str | int | float | None]]:
                 v_cent = int(pvc) if pvc is not None else None
             elif natureza == "Coworking":
                 v_cent = int(cwv) if cwv is not None else None
-            elif natureza == "Pacote":
+            elif canon_natureza_catalogo(str(natureza)) == NATUREZA_PACK:
                 v_cent = int(pvalc) if pvalc is not None else None
             elif natureza == "Evento":
                 ea = int(_epca) if _epca is not None else None
@@ -806,6 +1088,8 @@ def listar_itens_catalogo() -> list[dict[str, str | int | float | None]]:
                 centavos_para_texto_euros(v_cent) if v_cent is not None and v_cent > 0 else "—"
             )
 
+            ult_ts = (alterado_em or criado_em or "").strip()
+            ult_user = (alt_por or cad_por or "").strip()
             out.append(
                 {
                     "id": sid,
@@ -816,6 +1100,9 @@ def listar_itens_catalogo() -> list[dict[str, str | int | float | None]]:
                     "ativo": "Sim" if ativo else "Não",
                     "descritivo": descritivo or "—",
                     "detalhes": detalhe or "—",
+                    "cadastrado_por": (cad_por or "").strip() or "—",
+                    "ultima_alteracao": _format_audit_ts(ult_ts),
+                    "ultima_alteracao_por": ult_user or "—",
                 }
             )
     finally:
@@ -979,7 +1266,7 @@ def resolver_snapshot_venda(
         elif nat == "Coworking":
             unidade = "hora" if cw_cob == "hora" else "dia" if cw_cob == "dia" else str(cw_cob or "unidade")
             preco = int(cw_val) if cw_val is not None else None
-        elif nat == "Pacote":
+        elif canon_natureza_catalogo(str(nat)) == NATUREZA_PACK:
             unidade = "pacote"
             preco = int(pac_val) if pac_val is not None else None
         elif nat == "Evento":
@@ -1111,7 +1398,7 @@ def obter_servico_para_formulario(servico_id: int) -> dict | None:
             out["cowork_sala_nome"] = str(cws or "")
             out["cowork_cobranca"] = str(cwc or "hora")
             out["cowork_valor_euros"] = (int(cwv) / 100.0) if cwv is not None else 8.0
-        elif nat == "Pacote":
+        elif canon_natureza_catalogo(str(nat)) == NATUREZA_PACK:
             out["pacote_valor_euros"] = (int(pvalc) / 100.0) if pvalc is not None else 100.0
             out["pacote_repasse_ref_pct"] = (int(prefc) / 100.0) if prefc is not None else 50.0
             cur.execute(
@@ -1191,6 +1478,8 @@ from src.modules.catalogo_atualizacao import (
 
 
 __all__ = [
+    "CAT_MSG_SUCESSO",
+    "MSG_REGISTRO_DUPLICADO",
     "atualizar_evento_existente",
     "atualizar_pacote_existente",
     "atualizar_servico_fase1_existente",
@@ -1202,6 +1491,9 @@ __all__ = [
     "euros_para_centavos",
     "listar_especialidades_por_natureza",
     "listar_itens_catalogo",
+    "listar_naturezas_catalogo",
+    "salvar_especialidade_catalogo",
+    "salvar_natureza_catalogo",
     "listar_servicos_para_venda",
     "listar_sessoes_do_pacote_catalogo",
     "obter_duracao_referencia_agendamento_horas",
@@ -1211,4 +1503,5 @@ __all__ = [
     "percentual_para_centesimos_ref",
     "repasse_medio_ponderado_pacote",
     "resolver_snapshot_venda",
+    "resolver_tipo_servico_natureza",
 ]

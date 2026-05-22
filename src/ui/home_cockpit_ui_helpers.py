@@ -45,6 +45,17 @@ def panorama_card_block_html(
     )
 
 
+def cag_home_drill_banner_html(message: str) -> str:
+    """Faixa informativa (estilo alerta) no topo da CAG — texto centrado; HTML limitado (<strong>)."""
+    body = str(message).strip()
+    return (
+        '<div class="bea-cv-cag-home-drill-banner" data-testid="bea-cag-home-drill-banner" '
+        'role="status">'
+        f'<p class="bea-cv-cag-home-drill-banner-t">{body}</p>'
+        "</div>"
+    )
+
+
 def home_section_heading_html(*, text: str, tag: str = "h3") -> str:
     t = html.escape(str(text).strip())
     tg = tag if tag in ("h2", "h3", "h4") else "h3"

@@ -83,8 +83,8 @@ def assert_col_disponibilidade_setor_na_pagina() -> None:
     assert "render_setor4_relatorio_repasse_admin" in pg
     assert "Gerar relatório de repasses" in rp
     assert "bea-col-rel-repasse-flag" in rp or "bea-col-setor-rel-titulo" in rp
-    assert "5. Cadastro de novo colaborador" in pg
-    assert "3. Disponibilidade e calendário operacional" in ui
+    assert "3. Cadastro de novo colaborador" in pg
+    assert "4. Disponibilidade e calendário operacional" in ui
     assert "bea-col-disp-flag" in ui
     assert "bea-proto-scope" in ui
     assert "confirmar_plano_publicado" in ui
@@ -99,7 +99,7 @@ def assert_col_relatorio_global_repasse_e24_contract() -> None:
     rp = (root / "src" / "ui" / "colaboradores_repasse_setor_ui.py").read_text(encoding="utf-8")
     dom = (root / "src" / "modules" / "colaboradores_relatorio.py").read_text(encoding="utf-8")
     pdfm = (root / "src" / "modules" / "colaboradores_relatorio_pdf.py").read_text(encoding="utf-8")
-    assert "4. Relatórios globais de repasse por colaborador" in rp
+    assert "5. Relatórios globais de repasse por colaborador" in rp
     assert "Descarregar Relatorio" in rp
     assert "Total de Registros de Atendimento Listados:" in rp
     assert "Resumo Quadro de Repasses dos Atendimentos Selecionados" in rp

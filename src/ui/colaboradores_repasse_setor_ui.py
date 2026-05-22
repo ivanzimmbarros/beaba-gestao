@@ -1,4 +1,4 @@
-"""E24 — Secção Streamlit «4. Relatórios globais de repasse por colaborador»."""
+"""E24 — Secção Streamlit «5. Relatórios globais de repasse por colaborador»."""
 
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ def render_setor4_relatorio_repasse_admin(*, fk: str) -> None:
     )
     st.markdown(
         '<div class="bea-col-setor-rel-titulo" data-testid="bea-col-setor-rel-titulo">'
-        "<strong>4. Relatórios globais de repasse por colaborador</strong>"
+        "<strong>5. Relatórios globais de repasse por colaborador</strong>"
         "</div>",
         unsafe_allow_html=True,
     )
@@ -82,7 +82,6 @@ def render_setor4_relatorio_repasse_admin(*, fk: str) -> None:
         "Dimensão de filtro exclusiva para o relatório",
         modo_labels_pt,
         key=f"{fk}_rep_dim",
-        help="Escolha exatamente um modo antes de usar o multiselect.",
     )
     modo_k = modo_label_to_key[modo_lbl]
 
@@ -138,21 +137,23 @@ def render_setor4_relatorio_repasse_admin(*, fk: str) -> None:
             st.session_state.pop(f"{fk}_rep_saved_rows", None)
             st.session_state.pop(f"{fk}_rep_meta", None)
         else:
-            st.session_state[f"{fk}_rep_saved_rows"] = list(rows)
-            st.session_state[f"{fk}_rep_meta"] = {
-                "d_ini_iso": d_ini.isoformat(),
-                "d_fim_iso": d_fim.isoformat(),
-                "modo": modo_k,
-                "sel_esps": list(sel_esps or []),
-                "sel_srv_ids": list(sel_srv_ids or []),
-                "sel_cids": list(sel_cids or []),
-            }
+            if not rows:
+                st.info("Não existem informações de repasse para as opções seleccionadas.")
+                st.session_state.pop(f"{fk}_rep_saved_rows", None)
+                st.session_state.pop(f"{fk}_rep_meta", None)
+            else:
+                st.session_state[f"{fk}_rep_saved_rows"] = list(rows)
+                st.session_state[f"{fk}_rep_meta"] = {
+                    "d_ini_iso": d_ini.isoformat(),
+                    "d_fim_iso": d_fim.isoformat(),
+                    "modo": modo_k,
+                    "sel_esps": list(sel_esps or []),
+                    "sel_srv_ids": list(sel_srv_ids or []),
+                    "sel_cids": list(sel_cids or []),
+                }
 
     saved_obj = st.session_state.get(f"{fk}_rep_saved_rows")
     if not saved_obj:
-        st.caption(
-            "Indique período válido, escolha o modo único + valores no multiselect e prima **Gerar**."
-        )
         return
 
     rows = saved_obj

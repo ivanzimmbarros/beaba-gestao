@@ -11,7 +11,32 @@ from src.database.connection import get_connection
 from src.modules.audit import log_audit
 from src.modules.auth_utils import hash_password, verify_password
 
-_MFA_TTL_MIN = 10
+_AUTH_CODE_TTL_SECONDS = 60
+
+
+def auth_code_ttl_seconds() -> int:
+    """Validade de códigos MFA e senha temporária (segundos)."""
+    return _AUTH_CODE_TTL_SECONDS
+
+
+def _expires_at_utc(seconds: int | None = None) -> datetime:
+    sec = _AUTH_CODE_TTL_SECONDS if seconds is None else int(seconds)
+    return datetime.now(timezone.utc) + timedelta(seconds=sec)
+
+
+def _expires_sql_utc(dt: datetime) -> str:
+    """ISO UTC estável para SQLite (comparação sem ambiguidade de fuso)."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def normalize_mfa_code(raw: str) -> str | None:
+    """Extrai 6 dígitos (zeros à esquerda) do texto introduzido ou do e-mail."""
+    digits = "".join(ch for ch in (raw or "") if ch.isdigit())
+    if len(digits) < 6:
+        return None
+    return digits[-6:].zfill(6) if len(digits) >= 6 else None
 
 
 def _notify_cloud_sync(*, auth_critical: bool = False) -> None:
@@ -105,7 +130,8 @@ def try_login_credentials(
                 registro_id=str(int(uid)),
             )
             return None, "Este utilizador está inactivo."
-        if not verify_password(password, pwd_hash):
+        pwd_try = (password or "").strip()
+        if not verify_password(pwd_try, pwd_hash):
             log_audit(
                 ator_email=em,
                 acao="LOGIN_FAILED",
@@ -113,6 +139,31 @@ def try_login_credentials(
                 registro_id=str(int(uid)),
             )
             return None, "E-mail ou senha incorretos."
+        cols = {r[1] for r in cursor.execute("PRAGMA table_info(usuarios)").fetchall()}
+        temp_exp = None
+        if "credencial_temp_expira_em" in cols:
+            cursor.execute(
+                "SELECT credencial_temp_expira_em, must_change_password FROM usuarios WHERE id = ?",
+                (int(uid),),
+            )
+            extra = cursor.fetchone()
+            if extra:
+                temp_exp = extra[0]
+                mcp_row = int(extra[1] or 0)
+                if mcp_row == 1 and temp_exp:
+                    exp_dt = _parse_expires_utc(str(temp_exp))
+                    if exp_dt is not None:
+                        if exp_dt.tzinfo is None:
+                            exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+                        if datetime.now(timezone.utc) > exp_dt:
+                            log_audit(
+                                ator_email=em,
+                                acao="LOGIN_FAILED",
+                                modulo="auth",
+                                registro_id=str(int(uid)),
+                            )
+                            return None, "Senha temporária expirada. Peça um novo e-mail em «Esqueci minha senha»."
+
         data: dict[str, Any] = {
             "id": int(uid),
             "nome": str(nome),
@@ -161,28 +212,28 @@ def reset_password_to_temp(email: str) -> str | None:
             return None
 
         alphabet = string.ascii_letters + string.digits
-        temp_plain = "".join(secrets.choice(alphabet) for _ in range(8))
-        new_h = hash_password(temp_plain)
+        temp_plain = "".join(secrets.choice(alphabet) for _ in range(12))
+        new_h = hash_password(temp_plain.strip())
+        exp_sql = _expires_sql_utc(_expires_at_utc())
         cols = {r[1] for r in cursor.execute("PRAGMA table_info(usuarios)").fetchall()}
         discard_pending_mfa_tokens(uid)
+        sets = ["senha_hash = ?", "must_change_password = 1"]
+        params: list[Any] = [new_h]
         if "senha_anterior_hash" in cols:
-            cursor.execute(
-                """
-                UPDATE usuarios
-                SET senha_anterior_hash = ?, senha_hash = ?, must_change_password = 1
-                WHERE id = ? AND ativo = 1
-                """,
-                (cur_hash, new_h, uid),
-            )
-        else:
-            cursor.execute(
-                """
-                UPDATE usuarios
-                SET senha_hash = ?, must_change_password = 1
-                WHERE id = ? AND ativo = 1
-                """,
-                (new_h, uid),
-            )
+            sets.insert(0, "senha_anterior_hash = ?")
+            params.insert(0, cur_hash)
+        if "credencial_temp_expira_em" in cols:
+            sets.append("credencial_temp_expira_em = ?")
+            params.append(exp_sql)
+        params.append(uid)
+        cursor.execute(
+            f"""
+            UPDATE usuarios
+            SET {", ".join(sets)}
+            WHERE id = ? AND ativo = 1
+            """,
+            tuple(params),
+        )
         conn.commit()
         log_audit(
             ator_email="sistema",
@@ -251,20 +302,21 @@ def update_password_clear_must_change(
         if prev_h and verify_password(pwd, str(prev_h)):
             return "A nova senha não pode coincidir com a última senha utilizada."
         new_h = hash_password(pwd)
+        clear_temp = ", credencial_temp_expira_em = NULL" if "credencial_temp_expira_em" in cols else ""
         if "senha_anterior_hash" in cols:
             cursor.execute(
-                """
+                f"""
                 UPDATE usuarios
-                SET senha_anterior_hash = ?, senha_hash = ?, must_change_password = 0
+                SET senha_anterior_hash = ?, senha_hash = ?, must_change_password = 0{clear_temp}
                 WHERE id = ?
                 """,
                 (str(pwd_hash), new_h, int(user_id)),
             )
         else:
             cursor.execute(
-                """
+                f"""
                 UPDATE usuarios
-                SET senha_hash = ?, must_change_password = 0
+                SET senha_hash = ?, must_change_password = 0{clear_temp}
                 WHERE id = ?
                 """,
                 (new_h, int(user_id)),
@@ -353,8 +405,8 @@ def issue_mfa_token(user_id: int, code_plain: str) -> str | None:
     if not conn:
         return "Não foi possível ligar à base de dados."
 
-    exp = datetime.now(timezone.utc) + timedelta(minutes=_MFA_TTL_MIN)
-    expires_sql = exp.strftime("%Y-%m-%d %H:%M:%S")
+    code = normalize_mfa_code(code_plain) or (code_plain or "").strip()
+    expires_sql = _expires_sql_utc(_expires_at_utc())
     try:
         cursor = conn.cursor()
         _invalidate_unused_mfa(cursor, user_id)
@@ -363,9 +415,10 @@ def issue_mfa_token(user_id: int, code_plain: str) -> str | None:
             INSERT INTO mfa_tokens (user_id, token, expira_em, usado)
             VALUES (?, ?, ?, 0)
             """,
-            (user_id, code_plain.strip(), expires_sql),
+            (user_id, code, expires_sql),
         )
         conn.commit()
+        _notify_cloud_sync(auth_critical=True)
         return None
     except Exception:
         conn.rollback()
@@ -386,21 +439,24 @@ def _parse_expires_utc(raw_exp: str) -> datetime | None:
         return None
 
 
-def consume_mfa_token(user_id: int, code_plain: str) -> bool:
-    """Se o código for válido, não expirado e não usado, marca ``usado=1`` e devolve ``True``."""
-    code = code_plain.strip()
+def validate_mfa_token(user_id: int, code_plain: str) -> str | None:
+    """Valida MFA. Devolve ``None`` se OK; senão mensagem PT («Código expirado.» / «Código incorrecto.»)."""
+    code = normalize_mfa_code(code_plain)
+    if not code:
+        return "Informe um código numérico de 6 dígitos."
+
     conn = get_connection()
     if not conn:
-        return False
+        return "Não foi possível validar o código. Tente novamente."
 
     now = datetime.now(timezone.utc)
     try:
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT id, expira_em
+            SELECT id, expira_em, usado
             FROM mfa_tokens
-            WHERE user_id = ? AND token = ? AND usado = 0
+            WHERE user_id = ? AND token = ?
             ORDER BY id DESC
             LIMIT 1
             """,
@@ -408,22 +464,42 @@ def consume_mfa_token(user_id: int, code_plain: str) -> bool:
         )
         row = cursor.fetchone()
         if not row:
-            return False
+            return "Código incorrecto."
+
         row_id = int(row[0])
         raw_exp = str(row[1])
+        usado = int(row[2] or 0)
         expires = _parse_expires_utc(raw_exp)
         if expires is None:
-            return False
+            return "Código incorrecto."
         if expires.tzinfo is None:
             expires = expires.replace(tzinfo=timezone.utc)
         if now > expires:
-            return False
+            return "Código expirado."
+        if usado != 0:
+            return "Código expirado."
 
         cursor.execute("UPDATE mfa_tokens SET usado = 1 WHERE id = ?", (row_id,))
         conn.commit()
-        return True
+        return None
     except Exception:
         conn.rollback()
-        return False
+        return "Não foi possível validar o código. Tente novamente."
     finally:
         conn.close()
+
+
+def consume_mfa_token(user_id: int, code_plain: str) -> bool:
+    """Compatibilidade: ``True`` apenas quando ``validate_mfa_token`` devolve ``None``."""
+    return validate_mfa_token(user_id, code_plain) is None
+
+
+def resend_mfa_code(user_id: int, email: str) -> tuple[str | None, str | None]:
+    """Invalida MFA anterior, gera novo código. Devolve ``(código, erro_db)``."""
+    from src.modules.auth_utils import generate_mfa_code
+
+    code = generate_mfa_code()
+    err = issue_mfa_token(user_id, code)
+    if err:
+        return None, err
+    return code, None

@@ -449,8 +449,8 @@ def _run_cag_consolidated_slice(cliente_id: int, ag_id: int) -> str | None:
     pcol_rel = (repo / "src" / "modules" / "colaboradores_relatorio.py").read_text(encoding="utf-8")
     if "Estado Pgto. Repasse" not in pcol_rel:
         return "col: E24 cabeçalho última coluna PDF ausente em colaboradores_relatorio.py"
-    if "5. Cadastro de novo colaborador" not in pcol:
-        return "col: renumeracao sector cadastro esperada (5.) após inserção do relatório E24"
+    if "3. Cadastro de novo colaborador" not in pcol:
+        return "col: renumeracao sector cadastro esperada (3.) após inserção do relatório E24"
 
     return None
 
