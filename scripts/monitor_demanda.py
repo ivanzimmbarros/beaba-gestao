@@ -104,7 +104,7 @@ def _latest_restore_counts(runs: list) -> dict[str, int] | None:
 
 def _print_dashboard(repo: Path) -> int:
     status_path = repo / _STATUS
-    telem_path = repo / _TELEMETRY
+    telem_path = _telemetry_path(repo)
     restore_path = repo / _RESTORE_RESULT
 
     status = _load_json(status_path)
@@ -181,12 +181,21 @@ def _print_dashboard(repo: Path) -> int:
     return 0
 
 
+def _telemetry_path(repo: Path) -> Path:
+    p = repo / _TELEMETRY
+    if p.is_file():
+        return p
+    example = p.with_suffix(".json.example")
+    return example if example.is_file() else p
+
+
 def main() -> int:
     repo = _repo_root()
+    telem_path = _telemetry_path(repo)
     missing = []
     if not (repo / _STATUS).is_file():
         missing.append(str(_STATUS))
-    if not (repo / _TELEMETRY).is_file():
+    if not telem_path.is_file():
         missing.append(str(_TELEMETRY))
     if missing:
         print(
